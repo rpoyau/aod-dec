@@ -1,0 +1,157 @@
+{
+  "format": "aod-dec.actual-gpu-validation",
+  "version": 1,
+  "status": "PASS",
+  "executed_source_commit": "2bcce6cf9b833b0da0945054a0b3435f16895ad2",
+  "execution_environment": "Direct host access outside device-isolating sandbox; no driver/configuration changes",
+  "source_sha256": {
+    "scripts/simulate_routing_parallel.py": "2e0634b623d54520a7e6c48f12fd537c7635e5e983a2dbb1b21bb5839072fcd9",
+    "simulations/chiral_batch.py": "a31c158f625dfef5357492984802caef1ef19dae5dfbdc81085f22895c8dcf1f",
+    "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618",
+    "simulations/kernels/chiral_batch.cu": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+    "simulations/collision_routing.py": "a08a131c2470139ea85f5ab54730944907bdb04bfdb54588a42be50bdd33b388",
+    "simulations/wave_observables.py": "35b11af059931802e49dd3ba56530d496a1e470a5b07d4405f846734205c9c03",
+    "simulations/chiral_collision.py": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62",
+    "simulations/manual_dec_fixture.py": "e63ff1d9dffc1fcee816ed8afecb7ea7012c261a353fc334a02804065f134760",
+    "simulations/vendor/aod_manual_native.py": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf",
+    "simulations/vendor/LICENSE": "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7",
+    "simulations/tesseract_cells.py": "0d8a15ba047e5c1cd17b36977815cd19fb5928426b9e8ae3b6c35053362b6b1a",
+    "evidence/chiral-collision/cohort.json.gz": "5ee8c1dde797f46890ab989cb181afa2b44ef78279fad040f490b61c3d406581",
+    "evidence/chiral-collision/results.json": "c072c224b4eddd06bb44390cb5513af55266eeaa3ed658f78dcdd0b85227a59c"
+  },
+  "test_source_sha256": {
+    "tests/test_chiral_gpu.py": "4dd8482f212b9583987fdc9d4f181e6f79f46cab56ad5b2f5ed7d110bee5634e"
+  },
+  "device": {
+    "index": 0,
+    "name": "NVIDIA RTX A1000 6GB Laptop GPU",
+    "compute_capability": [
+      8,
+      6
+    ]
+  },
+  "nvidia_driver_package": "620.70.06",
+  "device_memory_mib": 6144,
+  "cuda_driver_api_version": 13050,
+  "gpu_execution": {
+    "gpu_executed": true,
+    "launch_count": 1,
+    "device": {
+      "index": 0,
+      "name": "NVIDIA RTX A1000 6GB Laptop GPU",
+      "compute_capability": [
+        8,
+        6
+      ]
+    },
+    "driver_version": 13050,
+    "compilation": {
+      "status": "COMPILED",
+      "gpu_executed": false,
+      "architecture": "compute_86",
+      "nvrtc_version": [
+        12,
+        9
+      ],
+      "source_sha256": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+      "ptx_sha256": "ca68d21efd6caf95036855b35320b0ee81a9ecae15d02e15098ba9f85703d581",
+      "compiler_log": "",
+      "scope": "Actual NVRTC compilation only; no device execution or acceleration demonstrated."
+    },
+    "elapsed_ns": 512447086,
+    "timing_scope": "Validation, device probe, NVRTC compilation, context creation, allocation, host-device transfers, kernel, synchronization, transfer back and cleanup; excludes supplied model/ticket preparation, report encoding and full host witness certification."
+  },
+  "comparison": {
+    "status": "PASS",
+    "paths": 256,
+    "joint_transitions": 2048,
+    "GPU_rows_equal_scalar_and_multicore": true,
+    "semantic_sha256": "6544189756e1722f7cd9c978bed2a79662608a533873c8c0ef388845a191656b",
+    "tables_sha256": "e573178fa3a92a9b4cf6029fd521a675e9dc95d95378b16f5638e5e47ec2306a",
+    "ticket_batch_sha256": "2d0012e50b8249df05806d2863ed12323b4e197c57f51091657b6869fae99f45"
+  },
+  "python_tests": {
+    "normal": {
+      "count": 11,
+      "passed": 11,
+      "skipped": 0,
+      "status": "PASS",
+      "log": "tests-normal.log"
+    },
+    "optimized": {
+      "count": 11,
+      "passed": 11,
+      "skipped": 0,
+      "status": "PASS",
+      "log": "tests-optimized.log"
+    }
+  },
+  "retained_reference": {
+    "status": "PASS",
+    "paths_checked": 256,
+    "transitions_checked": 2048,
+    "prior_cohort_sha256": "42981b2017b77d9f4bee7cbeb6f8e8dd67dda8788230811c22633937b50481ef",
+    "scope": "Every selected prior core-only seed available in the bound 256-path cohort."
+  },
+  "full_trace_candidate_comparison": {
+    "status": "PASS",
+    "paths_checked": 16,
+    "transitions_checked": 128,
+    "scope": "Every retained full trace joined to its supplied seed, initial state, tickets and candidate states/signs, including seeds beyond the prior cohort."
+  },
+  "host_trace_workers": 4,
+  "host_trace_semantic_sha256": "2911a79c9bb20d7d6ffeef717b6b07b430052c5c338740fef60df7282298674f",
+  "limits": {
+    "physical_proton_collision": "NOT_INSTANTIATED",
+    "GPU_full_witness_admission": "NOT_IMPLEMENTED; host validates all materialized witnesses",
+    "wavelength_map": "NOT_INSTANTIATED",
+    "general_GPU_Dec_compiler_target": "NOT_IMPLEMENTED"
+  },
+  "prior_source_review": {
+    "path": "../routing-parallel/source-binding.json",
+    "sha256": "5a80bd57d48c7dc69e4c877dc6e3fb850ccd5bf810105c0d333840a779c3c473",
+    "scope": "Unchanged declared model and bound Main/Manual definitions; this run adds device execution evidence"
+  },
+  "tools": {
+    "aod_lint_revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "lint_files": [
+      "chiral-core-collision.typ",
+      "language-and-compiler.typ",
+      "routing-parallel.typ",
+      "tesseract-cell-jitter.typ"
+    ],
+    "lint_status": "PASS",
+    "typst": "0.13.1"
+  },
+  "pdf": {
+    "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/output/pdf/routing-gpu-device.pdf",
+    "sha256": "13f3c22692ec86ffb8760622d1b95503c222d343cd3b947aa0bbfeed2fd1fec1",
+    "pages": 5,
+    "source_sha256": "355b4071ec95ca715bcb3cfc989cd2375efca8bc2cc4b9c35fe3b611cc4982d1",
+    "visual_review": "All five final pages rendered and inspected; no clipping, overlap or missing glyphs observed.",
+    "bbox_words_inside_page": 1890,
+    "creation_timestamp": 1794528000
+  },
+  "import_provenance": {
+    "status": "PASS",
+    "archived_records": 196,
+    "unchanged_implementation_files": 32,
+    "original_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+    "scope": "Byte provenance only; execute semantic tests for current compiler correctness."
+  },
+  "files": {
+    "README.md": "ea1e7d0cb33149c7dd3e19c3a948f4fc48534122ab9cf57a4b325affc341fc86",
+    "aod-lint.json": "f9a11919c77c5a529af69603657d6e57dfdc1f65a6f75f8c9c2d4d2b03b5bc9b",
+    "candidate-records.json.gz": "f577f5f899ae8bf0a1e032c53be98a91739c4e5331f931f819423ed9ddb978f5",
+    "chiral_batch-compute_86.ptx": "ca68d21efd6caf95036855b35320b0ee81a9ecae15d02e15098ba9f85703d581",
+    "chiral_batch.ptx": "156cccf0cd9dea5c88a122fba99138920b78b599213229027e7380c36f204d47",
+    "device-compilation.json": "c1918806f8540cc1b4b23f1fa48a7aaba6a421e86a61cb32337513978e0f9382",
+    "device.csv": "fec4397895b7d0090c363fc787609748784b98eca397636d2f08c0aea4fe4561",
+    "results.json": "20947eb02cec546ed41d786c1391e01d9be92d355226fbf6c48e5dd297cd2e08",
+    "routing-parallel.png": "19ed53629e75ba10bace111fd960a40d9c62de2c8e71c34bb5ec0401c53cdfcf",
+    "study.log": "523e53f3d34032ab08f81dc797110ec9a5b6ec2d203ed9e4deb7ba10865ac0a2",
+    "tests-normal.log": "5dc7971196cdd5aa90a5546c390deb4d5858616d814f6015eb17a73d2ddb40ab",
+    "tests-optimized.log": "40d8e82e3c5148f57f47cafd16da2159cfcdfa26eefcefca59d44b3dec237946",
+    "traces.json.gz": "3d24074c17d5b5c0cf789cbc52d7e6f04e23a1c21c79f18b741b4519738c546d"
+  }
+}

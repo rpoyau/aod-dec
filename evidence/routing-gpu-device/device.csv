@@ -1,0 +1,2 @@
+name, driver_version, memory.total [MiB], compute_cap
+NVIDIA RTX A1000 6GB Laptop GPU, 620.70.06, 6144 MiB, 8.6

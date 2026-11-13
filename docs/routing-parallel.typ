@@ -190,6 +190,15 @@ outcome or semantic hash.
   [Host trace/admission], [#data.tracing.status], [#data.tracing.paths complete traces; identical scalar and multicore witness/routing records.],
 )
 
+#if data.gpu.execution.status == "EXECUTED" {
+  assert(data.gpu.execution.semantic_sha256 == data.candidate_execution.scalar.semantic_sha256)
+  let device = data.gpu.execution.execution.device
+  [*Device comparison.* This run executed #data.gpu.execution.path_count paths on
+  #device.name, compute capability #device.compute_capability.map(str).join(".").
+  All returned candidate rows match the exact scalar and multicore records.
+  Full witness construction and admission remain on the host.]
+}
+
 The CUDA implementation assigns one supplied path to one GPU thread, with
 sequential steps within that path. The Driver API handles device allocation,
 copies, launch and synchronization. Its kernel contains table execution,

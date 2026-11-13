@@ -1,0 +1,13 @@
+{
+  "status": "COMPILED",
+  "gpu_executed": false,
+  "architecture": "compute_86",
+  "nvrtc_version": [
+    12,
+    9
+  ],
+  "source_sha256": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+  "ptx_sha256": "ca68d21efd6caf95036855b35320b0ee81a9ecae15d02e15098ba9f85703d581",
+  "compiler_log": "",
+  "scope": "Actual NVRTC compilation only; no device execution or acceleration demonstrated."
+}

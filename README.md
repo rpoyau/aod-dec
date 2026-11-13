@@ -61,9 +61,14 @@ presentation with Monon/beat records; event counts are separate, and physical
 frequency or wavelength requires an observation map.
 Run `make simulate-routing` and `make docs-routing`. The study's `--gpu auto`
 records `UNAVAILABLE` when no GPU can execute; `--gpu required` fails instead.
-Read the retained device/execution evidence before claiming GPU validation or
-speedup. Physical proton-proton preparation, scattering and SI calibration remain
-unestablished.
+The [hardware validation](evidence/routing-gpu-device/validation.json) executes
+256 paths on an NVIDIA RTX A1000 6GB Laptop GPU (compute capability 8.6), with
+all 2,048 candidate transitions identical to scalar and multicore CPU results.
+All 11 CUDA-backend tests pass normally and under `-O`, including both actual
+device tests. The earlier sandboxed record remains `UNAVAILABLE`; direct host
+access exposed the GPU. Full witness admission still runs on the CPU. This
+establishes the recorded GPU execution/comparison, not a speedup or physical
+proton-proton preparation, scattering or SI calibration.
 
 Persistent hardware selection is available through `scripts/adapt_native.py`.
 The measured seven-workload experiment established functional adaptation but no

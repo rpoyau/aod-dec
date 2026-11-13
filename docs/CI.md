@@ -138,6 +138,14 @@ GPU pass or an implicit CPU fallback. `--gpu required` makes an unavailable GPU
 an error. Actual device execution and output comparison are required before
 reporting a verified GPU backend.
 
+The separate [local hardware run](../evidence/routing-gpu-device/validation.json)
+uses an NVIDIA RTX A1000 6GB Laptop GPU, compute capability 8.6, with NVRTC 12.9
+targeting `compute_86`. It runs with `--gpu required` and compares every retained
+GPU candidate row against the CPU outputs. Both actual-device tests pass within
+the 11-test CUDA suite, normally and under `-O`. Direct host execution was needed
+because the sandbox hid the GPU device. These hardware results do not change
+the hosted CI runner's availability or move full witness admission onto the GPU.
+
 The host fixture admits a `3:3` proton-facing preparation and retained sheddic
 routing through Duon/E2 form under declared positive-surplus and TTL/seat gates.
 Batch candidate rows do not themselves certify these histories. Octaves retain

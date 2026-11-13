@@ -153,3 +153,21 @@ builds the companion from fresh results. It retains JSON records, compressed
 traces, figure and PDF. An absent GPU is reported `UNAVAILABLE`, never passed by
 substituting a CPU; `--gpu required` fails in that case. Read actual device and
 comparison records before claiming GPU verification or a cost-inclusive speedup.
+
+## Direct NVIDIA hardware validation
+
+[`routing-gpu-device/`](routing-gpu-device/) retains the subsequent direct-host
+run on the NVIDIA RTX A1000 6GB Laptop GPU. The original sandboxed records above
+remain unchanged. The Driver API reports compute capability 8.6 and the backend
+automatically compiles `compute_86`; 256 GPU paths and 2,048 transitions match
+the scalar/multicore candidate records exactly. Both normal and optimized Python
+runs pass all 11 CUDA-backend tests with no skips. The study also retains 16 full
+host traces and their source/candidate joins.
+
+`validation.json` binds the unchanged executed sources, device report, GPU rows,
+matching hashes, test logs and refreshed five-page PDF. `README.md` in that
+directory provides the exact reproduction commands and scope. The original
+offline `compute_75` PTX and the device-targeted `compute_86` PTX have distinct
+recorded hashes. GPU execution is verified for this fixture and device; full
+witness admission remains on the host, and no cost-inclusive speedup or physical
+proton-scattering correspondence is established.
