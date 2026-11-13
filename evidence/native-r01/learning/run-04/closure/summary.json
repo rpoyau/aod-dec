@@ -1,0 +1,1748 @@
+{
+  "prevalidation": {
+    "generic": {
+      "jit": {
+        "stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\n",
+        "result": "t32(0)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 1300459,
+        "address": 140122069532768,
+        "cache_hit": true,
+        "compile_ns": 96141723,
+        "load_ns": 6422837,
+        "key": "081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f",
+        "dispatch": "specialized"
+      },
+      "aot_stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\nt32(0)\n",
+      "aot_stderr": "",
+      "aot_exit_code": 0,
+      "aot_equal": true,
+      "binary_sha256": "29387d94859f5fbe658bd3392857a10b26b90bfdb8e44131be2a347bb1050bb8",
+      "jit_artifacts": {
+        "081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f.o": "bfeacbe19ccb8f2891c3f72307c9f63cd1e575d94a4b203cd33f2b287b9a80a3",
+        "081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f.generic.o": "6003faf2ec36e667b8d166e6bd27c359489c076a37c1d8e8a02f34e756296a84",
+        "081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f.guard.o": "521fa3c0bd81ca51b15c0370cbc1a4f631922f06b81c8e6512efbfd620e8f4b9"
+      },
+      "guard_fallback": {
+        "stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\n",
+        "result": "t32(0)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 1125716,
+        "address": 140122069532768,
+        "cache_hit": true,
+        "compile_ns": 96141723,
+        "load_ns": 6422837,
+        "key": "081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f",
+        "dispatch": "generic"
+      }
+    },
+    "optimized": {
+      "jit": {
+        "stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\n",
+        "result": "t32(0)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 1272590,
+        "address": 140121819861088,
+        "cache_hit": true,
+        "compile_ns": 102727639,
+        "load_ns": 6423795,
+        "key": "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141",
+        "dispatch": "specialized"
+      },
+      "aot_stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\nt32(0)\n",
+      "aot_stderr": "",
+      "aot_exit_code": 0,
+      "aot_equal": true,
+      "binary_sha256": "15f14ae7c2126437194a61ec4aa5545d704fec7b92817e8a11a18f757dcb706b",
+      "jit_artifacts": {
+        "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141.o": "9eb85a94a71e3118be36185c2c6fe0944b6aa9b42520203b7ab74496f85e6ef2",
+        "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141.generic.o": "6003faf2ec36e667b8d166e6bd27c359489c076a37c1d8e8a02f34e756296a84",
+        "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141.guard.o": "1e11976bb639666f2f8c2b0bffb9914924301406699371ab492ae63741d19d76"
+      },
+      "guard_fallback": {
+        "stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\n",
+        "result": "t32(0)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 1094944,
+        "address": 140121819861088,
+        "cache_hit": true,
+        "compile_ns": 102727639,
+        "load_ns": 6423795,
+        "key": "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141",
+        "dispatch": "generic"
+      }
+    }
+  },
+  "raw_records": "../observations.jsonl",
+  "controls": {
+    "generic": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "generic control",
+          "generation": 0
+        }
+      ],
+      "elapsed_ns": [
+        10905975,
+        10752612,
+        11344548,
+        10929546,
+        10830462,
+        11544773,
+        11855327,
+        11501711,
+        10772149,
+        10650320,
+        10593690,
+        11387222,
+        12168113,
+        10740883,
+        11690123,
+        10861051,
+        11273043,
+        10793576,
+        10786619,
+        10723807
+      ],
+      "selection_ns": [
+        21443,
+        25401,
+        24948,
+        6864,
+        13724,
+        21771,
+        26745,
+        22474,
+        15850,
+        6485,
+        14775,
+        19667,
+        27125,
+        15208,
+        25833,
+        17396,
+        19010,
+        20350,
+        15700,
+        16396
+      ],
+      "profile_update_ns": [
+        2463,
+        2379,
+        2266,
+        18599,
+        2326,
+        2161,
+        2404,
+        2317,
+        2589,
+        2587,
+        2146,
+        2289,
+        2696,
+        2313,
+        2330,
+        2188,
+        2864,
+        2537,
+        2100,
+        1930
+      ]
+    },
+    "stale": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile binding mismatch",
+          "mode": "active"
+        }
+      ],
+      "elapsed_ns": [
+        11124553,
+        11417570,
+        10783831,
+        11360430,
+        10900029,
+        11088125,
+        11136021,
+        11022895,
+        10728514,
+        11374617,
+        10882946,
+        10808587,
+        10915926,
+        11391606,
+        11675632,
+        11353848,
+        11413388,
+        10691081,
+        11156411,
+        11626582
+      ],
+      "selection_ns": [
+        1079009,
+        1482421,
+        822323,
+        989511,
+        818552,
+        788896,
+        907199,
+        963218,
+        879423,
+        980162,
+        930725,
+        869094,
+        989966,
+        988693,
+        924471,
+        1081642,
+        997266,
+        872610,
+        817936,
+        899329
+      ],
+      "profile_update_ns": [
+        1787,
+        1727,
+        1969,
+        2005,
+        1808,
+        2152,
+        1860,
+        2334,
+        1969,
+        1823,
+        1942,
+        1757,
+        2097,
+        2187,
+        2312,
+        2089,
+        2156,
+        1911,
+        2255,
+        2552
+      ]
+    },
+    "shuffled": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "rejected: profile checksum mismatch",
+          "mode": "active"
+        }
+      ],
+      "elapsed_ns": [
+        10902671,
+        11143105,
+        10799791,
+        10854441,
+        11305033,
+        10856517,
+        13017652,
+        10900978,
+        11343259,
+        11045501,
+        11413872,
+        16838202,
+        10867009,
+        10879941,
+        10857337,
+        11099616,
+        14947730,
+        13758745,
+        10897036,
+        11155615
+      ],
+      "selection_ns": [
+        830928,
+        994383,
+        935422,
+        973605,
+        993430,
+        913626,
+        1326373,
+        869187,
+        1134413,
+        893719,
+        1019293,
+        1014152,
+        1007714,
+        964954,
+        831281,
+        978375,
+        1340616,
+        1265387,
+        1117007,
+        1014224
+      ],
+      "profile_update_ns": [
+        1984,
+        1615,
+        2031,
+        2132,
+        2281,
+        2260,
+        1969,
+        2202,
+        2193,
+        1962,
+        2026,
+        2761,
+        1697,
+        1854,
+        2115,
+        2003,
+        2167,
+        2573,
+        2276,
+        2167
+      ]
+    },
+    "removed": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "insufficient evidence",
+          "generation": 0,
+          "load_reason": "missing",
+          "mode": "active"
+        }
+      ],
+      "elapsed_ns": [
+        10956679,
+        10768076,
+        10840441,
+        10781336,
+        15695892,
+        10816062,
+        10798529,
+        11033213,
+        11019463,
+        10750972,
+        10739190,
+        10863935,
+        10952963,
+        10698659,
+        11302408,
+        12084246,
+        11385200,
+        10796775,
+        12756302,
+        11461335
+      ],
+      "selection_ns": [
+        352731,
+        339003,
+        292750,
+        321961,
+        343327,
+        270765,
+        321576,
+        309929,
+        305852,
+        281269,
+        360909,
+        300517,
+        369404,
+        263902,
+        336205,
+        740160,
+        353208,
+        323154,
+        365482,
+        306143
+      ],
+      "profile_update_ns": [
+        2344,
+        1880,
+        2041,
+        2595,
+        2641,
+        1927,
+        2465,
+        2214,
+        2220,
+        2428,
+        2515,
+        2048,
+        2411,
+        2130,
+        2343,
+        2612,
+        2497,
+        1775,
+        2737,
+        2826
+      ]
+    },
+    "passive": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        },
+        {
+          "variant": "generic",
+          "reason": "passive control",
+          "generation": 0
+        }
+      ],
+      "elapsed_ns": [
+        10683034,
+        13465535,
+        11783515,
+        11370892,
+        10706115,
+        10742635,
+        10663024,
+        12221669,
+        10644663,
+        10734253,
+        10809717,
+        10855425,
+        11937773,
+        10679192,
+        11062073,
+        10663945,
+        12193856,
+        12292793,
+        10744586,
+        10725873
+      ],
+      "selection_ns": [
+        14291,
+        27656,
+        15479,
+        23542,
+        5043,
+        14255,
+        14162,
+        24942,
+        14307,
+        18255,
+        16088,
+        5900,
+        16418,
+        19176,
+        17302,
+        17599,
+        26508,
+        26865,
+        5960,
+        16229
+      ],
+      "profile_update_ns": [
+        9325386,
+        9101754,
+        10012329,
+        9452948,
+        9003405,
+        10597070,
+        9145207,
+        10262859,
+        8853332,
+        8882487,
+        9048363,
+        9977449,
+        9246203,
+        8640753,
+        9054821,
+        8570588,
+        11114581,
+        9232505,
+        9114386,
+        8709961
+      ]
+    },
+    "frozen": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "frozen"
+        }
+      ],
+      "elapsed_ns": [
+        11609446,
+        11265136,
+        11520372,
+        11734285,
+        11273986,
+        11670181,
+        11242923,
+        11281897,
+        11371695,
+        11266631,
+        11411199,
+        11503357,
+        11475373,
+        11506167,
+        11397085,
+        11524680,
+        11222819,
+        11273932,
+        11313350,
+        11420820
+      ],
+      "selection_ns": [
+        29495166,
+        27887345,
+        28223057,
+        27985754,
+        28016982,
+        31958034,
+        27910228,
+        28132974,
+        28229590,
+        27680794,
+        28454331,
+        28689901,
+        32154504,
+        28189432,
+        28815187,
+        31494223,
+        28010135,
+        28091153,
+        28300538,
+        30011694
+      ],
+      "profile_update_ns": [
+        2416,
+        2412,
+        2404,
+        2903,
+        2678,
+        2896,
+        2474,
+        2622,
+        2612,
+        2558,
+        2229,
+        2673,
+        2641,
+        2723,
+        2323,
+        2552,
+        2385,
+        2448,
+        2431,
+        3203
+      ]
+    },
+    "active": {
+      "dispatches": [
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 12,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 13,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 14,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 15,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 16,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 17,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 18,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 19,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 20,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 21,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 22,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 23,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 24,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 25,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 26,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 27,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 28,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 29,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 30,
+          "load_reason": "valid",
+          "mode": "active"
+        },
+        {
+          "variant": "generic",
+          "reason": "no established practical improvement",
+          "generation": 31,
+          "load_reason": "valid",
+          "mode": "active"
+        }
+      ],
+      "elapsed_ns": [
+        11232846,
+        11094647,
+        11173539,
+        11203298,
+        12221519,
+        11335741,
+        11196740,
+        11407033,
+        11179698,
+        11976838,
+        11218308,
+        11302778,
+        11281079,
+        11208674,
+        11401855,
+        11324647,
+        11271637,
+        11239704,
+        11232291,
+        11311175
+      ],
+      "selection_ns": [
+        28036326,
+        28729134,
+        32137540,
+        31971237,
+        34047546,
+        35750160,
+        37803534,
+        39597438,
+        40991593,
+        41440910,
+        43984686,
+        44390422,
+        47419045,
+        48180823,
+        51610540,
+        52135402,
+        54076101,
+        54483551,
+        57422286,
+        57546133
+      ],
+      "profile_update_ns": [
+        7980921,
+        9471241,
+        8288311,
+        8430372,
+        8050689,
+        8444224,
+        10050087,
+        7573249,
+        8374327,
+        8021446,
+        9912879,
+        9540409,
+        11071344,
+        9293411,
+        9693402,
+        10155468,
+        10927239,
+        9315869,
+        8953431,
+        9733604
+      ]
+    }
+  },
+  "train_costs_ns": {
+    "generic": [
+      1097378,
+      1602798,
+      1229325,
+      1103210,
+      1653360,
+      1578238,
+      1110676,
+      1099667,
+      1210971,
+      1116154,
+      1104885,
+      1111123
+    ],
+    "optimized": [
+      1108475,
+      1491601,
+      1133543,
+      1231058,
+      1217170,
+      1123720,
+      1213276,
+      1228802,
+      1108947,
+      1214523,
+      1255645,
+      1232661
+    ]
+  },
+  "heldout_costs_ns": {
+    "generic": [
+      1148746,
+      1150697,
+      1085871,
+      1164131,
+      1067137,
+      1073278,
+      1079725,
+      1072423,
+      1075879,
+      1078717,
+      1095285,
+      1074906,
+      1072414,
+      1074468,
+      1079139,
+      1146134,
+      1216345,
+      1083620,
+      1068349,
+      1132963
+    ],
+    "optimized": [
+      1096025,
+      1099740,
+      1093263,
+      1090147,
+      1084109,
+      1090693,
+      1197936,
+      1086819,
+      1100125,
+      1097902,
+      1559917,
+      1091872,
+      1099336,
+      1090969,
+      1108734,
+      1089079,
+      1490176,
+      1087018,
+      1089293,
+      1117105
+    ]
+  },
+  "builds": {
+    "generic": {
+      "compile_ns": 65871356,
+      "cache_hit": false,
+      "key": "081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f",
+      "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/cache/081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f.o",
+      "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/cache/081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f.ll",
+      "binding": {
+        "compiler": "dec-llvm-1",
+        "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+        "semantic_version": 1,
+        "abi": "aod-native-1",
+        "source_sha256": "68a58121e7ad796f15c5671a9974e92f879babecfebb83ef2fdeaa5f3614c931",
+        "ir_sha256": "e5f4123a6e1bc0a76e87afe2cad4101a3844d86b653c7cc45092c67508cc42f1",
+        "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+        "llvm_version": [
+          16,
+          0,
+          6
+        ],
+        "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+        "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+        "target": "x86_64-redhat-linux-gnu",
+        "cpu": "goldmont",
+        "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+        "opt": 0
+      },
+      "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/generic",
+      "link_ns": 723111263,
+      "total_ns": 796761745,
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate/native/runner.cpp",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/cache/081eae20b5a805b8d7acdfcd6eaa5716f866ef2d55a0404ca05f72e4addd998f.o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate/build/native/runtime-60a0dbc95eecc1e2.o",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/generic"
+      ]
+    },
+    "optimized": {
+      "compile_ns": 219672250,
+      "cache_hit": false,
+      "key": "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141",
+      "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/cache/066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141.o",
+      "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/cache/066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141.ll",
+      "binding": {
+        "compiler": "dec-llvm-1",
+        "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+        "semantic_version": 1,
+        "abi": "aod-native-1",
+        "source_sha256": "68a58121e7ad796f15c5671a9974e92f879babecfebb83ef2fdeaa5f3614c931",
+        "ir_sha256": "e5f4123a6e1bc0a76e87afe2cad4101a3844d86b653c7cc45092c67508cc42f1",
+        "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+        "llvm_version": [
+          16,
+          0,
+          6
+        ],
+        "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+        "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+        "target": "x86_64-redhat-linux-gnu",
+        "cpu": "goldmont",
+        "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+        "opt": 2
+      },
+      "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/optimized",
+      "link_ns": 732533988,
+      "total_ns": 959797385,
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate/native/runner.cpp",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/cache/066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141.o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate/build/native/runtime-60a0dbc95eecc1e2.o",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/closure/optimized"
+      ]
+    }
+  },
+  "initial_load": {
+    "generic": {
+      "first_invocation_wall_ns": 109354496,
+      "compile_ns": 96141723,
+      "load_ns": 6422837,
+      "native_ns": 1300459,
+      "cache_hit": true
+    },
+    "optimized": {
+      "first_invocation_wall_ns": 118352769,
+      "compile_ns": 102727639,
+      "load_ns": 6423795,
+      "native_ns": 1272590,
+      "cache_hit": true
+    }
+  },
+  "warmup_ns": 8394638,
+  "profiling_ns": 256948157,
+  "trained_decision": {
+    "variant": "generic",
+    "reason": "no established practical improvement",
+    "generation": 12,
+    "load_reason": "missing",
+    "mode": "active"
+  },
+  "causal_fixture": {
+    "synthetic_costs_only": true,
+    "before": {
+      "variant": "generic",
+      "reason": "insufficient evidence",
+      "generation": 0,
+      "load_reason": "missing",
+      "mode": "active"
+    },
+    "after_reload": {
+      "variant": "optimized",
+      "reason": "validated retained improvement",
+      "generation": 5,
+      "load_reason": "valid",
+      "mode": "active"
+    },
+    "after_removal": {
+      "variant": "generic",
+      "reason": "insufficient evidence",
+      "generation": 0,
+      "load_reason": "missing",
+      "mode": "active"
+    },
+    "before_native_address": 140122069532768,
+    "after_native_address": 140121819861088,
+    "semantic_equal": true,
+    "influence": true,
+    "process_restart": {
+      "selection": {
+        "variant": "optimized",
+        "reason": "validated retained improvement",
+        "generation": 5,
+        "load_reason": "valid",
+        "mode": "active"
+      },
+      "result": {
+        "stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\n",
+        "result": "t32(0)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 1131517,
+        "address": 140067649826912,
+        "cache_hit": true,
+        "compile_ns": 12971361,
+        "load_ns": 5677815,
+        "key": "066254efe672e5bbafedfb54c6a30221bd624ea1da62d7bd46307bb56b015141",
+        "dispatch": "specialized"
+      },
+      "semantic_equal": true
+    }
+  },
+  "heldout_analysis": {
+    "pairs": 20,
+    "median_gain": -0.01584397148169427,
+    "lower": -0.02107003609494566,
+    "upper": -0.004971612030067331,
+    "measured_overhead_ns": 4107043529,
+    "total_gain_ns": -4115243839,
+    "established_benefit": false,
+    "regression": false,
+    "action": "restore generic"
+  },
+  "costs": {
+    "compilation_ns": 1756559130,
+    "loading_and_initial_invocation_ns": 227707265,
+    "warmup_ns": 8394638,
+    "profiling_ns": 256948157,
+    "profile_control_overhead_ns": 1857434339,
+    "heldout_generic_ns": 220402270,
+    "heldout_optimized_ns": 228602580,
+    "charged_overhead_ns": 4107043529,
+    "heldout_invocation_horizon": 200
+  },
+  "post_heldout_decision": {
+    "variant": "generic",
+    "reason": "held-out rollback",
+    "generation": 12,
+    "load_reason": "missing",
+    "mode": "active"
+  },
+  "status": "PASS"
+}

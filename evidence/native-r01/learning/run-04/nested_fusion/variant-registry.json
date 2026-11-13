@@ -1,0 +1,16 @@
+{
+  "generic": {
+    "name": "generic",
+    "source_sha256": "ecede42ba74f79e83d4ba01d220d1689e30eada4774936917859eff9152cdb9d",
+    "artifact_sha256": "58ce3a23510b5719af0167b62d3d15ee23337bce4527aa0f2f242273d863783e",
+    "abi": "aod-native-1",
+    "outcome_sha256": "2d87d667f58a4343f5fa2cb7912eed9e3b47119766b7b49af5cde2a726c1c20d"
+  },
+  "optimized": {
+    "name": "optimized",
+    "source_sha256": "ecede42ba74f79e83d4ba01d220d1689e30eada4774936917859eff9152cdb9d",
+    "artifact_sha256": "1256057ba1ef13fbb77577ad1e52fa3582b3397f0c0d2f4d8197cc6314fcd84b",
+    "abi": "aod-native-1",
+    "outcome_sha256": "2d87d667f58a4343f5fa2cb7912eed9e3b47119766b7b49af5cde2a726c1c20d"
+  }
+}

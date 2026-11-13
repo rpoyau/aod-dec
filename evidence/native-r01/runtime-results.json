@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "generated_utc": "2026-11-13T11:06:25.322956+00:00",
+  "source_semantics": "immutable source/runtime/dec_core.py",
+  "scope": "native runtime ABI; scalar differential and exact/hostile witness tests, not complete compiler acceptance",
+  "checks": {
+    "debug_whitebox": "runtime-debug.log",
+    "optimized_whitebox": "runtime-optimized.log",
+    "differential": "runtime-differential.json"
+  },
+  "differential_cases": 1979,
+  "commands": [
+    "g++ -std=c++17 -O0 work/candidate/native/test_runtime.cpp -lgmpxx -lgmp -lcrypto -o work/evidence/runtime-build/tests-debug",
+    "work/evidence/runtime-build/tests-debug > work/evidence/runtime-debug.log 2>&1",
+    "g++ -std=c++17 -O3 work/candidate/native/test_runtime.cpp -lgmpxx -lgmp -lcrypto -o work/evidence/runtime-build/tests-optimized",
+    "work/evidence/runtime-build/tests-optimized > work/evidence/runtime-optimized.log 2>&1",
+    "g++ -std=c++17 -O2 -fPIC -shared work/candidate/native/runtime.cpp -lgmpxx -lgmp -lcrypto -o work/evidence/runtime-build/libruntime-test.so",
+    "PYTHONDONTWRITEBYTECODE=1 python3 work/candidate/native/check_runtime.py work/evidence/runtime-build/libruntime-test.so --output work/evidence/runtime-differential.json"
+  ],
+  "limitations": [
+    "ASAN unavailable: installed linker points to absent /usr/lib64/libasan.so.8.0.0",
+    "GMP allocator system exhaustion is fail-stop; explicit arena limit and C++ allocation exceptions use runtime errors",
+    "C ABI caller owns context lifetime; freed/arbitrary context pointers are outside contract"
+  ],
+  "sha256": {
+    "work/candidate/native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "work/candidate/native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "work/candidate/native/test_runtime.cpp": "3cd4c773817f371dc52d5fe060c213e2764b625d0bb24054bbbe189a6977874c",
+    "work/candidate/native/check_runtime.py": "0dc00cfae8c2ccce68fadf3d722fd5379817cbdf9189943e72219e81a3e90cf4",
+    "work/candidate/docs/NATIVE_RUNTIME_ABI.md": "2b1ef43510af4f05fc55b2c634cf1feaf4ef7641c1043db487cb2e950ddd2626",
+    "work/evidence/runtime-debug.log": "6219882d499720cf89f0cb6b6f8e5a1e1cb93248e69d6e82c5615db0fe8a96d8",
+    "work/evidence/runtime-optimized.log": "6219882d499720cf89f0cb6b6f8e5a1e1cb93248e69d6e82c5615db0fe8a96d8",
+    "work/evidence/runtime-differential.json": "41be783610cbc387164c42d9ce6928c3d1e671705de38b40e12ce8534552fd7a",
+    "work/evidence/runtime-build/tests-debug": "af6bd6f6f5eac47b952d4c8d21e191a033ea1b57d0dc964bc9b974af5458cf2c",
+    "work/evidence/runtime-build/tests-optimized": "a8abef730abc22c383a7a64b72cf0811d5953d53621f6c7b9eeef9326066dc29",
+    "work/evidence/runtime-build/libruntime-test.so": "1d002ca061fb71f89e82f9002a99eebe00576ef0e091da4709669cbc25612b91"
+  }
+}

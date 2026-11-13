@@ -1,0 +1,8 @@
+{
+  "initial_command": "bwrap --unshare-all ... /program",
+  "initial_exit_code": 1,
+  "initial_stderr": "bwrap: loopback: Failed to create NETLINK_ROUTE socket: Operation not permitted",
+  "resolution": "Approved escalation outside Codex sandbox; full prepared minimal-root executions passed",
+  "python_absence": "Empty isolated root populated only with native programs and their ELF dependency files; root listing and hashes in isolation-spec.json",
+  "network": "unshare-all isolates network"
+}

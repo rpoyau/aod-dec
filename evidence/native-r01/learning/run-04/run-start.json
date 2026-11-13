@@ -1,0 +1,19 @@
+{
+  "protocol_sha256": "ee68748a599fd6ab8afd48337f7f6530689e184235fbdad42f34be8c10c49fb4",
+  "started_utc": "2026-11-13T12:01:22.873676+00:00",
+  "seed": 20261113,
+  "warmup": 3,
+  "tuning_pairs": 12,
+  "heldout_pairs": 20,
+  "batch_tuning": 5,
+  "batch_heldout": 10,
+  "workloads": {},
+  "failures": [],
+  "implementation_binding": {
+    "scripts/benchmark_native.py": "9b612ab7d7c736459bf0d03dd29ede4fc0de18ed03d8ccc5cfa0eb2a3ac4c8f3",
+    "native/learning.py": "30a670694925e92f3434c8fa6bef5b461cdd845aefc8d5556a7b14922c89e3b1",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e"
+  }
+}

@@ -1,0 +1,2953 @@
+--- a/README.md
++++ b/README.md
+@@ -1,14 +1,26 @@
+-# Ternary AOD Dec — executable core R01
++# Ternary AOD Dec — native compiler and JIT
+ 
+-Dec now has an executable, explicitly typed ternary core. Source is parsed,
+-checked and compiled into deterministic typed JSON intermediate code. An exact
+-reference virtual machine executes that code. Function bodies determine results;
+-assertions, invalid types, invalid witnesses and arithmetic errors are enforced.
++Dec compiles its explicitly typed ternary core to Linux x86-64 executables and
++executes the same lowered code through LLVM ORC JIT. Exact GMP values and retained
++closure/fusion/coupling histories use a native runtime. The original typed JSON
++IR and exact reference VM remain available for comparison.
+ 
+-Requirements: Python 3.10+ (standard library only). Optional Linux ELF utilities
+-and their tests require Rust, a linker and Make. The language compiler/runtime is
+-currently Python-hosted; self-hosting and native Dec code generation remain later
+-implementation milestones. The Rust utilities are separate ELF demonstrations.
++Requirements for the native compiler/JIT: Python, LLVM 16.0.6 shared library,
++C++17/g++, GMP and OpenSSL development libraries. Emitted executables run without
++Python. The frontend and JIT host still use Python. Optional legacy ELF utilities
++require Rust and Make. Self-hosting is not implemented.
++
++```sh
++python3 aodc.py build examples/ternary.dec -O 2 -o build/ternary-native
++./build/ternary-native
++python3 aodc.py jit examples/closure.dec -O 2
++```
++
++See [native usage](docs/EXECUTION_NATIVE.md), [build requirements](docs/BUILD_NATIVE.md),
++[language inventory](docs/LANGUAGE_CORE_V1.md), and [ABI](docs/NATIVE_ABI_V1.md).
++Persistent hardware selection is available through `scripts/adapt_native.py`.
++The measured seven-workload experiment established functional adaptation but no
++cost-inclusive speedup; every measured workload retained the generic variant.
+ 
+ ## Run
+ 
+@@ -56,6 +68,10 @@
+   provides a finite normalized AFC flux/Stokes fixture.
+ - Deterministic typed IR, validated again before execution; bounded recursion and
+   an operation budget.
++- LLVM object emission, native linking, lazy ORC JIT, checked object caches,
++  generated entry guards and generic native fallback.
++- Bounded persistent selection over prevalidated O0/O2 implementations, with
++  matched controls, retained observations and held-out rollback.
+ 
+ The Q4 trace and coupled-window model are **declared finite specializations**.
+ They do not supply a universal AOD transition law, physical hardware learning,
+--- a/SHA256SUMS
++++ b/SHA256SUMS
+@@ -1,8 +1,8 @@
+ 6cf68f361ed9af9c89f8304b81604d87347c3d38348e90f1e5bef55ea8fa99a5  .gitignore
+ 7056ec1a5271c3840f81e6f24fdff9f92077e655ebe6b2fd7ff747461f2310f0  Makefile
+-646a1b69e6d428e80df17b7c1b5eb030ddabbe66f3d3e14da5961f3abf9da949  README.md
++3f0ca62f4b3b59f00efec242d7c5dc17ef466f24a8c1316e38e9d8eb35802c46  README.md
+ e5acb188c5597afd69cb95c41f49b1b7fed1b6d8d1f043ea9f1d4939734a1535  SOURCE_BINDING.json
+-e354447c20f1a7e9a6f5997ee7546fe21e4bf09d1af7240265d57b30f28decb2  aodc.py
++1bb7c56d119a424b2fb3637b7755ca4aee5d5a69be79accc1648973f9fd4d31d  aodc.py
+ 762709434341006704ec0aa7fa8207c0c6c834854ed143b8241c69b9f4b54082  bootstrap/aod_self_host_compiler.rs
+ ccdaea1b8551f7c6d0a0e83ff74efd327244f4992c78f210d2b9d38894206ffa  bootstrap/aod_stage0_seed.rs
+ 620240fd7719737d9ac37057e3d31ea80f3fe4c858484fe16ed63463b5c40f64  bootstrap/aod_stage2_bootstrap.rs
+@@ -15,8 +15,17 @@
+ b5e189f4d1ed87fd824768db83f4a1908d515f6a532d8f9bcc14fce506b21eb1  dec/04_harmonics_stokes_gpu_uma.dec
+ 42081a934fb65f6a49968307c51d575f41e479b2e0034b603a1c13930608d7a2  dec/05_self_host_compiler_elf64.dec
+ 365631c23188586e9b82f7e3ed574804d9216815f6b4e378bdd159280a9d5b5c  dec/kernel.dec
++ee68748a599fd6ab8afd48337f7f6530689e184235fbdad42f34be8c10c49fb4  docs/BENCHMARK_PROTOCOL.md
++81c365e2858da05b610a84143d55d5b6056e358c9481fe5bd85ce50e05a4f345  docs/BUILD_NATIVE.md
++88fb220e26d9951d276e64b58d46831b641d00330ebea43df4e247152aa80dc6  docs/EXECUTION_NATIVE.md
++67471111f648576c4c71231d67415a3c0132736f357941592fbd6b41b9488152  docs/FEATURES.md
+ a4d9a16710f1dfdc03d1733e237ab4cde7538e24d17764b239896feeb53c3b50  docs/FIRST_PRINCIPLES_DERIVATION.md
++2a41a50a97b165b8d1f1f8fb07c196d76037dd1559dc7e42529d0b2ef04b29a4  docs/HARDWARE_LEARNING.md
++1a8f1f025cb2ba258d7d2574c73ee64322508f1b1aebfc4421cbb8dff7ecc8d6  docs/LANGUAGE_CORE_V1.md
++4061cc31c788a7d3fce481d77c45086c7da98d4813a7fb32ce5998fd7da67b66  docs/NATIVE_ABI_V1.md
++2b1ef43510af4f05fc55b2c634cf1feaf4ef7641c1043db487cb2e950ddd2626  docs/NATIVE_RUNTIME_ABI.md
+ 723ab1908efaa8ef3d89c53b2a43645bfbead32e1b2b579d7e767e96e014a32b  docs/REPAIR_NOTES.md
++5195586111ef89ae6b54bc6e4bb9b5a7979931f610b30b806358b9418bc35318  docs/SEMANTIC_IR_V1.md
+ c896bb3096e1e3e67e7926ec6de96e7c70639b435fc698fd46c2efd3aa5c6f27  docs/SPECIFICATION.md
+ ab65f7f5966c61b791136f0e44c764ffcbc7cbfcdd54d0b1df8bb5757af128a7  evidence/environment.json
+ a6ea8f1484fb862bdbab3a2bfa9e8655bffa77eecc7b55694b3e1a45da45d6a0  evidence/python_optimized.txt
+@@ -26,10 +35,25 @@
+ d6769bf948b34e00e51f9f622220a5f0d1d6d32d947fa5c9c2601c2459a76bae  examples/fusion.dec
+ d009e7bcbe71a4f8cd8622e35d58beffaf493c52caf7b17dc2d6cca50587e6e2  examples/ternary.dec
+ f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054  examples/weights.dec
++0dc00cfae8c2ccce68fadf3d722fd5379817cbdf9189943e72219e81a3e90cf4  native/check_runtime.py
++16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854  native/compiler.py
++30a670694925e92f3434c8fa6bef5b461cdd845aefc8d5556a7b14922c89e3b1  native/learning.py
++eb5e5033b0f8ed1211b1955469199d7e7fe80424d4effc83aaea533313d76daa  native/runner.cpp
++1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1  native/runtime.cpp
++7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e  native/runtime.hpp
++3cd4c773817f371dc52d5fe060c213e2764b625d0bb24054bbbe189a6977874c  native/test_runtime.cpp
++1c04098d271ae0fcdbf10f5fd233f62e5524273943aeddb766bd35c03aa148be  native/toolchain-lock.json
+ 7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a  runtime/dec_core.py
+ 900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456  runtime/dec_language.py
++15368632b28460573c2f2bba6d5834731b0abbb0a0c86ba6114c209e8c313955  scripts/adapt_native.py
++db1c7c09f22229c83a5607976adfbe84e8a11f3d72db8cca4513a9ce7dcd3e40  scripts/analyze_native_benchmark.py
++9b612ab7d7c736459bf0d03dd29ede4fc0de18ed03d8ccc5cfa0eb2a3ac4c8f3  scripts/benchmark_native.py
+ b327e0136e186454ac636f9b2c5368eb7d4c4d89e7a5b27fd0534a5247166ea8  scripts/build_and_verify.sh
++440b50bdd09ca6ecbbc1ee83e0e656daebece5089a4a2639487718d7b9a96165  scripts/conformance_native.py
++6adc96323af9dea176ac22b4d229bbb7d9c4a61e2c9188eabbb8ec71166d9df7  scripts/isolate_native.py
+ ba0cd48c86657c9057678aa4d0b5297126f99c683c27bead55b48db41848b65d  tests/bootstrap_regressions.rs
+ ce7a6051a1dd761ebf266fc106fc6f7fe314bd670f1102a2f154e5ed45f15dbf  tests/test_core.py
+ 74b680061ffea4acdefcfc085831cc4a67a5587636ca8a01f663d0101a0ff66f  tests/test_integration.py
+ d7e20b2d5839fd005df53d29bb212347999332be4e8d0b390ae58ccea8377a74  tests/test_language.py
++d83653f0d409d27501b129b6c44b78208b48364ba9b3dc61f2f0417aff4693c1  tests/test_learning.py
++7656174bf87e47cf713b147f224ad9ee9a434ec24564b8e28c925bdf10ac9050  tests/test_native_backend.py
+--- a/aodc.py
++++ b/aodc.py
+@@ -15,15 +15,26 @@
+ def main(argv=None):
+     parser=argparse.ArgumentParser(description=__doc__)
+     sub=parser.add_subparsers(dest='command',required=True)
+-    for name in ('check','run','compile'):
++    for name in ('check','run','compile','build','jit'):
+         p=sub.add_parser(name); p.add_argument('source')
+-        if name=='compile': p.add_argument('-o','--output',required=True)
++        if name in ('compile','build'): p.add_argument('-o','--output',required=True)
++        if name in ('build','jit'): p.add_argument('-O',type=int,default=0,choices=range(4))
+     p=sub.add_parser('exec'); p.add_argument('ir')
+     args=parser.parse_args(argv)
+     try:
+         if args.command=='exec': program=loads_ir(read_limited(args.ir,MAX_IR))
+         else: program=compile_source(read_limited(args.source,MAX_SOURCE))
+-        if args.command=='compile':
++        if args.command=='build':
++            from native.compiler import build
++            if Path(args.output).resolve()==Path(args.source).resolve(): raise DecError('output must differ from source')
++            build(program,args.output,opt=args.O)
++        elif args.command=='jit':
++            from native.compiler import JitSession
++            with JitSession(program,opt=args.O) as session: result=session.run()
++            print(result['stdout'],end='')
++            if result['exit_code']: raise DecError(result['error'])
++            print(result['result'])
++        elif args.command=='compile':
+             if Path(args.output).resolve()==Path(args.source).resolve(): raise DecError('output must differ from source')
+             # Encode before creating the output; all static checks have completed.
+             encoded=dumps_ir(program)
+--- /dev/null
++++ b/docs/BENCHMARK_PROTOCOL.md
+@@ -0,0 +1,87 @@
++# Native Dec benchmark protocol v1
++
++Declared 2026-11-13 before candidate-native benchmark observations. Protocol ID
++`dec-native-measurement-v1`; randomization seed `20261113`. The frozen protocol
++is copied and hashed in each output directory before the first measurement.
++
++The population is this Linux x86-64 host and this compiler/runtime build. Timing
++is host performance metrology via Python `time.perf_counter_ns` (monotonic wall
++clock), not an AOD clock, physical model or SI anchoring claim. Report OS-visible
++CPU model/features/topology and affinity. Probe hardware counters; record missing
++tools or permissions as unavailable rather than zero. No GPU/parallel/cache-layout
++claims are in scope.
++
++Two prevalidated variants use the identical verified Dec source and native ABI:
++generic LLVM O0 and LLVM O2. Before performance runs, compare each with reference
++outputs, final value, error and retained trace serialization. A failed variant is
++excluded, with its failure retained. Program variation is limited to source-level
++workload dimensions within the frozen grammar.
++
++Workloads cover ternary pack/unpack/arithmetic, arbitrary-precision rational
++reduction, trace append and closure validation, nested fusion, coupling and
++repeated JIT invocation. Exact sources and dimensions are saved with results.
++Each run creates a fresh runtime context and retains output/value/error equality.
++The initial train dimension is the supplied example and the held-out dimension
++is two repeated executions of its complete body in a fresh context; no semantic
++claim depends on timing. Where feasible, additional sizes use explicit repeated
++statements without introducing grammar extensions.
++
++Measurement order: build both variants (separately time frontend/lowering/object
++emission/linking where the API supports them); load each JIT module separately;
++perform 3 warmup invocations per variant, then 12 randomized paired tuning samples
++and 20 randomized paired held-out samples. Randomize O0/O2 order within every pair;
++shuffle control order within each held-out pair. Per sample, run 5 invocations,
++report raw batch nanoseconds and per-invocation derived costs. Preserve every
++sample, error, timeout and excluded/censored result. Never replace failures with
++successful reruns. The same run counts and fresh-state policy apply to controls.
++
++Report compilation, loading, warmup, tuning/profiling, selection/profile I/O,
++steady-state execution and total experiment costs separately. Cumulative total
++cost includes one-time preparation and measured control costs; amortized results
++state their observed invocation horizon. Do not extrapolate a speedup from native
++steady-state alone. Native memory allocation/free is part of invocation cost;
++peak process RSS is sampled where available and is not allocation attribution.
++
++The deterministic bounded policy retains at most 32 costs per variant and selects
++the lowest median only after at least 5 observations per variant. It requires a
++5% median improvement and a conservative paired 95% bootstrap interval excluding
++zero. A 5% held-out regression bound triggers rollback to generic. Bootstrap uses
++2000 resamples and seed 20261113; report paired percentage differences and a
++percentile interval. No significance claim is made beyond the measured host and
++workloads. Selection at invocation k uses only already committed observations;
++observations of k can affect k+1. Exploration is bounded by the 12 paired tuning
++samples. Freeze the profile before held-out testing.
++
++Controls: generic (no profile), passive (collect but no selection), frozen
++(read-only learned profile), active (select then append observations for later
++calls), stale binding, shuffled costs with original integrity digest (reject),
++and retained-state removal (generic). A separate synthetic cost fixture may prove
++causal policy influence and actual selected native dispatch; it must be labelled
++synthetic and never used as performance evidence. Corruption, incompatible host,
++software, workload, missing variants and interrupted writes must fall back safely.
++
++Benefit requires the held-out paired confidence interval to exceed 5%, no workload
++regression above 5%, and positive gain after measured preparation/profiling/profile
++costs at the observed horizon. Otherwise report no established benefit and retain
++or restore generic. Functional learning and performance benefit are separate
++outcomes. Independent replicas, AArch64 execution, counter-based analysis and
++larger datasets remain separate follow-up experiments.
++
++## Frozen workload registry (declared before execution)
++
++| ID | Source | Training batch | Held-out batch |
++|---|---|---:|---:|
++| ternary | supplied examples/ternary.dec | 5 fresh contexts | 10 fresh contexts |
++| weights | supplied examples/weights.dec | 5 | 10 |
++| closure | supplied examples/closure.dec | 5 | 10 |
++| fusion | supplied examples/fusion.dec | 5 | 10 |
++| coupling | supplied examples/coupling.dec | 5 | 10 |
++| rational_stress | 40 repeated exact reductions of a 120-digit numerator | 5 | 10 |
++| nested_fusion | supplied fusion followed by a second outer fold and closure | 5 | 10 |
++
++The held-out split uses later randomized samples and doubled independent invocation
++batches of the same source; it does not claim generalization to unseen programs.
++A native helper-only `execute_ns` and full fresh-context invocation wall time are
++both saved. The latter includes host dispatch, runtime context lifetime and result
++extraction. Primary comparisons use full invocation wall time. Validation of saved
++outcomes occurs after the timed batch and is separately attributed to the harness.
+--- /dev/null
++++ b/docs/BUILD_NATIVE.md
+@@ -0,0 +1,58 @@
++# Build and run
++
++Prerequisites: Python 3, released LLVM 16.0.6 shared library, a C++17 compiler,
++GMP C++ development libraries and OpenSSL crypto development libraries. The
++recorded host package versions and file hashes are in `native/toolchain-lock.json`.
++No Python third-party packages, LLVM headers or clang executable are required.
++LLVM C API signatures are pinned to the release's `llvm-c/LLJIT.h`, `Orc.h` and
++`TargetMachine.h`. `DEC_LLVM_LIBRARY` can locate the same released LLVM 16.0.6
++library on another installation; the resulting byte identity enters cache keys.
++
++From the candidate directory:
++
++```sh
++python3 aodc.py build examples/ternary.dec -o build/ternary -O 2
++./build/ternary
++python3 aodc.py jit examples/closure.dec -O 2
++python3 aodc.py run examples/closure.dec
++python3 -m unittest discover -s tests -v
++```
++
++The compiler invokes g++ to build the runtime with `-std=c++17 -O2 -fPIC`, links
++with `-lgmpxx -lgmp -lcrypto`, and asks LLVM to emit position-independent x86-64
++objects at the selected optimization level. It saves LLVM IR, object bytes and
++binding manifests under `build/native/cache`. AOT executables link the runtime
++object and retain ordinary system shared-library dependencies. The legacy Rust
++ELF demonstration targets are separate and do not implement this compiler.
++
++For embedding:
++
++```python
++from native.compiler import JitSession
++with JitSession(source_text, opt=2) as session:
++    result = session.run()
++    fallback = session.run(guard_key='stale')
++    input_result = session.run(function='square', args=[123456789])
++```
++
++Explicit foreign scalar types use `(type, text)`, for example `('t32', '5')`
++or `('ratio', '-20/30')`. Ratios accept exact N/D or integer text; malformed
++spellings are rejected. Domain checks use the same native conversion builtins
++as compiled source, before entering the function.
++The source must declare the exact entry signature. `stdout` contains emits only;
++`result` is the rendered return value. `execute_ns` times the generated entry;
++`compile_ns` and `load_ns` are setup costs. The profiling harness separately
++records wrapper, selection, persistence and total costs.
++
++This bridge uses LLVM's supported C API because installed development headers
++and clang/llvm-config tools were absent. It remains the requested LLVM backend.
++Official API references:
++- https://github.com/llvm/llvm-project/blob/llvmorg-16.0.6/llvm/include/llvm-c/LLJIT.h
++- https://github.com/llvm/llvm-project/blob/llvmorg-16.0.6/llvm/include/llvm-c/Orc.h
++- https://github.com/llvm/llvm-project/blob/llvmorg-16.0.6/llvm/include/llvm-c/TargetMachine.h
++
++Licenses: LLVM is Apache-2.0 WITH LLVM-exception; GMP is dual LGPL-3.0-or-later
++or GPL-2.0-or-later; OpenSSL 4 uses Apache-2.0; GCC is GPL with the GCC runtime
++library exception for its runtime; glibc is LGPL. These are external system
++prerequisites, not vendored sources. Original bundled source and foundation
++license notices remain preserved. This document does not relicense them.
+--- /dev/null
++++ b/docs/EXECUTION_NATIVE.md
+@@ -0,0 +1,72 @@
++# Native compiler, ORC and retained hardware selection
++
++The Python frontend validates Dec and emits native LLVM object code. The linked
++program executes its lowered bodies through the C++/GMP runtime without Python.
++The ORC host uses the same verified source and runtime ABI. Begin at the candidate
++root; required toolchain details and installation paths are in BUILD_NATIVE.md.
++
++```sh
++python3 aodc.py check examples/ternary.dec
++python3 aodc.py run examples/ternary.dec
++python3 aodc.py build examples/ternary.dec -O 2 -o build/ternary-native
++./build/ternary-native
++python3 aodc.py jit examples/ternary.dec -O 2
++```
++
++`run` is the unchanged reference engine; `jit` invokes generated native code.
++`compile` and `exec` retain their typed JSON IR meanings. The Python compile/JIT
++host remains a dependency at those stages. Self-hosting and an AArch64 executable
++target are not established by these commands. The old `bootstrap/` ELF demos
++remain separate from this compiler.
++
++Use the retained learner independently of the benchmark:
++
++```sh
++python3 scripts/adapt_native.py examples/closure.dec \
++  --profile build/closure-profile.json --mode passive --train-pairs 12 \
++  --json-report build/closure-profiling.json
++python3 scripts/adapt_native.py examples/closure.dec \
++  --profile build/closure-profile.json --mode active \
++  --json-report build/closure-selection.json
++```
++
++The first command executes generic code, then profiles prevalidated O0/O2 variants
++and saves their costs. The later process reloads those costs and selects a native
++implementation before executing the requested program. The native output is
++unchanged; the optional JSON report records selection generation, object hashes,
++code address, timings and later-invocation preview. The learner variant `generic`
++means the O0 module. Its runtime `dispatch` field can still say `specialized` when
++the module enters through its valid primary guard; `dispatch: generic` specifically
++identifies the generated guard-fallback path. An active call can also collect
++new costs using `--train-pairs 1..32`; its current invocation uses only prior state.
++`--mode frozen` reads without updating, `--mode generic` forces generic, and
++`--mode passive` measures without changing current selection. `--cache PATH`
++selects an object-cache directory. Missing, corrupt or mismatched profiles safely
++retain generic. A profile belongs to one writer and exact source/toolchain/host
++binding. The command performs conservative reference prevalidation on startup;
++its total startup cost is reported and must not be called a native speedup.
++
++Run the full prespecified experiment and recompute its analysis:
++
++```sh
++python3 scripts/benchmark_native.py --output /absolute/path/to/new-benchmark-run
++python3 scripts/analyze_native_benchmark.py /absolute/path/to/new-benchmark-run \
++  --output /absolute/path/to/new-benchmark-run/reanalysis.json
++python3 -m unittest discover -s tests -p test_learning.py -v
++```
++
++The benchmark executes all five examples, large exact rational reductions and
++nested fusion; checks native guards and cross-process retained selection; and
++compares generic, passive, frozen, active, stale, shuffled and removed profiles.
++It retains raw failed and successful runs and every per-criterion outcome belongs
++to its exact artifact bindings. Later measurements of the same programs at doubled
++batch size form its held-out split; this does not demonstrate unseen-program
++performance. Synthetic retained-cost fixtures establish causal policy influence
++only. They are explicitly excluded from performance analysis.
++
++The delivered experiment did not establish a cost-inclusive performance benefit.
++The policy's held-out decision restores generic when preparation/profiling costs
++or uncertainty invalidate benefit. Concurrent conformance/compilation work during
++measurement is recorded as an experimental limitation; paired randomized runs
++reduce order effects but do not remove resource competition. No CPU model or
++nanosecond timing is interpreted as an AOD physical law or relational-time anchor.
+--- /dev/null
++++ b/docs/FEATURES.md
+@@ -0,0 +1,34 @@
++# Executed feature inventory
++
++| Feature | Reference VM | Native AOT | ORC JIT |
++|---|---|---|---|
++| Exact int/ratio; checked t1/t32/q4; bool/string | Yes | Yes | Yes |
++| Explicit overloads, direct calls, bounded recursion | Yes | Yes | Yes |
++| Conditional/Boolean branches with ordered effects | Yes | Yes | Yes |
++| Source-located operation errors and assertions | Yes | Yes | Yes |
++| Logical expression/statement/call fuel | Yes | Yes | Yes |
++| Immutable closure/fusion/coupling witnesses | Yes | Yes | Yes |
++| All five repaired examples | Yes | Yes | Yes |
++| Runtime scalar inputs to named function | Embedding | Native ABI; tested harness | Embedding |
++| Generated native entry guard and fallback | Not applicable | Generic compiled path | Yes |
++| Persistent measured O0/O2 selection | Not applicable | Validation comparator | Adaptive host and benchmark |
++| General `finite_afc` collection helper | Python API only | No language surface | No language surface |
++| Structs/arrays/slices/tuples/loops/modules/I/O | Unsupported | Unsupported | Unsupported |
++| Literal-pattern dispatch | Unsupported | Unsupported | Unsupported |
++| Genuine Dec compiler bootstrap stages | Not implemented | Not implemented | Not implemented |
++
++The original core grammar is frozen at v1. No extensions were required to execute
++the five examples or the M0–M5 compiler-control model, and none are silently
++accepted. `dec/*.dec` remains rejected design material. General folding/RCD,
++physical awareness/FRG equivalence, GPU/UMA and parallel execution require separate
++models and language increments.
++
++Linux x86-64 is the executed target. AArch64 and other operating systems remain
++unsupported. AOT needs its listed native shared libraries, but no Python runtime.
++Compiler frontend, JIT control and adaptive policy currently use Python. Retained
++profiles are single-writer; concurrent first native builds share locked atomically
++published caches. Cache directories are trusted local build storage.
++
++Performance is separately evaluated: functional profile influence is demonstrated,
++but the delivered held-out experiment does not establish cost-inclusive speedup.
++Final per-criterion evidence is outside source in `work/evidence/ACCEPTANCE_RESULTS.json`.
+--- /dev/null
++++ b/docs/HARDWARE_LEARNING.md
+@@ -0,0 +1,66 @@
++# Measured implementation selection v1
++
++`native/learning.py` implements a compiler policy, not an AOD dynamics or hardware
++ontology. Inputs are exact-source native variant certificates and measured integer
++nanosecond costs. Outputs are the names `generic` (LLVM O0) and `optimized` (LLVM
++O2). Every selected implementation uses the same verified source, runtime ABI,
++checked arithmetic and retained AOD witnesses.
++
++A `VariantRegistry` admits a variant only after its output, final return, error,
++error location and exit status match a supplied reference observation. The
++benchmark obtains those observations from the unchanged reference interpreter,
++executes both AOT binaries and ORC functions, and saves object/binary hashes plus
++full observations. These checks supplement the independent compiler/runtime
++conformance suite; differential agreement alone is not a proof.
++
++`RetainedPolicy` retains at most 32 paired costs per variant. The first five pairs
++cannot justify a choice until all have been observed; later selection uses the
++median ratio and paired percentile bootstrap interval. An optimized selection
++requires a measured median gain above 5% and a 95% interval excluding zero. The
++bootstrap uses 2000 resamples and fixed seed 20261113. A held-out benefit claim
++requires its lower bound above 5% and positive aggregate gain after observed
++preparation/profiling overhead. Otherwise the saved rollback bit restores generic.
++
++Call `choose()` before dispatch, then `observe_pair()` and `save()` after completed
++runs. The current invocation does not select using its own future observation.
++The application records generation and dispatch address. Reconstructing a policy
++reads the last fully committed profile; deleting that profile restores generic.
++A separate synthetic cost fixture proves policy influence but is excluded from
++performance conclusions. Unit tests exercise a fresh Python process reading a
++profile. The compiler's native entry guard additionally falls back to generic
++when specialization assumptions do not hold.
++
++Profiles bind the policy/version, host/OS/CPU features/affinity, software binding,
++workload family and exact validated source/object identities. Loading is limited
++to 1 MB and 32 samples per variant; costs must be positive bounded integer values.
++Both paired arrays must contain exactly `min(generation, 32)` observations, so a
++checksum-valid unpaired or impossible history is rejected.
++Unknown versions, changed host/software/workload/artifact bindings, malformed
++JSON, duplicate keys, integrity mismatches, missing validation and missing state
++retain generic. A SHA-256 digest detects accidental or unsynchronized changes;
++it is not an authentication boundary against an attacker who can rewrite both
++profile and digest. The profile is a local trusted experiment artifact.
++
++Writes create a temporary file in the destination directory, flush and fsync it,
++then atomically replace the target and fsync the directory. An interrupted
++uncommitted temporary file is ignored. Each profile has one writer; callers must
++use distinct paths for concurrent experiments. This avoids claiming a locking or
++multi-writer merge protocol that is not implemented.
++
++Run the complete declared experiment from the candidate root:
++
++```sh
++python3 scripts/benchmark_native.py --output /absolute/path/to/new-run-directory
++python3 -m unittest discover -s tests -p test_learning.py -v
++```
++
++The output directory must not already exist. The harness saves the frozen protocol,
++source workloads, host/counter probes, build records, exact reference results,
++prevalidation observations, variant certificates, raw timestamped JSONL samples,
++retained profiles, per-workload summaries and a final report. It preserves failures
++and never overwrites a prior run. Primary comparisons include fresh runtime
++context allocation/free, host dispatch and result extraction; native-call-only
++costs are also reported. Peak process RSS is a whole-process observation rather
++than attribution of individual allocations. Held-out measurements test later
++samples of the same programs at doubled batch size and do not establish unseen
++program generalization, AArch64 support, GPU benefit or universal speedup.
+--- /dev/null
++++ b/docs/LANGUAGE_CORE_V1.md
+@@ -0,0 +1,56 @@
++# Dec native core v1
++
++The semantic authority is the immutable repaired R01 `runtime/dec_language.py`
++and `runtime/dec_core.py`, bound by `SOURCE_BINDING.json`. This implementation
++adds execution modes, not physical laws or new grammar. Every public lowering
++entry reconstructs typed IR from its source and compares canonical JSON before
++native code generation. This rejects modified payloads, booleans substituted
++for integers, changed source hashes, unknown fields and inconsistent types.
++
++A Dec declaration contains explicitly typed overload rows. Input types determine
++exact dispatch; result types do not resolve overloads. Supported statements are
++assignment, emit, assertion and return. Expressions are exact literals, names,
++direct calls, checked unary/binary operations, comparison, short-circuit Boolean
++operations and conditional expressions. All declared bodies are verified,
++including unreachable-from-main declarations. Unknown or unsupported syntax is
++rejected before code generation.
++
++`int` is unbounded GMP integer. `ratio` is a canonical exact rational with a
++positive denominator. `t1` is {-1,0,1}; `t32` is the symmetric integer range
++±(3^32-1)/2. Every intermediate t1/t32 operation is checked. Packed t32 uses
++00=0, 01=1, 10=-1; 11 is rejected. q4 is 0..15. Booleans are distinct from
++integers. Arithmetic has no implicit coercions. Division returns ratio;
++quotient rounds toward negative infinity; remainder follows the divisor sign.
++All core builtin signatures retain their R01 types and validation ordering.
++
++The LLVM control-flow IR has one native function per overload, explicit helper
++calls for every checked operation, source-line operands, direct recursive calls,
++and branch/phi nodes for conditional evaluation. Every reference expression,
++statement and call decrements logical fuel once. Default fuel is 100000 and
++call depth 128. Fuel is not a machine-instruction or time budget. Untaken
++conditional and short-circuit operands have no effects and consume no fuel.
++
++Evaluation is left-to-right. First failure prevents subsequent emits, calls and
++state changes. Already emitted bytes are preserved. Runtime operation failures retain the
++baseline statement-wrapped `line N:` diagnostic and additionally expose that
++source line as metadata. The core and frontend exception classes are distinct
++in R01, so ordinary operation errors and assertion failures are both located.
++Resource/depth failures remain unlocated. Native allocation failure is an
++explicit runtime failure, tested through allocation-limit injection.
++
++The CLI prints ordered emits followed by the final rendered value on success.
++On failure it prints committed emits, writes `aodc: <error>` to stderr and exits 1.
++The embedding API separates emits, result, error, error_line and execution
++metadata. Embedded NUL and Unicode string values are length-bearing across the
++ABI; canonical retained records use the same escaped JSON as the reference.
++
++Supported: all ten R01 value types, all original builtin signatures, five worked
++examples, exact overloads, conditionals, recursion and immutable witness records.
++Unsupported: structs, arrays/slices, tuples, explicit loop blocks, modules,
++pattern dispatch, file I/O, concurrency, GPU execution, general cell-complex
++folding and general RCD construction. These are future grammar/model increments;
++the original `dec/*.dec` sketches are not thereby executable programs.
++
++Only Linux x86-64 has execution coverage. AArch64, Android and other operating
++systems are not claimed. The compiler frontend and JIT orchestration currently
++require Python; emitted AOT programs do not. Self-hosting is not implemented.
+--- /dev/null
++++ b/docs/NATIVE_ABI_V1.md
+@@ -0,0 +1,51 @@
++# Native ABI v1
++
++`native/runtime.hpp` is the complete C ABI. Generated LLVM functions accept a
++context pointer followed by opaque value pointers and return an opaque value
++pointer. The context owns an arena of immutable values, UTF-8 strings, exact GMP
++integers/ratios and shared immutable trace graphs. A handle remains valid until
++its context is freed; handles must never cross context lifetimes. Parent trace
++records remain retained by shared ownership. Individual value destruction is
++not exposed. Arena resource use is bounded by the declared execution fuel and
++an optional value-allocation limit. GMP's system allocator may still terminate
++on unrecoverable system OOM; the allocation-injection test covers runtime value
++allocation, not every operating-system failure.
++
++All exported helpers catch C++ exceptions and store the first error. No exception
++unwinds across the ABI. Calls after failure preserve that failure. Null contexts
++or foreign/dangling handles are outside the native embedding contract; the Dec
++frontend cannot produce them. Errors carry baseline diagnostic text (including the statement `line N:` prefix
++for operation failures) and source-line metadata. Emitted bytes and rendering lengths are explicit.
++
++`dec_tick` decrements logical fuel. A generated user function first ticks, then
++calls `dec_enter`; after any entered call, success or error uses `dec_leave`.
++`dec_literal` constructs checked typed values; `dec_binary`, `dec_unary` and
++`dec_builtin` execute source operations. `dec_truth` reads a verified Boolean.
++`dec_emit` captures output; `dec_assert` raises source-located assertion failure.
++`dec_render`, `dec_render_size`, `dec_output` and `dec_output_size` expose owned
++borrowed bytes. Copy them before freeing the context or overwriting render
++scratch storage. The header documents exact integer widths and argument order.
++
++AOT and ORC use identical LLVM object emission and runtime symbols. ORC defines
++only the declared runtime symbols as absolute native addresses; it does not use
++a process-wide arbitrary-symbol search or Python callbacks. JIT sessions own
++ORC memory and serialize entry/close. A close waits for an in-flight call, then
++reclaims code; later calls are rejected. Function addresses returned in diagnostic
++records are not owning callable handles and must not be invoked externally.
++
++The JIT compiles lazily at the first call. Artifact keys bind canonical verified
++IR, source, semantic version, ABI version, compiler bytes/version, runtime bytes,
++LLVM library bytes/version, host triple/features and optimization level. Cached
++objects and LLVM IR have checked manifests. Generic and guard objects also have
++content checks. Linux file locks serialize cooperating cache publishers across
++threads/processes. Runtime and generated object/IR/manifest publication uses
++temporary files, fsync and atomic replacement; interrupted artifacts are never
++accepted without matching manifests. Invalid or corrupt cache files are recompiled. Cache directories
++are trusted local build storage, not signed remote artifacts.
++
++The entry wrapper checks the selected implementation identity before source
++effects. A match invokes the selected native object; a mismatch invokes a
++separately generated O0 generic object. This is an identity guard for prevalidated
++whole-function variants, not an input-range speculation. The dispatch result is
++returned separately from source output. No mid-function deoptimization,
++interpreter fallback, trace replay or live-code patching is implemented.
+--- /dev/null
++++ b/docs/NATIVE_RUNTIME_ABI.md
+@@ -0,0 +1,33 @@
++# Dec native runtime ABI 1
++
++The native runtime implements the repaired core-v1 semantics in `runtime/dec_core.py`. It supplies exact values and witness operations; generated LLVM control flow supplies function calls, overload selection, expression order, branching, statements and logical fuel ticks. It does not execute Dec source or an IR instruction stream. The installed GMP library supplies arbitrary precision integers/rationals; OpenSSL supplies SHA-256. The baseline Rust ELF demonstrations remain separate.
++
++## Ownership and calls
++
++`native/runtime.hpp` is the authoritative C linkage declaration. A context owns a stable arena of immutable values. Generated code borrows opaque `void*` handles; copying a handle does not transfer ownership. All values, their shared immutable retained parents, output bytes and diagnostic buffers are released by `dec_context_free`. Values from another live context are rejected. A freed context or freed handle must never be reused; arbitrary forged context pointers are outside the C ABI contract. Concurrent invocations use distinct contexts.
++
++Integers and ratios use GMP `mpz_class`/`mpq_class` behind opaque handles. Ratios have positive denominators and are reduced by the gcd. `t1`, `t32` and `q4` retain distinct tagged types; checked arithmetic validates every intermediate result. Numeric coercions are explicit. `bool` is a distinct type. Strings use explicit byte lengths and UTF-8. Literal source escape strings and output may contain NUL. JSON escaping follows the reference's ASCII escaping and surrogate-pair notation, including DEL. The compiler validates source and IR before calling this ABI.
++
++`dec_literal`, `dec_unary`, `dec_binary` and `dec_builtin` return a context-owned handle or null on failure. `dec_truth` requires a bool. The compiler must check `dec_ok` and unwind generated frames to the entry after every fallible operation. After the first error, further fallible operations do nothing and preserve the first message and location. C++ exceptions are caught inside the runtime boundary. No C++ object, reference or exception crosses C linkage.
++
++`dec_render` returns a context scratch buffer; read its length with `dec_render_size` immediately afterward. The pointer is valid until the next render or context destruction. `dec_output` and `dec_output_size` expose all committed emits, including the newline after each emit. Read output after execution; a later emit can invalidate its pointer. The runner must write this output even after failure and append the returned value only after successful execution. This preserves effect order and partial output.
++
++`dec_error` returns the first diagnostic text; `dec_error_line` separately returns its source statement line, or zero for a context/fuel/depth error. Runtime errors carry `line N: message` to preserve the reference interpreter's statement wrapper; fuel/depth errors stay unlocated. The reference language and core define distinct `DecError` classes, so core errors are wrapped by the language's ValueError handler.
++
++## Fuel, depth and failures
++
++The compiler emits one `dec_tick` for each statement, expression and call, including builtin calls. Helpers do not tick automatically. The default entry settings are 100000 ticks and depth 128. A tick succeeds when remaining fuel is positive and decrements it; otherwise it records `execution step budget exhausted`. `dec_enter` increments source-function depth and rejects depth greater than the configured limit. A generated function that called enter always calls leave, including an enter-depth failure; a pre-enter tick failure does not call leave.
++
++`dec_set_allocation_limit` sets an explicit per-context maximum number of allocated arena values for deterministic failure testing. Exceeding it produces `runtime allocation limit exceeded`. C++ allocation exceptions become a sticky `runtime allocation failed` status. Error status does not itself require allocating diagnostic text: the fallback message is static. System memory exhaustion within GMP's default allocator is fail-stop under GMP's allocation contract; the OS or GMP may terminate the process. The runtime does not claim recovery from system-wide exhaustion or invalid foreign pointers. Native witness validation is recursive with the same depth-64 trace limit as the reference. The arena keeps values until completion, so long histories can consume substantial memory; this is an explicit implementation tradeoff.
++
++## Retained witnesses
++
++Trace records retain ordered event identities, source/target/orientation, closure ranges, scope, lineage and immutable parent records. Every append validates before and after construction. Closure certification requires the declared Hamming-1 outgoing path, structural hinge and opposite-orientation return to the retained start. Zero net orientation does not erase events. Fusion proposals retain two closed parents and have a distinct outer scope; fusion completion independently requires the proposal's outer closure. Coupling binds distinct lineages in a common scope and equal positive event spans; contacts bind ordered unreplayed certified returns.
++
++Canonical event/trace/proposal JSON and SHA-256 spelling match the reference. No physical clock, SI anchoring, general RCD law or new cell-complex folding rule is introduced.
++
++## Verification
++
++`native/test_runtime.cpp` includes the implementation solely to inject otherwise-inaccessible hostile mutations. It checks exact arithmetic independently, preserved cancellation, altered event IDs, forged certificates, changed scope/lineage/start/parents, contact replay, retained nested histories, foreign handles, fuel/depth and deterministic allocation limits. Production compilation never exports mutation APIs.
++
++`native/check_runtime.py LIBRARY --output RECORD.json` runs the fixed-seed ABI/reference scalar and canonical-witness corpus and retains each input, expected result and actual result. This differential evidence complements the independent properties; agreement alone is not a proof of the scientific model.
+--- /dev/null
++++ b/docs/SEMANTIC_IR_V1.md
+@@ -0,0 +1,47 @@
++# Semantic IR v1 and source bindings
++
++The authoritative closed schema is the canonical output of
++`runtime.dec_language.compile_source`; `loads_ir` regenerates that schema from
++embedded source and requires byte-equivalent canonical JSON. Both public native
++lowering and JIT/AOT entry points call that verifier. A permissive JSON Schema
++alone would not validate types, definite assignment or dispatch.
++
++Top-level fields are `format="aod.dec.ir"`, integer `version=1`, UTF-8 `source`,
++hex `source_sha256`, and ordered `functions`. A function contains `name`, ordered
++`params`, `output`, declaration `line`, and overload `branches`. Each branch
++contains typed ordered parameter records, `return_type`, `output`, signature
++`line`, and ordered `body`. Body kinds are `assign`, `assert`, `emit`, `return`;
++each has its source `line` and typed expression `value`. Assignments additionally
++contain `name` and `type`. Expression kinds are `literal`, `name`, `call`,
++`binary`, `unary`, `compare`, `boolean`, `conditional`, with exactly the child
++fields generated by the parser. Unknown keys, duplicate keys, modified typed
++values, source mismatches and wrong hashes are rejected. Serialization is
++deterministic sorted-key JSON with explicit type tags and exact integer literals.
++
++The lowered LLVM control-flow representation preserves one function per exact
++overload, ordered runtime calls for checked arithmetic and effects, explicit
++branches/phi values, direct recursive calls and common failure exits. The LLVM
++verifier runs before object emission. Source line numbers are operands to the
++native helpers; logical fuel counts reference expressions/statements/calls.
++The C ABI defines opaque immutable values and context ownership separately.
++
++This candidate binds the supplied repaired core, not an inferred current remote
++repository. The request manifest, baseline archive and foundation hashes are
++recorded in the delivered `work/evidence/SOURCE_BINDING.json`. Semantic anchors:
++
++| Concern | Bound source anchor |
++|---|---|
++| Typed values, checked ternary encoding, explicit dispatch | `source/docs/FIRST_PRINCIPLES_DERIVATION.md` D1–D2 and `source/runtime/dec_language.py` |
++| Exact native operations and diagnostics | `source/runtime/dec_core.py` and the language interpreter statement error wrapper |
++| Retained start, structural hinge, distinct closure identity | Same derivation D3; supplied `foundations/OWNER_M1_PLAN.md` §§3.3–3.7 |
++| Parent retention and independent outer witness | Derivation D4; owner amendment §3.8 |
++| Explicit ordinal comparison and contact witnesses | Derivation D5; owner amendment §§3.9–3.11 |
++| Exact nonnegative normalized weights | Derivation D6; supplied AFC choices/Stokes references |
++| D.E.C. ledger ownership | AOD source archive `manual/sections/00_dec_ledger.tex`, label `manual:dec-ledger` |
++
++The compiler's finite trace specialization is not the full folded-cell-complex
++ontology. Existing general finite AFC helpers remain Python reference fixtures;
++no new native collection-based AFC surface is claimed. Current owner amendments
++take precedence over older field-first source wording within their declared
++scope. No Main or Manual source was changed. Timing and policy selections are
++compiler implementation choices and supply no SI anchor or physical transition law.
+--- /dev/null
++++ b/native/check_runtime.py
+@@ -0,0 +1,97 @@
++#!/usr/bin/env python3
++"""Native ABI/reference differential corpus; seed is fixed and raw outcomes retained."""
++import argparse, ctypes as C, hashlib, json, random, sys
++from fractions import Fraction
++from pathlib import Path
++sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
++from runtime import dec_core as ref
++P=C.c_void_p
++
++def main():
++ parser=argparse.ArgumentParser();parser.add_argument('library');parser.add_argument('--output',required=True);args=parser.parse_args()
++ lib=C.CDLL(str(Path(args.library).resolve()))
++ declarations={
++ 'dec_context_new':(P,[C.c_int64,C.c_int32]),'dec_context_free':(None,[P]),
++ 'dec_literal':(P,[P,C.c_char_p,C.c_char_p,C.c_uint64,C.c_int32]),
++ 'dec_builtin':(P,[P,C.c_char_p,C.POINTER(P),C.c_int32,C.c_int32]),
++ 'dec_binary':(P,[P,C.c_char_p,P,P,C.c_int32]),'dec_render':(P,[P,P]),
++ 'dec_render_size':(C.c_uint64,[P]),'dec_ok':(C.c_int32,[P]),'dec_error':(C.c_char_p,[P])}
++ for name,(r,a) in declarations.items():getattr(lib,name).restype=r;getattr(lib,name).argtypes=a
++ records=[]
++ def run(name,inputs,expected,op=False):
++  c=lib.dec_context_new(100000,128)
++  def literal(v):
++   if type(v) is str:t,b='str',v.encode()
++   elif type(v) is bool:t,b='bool',str(v).lower().encode()
++   else:t,b='int',str(v).encode()
++   return lib.dec_literal(c,t.encode(),b,len(b),1)
++  def call(n,values):
++   arr=(P*len(values))(*values);return lib.dec_builtin(c,n.encode(),arr,len(values),1)
++  def value(v):
++   if type(v) is Fraction:return call('ratio',[literal(v.numerator),literal(v.denominator)])
++   if type(v) in (ref.T1,ref.T32,ref.Q4):return call(ref.type_name(v),[literal(v.value)])
++   if type(v) is ref.Trace:
++    if v.parents:
++     proposal=call('fold',[value(v.parents[0]),value(v.parents[1]),literal(v.scope),literal(v.lineage)])
++     out=call('outer',[proposal,value(v.start)])
++    else:out=call('trace',[literal(v.scope),literal(v.lineage),value(v.start)])
++    ends={c.end for c in v.closures}
++    for e in v.events:
++     out=call('step',[out,value(ref.Q4(e.target)),value(ref.T1(e.orientation))]) if e.kind=='step' else call(e.kind,[out])
++     if e.ordinal in ends:out=call('close',[out])
++    return out
++   if type(v) is ref.Fusion:return call('fold',[value(v.left),value(v.right),literal(v.scope),literal(v.lineage)])
++   if type(v) is ref.Coupling:
++    out=call('coupling',[value(v.left),value(v.right),literal(v.window)])
++    for a,b in v.contacts:out=call('contact',[out,literal(a),literal(b)])
++    return out
++   return literal(v)
++  handles=[value(v) for v in inputs]
++  actual=lib.dec_binary(c,name.encode(),*handles,1) if op else call(name,handles)
++  got=C.string_at(lib.dec_render(c,actual),lib.dec_render_size(c)).decode() if lib.dec_ok(c) else 'ERROR:'+lib.dec_error(c).decode()
++  record={'operation':name,'inputs':[ref.render(v) for v in inputs],'expected':expected,'actual':got,'pass':got==expected}
++  records.append(record);lib.dec_context_free(c)
++ def case(name,inputs,op=False):
++  try:want=ref.render(ref.apply_binary(name,*inputs) if op else ref.call_builtin(name,inputs))
++  except ref.DecError as e:want='ERROR:line 1: '+str(e)
++  run(name,inputs,want,op)
++ rng=random.Random(13012026)
++ for _ in range(128):
++  a,b=rng.randrange(-2**200,2**200),rng.randrange(-2**100,2**100) or 1
++  for op in ('+','-','*','/','//','%','==','<'):case(op,[a,b],True)
++  qa,qb=Fraction(a,b),Fraction(b,a or 1)
++  for op in ('+','-','*','/','>='):case(op,[qa,qb],True)
++ for lane in range(32):
++  for sign in (-1,0,1):
++   t=ref.T32(sign*3**lane);case('pack',[t]);case('unpack',[t.bits()])
++  case('unpack',[3<<(2*lane)])
++ for t in (-ref.T32.LIMIT,ref.T32.LIMIT,0,1,-1):case('pack',[ref.T32(t)]);case('t32',[t])
++ for t in (-(ref.T32.LIMIT+1),ref.T32.LIMIT+1):case('t32',[t])
++ for q in range(-1,17):case('q4',[q])
++ for t in (-2,-1,0,1,2):case('t1',[t])
++ for a,b in ((-7,3),(7,-3),(-7,-3),(0,1),(1,0)):
++  for op in ('//','%','/'):case(op,[a,b],True)
++ for role in (-1,0,1):case('probability',[1,0,2,ref.T1(role)])
++ for ws in ((0,0,0),(-1,1,3)):case('probability',[*ws,ref.T1(1)])
++ for a,b in ((1,0),(2,-2**100),(0,-1)):case('ratio',[a,b])
++ for v in (Fraction(1,2),Fraction(2**200),ref.T32(-12),ref.Q4(15)):case('int',[v])
++ def closed(lineage,scope='B',count=1,leading=0):
++  t=ref.new_trace(scope,lineage,ref.Q4(0))
++  for _ in range(leading):t=ref.append_event(t,'dwell')
++  for _ in range(count):
++   t=ref.append_event(t,'step',ref.Q4(1),1);t=ref.append_event(t,'hinge');t=ref.append_event(t,'step',ref.Q4(0),-1);t=ref.close_trace(t)
++  return t
++ for label in ('plain','é😀','line\nquote"\\','nul\0DEL\x7f'):
++  a,b=closed(label),closed(label+'-b');case('close',[a]);case('fold',[a,b,'outer',label]);case('trace',[label,label,ref.Q4(0)])
++ a,b=closed('a'),closed('b');f=ref.fold(a,b,'outer','ab');out=ref.outer(f,ref.Q4(0))
++ case('fuse',[f,out]);case('fuse',[f,closed('ab','outer')]);case('fold',[a,a,'outer','same']);case('fold',[a,b,'B','same'])
++ out=ref.append_event(out,'step',ref.Q4(1),1);out=ref.append_event(out,'hinge');out=ref.append_event(out,'step',ref.Q4(0),-1);out=ref.close_trace(out);case('fuse',[f,out])
++ case('fold',[out,b,'nested','nested-lineage'])
++ a=ref.append_event(closed('a',count=2),'dwell');b=closed('b',count=2,leading=1);c=ref.coupling(a,b,'window')
++ case('contact',[c,3,4]);c=ref.contact(c,3,4);case('contact',[c,3,4]);case('contact',[c,5,7]);case('cadence',[c]);case('contact',[c,6,7]);c=ref.contact(c,6,7)
++ for n in ('cadence','lag','drift'):case(n,[c])
++ for n in ('phases','beats','rate'):case(n,[a])
++ result={'seed':13012026,'library_sha256':hashlib.sha256(Path(args.library).read_bytes()).hexdigest(),'cases':len(records),'failures':sum(not r['pass'] for r in records),'records':records}
++ Path(args.output).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({k:v for k,v in result.items() if k!='records'}))
++ return bool(result['failures'])
++if __name__=='__main__':sys.exit(main())
+--- /dev/null
++++ b/native/compiler.py
+@@ -0,0 +1,418 @@
++"""Verified Dec-to-LLVM lowering, native object emission and ORC LLJIT.
++
++Python is a compile/load host only. Generated code calls the declared native ABI;
++no Dec AST or interpreter is present in generated machine code.
++"""
++from __future__ import annotations
++import ctypes as C
++from contextlib import contextmanager
++import fcntl
++import hashlib
++import json
++import os
++from pathlib import Path
++import platform
++import re
++import subprocess
++import threading
++import tempfile
++import time
++from runtime.dec_language import compile_source, loads_ir, dumps_ir, DecError
++from runtime.dec_core import BUILTIN_SIGNATURES
++
++ROOT = Path(__file__).resolve().parents[1]
++ABI_VERSION = 'aod-native-1'
++COMPILER_VERSION = 'dec-llvm-1'
++LLVM_PATH = os.environ.get('DEC_LLVM_LIBRARY', '/usr/lib64/llvm16/lib/libLLVM-16.so')
++
++
++def sha(data): return hashlib.sha256(data).hexdigest()
++def program_of(program):
++    return loads_ir(dumps_ir(compile_source(program) if isinstance(program,str) else program))
++def mangle(name, types, prefix='dec'):
++    return prefix+'_'+name+'__'+('_'.join(types) or 'void')
++
++DECLARATIONS = '''
++declare i32 @dec_tick(ptr)
++declare i32 @dec_enter(ptr)
++declare void @dec_leave(ptr)
++declare i32 @dec_ok(ptr)
++declare ptr @dec_literal(ptr, ptr, ptr, i64, i32)
++declare ptr @dec_unary(ptr, ptr, ptr, i32)
++declare ptr @dec_binary(ptr, ptr, ptr, ptr, i32)
++declare ptr @dec_builtin(ptr, ptr, ptr, i32, i32)
++declare i32 @dec_truth(ptr, ptr)
++declare void @dec_emit(ptr, ptr, i32)
++declare void @dec_assert(ptr, ptr, i32)
++'''
++
++class Lowering:
++    def __init__(self, program, prefix):
++        self.program=program_of(program); self.prefix=prefix; self.constants={}; self.code=[]; self.counter=0
++    def string(self, text):
++        raw=text.encode('utf-8'); key=raw
++        if key not in self.constants: self.constants[key]=f'@{self.prefix}_s{len(self.constants)}'
++        return self.constants[key]
++    def fresh(self,kind='v'):
++        self.counter+=1; return f'{kind}{self.counter}'
++    def emit(self,line): self.code.append('  '+line)
++    def label(self,label): self.code.append(label+':'); self.block=label
++    def value(self,instr):
++        v='%'+self.fresh(); self.emit(v+' = '+instr); return v
++    def guard(self,value):
++        cond=self.value('icmp ne i32 '+value+', 0'); label=self.fresh('ok')
++        self.emit(f'br i1 {cond}, label %{label}, label %failed'); self.label(label)
++    def check(self): self.guard(self.value('call i32 @dec_ok(ptr %ctx)'))
++    def tick(self): self.guard(self.value('call i32 @dec_tick(ptr %ctx)'))
++    def expr(self,e,env,line):
++        self.tick(); k=e['kind']
++        if k=='name': return env[e['name']]
++        if k=='literal':
++            text=('true' if e['value'] else 'false') if e['type']=='bool' else str(e['value'])
++            v=self.value(f"call ptr @dec_literal(ptr %ctx, ptr {self.string(e['type'])}, ptr {self.string(text)}, i64 {len(text.encode())}, i32 {line})")
++        elif k=='call':
++            args=[self.expr(a,env,line) for a in e['args']]
++            if e['name'] in BUILTIN_SIGNATURES:
++                self.tick()
++                if args:
++                    arr=self.value(f'alloca [{len(args)} x ptr]')
++                    for i,a in enumerate(args):
++                        p=self.value(f'getelementptr [{len(args)} x ptr], ptr {arr}, i64 0, i64 {i}')
++                        self.emit(f'store ptr {a}, ptr {p}')
++                else: arr='null'
++                v=self.value(f"call ptr @dec_builtin(ptr %ctx, ptr {self.string(e['name'])}, ptr {arr}, i32 {len(args)}, i32 {line})")
++            else:
++                symbol=mangle(e['name'],[a['type'] for a in e['args']],self.prefix)
++                tail=''.join(', ptr '+a for a in args)
++                v=self.value(f'call ptr @{symbol}(ptr %ctx{tail})')
++        elif k in ('binary','compare'):
++            a=self.expr(e['left'],env,line); b=self.expr(e['right'],env,line)
++            v=self.value(f"call ptr @dec_binary(ptr %ctx, ptr {self.string(e['op'])}, ptr {a}, ptr {b}, i32 {line})")
++        elif k=='unary':
++            a=self.expr(e['value'],env,line)
++            v=self.value(f"call ptr @dec_unary(ptr %ctx, ptr {self.string(e['op'])}, ptr {a}, i32 {line})")
++        elif k=='conditional':
++            a=self.expr(e['condition'],env,line); cond=self.value(f'call i32 @dec_truth(ptr %ctx, ptr {a})')
++            cond=self.value(f'icmp ne i32 {cond}, 0'); yes,no,done=[self.fresh(x) for x in ('yes','no','merge')]
++            self.emit(f'br i1 {cond}, label %{yes}, label %{no}')
++            self.label(yes); a=self.expr(e['yes'],env,line); ap=self.block; self.emit(f'br label %{done}')
++            self.label(no); b=self.expr(e['no'],env,line); bp=self.block; self.emit(f'br label %{done}')
++            self.label(done); return self.value(f'phi ptr [{a}, %{ap}], [{b}, %{bp}]')
++        elif k=='boolean':
++            done=self.fresh('booldone'); incoming=[]
++            for i,e2 in enumerate(e['values']):
++                a=self.expr(e2,env,line); pred=self.block; incoming.append((a,pred))
++                if i==len(e['values'])-1: self.emit(f'br label %{done}')
++                else:
++                    cond=self.value(f'call i32 @dec_truth(ptr %ctx, ptr {a})'); cond=self.value(f'icmp ne i32 {cond}, 0'); nxt=self.fresh('boolnext')
++                    yes,no=(nxt,done) if e['op']=='and' else (done,nxt)
++                    self.emit(f'br i1 {cond}, label %{yes}, label %{no}'); self.label(nxt)
++            self.label(done); return self.value('phi ptr '+', '.join(f'[{a}, %{p}]' for a,p in incoming))
++        else: raise DecError('unsupported verified expression '+k)
++        self.check(); return v
++    def function(self,f,b):
++        self.counter=0; symbol=mangle(f['name'],[p['type'] for p in b['params']],self.prefix)
++        args=''.join(f', ptr %arg{i}' for i in range(len(b['params'])))
++        self.code.append(f'define ptr @{symbol}(ptr %ctx{args}) {{'); self.label('entry')
++        first=self.value('call i32 @dec_tick(ptr %ctx)'); cond=self.value(f'icmp ne i32 {first}, 0')
++        self.emit(f'br i1 {cond}, label %enter, label %prefailed'); self.label('enter')
++        self.guard(self.value('call i32 @dec_enter(ptr %ctx)'))
++        env={p['name']:f'%arg{i}' for i,p in enumerate(b['params'])}; result=None
++        for s in b['body']:
++            self.tick(); v=self.expr(s['value'],env,s['line']); k=s['kind']
++            if k=='assign': env[s['name']]=v
++            elif k in ('assert','emit'):
++                self.emit(f"call void @dec_{k}(ptr %ctx, ptr {v}, i32 {s['line']})"); self.check()
++            elif k=='return': result=v; break
++        if result is None: result=env[b['output']]
++        self.emit('call void @dec_leave(ptr %ctx)'); self.emit('ret ptr '+result)
++        self.label('failed'); self.emit('call void @dec_leave(ptr %ctx)'); self.emit('ret ptr null')
++        self.label('prefailed'); self.emit('ret ptr null'); self.code.append('}')
++    def run(self, declarations=True):
++        for f in self.program['functions']:
++            for b in f['branches']: self.function(f,b)
++        constants=[]
++        for raw,name in self.constants.items():
++            escaped=''.join('\\%02X'%b for b in raw+b'\0')
++            constants.append(f'{name} = private unnamed_addr constant [{len(raw)+1} x i8] c"{escaped}"')
++        return '\n'.join((['; Dec semantic IR v1; executable operations, no source VM',DECLARATIONS] if declarations else [])+constants+self.code)+'\n'
++
++def lower(program,prefix='dec'):
++    return Lowering(program,prefix).run()
++
++P=C.c_void_p; S=C.c_char_p; I=C.c_int; U64=C.c_uint64
++class LLVM:
++    def __init__(self):
++        if platform.machine()!='x86_64' or platform.system()!='Linux': raise DecError('only executed Linux x86-64 target is supported')
++        self.lib=C.CDLL(LLVM_PATH)
++        version=self.lib.LLVMGetVersion; version.restype=None; version.argtypes=[C.POINTER(C.c_uint)]*3
++        major,minor,patch=C.c_uint(),C.c_uint(),C.c_uint(); version(C.byref(major),C.byref(minor),C.byref(patch))
++        self.version=(major.value,minor.value,patch.value)
++        if self.version != (16,0,6): raise DecError('backend requires pinned LLVM 16.0.6, found '+str(self.version))
++        sig={
++          'LLVMContextCreate':(P,[]),'LLVMContextDispose':(None,[P]),
++          'LLVMCreateMemoryBufferWithMemoryRangeCopy':(P,[S,C.c_size_t,S]),
++          'LLVMDisposeMemoryBuffer':(None,[P]),'LLVMParseIRInContext':(I,[P,P,C.POINTER(P),C.POINTER(P)]),
++          'LLVMVerifyModule':(I,[P,I,C.POINTER(P)]),'LLVMDisposeModule':(None,[P]),
++          'LLVMDisposeMessage':(None,[P]),'LLVMGetDefaultTargetTriple':(P,[]),
++          'LLVMGetHostCPUName':(P,[]),'LLVMGetHostCPUFeatures':(P,[]),
++          'LLVMGetTargetFromTriple':(I,[S,C.POINTER(P),C.POINTER(P)]),
++          'LLVMCreateTargetMachine':(P,[P,S,S,S,I,I,I]),'LLVMDisposeTargetMachine':(None,[P]),
++          'LLVMSetTarget':(None,[P,S]),'LLVMCreateTargetDataLayout':(P,[P]),
++          'LLVMCopyStringRepOfTargetData':(P,[P]),'LLVMSetDataLayout':(None,[P,S]),'LLVMDisposeTargetData':(None,[P]),
++          'LLVMTargetMachineEmitToFile':(I,[P,P,S,I,C.POINTER(P)]),
++          'LLVMCreatePassBuilderOptions':(P,[]),'LLVMDisposePassBuilderOptions':(None,[P]),
++          'LLVMRunPasses':(P,[P,S,P,P]),'LLVMGetErrorMessage':(P,[P]),'LLVMDisposeErrorMessage':(None,[P]),
++          'LLVMOrcCreateLLJIT':(P,[C.POINTER(P),P]),'LLVMOrcDisposeLLJIT':(P,[P]),
++          'LLVMOrcLLJITGetMainJITDylib':(P,[P]),'LLVMOrcLLJITAddObjectFile':(P,[P,P,P]),
++          'LLVMOrcLLJITLookup':(P,[P,C.POINTER(U64),S]),'LLVMOrcLLJITMangleAndIntern':(P,[P,S]),
++          'LLVMOrcAbsoluteSymbols':(P,[P,C.c_size_t]),'LLVMOrcJITDylibDefine':(P,[P,P]),
++          'LLVMOrcReleaseSymbolStringPoolEntry':(None,[P]),
++        }
++        for name,(ret,args) in sig.items():
++            fn=getattr(self.lib,name); fn.restype=ret; fn.argtypes=args; setattr(self,name,fn)
++        for name in ('TargetInfo','Target','TargetMC','AsmPrinter','AsmParser'):
++            fn=getattr(self.lib,'LLVMInitializeX86'+name); fn.restype=None; fn.argtypes=[]; fn()
++        self.triple=self.message(self.LLVMGetDefaultTargetTriple()); self.cpu=self.message(self.LLVMGetHostCPUName()); self.features=self.message(self.LLVMGetHostCPUFeatures())
++    def message(self,p):
++        if not p: return ''
++        result=C.string_at(p).decode(); self.LLVMDisposeMessage(p); return result
++    def error(self,p):
++        if p:
++            s=self.LLVMGetErrorMessage(p); message=C.string_at(s).decode(); self.LLVMDisposeErrorMessage(s); raise DecError(message)
++    def emit(self,ir,path,opt=0):
++        context=self.LLVMContextCreate(); module=P(); message=P(); tm=None
++        try:
++            raw=ir.encode(); buf=self.LLVMCreateMemoryBufferWithMemoryRangeCopy(raw,len(raw),b'dec.ll')
++            if self.LLVMParseIRInContext(context,buf,C.byref(module),C.byref(message)): raise DecError(self.message(message))
++            if self.LLVMVerifyModule(module,2,C.byref(message)): raise DecError(self.message(message))
++            if message.value: self.message(message); message=P()
++            target=P()
++            if self.LLVMGetTargetFromTriple(self.triple.encode(),C.byref(target),C.byref(message)): raise DecError(self.message(message))
++            tm=self.LLVMCreateTargetMachine(target,self.triple.encode(),b'x86-64',b'',opt,2,0)
++            if not tm: raise DecError('LLVM target-machine construction failed')
++            self.LLVMSetTarget(module,self.triple.encode()); dl=self.LLVMCreateTargetDataLayout(tm)
++            layout=self.message(self.LLVMCopyStringRepOfTargetData(dl)); self.LLVMSetDataLayout(module,layout.encode()); self.LLVMDisposeTargetData(dl)
++            if opt:
++                options=self.LLVMCreatePassBuilderOptions()
++                try: self.error(self.LLVMRunPasses(module,('default<O%d>'%opt).encode(),tm,options))
++                finally: self.LLVMDisposePassBuilderOptions(options)
++            if self.LLVMVerifyModule(module,2,C.byref(message)): raise DecError(self.message(message))
++            if message.value: self.message(message); message=P()
++            if self.LLVMTargetMachineEmitToFile(tm,module,str(path).encode(),1,C.byref(message)): raise DecError(self.message(message))
++        finally:
++            if tm: self.LLVMDisposeTargetMachine(tm)
++            if module: self.LLVMDisposeModule(module)
++            self.LLVMContextDispose(context)
++
++_LLVM=None
++_LLVM_LOCK=threading.RLock()
++def llvm():
++    global _LLVM
++    with _LLVM_LOCK:
++        if _LLVM is None: _LLVM=LLVM()
++        return _LLVM
++
++RUNTIME_SYMBOLS=['dec_tick','dec_enter','dec_leave','dec_ok','dec_literal','dec_unary','dec_binary','dec_builtin','dec_truth','dec_emit','dec_assert']
++def runtime_sources(): return [ROOT/'native/runtime.cpp',ROOT/'native/runtime.hpp']
++def runtime_digest(): return sha(b''.join(p.read_bytes() for p in runtime_sources()))
++
++_FILE_DIGESTS={}
++def file_digest(path):
++    path=Path(path); stat=path.stat(); key=(str(path.resolve()),stat.st_size,stat.st_mtime_ns)
++    if key not in _FILE_DIGESTS: _FILE_DIGESTS[key]=sha(path.read_bytes())
++    return _FILE_DIGESTS[key]
++@contextmanager
++def cache_lock(directory, name='.cache.lock'):
++    """Serialize cooperating publishers across both threads and processes."""
++    directory=Path(directory); directory.mkdir(parents=True,exist_ok=True)
++    with (directory/name).open('a+b') as stream:
++        fcntl.flock(stream.fileno(),fcntl.LOCK_EX)
++        try: yield
++        finally: fcntl.flock(stream.fileno(),fcntl.LOCK_UN)
++
++@contextmanager
++def staged_path(destination):
++    destination=Path(destination)
++    fd,name=tempfile.mkstemp(prefix='.'+destination.name+'.',suffix='.tmp',dir=destination.parent)
++    os.close(fd)
++    try:
++        yield Path(name)
++        with open(name,'rb') as stream: os.fsync(stream.fileno())
++        os.replace(name,destination)
++        directory=os.open(destination.parent,os.O_RDONLY|os.O_DIRECTORY)
++        try: os.fsync(directory)
++        finally: os.close(directory)
++    finally:
++        if os.path.exists(name): os.unlink(name)
++
++def atomic_text(destination,text):
++    with staged_path(destination) as temporary: temporary.write_text(text)
++
++def ensure_runtime():
++    builddir=ROOT/'build/native'; builddir.mkdir(parents=True,exist_ok=True)
++    digest=runtime_digest(); so=builddir/('libdec-'+digest[:16]+'.so'); obj=builddir/('runtime-'+digest[:16]+'.o')
++    manifest=builddir/('runtime-'+digest[:16]+'.json')
++    with cache_lock(builddir,'.runtime.lock'):
++        valid=False
++        if obj.is_file() and so.is_file() and manifest.is_file():
++            try: valid=json.loads(manifest.read_text())=={'source':digest,'object':file_digest(obj),'library':file_digest(so)}
++            except (ValueError,OSError): pass
++        if not valid:
++            with staged_path(obj) as temporary:
++                subprocess.run(['g++','-std=c++17','-O2','-fPIC','-c',str(ROOT/'native/runtime.cpp'),'-o',str(temporary)],check=True)
++            with staged_path(so) as temporary:
++                subprocess.run(['g++','-shared',str(obj),'-lgmpxx','-lgmp','-lcrypto','-o',str(temporary)],check=True)
++            atomic_text(manifest,json.dumps({'source':digest,'object':file_digest(obj),'library':file_digest(so)},sort_keys=True)+'\n')
++    return so,obj
++
++def binding(program,opt):
++    L=llvm()
++    return {'compiler':COMPILER_VERSION,'compiler_sha256':sha(Path(__file__).read_bytes()),'semantic_version':1,'abi':ABI_VERSION,'source_sha256':program['source_sha256'],'ir_sha256':sha(dumps_ir(program).encode()),'runtime_sha256':runtime_digest(),'llvm_version':list(L.version),'llvm_library':str(Path(LLVM_PATH).resolve()),'llvm_sha256':file_digest(LLVM_PATH),'target':L.triple,'cpu':L.cpu,'features':L.features,'opt':opt}
++
++def _object_file(program,opt=0,cache_dir=None):
++    if opt not in (0,1,2,3): raise DecError('optimization level must be 0..3')
++    program=program_of(program); started=time.perf_counter_ns(); meta=binding(program,opt); key=sha(json.dumps(meta,sort_keys=True).encode())
++    directory=Path(cache_dir) if cache_dir else ROOT/'build/native/cache'; directory.mkdir(parents=True,exist_ok=True)
++    obj=directory/(key+'.o'); manifest=directory/(key+'.json'); irpath=directory/(key+'.ll'); hit=False
++    if obj.is_file() and manifest.is_file() and irpath.is_file():
++        try:
++            old=json.loads(manifest.read_text()); hit=old['binding']==meta and old['object_sha256']==sha(obj.read_bytes()) and old['llvm_ir_sha256']==sha(irpath.read_bytes())
++        except (ValueError,KeyError,OSError): pass
++    if not hit:
++        ir=lower(program)
++        with staged_path(obj) as temporary:
++            with _LLVM_LOCK: llvm().emit(ir,temporary,opt)
++        atomic_text(irpath,ir)
++        atomic_text(manifest,json.dumps({'binding':meta,'key':key,'object_sha256':sha(obj.read_bytes()),'llvm_ir_sha256':sha(ir.encode())},indent=2)+'\n')
++    return obj,{'compile_ns':time.perf_counter_ns()-started,'cache_hit':hit,'key':key,'object':str(obj),'llvm_ir':str(irpath),'binding':meta}
++
++def object_file(program,opt=0,cache_dir=None):
++    directory=Path(cache_dir) if cache_dir else ROOT/'build/native/cache'
++    with cache_lock(directory): return _object_file(program,opt,directory)
++
++def build(program,output,opt=0,cache_dir=None):
++    program=program_of(program); started=time.perf_counter_ns(); so,runtime=ensure_runtime(); obj,info=object_file(program,opt,cache_dir)
++    output=Path(output).resolve(); output.parent.mkdir(parents=True,exist_ok=True)
++    runner=ROOT/'native/runner.cpp'
++    command=['g++','-std=c++17','-O2',str(runner),str(obj),str(runtime),'-lgmpxx','-lgmp','-lcrypto','-o',str(output)]
++    linkstart=time.perf_counter_ns(); subprocess.run(command,check=True)
++    info.update(output=str(output),link_ns=time.perf_counter_ns()-linkstart,total_ns=time.perf_counter_ns()-started,command=command)
++    output.with_suffix(output.suffix+'.build.json').write_text(json.dumps(info,indent=2)+'\n'); return info
++
++def guard_ir(program,key):
++    """Identity-bound optimized entry with generic fallback before source effects."""
++    expected=int(key[:16],16); lines=[]
++    for f in program['functions']:
++        for b in f['branches']:
++            types=[p['type'] for p in b['params']]
++            sig=''.join(', ptr' for _ in types)
++            actual=''.join(f', ptr %a{i}' for i in range(len(types)))
++            declaration=''.join(f', ptr %a{i}' for i in range(len(types)))
++            fast=mangle(f['name'],types); slow=mangle(f['name'],types,'generic'); wrapper=mangle(f['name'],types,'guard')
++            lines.extend([f'declare ptr @{fast}(ptr{sig})',f'declare ptr @{slow}(ptr{sig})',
++                f'define ptr @{wrapper}(ptr %ctx{declaration}, i64 %identity, ptr %path) {{',
++                'entry:',f'  %valid = icmp eq i64 %identity, {expected}',
++                '  br i1 %valid, label %specialized, label %fallback',
++                'specialized:','  store i32 1, ptr %path',f'  %s = call ptr @{fast}(ptr %ctx{actual})','  ret ptr %s',
++                'fallback:','  store i32 0, ptr %path',f'  %g = call ptr @{slow}(ptr %ctx{actual})','  ret ptr %g','}'])
++    return '\n'.join(lines)+'\n'
++
++def _auxiliary_objects(program,main_info):
++    base=Path(main_info['object']); objects=[]
++    for suffix,ir in [('generic',lower(program,'generic')),('guard',guard_ir(program,main_info['key']))]:
++        obj=base.with_suffix('.'+suffix+'.o'); meta=obj.with_suffix(obj.suffix+'.json'); digest=sha(ir.encode()); valid=False
++        if obj.exists() and meta.exists():
++            try:
++                old=json.loads(meta.read_text()); valid=old=={'ir':digest,'object':sha(obj.read_bytes())}
++            except (OSError,ValueError): pass
++        if not valid:
++            with staged_path(obj) as temporary:
++                with _LLVM_LOCK: llvm().emit(ir,temporary,0)
++            atomic_text(obj.with_suffix('.ll'),ir); atomic_text(meta,json.dumps({'ir':digest,'object':sha(obj.read_bytes())})+'\n')
++        objects.append(obj)
++    return objects
++
++def auxiliary_objects(program,main_info):
++    with cache_lock(Path(main_info['object']).parent): return _auxiliary_objects(program,main_info)
++
++class _Flags(C.Structure): _fields_=[('GenericFlags',C.c_uint8),('TargetFlags',C.c_uint8)]
++class _Symbol(C.Structure): _fields_=[('Address',U64),('Flags',_Flags)]
++class _Pair(C.Structure): _fields_=[('Name',P),('Sym',_Symbol)]
++
++class JitSession:
++    """An owning ORC code lifetime. Calls and close are serialized per session.
++
++    No raw callable escapes this owner. The generated address is diagnostic only.
++    Closed sessions reject calls rather than touching reclaimed executable pages.
++    """
++    def __init__(self,program,opt=0,cache_dir=None):
++        self.program=program_of(program); self.opt=opt; self.cache_dir=cache_dir; self.lock=threading.RLock(); self.closed=False; self.jit=None; self.compile_ns=0; self.load_ns=0; self.cache_hit=False; self.addresses={}; self.info={}
++    def _load(self):
++        if self.jit: return
++        runtime_start=time.perf_counter_ns(); so,_=ensure_runtime(); runtime_ns=time.perf_counter_ns()-runtime_start; obj,info=object_file(self.program,self.opt,self.cache_dir); extra_start=time.perf_counter_ns(); extra=auxiliary_objects(self.program,info); self.info=info; self.compile_ns=runtime_ns+info['compile_ns']+time.perf_counter_ns()-extra_start; self.cache_hit=info['cache_hit']; start=time.perf_counter_ns()
++        self.runtime=C.CDLL(str(so)); rt=self.runtime
++        sig={'dec_context_new':(P,[C.c_int64,I]),'dec_context_free':(None,[P]),'dec_ok':(I,[P]),'dec_error':(S,[P]),'dec_error_line':(I,[P]),'dec_output':(P,[P]),'dec_output_size':(U64,[P]),'dec_render':(P,[P,P]),'dec_render_size':(U64,[P]),'dec_literal':(P,[P,S,S,U64,I]),'dec_builtin':(P,[P,S,C.POINTER(P),I,I])}
++        for name,(r,a) in sig.items(): getattr(rt,name).restype=r; getattr(rt,name).argtypes=a
++        L=llvm(); jit=P(); L.error(L.LLVMOrcCreateLLJIT(C.byref(jit),None)); self.jit=jit
++        try:
++            jd=L.LLVMOrcLLJITGetMainJITDylib(jit); pairs=(_Pair*len(RUNTIME_SYMBOLS))()
++            for pair,name in zip(pairs,RUNTIME_SYMBOLS):
++                pair.Name=L.LLVMOrcLLJITMangleAndIntern(jit,name.encode()); pair.Sym=_Symbol(C.cast(getattr(rt,name),P).value,_Flags(5,0))
++            unit=L.LLVMOrcAbsoluteSymbols(pairs,len(pairs)); L.error(L.LLVMOrcJITDylibDefine(jd,unit))
++            for path in [obj]+extra:
++                raw=path.read_bytes(); buf=L.LLVMCreateMemoryBufferWithMemoryRangeCopy(raw,len(raw),b'dec.o'); L.error(L.LLVMOrcLLJITAddObjectFile(jit,jd,buf))
++        except BaseException:
++            L.error(L.LLVMOrcDisposeLLJIT(jit)); self.jit=None; raise
++        self.load_ns=time.perf_counter_ns()-start
++    def _literal(self,ctx,value):
++        if type(value) is bool: typ,text='bool','true' if value else 'false'
++        elif type(value) is int: typ,text='int',str(value)
++        elif type(value) is str: typ,text='str',value
++        elif isinstance(value,tuple) and len(value)==2: typ,text=value
++        else: raise DecError('entry arguments must be int/bool/str or (type, text)')
++        if typ not in ('int','bool','str','t1','t32','q4','ratio'): raise DecError('unsupported external argument type')
++        text=str(text)
++        if typ in ('int','t1','t32','q4') and not re.fullmatch(r'[+-]?[0-9]+',text):
++            raise DecError('external integer text must contain one exact decimal integer')
++        def literal(kind,spelling):
++            if kind=='int' and spelling.startswith('+'): spelling=spelling[1:]
++            raw=spelling.encode(); return self.runtime.dec_literal(ctx,kind.encode(),raw,len(raw),0)
++        if typ in ('int','bool','str'): return typ,literal(typ,text)
++        if typ=='ratio':
++            match=re.fullmatch(r'([+-]?[0-9]+)(?:/([+-]?[0-9]+))?',text)
++            if not match: raise DecError('external ratio text must be N/D or an exact decimal integer')
++            handles=[literal('int',match[1])]
++            if match[2] is not None: handles.append(literal('int',match[2]))
++        else:
++            handles=[literal('int',text)]
++        array=(P*len(handles))(*handles)
++        # Construct source-level numeric types through the same checked native
++        # conversions used by compiled code, before entering the source function.
++        return typ,self.runtime.dec_builtin(ctx,typ.encode(),array,len(handles),0)
++    def run(self,fuel=100000,max_depth=128,function='main',args=None,guard_key=None):
++        with self.lock:
++            if self.closed: raise DecError('JIT session is closed')
++            self._load(); rt=self.runtime; ctx=rt.dec_context_new(fuel,max_depth)
++            if not ctx: raise DecError('native context allocation failed')
++            try:
++                args=[] if args is None else args; types=[]; handles=[]
++                for value in args:
++                    typ,handle=self._literal(ctx,value); types.append(typ); handles.append(handle)
++                symbol=mangle(function,types,'guard')
++                if not any(f['name']==function and any([p['type'] for p in b['params']]==types for b in f['branches']) for f in self.program['functions']): raise DecError('unlisted native entry signature')
++                if symbol not in self.addresses:
++                    start=time.perf_counter_ns(); address=U64(); llvm().error(llvm().LLVMOrcLLJITLookup(self.jit,C.byref(address),symbol.encode())); self.addresses[symbol]=address.value; self.load_ns+=time.perf_counter_ns()-start
++                address=self.addresses[symbol]; call=C.CFUNCTYPE(P,P,*([P]*len(handles)),U64,C.POINTER(I))(address)
++                identity=int(self.info['key'][:16],16) if guard_key is None or guard_key==self.info['key'] else int(sha(str(guard_key).encode())[:16],16); dispatch=I(-1)
++                started=time.perf_counter_ns(); result=call(ctx,*handles,identity,C.byref(dispatch)) if rt.dec_ok(ctx) else None; elapsed=time.perf_counter_ns()-started
++                output=C.string_at(rt.dec_output(ctx),rt.dec_output_size(ctx)).decode('utf-8'); ok=rt.dec_ok(ctx)
++                rendered=C.string_at(rt.dec_render(ctx,result),rt.dec_render_size(ctx)).decode('utf-8') if ok else None
++                return {'stdout':output,'result':rendered,'error':None if ok else rt.dec_error(ctx).decode(),'error_line':0 if ok else rt.dec_error_line(ctx),'exit_code':0 if ok else 1,'execute_ns':elapsed,'address':address,'cache_hit':self.cache_hit,'compile_ns':self.compile_ns,'load_ns':self.load_ns,'key':self.info['key'],'dispatch':'specialized' if dispatch.value==1 else 'generic' if dispatch.value==0 else 'not_entered'}
++            finally: rt.dec_context_free(ctx)
++    def close(self):
++        with self.lock:
++            if self.jit: llvm().error(llvm().LLVMOrcDisposeLLJIT(self.jit)); self.jit=None
++            self.closed=True; self.addresses.clear()
++    def __enter__(self): return self
++    def __exit__(self,*args): self.close()
+--- /dev/null
++++ b/native/learning.py
+@@ -0,0 +1,243 @@
++"""Bounded retained-cost selection over previously validated native variants.
++
++This is an explicit compiler control model. It supplies no AOD transition law.
++"""
++from __future__ import annotations
++from dataclasses import dataclass
++from datetime import datetime, timezone
++import hashlib
++import json
++import math
++import os
++from pathlib import Path
++import platform
++import random
++import shutil
++import statistics
++import subprocess
++import tempfile
++import time
++
++POLICY = 'dec-cost-table-v1'
++PROFILE_VERSION = 1
++MAX_BYTES = 1_000_000
++MAX_SAMPLES = 32
++MIN_SAMPLES = 5
++VARIANTS = ('generic', 'optimized')
++THRESHOLD = 0.05
++
++
++def canonical(value):
++    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False)
++
++
++def digest(value):
++    return hashlib.sha256(canonical(value).encode()).hexdigest()
++
++
++def semantic_outcome(result):
++    """Exclude timing/code metadata; retain every observable execution field."""
++    return {key: result.get(key) for key in ('stdout', 'result', 'error', 'error_line', 'exit_code')}
++
++
++def paired_interval(generic, optimized, samples=2000, seed=20261113):
++    """Paired median fractional savings and percentile bootstrap interval."""
++    pairs = [(a-b)/a for a, b in zip(generic, optimized) if a > 0 and b > 0]
++    if len(pairs) < MIN_SAMPLES:
++        return {'pairs': len(pairs), 'median_gain': None, 'lower': None, 'upper': None}
++    rng = random.Random(seed)
++    boot = sorted(statistics.median(rng.choices(pairs, k=len(pairs))) for _ in range(samples))
++    return {'pairs': len(pairs), 'median_gain': statistics.median(pairs),
++            'lower': boot[int(0.025 * samples)], 'upper': boot[min(samples-1, int(0.975*samples))]}
++
++
++def host_inventory():
++    def probe(command):
++        try:
++            proc = subprocess.run(command, capture_output=True, text=True, timeout=10)
++            return {'command': command, 'returncode': proc.returncode, 'stdout': proc.stdout,
++                    'stderr': proc.stderr, 'available': proc.returncode == 0}
++        except (OSError, subprocess.TimeoutExpired) as exc:
++            return {'command': command, 'available': False, 'error': str(exc)}
++    cpuinfo = Path('/proc/cpuinfo').read_text() if Path('/proc/cpuinfo').exists() else ''
++    rows = {}
++    for line in cpuinfo.splitlines():
++        if ':' in line:
++            key, value = map(str.strip, line.split(':', 1))
++            if key in ('model name', 'vendor_id', 'cpu family', 'model', 'stepping', 'flags', 'Features'):
++                rows.setdefault(key, value)
++    clock = time.get_clock_info('perf_counter')
++    return {'recorded_utc': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),
++            'machine': platform.machine(), 'cpu_count': os.cpu_count(), 'cpu': rows,
++            'loadavg': Path('/proc/loadavg').read_text().strip() if Path('/proc/loadavg').exists() else None,
++            'memory': Path('/proc/meminfo').read_text() if Path('/proc/meminfo').exists() else None,
++            'affinity': sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None,
++            'topology': probe(['lscpu', '--json']), 'perf_counter': {'implementation': clock.implementation,
++                'monotonic': clock.monotonic, 'adjustable': clock.adjustable, 'resolution_seconds': clock.resolution},
++            'hardware_counters': probe(['perf', 'stat', '-e', 'cycles,instructions', '--', 'true']),
++            'counter_interpretation': 'Unavailable counters remain unavailable, never numeric zero.'}
++
++
++def host_binding(inventory):
++    return digest({k: inventory[k] for k in ('platform', 'machine', 'cpu_count', 'cpu', 'affinity')})
++
++
++@dataclass(frozen=True)
++class Variant:
++    name: str
++    source_sha256: str
++    artifact_sha256: str
++    abi: str
++    outcome_sha256: str
++
++
++class VariantRegistry:
++    """Only exact, prevalidated variant identities may be dispatched."""
++    def __init__(self, source_sha256, abi, expected):
++        self.source_sha256 = source_sha256
++        self.abi = abi
++        self.expected = semantic_outcome(expected)
++        self.variants = {}
++
++    def validate(self, name, artifact_sha256, actual):
++        if name not in VARIANTS:
++            raise ValueError('unknown variant')
++        if semantic_outcome(actual) != self.expected:
++            raise ValueError('native variant differs from reference outcome')
++        self.variants[name] = Variant(name, self.source_sha256, artifact_sha256, self.abi, digest(self.expected))
++
++    def permits(self, name):
++        return name in self.variants
++
++    def manifest(self):
++        return {name: vars(value) for name, value in self.variants.items()}
++
++
++class RetainedPolicy:
++    """Read old evidence, dispatch, then observe: k can affect only k+1.
++
++    Each instance exclusively owns its profile. Atomic rename prevents partial-file
++    acceptance, but concurrent writers require distinct profile paths.
++    """
++    def __init__(self, path, binding, registry):
++        self.path = Path(path)
++        self.binding = dict(binding, policy=POLICY)
++        self.registry = registry
++        self.generation = 0
++        self.costs = {name: [] for name in VARIANTS}
++        self.rollback = False
++        self.load_reason = 'missing'
++        self._load()
++
++    def _load(self):
++        try:
++            with self.path.open('rb') as stream:
++                raw = stream.read(MAX_BYTES + 1)
++            if len(raw) > MAX_BYTES:
++                raise ValueError('profile exceeds bound')
++            def pairs(values):
++                out = {}
++                for key, value in values:
++                    if key in out:
++                        raise ValueError('duplicate profile key')
++                    out[key] = value
++                return out
++            obj = json.loads(raw, object_pairs_hook=pairs, parse_constant=lambda v: (_ for _ in ()).throw(ValueError(v)))
++            payload = obj['payload']
++            if digest(payload) != obj['sha256']:
++                raise ValueError('profile checksum mismatch')
++            if payload['version'] != PROFILE_VERSION or type(payload['version']) is not int:
++                raise ValueError('profile version mismatch')
++            if payload['binding'] != self.binding:
++                raise ValueError('profile binding mismatch')
++            if payload['registry'] != self.registry.manifest():
++                raise ValueError('profile variant registry mismatch')
++            if type(payload['generation']) is not int or not 0 <= payload['generation'] < 2**63:
++                raise ValueError('invalid generation')
++            costs = payload['costs']
++            if set(costs) != set(VARIANTS):
++                raise ValueError('invalid variant table')
++            for values in costs.values():
++                if type(values) is not list or len(values) > MAX_SAMPLES:
++                    raise ValueError('invalid observation count')
++                if any(type(v) is not int or not 0 < v < 2**63 for v in values):
++                    raise ValueError('invalid observation')
++            expected_count = min(payload['generation'], MAX_SAMPLES)
++            if any(len(values) != expected_count for values in costs.values()):
++                raise ValueError('profile paired counts do not match generation')
++            if type(payload['rollback']) is not bool:
++                raise ValueError('invalid rollback state')
++            self.costs = costs
++            self.generation = payload['generation']
++            self.rollback = payload['rollback']
++            self.load_reason = 'valid'
++        except FileNotFoundError:
++            self.load_reason = 'missing'
++        except (OSError, KeyError, ValueError, TypeError, RecursionError, OverflowError) as exc:
++            self.load_reason = 'rejected: ' + str(exc)
++
++    def choose(self, mode='active'):
++        if not self.registry.permits('generic'):
++            raise ValueError('generic variant has not been validated')
++        if mode not in ('generic', 'passive', 'frozen', 'active'):
++            raise ValueError('unknown control mode')
++        selected, reason = 'generic', 'generic control'
++        if mode in ('frozen', 'active'):
++            reason = 'insufficient evidence'
++            if self.rollback:
++                reason = 'held-out rollback'
++            elif self.registry.permits('optimized') and min(map(len, self.costs.values())) >= MIN_SAMPLES:
++                interval = paired_interval(self.costs['generic'], self.costs['optimized'])
++                ratio = statistics.median(self.costs['optimized']) / statistics.median(self.costs['generic'])
++                if ratio < 1-THRESHOLD and interval['lower'] > 0:
++                    selected, reason = 'optimized', 'validated retained improvement'
++                else:
++                    reason = 'no established practical improvement'
++        return {'variant': selected, 'reason': reason, 'generation': self.generation,
++                'load_reason': self.load_reason, 'mode': mode}
++
++    def observe_pair(self, generic_ns, optimized_ns):
++        for name, value in zip(VARIANTS, (generic_ns, optimized_ns)):
++            if not self.registry.permits(name):
++                raise ValueError('cannot profile an unvalidated variant')
++            if type(value) is not int or not 0 < value < 2**63:
++                raise ValueError('cost must be positive bounded integer nanoseconds')
++        for name, value in zip(VARIANTS, (generic_ns, optimized_ns)):
++            self.costs[name] = (self.costs[name] + [value])[-MAX_SAMPLES:]
++        self.generation += 1
++        if self.generation >= 2**63:
++            raise ValueError('profile generation exhausted')
++
++    def evaluate_heldout(self, generic, optimized, overhead_ns=0):
++        interval = paired_interval(generic, optimized)
++        total_gain = sum(generic) - sum(optimized) - overhead_ns
++        benefit = bool(interval['lower'] is not None and interval['lower'] > THRESHOLD and total_gain > 0)
++        regression = bool(interval['median_gain'] is not None and interval['median_gain'] < -THRESHOLD)
++        self.rollback = not benefit
++        return dict(interval, measured_overhead_ns=overhead_ns, total_gain_ns=total_gain,
++                    established_benefit=benefit, regression=regression,
++                    action='retain optimized' if benefit else 'restore generic')
++
++    def save(self):
++        self.path.parent.mkdir(parents=True, exist_ok=True)
++        payload = {'version': PROFILE_VERSION, 'binding': self.binding,
++                   'registry': self.registry.manifest(), 'generation': self.generation,
++                   'costs': self.costs, 'rollback': self.rollback}
++        encoded = (canonical({'payload': payload, 'sha256': digest(payload)}) + '\n').encode()
++        if len(encoded) > MAX_BYTES:
++            raise ValueError('encoded profile exceeds bound')
++        fd, temporary = tempfile.mkstemp(prefix='.'+self.path.name+'.', suffix='.tmp', dir=self.path.parent)
++        try:
++            with os.fdopen(fd, 'wb') as stream:
++                stream.write(encoded)
++                stream.flush()
++                os.fsync(stream.fileno())
++            os.replace(temporary, self.path)
++            directory = os.open(self.path.parent, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
++            try:
++                os.fsync(directory)
++            finally:
++                os.close(directory)
++        finally:
++            if os.path.exists(temporary):
++                os.unlink(temporary)
+--- /dev/null
++++ b/native/runner.cpp
+@@ -0,0 +1,18 @@
++#include "runtime.hpp"
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++extern "C" void* dec_main__void(void*);
++int main(int argc,char** argv) {
++    long long fuel=100000; int depth=128;
++    if (argc>1) fuel=std::strtoll(argv[1],nullptr,10);
++    if (argc>2) depth=std::atoi(argv[2]);
++    void* ctx=dec_context_new(fuel,depth);
++    if(!ctx){std::fputs("aodc: native context allocation failed\n",stderr);return 1;}
++    void* result=dec_main__void(ctx);
++    std::fwrite(dec_output(ctx),1,dec_output_size(ctx),stdout);
++    int status=0;
++    if(!dec_ok(ctx)){std::fprintf(stderr,"aodc: %s\n",dec_error(ctx));status=1;}
++    else {const char* text=dec_render(ctx,result); std::fwrite(text,1,dec_render_size(ctx),stdout);std::fputc('\n',stdout);}
++    dec_context_free(ctx); return status;
++}
+--- /dev/null
++++ b/native/runtime.cpp
+@@ -0,0 +1,142 @@
++#include "runtime.hpp"
++#include <gmpxx.h>
++#include <openssl/sha.h>
++#include <algorithm>
++#include <memory>
++#include <set>
++#include <stdexcept>
++#include <string>
++#include <vector>
++#include <cstdio>
++#include <limits>
++
++// Runtime data never escapes this translation unit. Arena handles are immutable.
++namespace {
++void req(bool b,const std::string& s) { if(!b) throw std::runtime_error(s); }
++struct Event { size_t ordinal; std::string kind; int source,target,orientation; };
++struct Closure { size_t begin,end; std::string digest; };
++struct Trace { std::string scope,lineage; int start=0; std::vector<Event> events; std::vector<Closure> closures; std::vector<std::shared_ptr<const Trace>> parents; std::string proposal; };
++struct Fusion { std::shared_ptr<const Trace> left,right; std::string scope,lineage,digest; };
++struct Coupling { std::shared_ptr<const Trace> left,right; std::string window; std::vector<std::pair<mpz_class,mpz_class>> contacts; };
++struct Value { std::string type; mpq_class n; std::string s; std::shared_ptr<const Trace> t; std::shared_ptr<const Fusion> f; std::shared_ptr<const Coupling> c; };
++struct Context { int64_t fuel; int depth=0,depth_limit; std::string error,output,scratch; bool failed=false; int line=0; std::vector<std::unique_ptr<const Value>> arena; std::set<const Value*> owned; uint64_t allocation_limit=std::numeric_limits<uint64_t>::max(); };
++std::string hex4(unsigned n) { char b[7]; std::snprintf(b,sizeof b,"\\u%04x",n); return b; }
++// Python json.dumps ensure_ascii=True spelling, including surrogate pairs.
++std::string quote(const std::string& s) {
++ std::string out="\"";
++ for(size_t i=0;i<s.size();) {
++  unsigned c=(unsigned char)s[i++];
++  if(c>=0x80) {
++   unsigned more=0,cp=0;
++   if((c&0xe0)==0xc0){more=1;cp=c&31;} else if((c&0xf0)==0xe0){more=2;cp=c&15;} else if((c&0xf8)==0xf0){more=3;cp=c&7;} else throw std::runtime_error("invalid UTF-8 string");
++   req(i+more<=s.size(),"invalid UTF-8 string");
++   for(unsigned j=0;j<more;j++){unsigned d=(unsigned char)s[i++];req((d&0xc0)==0x80,"invalid UTF-8 string");cp=(cp<<6)|(d&63);}
++   req(cp<=0x10ffff,"invalid UTF-8 string");
++   if(cp<=0xffff)out+=hex4(cp);else{cp-=0x10000;out+=hex4(0xd800+(cp>>10));out+=hex4(0xdc00+(cp&1023));}
++  } else if(c=='"')out+="\\\"";else if(c=='\\')out+="\\\\";
++  else if(c=='\b')out+="\\b";else if(c=='\f')out+="\\f";else if(c=='\n')out+="\\n";else if(c=='\r')out+="\\r";else if(c=='\t')out+="\\t";
++  else if(c<32||c==127)out+=hex4(c);else out+=(char)c;
++ }
++ return out+'"';
++}
++std::string hash(const std::string& s){unsigned char d[SHA256_DIGEST_LENGTH];SHA256((const unsigned char*)s.data(),s.size(),d);std::string o;for(auto c:d){char h[3];std::snprintf(h,3,"%02x",c);o+=h;}return o;}
++template<class T,class F> std::string array(const std::vector<T>& a,F f){std::string s="[";for(size_t i=0;i<a.size();i++){if(i)s+=',';s+=f(a[i]);}return s+"]";}
++std::string event_json(const Event&e){return "{\"kind\":"+quote(e.kind)+",\"ordinal\":"+std::to_string(e.ordinal)+",\"orientation\":"+std::to_string(e.orientation)+",\"source\":"+std::to_string(e.source)+",\"target\":"+std::to_string(e.target)+"}";}
++std::string trace_json(const Trace&);
++std::string trace_json(const Trace&t){return "{\"closures\":"+array(t.closures,[](auto&c){return "{\"begin\":"+std::to_string(c.begin)+",\"digest\":"+quote(c.digest)+",\"end\":"+std::to_string(c.end)+"}";})+",\"events\":"+array(t.events,event_json)+",\"lineage\":"+quote(t.lineage)+",\"parents\":"+array(t.parents,[](auto&p){return trace_json(*p);})+",\"proposal\":"+quote(t.proposal)+",\"scope\":"+quote(t.scope)+",\"start\":{\"value\":"+std::to_string(t.start)+"}}";}
++std::string prefix(const Trace&t,size_t end){std::vector<Event> e(t.events.begin(),t.events.begin()+end);return "{\"events\":"+array(e,event_json)+",\"lineage\":"+quote(t.lineage)+",\"parents\":"+array(t.parents,[](auto&p){return quote(p->closures.back().digest);})+",\"proposal\":"+quote(t.proposal)+",\"scope\":"+quote(t.scope)+",\"start\":"+std::to_string(t.start)+"}";}
++std::string fusion_digest(const Trace&a,const Trace&b,const std::string&s,const std::string&l){return hash("{\"lineage\":"+quote(l)+",\"parents\":["+quote(a.closures.back().digest)+","+quote(b.closures.back().digest)+"],\"scope\":"+quote(s)+"}");}
++void label(const std::string&s){
++ // Python str.strip whitespace set, expressed as Unicode scalar values.
++ bool nonwhite=false;
++ for(size_t i=0;i<s.size();){unsigned c=(unsigned char)s[i++]; if(c>=128){unsigned k=(c&0xe0)==0xc0?1:(c&0xf0)==0xe0?2:3;unsigned cp=c&((1u<<(6-k))-1);for(unsigned j=0;j<k && i<s.size();j++)cp=(cp<<6)|((unsigned char)s[i++]&63);c=cp;}bool ws=(c>=9&&c<=13)||(c>=28&&c<=32)||c==0x85||c==0xa0||c==0x1680||(c>=0x2000&&c<=0x200a)||c==0x2028||c==0x2029||c==0x202f||c==0x205f||c==0x3000;if(!ws)nonwhite=true;}
++ req(nonwhite,"scope, lineage and window names must be nonempty");
++}
++int segment(const Trace&t,size_t begin,size_t end,bool complete){
++ req(begin<=end&&end<=t.events.size(),"invalid trace segment");int p=t.start,orientation=0,moves=0;bool hinged=false;
++ for(size_t i=begin;i<end;i++){auto&e=t.events[i];req(e.ordinal==i+1,"invalid or repeated event identity");req(e.source==p,"discontinuous retained trace");req(e.target>=0&&e.target<16,"q4 outside 0..15");
++  if(e.kind=="step"){req(e.orientation==-1||e.orientation==1,"step requires nonzero orientation");req(__builtin_popcount((unsigned)(p^e.target))==1,"atomic move must be Hamming-1");if(!orientation){req(!hinged,"hinge cannot precede outgoing branch");orientation=e.orientation;}req(e.orientation==(hinged?-orientation:orientation),"counterbranch orientation requires structural hinge");moves++;p=e.target;}
++  else if(e.kind=="hinge"){req(orientation&&!hinged,"one structural hinge must follow outgoing branch");req(e.target==p&&!e.orientation,"invalid structural hinge");hinged=true;}
++  else if(e.kind=="dwell")req(e.target==p&&!e.orientation,"invalid dwell");else throw std::runtime_error("unknown retained event kind");
++ }
++ if(complete){req(moves>=2&&hinged,"closure needs outgoing branch, hinge and counterbranch");req(p==t.start,"open trace does not return to retained start");req(t.events[end-1].kind=="step","closure must identify a return event, not dwell");req(t.events[end-1].orientation==-orientation,"return event is not counterbranch");}return p;
++}
++int validate(const Trace&t,int depth=0){
++ req(depth<64,"invalid or excessively nested trace");label(t.scope);label(t.lineage);req(t.start>=0&&t.start<16,"q4 outside 0..15");
++ if(!t.parents.empty()){req(t.parents.size()==2,"fusion requires two retained parents in this subset");for(auto&p:t.parents){req(bool(p),"invalid or excessively nested trace");validate(*p,depth+1);req(!p->closures.empty()&&p->closures.back().end==p->events.size(),"fusion parent is not closed");}auto&a=*t.parents[0];auto&b=*t.parents[1];req(a.scope!=b.scope||a.lineage!=b.lineage,"fusion parents must have distinct lineages");req(t.scope!=a.scope&&t.scope!=b.scope,"outer scope must differ from inner scopes");req(t.proposal==fusion_digest(a,b,t.scope,t.lineage),"outer trace does not match retained fusion proposal");}else req(t.proposal.empty(),"orphan fusion proposal");
++ size_t begin=0;for(auto&c:t.closures){req(c.begin==begin&&begin<c.end&&c.end<=t.events.size(),"invalid/replayed closure range");segment(t,begin,c.end,true);req(c.digest==hash(prefix(t,c.end)),"closure certificate does not match retained history");begin=c.end;}return segment(t,begin,t.events.size(),false);
++}
++Fusion fold(std::shared_ptr<const Trace>a,std::shared_ptr<const Trace>b,const std::string&s,const std::string&l){for(auto&t:{a,b}){validate(*t);req(!t->closures.empty()&&t->closures.back().end==t->events.size(),"fold requires closed retained inner inputs");}req(a->scope!=b->scope||a->lineage!=b->lineage,"fold requires distinct inner lineages");label(s);label(l);req(s!=a->scope&&s!=b->scope,"outer scope must differ from inner scopes");return {a,b,s,l,fusion_digest(*a,*b,s,l)};}
++void validate(const Fusion&f){auto e=fold(f.left,f.right,f.scope,f.lineage);req(e.digest==f.digest,"modified fusion proposal");}
++Coupling coupling(std::shared_ptr<const Trace>a,std::shared_ptr<const Trace>b,const std::string&w){validate(*a);validate(*b);label(w);req(a->scope==b->scope&&a->lineage!=b->lineage,"coupling needs distinct lineages in common scope");req(a->events.size()==b->events.size()&&!a->events.empty(),"coupling needs equal positive committed event spans");return {a,b,w,{}};}
++void validate(const Coupling&c){coupling(c.left,c.right,c.window);std::set<mpz_class>a,b;for(auto&x:c.left->closures)a.insert(mpz_class(x.end));for(auto&x:c.right->closures)b.insert(mpz_class(x.end));mpz_class pa=0,pb=0;for(auto&p:c.contacts){req(a.count(p.first)&&b.count(p.second),"contact must bind certified return events");req(p.first>pa&&p.second>pb,"contacts must be distinct, ordered and unreplayed");pa=p.first;pb=p.second;}}
++void comparison(const Coupling&c){validate(c);req(c.contacts.size()>=2&&c.left->closures.size()>=2&&c.right->closures.size()>=2,"comparison needs recurrent lineages and repeated bound contacts");}
++Value numeric(const std::string&t,const mpq_class&n){
++ Value v;v.type=t;mpz_class numerator=n.get_num(),denominator=n.get_den();req(denominator!=0,"zero denominator");if(denominator<0){numerator=-numerator;denominator=-denominator;}v.n=mpq_class(numerator,denominator);v.n.canonicalize();
++ if(t!="ratio")req(v.n.get_den()==1,"expected exact int");
++ auto z=v.n.get_num();if(t=="t1")req(z>=-1&&z<=1,"t1 outside {-1,0,+1}");if(t=="t32"){static const mpz_class lim("926510094425920");req(z>=-lim&&z<=lim,"t32 overflow");}if(t=="q4")req(z>=0&&z<16,"q4 outside 0..15");return v;
++}
++Value truth(bool b){return numeric("bool",mpq_class(b?1:0));}
++Value tv(const Trace&t){Value v;v.type="trace";v.t=std::make_shared<const Trace>(t);return v;}
++std::string render(const Value&v){if(v.type=="str")return v.s;if(v.type=="bool")return v.n==0?"false":"true";if(v.type=="int")return v.n.get_num().get_str();if(v.type=="ratio")return v.n.get_num().get_str()+"/"+v.n.get_den().get_str();if(v.type=="t1"||v.type=="t32"||v.type=="q4")return v.type+"("+v.n.get_num().get_str()+")";if(v.type=="trace")return trace_json(*v.t);if(v.type=="fusion"){auto&f=*v.f;return "{\"digest\":"+quote(f.digest)+",\"left\":"+trace_json(*f.left)+",\"lineage\":"+quote(f.lineage)+",\"right\":"+trace_json(*f.right)+",\"scope\":"+quote(f.scope)+"}";}if(v.type=="coupling"){auto&c=*v.c;return "{\"contacts\":"+array(c.contacts,[](auto&p){return "["+p.first.get_str()+","+p.second.get_str()+"]";})+",\"left\":"+trace_json(*c.left)+",\"right\":"+trace_json(*c.right)+",\"window\":"+quote(c.window)+"}";}throw std::runtime_error("unsupported value type");}
++Value unary(const std::string&op,const Value&v){if(op=="not"){req(v.type=="bool","invalid unary operation");return truth(v.n==0);}req(v.type=="int"||v.type=="t1"||v.type=="t32"||v.type=="ratio","unary arithmetic requires numeric type");req(op=="+"||op=="-","unsupported unary operator");return numeric(v.type,op=="+"?v.n:mpq_class(-v.n));}
++Value binary(const std::string&op,const Value&a,const Value&b){req(a.type==b.type,"implicit numeric coercion is forbidden");if(op=="=="||op=="!="){bool eq=render(a)==render(b);return truth(op=="=="?eq:!eq);}req(a.type=="int"||a.type=="t1"||a.type=="t32"||a.type=="ratio","arithmetic requires numeric type");if(op=="<")return truth(a.n<b.n);if(op=="<=")return truth(a.n<=b.n);if(op==">")return truth(a.n>b.n);if(op==">=")return truth(a.n>=b.n);if(op=="/"){req(b.n!=0,"zero denominator");return numeric("ratio",a.n/b.n);}if(op=="+")return numeric(a.type,a.n+b.n);if(op=="-")return numeric(a.type,a.n-b.n);if(op=="*")return numeric(a.type,a.n*b.n);req(op=="//"||op=="%","unsupported binary operator");req(a.type=="int"||a.type=="t32","integer quotient/remainder required");req(b.n!=0,"zero divisor");mpz_class q,r;auto az=a.n.get_num(),bz=b.n.get_num();mpz_fdiv_qr(q.get_mpz_t(),r.get_mpz_t(),az.get_mpz_t(),bz.get_mpz_t());return numeric(a.type,mpq_class(op=="//"?q:r));}
++void signatures(const std::string&name,const std::vector<const Value*>&a){
++ std::string s;for(auto*v:a){if(!s.empty())s+=',';s+=v->type;}bool ok=false;
++ if(name=="t1"||name=="t32"||name=="q4"||name=="unpack")ok=s=="int";
++ else if(name=="int")ok=s=="int"||s=="t1"||s=="t32"||s=="q4"||s=="ratio";
++ else if(name=="ratio")ok=s=="int"||s=="int,int";else if(name=="pack")ok=s=="t32";
++ else if(name=="trace")ok=s=="str,str,q4";else if(name=="step")ok=s=="trace,q4,t1";
++ else if(name=="hinge"||name=="dwell"||name=="close"||name=="phases"||name=="beats"||name=="rate")ok=s=="trace";
++ else if(name=="fold")ok=s=="trace,trace,str,str";else if(name=="outer")ok=s=="fusion,q4";else if(name=="fuse")ok=s=="fusion,trace";
++ else if(name=="coupling")ok=s=="trace,trace,str";else if(name=="contact")ok=s=="coupling,int,int";
++ else if(name=="cadence"||name=="lag"||name=="drift")ok=s=="coupling";else if(name=="probability")ok=s=="int,int,int,t1";
++ else if(name=="neg")ok=s=="int"||s=="t1"||s=="t32"||s=="ratio";else throw std::runtime_error("unknown builtin: "+name);
++ req(ok,"unlisted signature for "+name+"("+s+")");
++}
++Value builtin(const std::string&name,const std::vector<const Value*>&a){signatures(name,a);auto&v=*a[0];
++ if(name=="t1"||name=="t32"||name=="q4")return numeric(name,v.n);
++ if(name=="int"){req(v.n.get_den()==1,"ratio-to-int would lose a remainder");return numeric("int",v.n);}
++ if(name=="ratio"){mpq_class d=a.size()==2?a[1]->n:mpq_class(1);req(d!=0,"zero denominator");return numeric("ratio",v.n/d);}
++ if(name=="neg")return unary("-",v);
++ if(name=="pack"){mpz_class z=v.n.get_num(),bits=0;for(unsigned i=0;i<32;i++){unsigned long r=mpz_fdiv_ui(z.get_mpz_t(),3);int digit=r==2?-1:(int)r;z=(z-digit)/3;mpz_class code=digit==-1?2:digit;bits+=code<<(2*i);}req(z==0,"t32 packing overflow");return numeric("int",mpq_class(bits));}
++ if(name=="unpack"){mpz_class bits=v.n.get_num(),limit=mpz_class(1)<<64;req(bits>=0&&bits<limit,"packed t32 outside u64");mpz_class z=0,power=1;for(unsigned i=0;i<32;i++){unsigned code=(bits.get_ui()>>(2*i))&3;req(code!=3,"11 is invalid trit encoding; it is not Null");z+=(code==2?-1:(int)code)*power;power*=3;}return numeric("t32",mpq_class(z));}
++ if(name=="probability"){mpq_class sum=0;for(int i=0;i<3;i++){req(a[i]->n>=0,"weights must be exact and nonnegative");sum+=a[i]->n;}req(sum>0,"normalization requires positive total weight");return numeric("ratio",a[a[3]->n.get_num().get_si()+1]->n/sum);}
++ if(name=="trace"){Trace t;t.scope=v.s;t.lineage=a[1]->s;t.start=a[2]->n.get_num().get_si();validate(t);return tv(t);}
++ if(name=="step"||name=="hinge"||name=="dwell"){auto t=*v.t;int p=validate(t);t.events.push_back({t.events.size()+1,name,p,name=="step"?(int)a[1]->n.get_num().get_si():p,name=="step"?(int)a[2]->n.get_num().get_si():0});validate(t);return tv(t);}
++ if(name=="close"){auto t=*v.t;validate(t);size_t begin=t.closures.empty()?0:t.closures.back().end;if(begin==t.events.size()&&!t.closures.empty())return v;segment(t,begin,t.events.size(),true);t.closures.push_back({begin,t.events.size(),hash(prefix(t,t.events.size()))});validate(t);return tv(t);}
++ if(name=="phases"||name=="beats"||name=="rate"){auto&t=*v.t;validate(t);size_t n=t.closures.size();if(name=="beats")n=n?n-1:0;if(name=="rate"){req(!t.events.empty(),"rate requires a positive committed event span");return numeric("ratio",mpq_class(mpz_class(n),mpz_class(t.events.size())));}return numeric("int",mpq_class(mpz_class(n)));}
++ if(name=="fold"){Value o;o.type="fusion";o.f=std::make_shared<const Fusion>(fold(v.t,a[1]->t,a[2]->s,a[3]->s));return o;}
++ if(name=="outer"){auto&f=*v.f;validate(f);Trace t;t.scope=f.scope;t.lineage=f.lineage;t.start=a[1]->n.get_num().get_si();t.parents={f.left,f.right};t.proposal=f.digest;validate(t);return tv(t);}
++ if(name=="fuse"){auto&f=*v.f;auto&t=*a[1]->t;validate(f);validate(t);req(t.scope==f.scope&&t.lineage==f.lineage&&t.parents.size()==2&&trace_json(*t.parents[0])==trace_json(*f.left)&&trace_json(*t.parents[1])==trace_json(*f.right)&&t.proposal==f.digest,"outer trace belongs to a different proposal");req(!t.closures.empty()&&t.closures.back().end==t.events.size(),"fusion requires independently witnessed outer closure");return *a[1];}
++ if(name=="coupling"){Value o;o.type="coupling";o.c=std::make_shared<const Coupling>(coupling(v.t,a[1]->t,a[2]->s));return o;}
++ if(name=="contact"){auto c=*v.c;validate(c);c.contacts.push_back({a[1]->n.get_num(),a[2]->n.get_num()});validate(c);Value o;o.type="coupling";o.c=std::make_shared<const Coupling>(c);return o;}
++ auto&c=*v.c;comparison(c);if(name=="cadence")return numeric("ratio",mpq_class(mpz_class(c.left->closures.size()),mpz_class(c.right->closures.size())));mpz_class n=c.contacts.back().first-c.contacts.back().second;if(name=="drift")n-=c.contacts.front().first-c.contacts.front().second;return numeric("int",mpq_class(n));
++}
++const Value& value(Context*c,void*p){req(p&&c->owned.count((Value*)p),"invalid or foreign value handle");return *(Value*)p;}
++void error(Context*c,const char*s,int line) noexcept {try{if(c&&!c->failed){c->failed=true;c->line=line;c->error=line>0?"line "+std::to_string(line)+": "+s:s;}}catch(...){/* allocation exhaustion cannot propagate over C */}}
++template<class F> void* protect(void*p,int line,F f) noexcept {auto*c=(Context*)p;if(!c||c->failed)return nullptr;try{req(c->arena.size()<c->allocation_limit,"runtime allocation limit exceeded");auto v=std::make_unique<const Value>(f(c));auto*r=v.get();c->arena.push_back(std::move(v));c->owned.insert(r);return (void*)r;}catch(const std::bad_alloc&){error(c,"runtime allocation failed",line);}catch(const std::exception&e){error(c,e.what(),line);}catch(...){error(c,"native runtime failure",line);}return nullptr;}
++}
++extern "C" {
++void* dec_context_new(int64_t fuel,int32_t depth){try{auto*c=new Context;c->fuel=fuel;c->depth_limit=depth;return c;}catch(...){return nullptr;}}
++void dec_context_free(void*p){delete (Context*)p;}
++int32_t dec_ok(void*p){return p&&!((Context*)p)->failed;}
++const char* dec_error(void*p){if(!p)return "runtime allocation failed";auto*c=(Context*)p;return c->failed&&c->error.empty()?"runtime allocation failed":c->error.c_str();}
++int32_t dec_error_line(void*p){return p?((Context*)p)->line:0;}
++int32_t dec_tick(void*p){auto*c=(Context*)p;if(!dec_ok(p))return 0;if(c->fuel<=0){error(c,"execution step budget exhausted",0);return 0;}--c->fuel;return 1;}
++int32_t dec_enter(void*p){auto*c=(Context*)p;if(!dec_ok(p))return 0;c->depth++;if(c->depth>c->depth_limit){error(c,"call depth limit exceeded",0);return 0;}return 1;}
++void dec_leave(void*p){if(p&&((Context*)p)->depth>0)((Context*)p)->depth--;}
++void* dec_literal(void*p,const char*t,const char*s,uint64_t n,int32_t line){return protect(p,line,[&](auto*){req(t&&s,"null literal");std::string type(t),text(s,n);if(type=="str"){Value v;v.type=type;v.s=text;return v;}if(type=="bool"){req(text=="true"||text=="false"||text=="0"||text=="1","invalid bool literal");return truth(text=="true"||text=="1");}req(type=="int","invalid literal type");mpz_class z;req(z.set_str(text,10)==0,"invalid integer literal");return numeric(type,mpq_class(z));});}
++void* dec_unary(void*p,const char*op,void*v,int32_t line){return protect(p,line,[&](auto*c){req(op,"null operator");return unary(op,value(c,v));});}
++void* dec_binary(void*p,const char*op,void*a,void*b,int32_t line){return protect(p,line,[&](auto*c){req(op,"null operator");return binary(op,value(c,a),value(c,b));});}
++void* dec_builtin(void*p,const char*name,void**args,int32_t n,int32_t line){return protect(p,line,[&](auto*c){req(name&&n>=0&&(n==0||args),"invalid builtin call");std::vector<const Value*> a;for(int i=0;i<n;i++)a.push_back(&value(c,args[i]));return builtin(name,a);});}
++int32_t dec_truth(void*p,void*v){if(!dec_ok(p))return 0;auto*c=(Context*)p;try{auto&a=value(c,v);req(a.type=="bool","condition requires bool");return a.n!=0;}catch(const std::exception&e){error(c,e.what(),0);}catch(...){error(c,"native runtime failure",0);}return 0;}
++void dec_emit(void*p,void*v,int32_t line){if(!dec_ok(p))return;auto*c=(Context*)p;try{c->output+=render(value(c,v))+"\n";}catch(const std::exception&e){error(c,e.what(),line);}catch(...){error(c,"native runtime failure",line);}}
++void dec_assert(void*p,void*v,int32_t line){if(!dec_ok(p))return;if(!dec_truth(p,v)&&dec_ok(p))error((Context*)p,"assertion failed",line);}
++
++const char* dec_render(void*p,void*v){if(!dec_ok(p))return "";auto*c=(Context*)p;try{c->scratch=render(value(c,v));return c->scratch.c_str();}catch(const std::exception&e){error(c,e.what(),0);}catch(...){error(c,"native runtime failure",0);}return "";}
++uint64_t dec_render_size(void*p){return p?((Context*)p)->scratch.size():0;}
++const char* dec_output(void*p){return p?((Context*)p)->output.c_str():"";}
++uint64_t dec_output_size(void*p){return p?((Context*)p)->output.size():0;}
++void dec_set_allocation_limit(void*p,uint64_t n){if(p)((Context*)p)->allocation_limit=n;}
++}
+--- /dev/null
++++ b/native/runtime.hpp
+@@ -0,0 +1,26 @@
++#ifndef DEC_RUNTIME_HPP
++#define DEC_RUNTIME_HPP
++#include <cstdint>
++extern "C" {
++void* dec_context_new(int64_t fuel,int32_t depth_limit);
++void dec_context_free(void*);
++int32_t dec_ok(void*);
++const char* dec_error(void*);
++int32_t dec_error_line(void*);
++int32_t dec_tick(void*);
++int32_t dec_enter(void*);
++void dec_leave(void*);
++void* dec_literal(void*,const char* type,const char* text,uint64_t length,int32_t line);
++void* dec_unary(void*,const char* op,void* value,int32_t line);
++void* dec_binary(void*,const char* op,void* left,void* right,int32_t line);
++void* dec_builtin(void*,const char* name,void** args,int32_t count,int32_t line);
++int32_t dec_truth(void*,void* value);
++void dec_emit(void*,void*,int32_t line);
++void dec_assert(void*,void*,int32_t line);
++const char* dec_render(void*,void*);
++uint64_t dec_render_size(void*);
++const char* dec_output(void*);
++uint64_t dec_output_size(void*);
++void dec_set_allocation_limit(void*,uint64_t);
++}
++#endif
+--- /dev/null
++++ b/native/test_runtime.cpp
+@@ -0,0 +1,35 @@
++// White-box hostile mutations are confined to this test translation unit.
++// Production ABI never exposes mutable records.
++#include "runtime.cpp"
++#include <iostream>
++#include <functional>
++
++void check(bool b,const char*why){if(!b)throw std::runtime_error(why);}
++void rejects(std::function<void()> f,const char*part){try{f();}catch(const std::runtime_error&e){check(std::string(e.what()).find(part)!=std::string::npos,e.what());return;}throw std::runtime_error("accepted hostile mutation");}
++Trace closed(std::string lineage="a",std::string scope="B") {Trace t;t.scope=scope;t.lineage=lineage;t.events={{1,"step",0,1,1},{2,"hinge",1,1,0},{3,"step",1,0,-1}};t.closures={{0,3,hash(prefix(t,3))}};validate(t);return t;}
++int main(){try{
++ auto t=closed();check(t.closures[0].digest=="9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a","bound reference digest");
++
++ check(t.events.size()==3&&t.events[0].orientation+t.events[1].orientation+t.events[2].orientation==0,"cancellation erased event");
++ for(int k=0;k<7;k++){auto m=t;if(k==0)m.scope="wrong";if(k==1)m.lineage="wrong";if(k==2)m.start=2;if(k==3)m.events.back().ordinal=2;if(k==4)m.closures.push_back(m.closures[0]);if(k==5)m.closures[0].digest="forged";if(k==6)m.events.pop_back();rejects([&]{validate(m);},"");}
++ auto open=t;open.closures.clear();open.events.pop_back();rejects([&]{segment(open,0,open.events.size(),true);},"closure needs");
++ auto a=std::make_shared<const Trace>(t),b=std::make_shared<const Trace>(closed("b"));auto f=fold(a,b,"outer","ab");
++ auto forged=f;forged.digest="fake";rejects([&]{validate(forged);},"modified fusion");
++ auto outer=t;outer.scope="outer";outer.lineage="ab";outer.parents={a,b};outer.proposal=f.digest;outer.closures[0].digest=hash(prefix(outer,3));validate(outer);
++ auto wrong=outer;wrong.parents={b,a};rejects([&]{validate(wrong);},"fusion proposal");
++ wrong=outer;wrong.scope="B";rejects([&]{validate(wrong);},"outer scope");
++ auto cc=coupling(a,b,"window");cc.contacts={{3,3}};validate(cc);cc.contacts.push_back({3,3});rejects([&]{validate(cc);},"unreplayed");cc.contacts={{2,3}};rejects([&]{validate(cc);},"certified return");
++ // Parent history remains alive through many outer arena objects.
++ for(int i=0;i<4;i++){auto aa=std::make_shared<const Trace>(outer);auto ff=fold(aa,b,"layer"+std::to_string(i),"nested");outer.scope=ff.scope;outer.lineage=ff.lineage;outer.parents={aa,b};outer.proposal=ff.digest;outer.closures[0].digest=hash(prefix(outer,3));validate(outer);}
++ check(numeric("ratio",mpq_class(mpz_class(2),mpz_class(-4))).n==mpq_class(-1,2),"ratio normalization");
++ check(binary("//",numeric("int",-7),numeric("int",3)).n==-3,"floor division");check(binary("%",numeric("int",-7),numeric("int",3)).n==2,"floor remainder");
++ rejects([&]{binary("+",numeric("t32",mpq_class(mpz_class("926510094425920"))),numeric("t32",1));},"t32 overflow");
++ void*c=dec_context_new(10,2);void*v=dec_literal(c,"str","a\0b",3,3);dec_emit(c,v,3);check(dec_output_size(c)==4,"NUL emit length");check(dec_render(c,v)[2]=='b'&&dec_render_size(c)==3,"NUL return length");
++ void*other=dec_context_new(10,2);dec_unary(other,"-",v,7);check(!dec_ok(other)&&std::string(dec_error(other))=="line 7: invalid or foreign value handle"&&dec_error_line(other)==7,"cross-context ownership");dec_context_free(other);
++ dec_set_allocation_limit(c,1);check(!dec_literal(c,"int","1",1,8)&&std::string(dec_error(c))=="line 8: runtime allocation limit exceeded","allocation failure");dec_context_free(c);
++ c=dec_context_new(1,1);check(dec_tick(c)==1&&dec_tick(c)==0,"fuel boundary");dec_context_free(c);
++ c=dec_context_new(10,1);check(dec_enter(c)==1&&dec_enter(c)==0,"depth boundary");dec_leave(c);dec_leave(c);dec_context_free(c);
++ check(quote("é😀\n") == "\"\\u00e9\\ud83d\\ude00\\n\"","Unicode canonicalization");
++ std::cout<<"PASS native runtime: exact arithmetic, preserved cancellation, certificate/scope/parent/event/replay mutations, nested retention, allocation, ownership, fuel, depth, Unicode/NUL\n";
++ return 0;
++}catch(const std::exception&e){std::cerr<<e.what()<<'\n';return 1;}}
+--- /dev/null
++++ b/native/toolchain-lock.json
+@@ -0,0 +1,56 @@
++{
++  "llvm_version": [
++    16,
++    0,
++    6
++  ],
++  "target": "x86_64-redhat-linux-gnu",
++  "cpu": "goldmont",
++  "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
++  "python": "3.15.2 (3.15.2-1.fc45.x86_64, Oct 26 2026, 00:00:00) [GCC 16.2.1 20260819 (Red Hat 16.2.1-2)]",
++  "python_executable": "/usr/bin/python3",
++  "platform": "Linux-7.3.3-300.fc45.x86_64-x86_64-with-glibc2.44",
++  "gcc_version": "g++ (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)",
++  "packages": [
++    "llvm16-libs-16.0.6-9.fc40.x86_64",
++    "gmp-6.3.0-6.fc45.x86_64",
++    "gmp-devel-6.3.0-6.fc45.x86_64",
++    "openssl-libs-4.0.3-1.fc45.x86_64",
++    "gcc-c++-16.2.1-3.fc45.x86_64",
++    "glibc-2.44-2.fc45.x86_64"
++  ],
++  "files": [
++    {
++      "path": "/usr/lib64/llvm16/lib/libLLVM-16.so",
++      "resolved": "/usr/lib64/llvm16/lib/libLLVM-16.so",
++      "sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f"
++    },
++    {
++      "path": "/usr/bin/g++",
++      "resolved": "/usr/bin/g++",
++      "sha256": "1ad8469b205daace0f9f9f001f5ec2ab01012e79abe4648f7f0a3d298e9cd79b"
++    },
++    {
++      "path": "/lib64/libgmp.so.10",
++      "resolved": "/usr/lib64/libgmp.so.10.5.0",
++      "sha256": "ceb0bb46e92482a4723b734beb481aaf39f8649b2f1153ea49b6f502b0c9a61a"
++    },
++    {
++      "path": "/lib64/libgmpxx.so.4",
++      "resolved": "/usr/lib64/libgmpxx.so.4.7.0",
++      "sha256": "f5ab1951fc03520477692d6e446d8195ba531a9d253cd1960c7f2f5af2b8f8cf"
++    },
++    {
++      "path": "/lib64/libcrypto.so.4",
++      "resolved": "/usr/lib64/libcrypto.so.4.0.3",
++      "sha256": "d7a694d6c0504aab4cbaf1d209d19c846f1407e4356f9f13a8c8638b51fa3f90"
++    }
++  ],
++  "licenses": {
++    "LLVM": "Apache-2.0 WITH LLVM-exception",
++    "GMP": "LGPL-3.0-or-later OR GPL-2.0-or-later",
++    "OpenSSL": "Apache-2.0",
++    "GCC": "GPL-3.0-or-later WITH GCC-exception-3.1",
++    "glibc": "LGPL-2.1-or-later"
++  }
++}
+--- /dev/null
++++ b/scripts/adapt_native.py
+@@ -0,0 +1,121 @@
++#!/usr/bin/env python3
++"""Execute Dec with prior retained native selection; optionally profile later calls."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import random
++import re
++import sys
++import time
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++from native.compiler import ABI_VERSION, JitSession
++from native.learning import RetainedPolicy, VariantRegistry, digest, host_inventory, host_binding, semantic_outcome
++from runtime.dec_language import compile_source, Interpreter
++from runtime.dec_core import render
++
++
++def reference(source):
++    lines = []
++    try:
++        value = Interpreter(compile_source(source), emit=lines.append).run()
++        return {'stdout': ''.join(x+'\n' for x in lines), 'result': render(value), 'error': None,
++                'error_line': 0, 'exit_code': 0}
++    except Exception as exc:
++        message = str(exc)
++        match = re.match(r'line (\d+):', message)
++        return {'stdout': ''.join(x+'\n' for x in lines), 'result': None, 'error': message,
++                'error_line': int(match[1]) if match else 0, 'exit_code': 1}
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('source', type=Path)
++    parser.add_argument('--profile', required=True, type=Path)
++    parser.add_argument('--mode', choices=('generic','passive','frozen','active'), default='active')
++    parser.add_argument('--train-pairs', type=int, default=0)
++    parser.add_argument('--cache', type=Path)
++    parser.add_argument('--json-report', type=Path)
++    args = parser.parse_args(argv)
++    if not 0 <= args.train_pairs <= 32:
++        parser.error('--train-pairs must be in 0..32')
++    if args.train_pairs and args.mode not in ('active','passive'):
++        parser.error('profiling requires --mode active or passive')
++    started = time.perf_counter_ns()
++    source = args.source.read_text()
++    expected = reference(source)
++    sessions = {}
++    report = {'mode': args.mode, 'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
++              'profile': str(args.profile), 'observations': [],
++              'performance_claim': 'No speedup claim; use held-out benchmark with all overheads.'}
++    try:
++        registry = VariantRegistry(report['source_sha256'], ABI_VERSION, expected)
++        for name, opt in [('generic',0), ('optimized',2)]:
++            session = JitSession(source, opt=opt, cache_dir=args.cache)
++            sessions[name] = session
++            value = session.run()
++            obj = Path(session.info['object'])
++            artifacts = {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
++                         for path in (obj, obj.with_suffix('.generic.o'), obj.with_suffix('.guard.o'))}
++            registry.validate(name, digest(artifacts), value)
++        inventory = host_inventory()
++        binding = {'host': host_binding(inventory), 'software': digest(sessions['generic'].info['binding']),
++                   'workload': report['source_sha256']}
++        report['binding'] = binding
++        report['variant_registry'] = registry.manifest()
++        report['preparation_ns'] = time.perf_counter_ns()-started
++        select_start = time.perf_counter_ns()
++        policy = RetainedPolicy(args.profile, binding, registry)
++        selection = policy.choose(args.mode)
++        report['selection_ns'] = time.perf_counter_ns()-select_start
++        report['selection'] = selection
++        before = time.perf_counter_ns()
++        value = sessions[selection['variant']].run()
++        report['invocation_wall_ns'] = time.perf_counter_ns()-before
++        if semantic_outcome(value) != expected:
++            raise ValueError('selected native execution changed semantic outcome')
++        report['executed'] = value
++        # Completed invocation k precedes profiling and any generation changes.
++        profiling_start = time.perf_counter_ns()
++        rng = random.Random(20261113)
++        for pair in range(args.train_pairs):
++            order = ['generic','optimized']
++            rng.shuffle(order)
++            costs = {}
++            for name in order:
++                before = time.perf_counter_ns()
++                observed = sessions[name].run()
++                elapsed = time.perf_counter_ns()-before
++                if semantic_outcome(observed) != expected:
++                    raise ValueError('profiling changed semantic outcome')
++                costs[name] = max(1,elapsed)
++                report['observations'].append({'pair': pair, 'variant': name, 'wall_ns': elapsed,
++                    'generated_code_ns': observed['execute_ns'], 'address': observed['address'],
++                    'outcome_sha256': digest(semantic_outcome(observed))})
++            policy.observe_pair(costs['generic'],costs['optimized'])
++        if args.train_pairs:
++            policy.save()
++        report['profiling_ns'] = time.perf_counter_ns()-profiling_start
++        report['next_invocation_preview'] = policy.choose(args.mode)
++        report['total_ns'] = time.perf_counter_ns()-started
++        if args.json_report:
++            args.json_report.parent.mkdir(parents=True,exist_ok=True)
++            args.json_report.write_text(json.dumps(report,indent=2)+'\n')
++        print(value['stdout'], end='')
++        if value['exit_code']:
++            print('aodc: '+value['error'],file=sys.stderr)
++        else:
++            print(value['result'])
++        return value['exit_code']
++    finally:
++        for session in sessions.values():
++            session.close()
++
++if __name__ == '__main__':
++    try:
++        raise SystemExit(main())
++    except (OSError,ValueError,TypeError,RuntimeError) as exc:
++        print('adapt_native: '+str(exc),file=sys.stderr)
++        raise SystemExit(1)
+--- /dev/null
++++ b/scripts/analyze_native_benchmark.py
+@@ -0,0 +1,59 @@
++#!/usr/bin/env python3
++"""Recompute paired intervals from saved raw observations; do not rerun workloads."""
++import argparse
++import json
++from pathlib import Path
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++from native.learning import paired_interval
++
++
++def analyze(directory):
++    directory = Path(directory)
++    report = json.loads((directory/'results.json').read_text())
++    rows = [json.loads(line) for line in (directory/'observations.jsonl').read_text().splitlines()]
++    result = {'input': str(directory), 'workloads': {}, 'failures_retained': report['failures']}
++    for name, summary in report['workloads'].items():
++        if summary.get('status') != 'PASS':
++            result['workloads'][name] = {'status': summary.get('status'), 'failure': summary.get('failure')}
++            continue
++        records = [row for row in rows if row.get('workload') == name and row.get('phase') == 'heldout_pair']
++        costs = {variant: [row['elapsed_ns'] for row in sorted(records, key=lambda r:r['pair'])
++                          if row['variant'] == variant] for variant in ('generic', 'optimized')}
++        if any(len(values) != report['heldout_pairs'] for values in costs.values()):
++            raise ValueError('unexpected heldout count for '+name)
++        if not all(row['semantic_equal'] and row['addresses'] for row in records):
++            raise ValueError('missing semantics or native addresses for '+name)
++        # Harness quantizes each per-invocation integer cost before summing a batch.
++        costs = {variant: [row['per_invocation_ns']*row['invocations']
++                          for row in sorted(records,key=lambda r:r['pair']) if row['variant']==variant]
++                 for variant in ('generic','optimized')}
++        interval = paired_interval(costs['generic'], costs['optimized'])
++        for key in ('pairs', 'median_gain', 'lower', 'upper'):
++            if interval[key] != summary['heldout_analysis'][key]:
++                raise ValueError('analysis mismatch '+name+'/'+key)
++        overhead = summary['costs']['charged_overhead_ns']
++        gain = sum(costs['generic'])-sum(costs['optimized'])-overhead
++        controls = [row for row in rows if row.get('workload')==name and row.get('phase')=='control']
++        if len(controls) != 7*report['heldout_pairs'] or not all(row['semantic_equal'] for row in controls):
++            raise ValueError('control count/equivalence mismatch '+name)
++        for row in controls:
++            if row['control'] in ('generic','passive','stale','shuffled','removed') and row['selection']['variant'] != 'generic':
++                raise ValueError('incorrect guarded fallback '+name+'/'+row['control'])
++        result['workloads'][name] = dict(interval, total_gain_ns=gain,
++            established_benefit=interval['lower'] > 0.05 and gain>0,
++            controls_equal=True, status='PASS')
++    result['status'] = 'PASS' if not result['failures_retained'] else 'FAIL'
++    return result
++
++if __name__ == '__main__':
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('directory',type=Path)
++    parser.add_argument('--output',type=Path)
++    args=parser.parse_args()
++    result=analyze(args.directory)
++    encoded=json.dumps(result,indent=2)+'\n'
++    if args.output: args.output.write_text(encoded)
++    print(encoded,end='')
+--- /dev/null
++++ b/scripts/benchmark_native.py
+@@ -0,0 +1,329 @@
++#!/usr/bin/env python3
++"""Reproducible native ORC benchmark and retained-policy control experiment."""
++from __future__ import annotations
++import argparse
++from datetime import datetime, timezone
++import hashlib
++import json
++from pathlib import Path
++import random
++import re
++import resource
++import shutil
++import subprocess
++import sys
++import time
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++from native.compiler import ABI_VERSION, JitSession, build
++from native.learning import (RetainedPolicy, VariantRegistry, digest, host_binding,
++                             host_inventory, semantic_outcome)
++from runtime.dec_language import Interpreter, compile_source
++from runtime.dec_core import render
++
++SEED = 20261113
++CONTROLS = ('generic', 'passive', 'frozen', 'active', 'stale', 'shuffled', 'removed')
++
++
++def now():
++    return datetime.now(timezone.utc).isoformat()
++
++
++def sha(path):
++    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
++
++
++def reference(source):
++    output = []
++    try:
++        result = Interpreter(compile_source(source), emit=output.append).run()
++        return {'stdout': ''.join(x+'\n' for x in output), 'result': render(result),
++                'error': None, 'error_line': 0, 'exit_code': 0}
++    except Exception as exc:
++        message = str(exc)
++        match = re.match(r'line (\d+): (.*)', message, re.S)
++        return {'stdout': ''.join(x+'\n' for x in output), 'result': None,
++                'error': message,
++                'error_line': int(match[1]) if match else 0, 'exit_code': 1}
++
++
++def workloads():
++    result = {name: (ROOT/'examples'/(name+'.dec')).read_text()
++              for name in ('ternary', 'weights', 'closure', 'fusion', 'coupling')}
++    huge = '1'+'0'*119+'7'
++    result['rational_stress'] = ('Dec main() -> result:\n    () -> ratio result:\n'
++        +'        ratio value = ratio('+huge+', 999999999999999999999999999999)\n'
++        +''.join('        value = (value + ratio(1, 3)) * ratio(3, 2) - ratio(1, 2)\n' for _ in range(40))
++        +'        emit value\n        result = value\n')
++    result['nested_fusion'] = result['fusion'].replace('        emit c\n',
++        '        trace d = recur(trace("separate", "d", q4(0)))\n'
++        '        fusion second = fold(c, d, "outer2", "abcd")\n'
++        '        trace e = recur(outer(second, q4(0)))\n'
++        '        e = fuse(second, e)\n        assert phases(e) == 1\n        emit e\n')
++    return result
++
++
++def batch(session, expected, count):
++    started = time.perf_counter_ns()
++    values = [session.run() for _ in range(count)]
++    elapsed = time.perf_counter_ns()-started
++    validated = time.perf_counter_ns()
++    equal = all(semantic_outcome(value) == expected for value in values)
++    return {'elapsed_ns': elapsed, 'per_invocation_ns': max(1, elapsed//count),
++            'generated_code_ns': [value['execute_ns'] for value in values],
++            'addresses': sorted({value['address'] for value in values}),
++            'native_dispatch': [value.get('dispatch') for value in values],
++            'invocations_per_second': count*1_000_000_000/elapsed,
++            'validation_ns': time.perf_counter_ns()-validated,
++            'invocations': count, 'semantic_equal': equal,
++            'outcome_sha256': digest([semantic_outcome(value) for value in values]),
++            'failures': [value for value in values if semantic_outcome(value) != expected]}
++
++
++def execute(output):
++    output.mkdir(parents=True, exist_ok=False)
++    started_all = time.perf_counter_ns()
++    protocol = ROOT/'docs/BENCHMARK_PROTOCOL.md'
++    shutil.copyfile(protocol, output/'BENCHMARK_PROTOCOL.md')
++    run = {'protocol_sha256': sha(protocol), 'started_utc': now(), 'seed': SEED,
++           'warmup': 3, 'tuning_pairs': 12, 'heldout_pairs': 20, 'batch_tuning': 5,
++           'batch_heldout': 10, 'workloads': {}, 'failures': [],
++           'implementation_binding': {str(p.relative_to(ROOT)): sha(p) for p in
++               [Path(__file__).resolve(), ROOT/'native/learning.py', ROOT/'native/compiler.py',
++                ROOT/'native/runtime.cpp', ROOT/'native/runtime.hpp']}}
++    (output/'run-start.json').write_text(json.dumps(run, indent=2)+'\n')
++    inventory = host_inventory()
++    (output/'host.json').write_text(json.dumps(inventory, indent=2)+'\n')
++    rng = random.Random(SEED)
++    raw = (output/'observations.jsonl').open('w')
++    def record(obj):
++        raw.write(json.dumps(dict(recorded_utc=now(), **obj), sort_keys=True)+'\n')
++        raw.flush()
++    for name, source in workloads().items():
++        work = output/name
++        work.mkdir()
++        (work/'source.dec').write_text(source)
++        expected = reference(source)
++        (work/'reference.json').write_text(json.dumps(expected, indent=2)+'\n')
++        sessions, builds, timings = {}, {}, {}
++        summary = {'prevalidation': {}, 'raw_records': '../observations.jsonl', 'controls': {},
++                   'train_costs_ns': {'generic': [], 'optimized': []},
++                   'heldout_costs_ns': {'generic': [], 'optimized': []}}
++        run['workloads'][name] = summary
++        try:
++            registry = VariantRegistry(hashlib.sha256(source.encode()).hexdigest(), ABI_VERSION, expected)
++            for variant, opt in [('generic', 0), ('optimized', 2)]:
++                builds[variant] = build(source, work/variant, opt=opt, cache_dir=work/'cache')
++                sessions[variant] = JitSession(source, opt=opt, cache_dir=work/'cache')
++                wall = time.perf_counter_ns()
++                actual = sessions[variant].run()
++                timings[variant] = {'first_invocation_wall_ns': time.perf_counter_ns()-wall,
++                    'compile_ns': actual['compile_ns'], 'load_ns': actual['load_ns'],
++                    'native_ns': actual['execute_ns'], 'cache_hit': actual['cache_hit']}
++                if sessions[variant].info['binding'] != builds[variant]['binding']:
++                    raise ValueError('compiler/runtime binding changed during variant construction')
++                obj = Path(sessions[variant].info['object'])
++                artifacts = {path.name: sha(path) for path in (obj, obj.with_suffix('.generic.o'), obj.with_suffix('.guard.o'))}
++                registry.validate(variant, digest(artifacts), actual)
++                fallback = sessions[variant].run(guard_key='deliberately stale identity')
++                if semantic_outcome(fallback) != expected or fallback['dispatch'] != 'generic':
++                    raise ValueError('native entry guard fallback failed')
++                proc = subprocess.run([str(work/variant)], capture_output=True, text=True, timeout=30)
++                aot_ok = proc.returncode == expected['exit_code'] and proc.stdout == expected['stdout']+expected['result']+'\n'
++                summary['prevalidation'][variant] = {'jit': actual, 'aot_stdout': proc.stdout,
++                    'aot_stderr': proc.stderr, 'aot_exit_code': proc.returncode, 'aot_equal': aot_ok,
++                    'binary_sha256': sha(work/variant), 'jit_artifacts': artifacts, 'guard_fallback': fallback}
++                if not aot_ok:
++                    raise ValueError('AOT prevalidation failed: '+name+'/'+variant)
++            (work/'variant-registry.json').write_text(json.dumps(registry.manifest(), indent=2)+'\n')
++            summary['builds'], summary['initial_load'] = builds, timings
++            software = digest({key: builds['generic']['binding'][key] for key in builds['generic']['binding']
++                               if key not in ('ir_sha256', 'source_sha256', 'optimization')})
++            binding = {'host': host_binding(inventory), 'software': software, 'workload': name+'-v1'}
++            policy = RetainedPolicy(work/'trained-profile.json', binding, registry)
++            warmup_start = time.perf_counter_ns()
++            for variant in sessions:
++                record({'workload': name, 'phase': 'warmup', 'variant': variant,
++                        **batch(sessions[variant], expected, 3)})
++            summary['warmup_ns'] = time.perf_counter_ns()-warmup_start
++            profiling_start = time.perf_counter_ns()
++            for pair in range(12):
++                order = list(sessions)
++                rng.shuffle(order)
++                costs = {}
++                for position, variant in enumerate(order):
++                    measured = batch(sessions[variant], expected, 5)
++                    record({'workload': name, 'phase': 'tune', 'pair': pair, 'position': position,
++                            'variant': variant, **measured})
++                    if not measured['semantic_equal']:
++                        raise ValueError('semantic mismatch in tuning')
++                    costs[variant] = measured['per_invocation_ns']
++                    summary['train_costs_ns'][variant].append(costs[variant])
++                policy.observe_pair(costs['generic'], costs['optimized'])
++                policy.save()
++            summary['profiling_ns'] = time.perf_counter_ns()-profiling_start
++            summary['trained_decision'] = policy.choose()
++            for control in ('frozen', 'active', 'stale', 'shuffled'):
++                shutil.copyfile(work/'trained-profile.json', work/(control+'-profile.json'))
++            corrupted = json.loads((work/'shuffled-profile.json').read_text())
++            corrupted['payload']['costs']['generic'], corrupted['payload']['costs']['optimized'] = (
++                corrupted['payload']['costs']['optimized'], corrupted['payload']['costs']['generic'])
++            (work/'shuffled-profile.json').write_text(json.dumps(corrupted))
++            control_overhead = 0
++            for pair in range(20):
++                order = list(sessions)
++                rng.shuffle(order)
++                costs = {}
++                for position, variant in enumerate(order):
++                    measured = batch(sessions[variant], expected, 10)
++                    record({'workload': name, 'phase': 'heldout_pair', 'pair': pair, 'position': position,
++                            'variant': variant, **measured})
++                    if not measured['semantic_equal']:
++                        raise ValueError('semantic mismatch in held-out pair')
++                    costs[variant] = measured['per_invocation_ns']
++                    summary['heldout_costs_ns'][variant].append(costs[variant])
++                controls = list(CONTROLS)
++                rng.shuffle(controls)
++                for position, control in enumerate(controls):
++                    select_start = time.perf_counter_ns()
++                    if control in ('generic', 'passive'):
++                        selected = {'variant': 'generic', 'reason': control+' control', 'generation': 0}
++                        p = None
++                    else:
++                        binding_control = dict(binding, host='deliberately stale') if control == 'stale' else binding
++                        p = RetainedPolicy(work/(control+'-profile.json'), binding_control, registry)
++                        selected = p.choose('frozen' if control == 'frozen' else 'active')
++                    selection_ns = time.perf_counter_ns()-select_start
++                    measured = batch(sessions[selected['variant']], expected, 10)
++                    if not measured['semantic_equal']:
++                        raise ValueError('semantic mismatch in '+control)
++                    update_start = time.perf_counter_ns()
++                    if control == 'active':
++                        p.observe_pair(costs['generic'], costs['optimized'])
++                        p.save()
++                    elif control == 'passive':
++                        p = RetainedPolicy(work/'passive-profile.json', binding, registry)
++                        p.observe_pair(costs['generic'], costs['optimized'])
++                        p.save()
++                    update_ns = time.perf_counter_ns()-update_start
++                    control_overhead += selection_ns+update_ns
++                    record({'workload': name, 'phase': 'control', 'pair': pair, 'position': position,
++                            'control': control, 'selection': selected, 'selection_ns': selection_ns,
++                            'profile_update_ns': update_ns, **measured})
++                    summary['controls'].setdefault(control, {'dispatches': [], 'elapsed_ns': [],
++                        'selection_ns': [], 'profile_update_ns': []})
++                    item = summary['controls'][control]
++                    item['dispatches'].append(selected)
++                    item['elapsed_ns'].append(measured['elapsed_ns'])
++                    item['selection_ns'].append(selection_ns)
++                    item['profile_update_ns'].append(update_ns)
++            # Causal fixture is separate from performance and uses labelled synthetic costs.
++            causal = RetainedPolicy(work/'causal-fixture-profile.json', binding, registry)
++            before = causal.choose()
++            for _ in range(5):
++                causal.observe_pair(100, 70)
++            causal.save()
++            reload = RetainedPolicy(work/'causal-fixture-profile.json', binding, registry)
++            after = reload.choose()
++            before_result = sessions[before['variant']].run()
++            after_result = sessions[after['variant']].run()
++            removed = RetainedPolicy(work/'removed-profile.json', binding, registry).choose()
++            summary['causal_fixture'] = {'synthetic_costs_only': True, 'before': before, 'after_reload': after,
++                'after_removal': removed, 'before_native_address': before_result['address'],
++                'after_native_address': after_result['address'], 'semantic_equal': semantic_outcome(before_result)==semantic_outcome(after_result),
++                'influence': before['variant'] != after['variant'] and removed['variant']==before['variant']}
++            # Actual restart: load committed evidence in a new process and invoke selected native code.
++            restart_request = {'profile': str(work/'causal-fixture-profile.json'), 'binding': binding,
++                'registry': registry.manifest(), 'expected': expected, 'source': str(work/'source.dec'),
++                'cache': str(work/'cache')}
++            (work/'restart-request.json').write_text(json.dumps(restart_request))
++            restarted = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--restart-check',
++                str(work/'restart-request.json')], capture_output=True, text=True, timeout=60)
++            restart_result = {'exit_code': restarted.returncode, 'stdout': restarted.stdout, 'stderr': restarted.stderr}
++            if restarted.returncode != 0:
++                raise ValueError('restart dispatch failed: '+repr(restart_result))
++            restarted_value = json.loads(restarted.stdout)
++            if restarted_value['selection']['variant'] != 'optimized' or not restarted_value['semantic_equal']:
++                raise ValueError('restart selection/equality failed')
++            summary['causal_fixture']['process_restart'] = restarted_value
++            # Actual horizon: 20 held-out pairs * 10 invocations; charge preparation once.
++            compile_ns = sum(v['total_ns'] for v in builds.values())
++            load_ns = sum(v['first_invocation_wall_ns'] for v in timings.values())
++            overhead = compile_ns+load_ns+summary['warmup_ns']+summary['profiling_ns']+control_overhead
++            held_generic = [v*10 for v in summary['heldout_costs_ns']['generic']]
++            held_opt = [v*10 for v in summary['heldout_costs_ns']['optimized']]
++            summary['heldout_analysis'] = policy.evaluate_heldout(held_generic, held_opt, overhead)
++            policy.save()
++            summary['costs'] = {'compilation_ns': compile_ns, 'loading_and_initial_invocation_ns': load_ns,
++                'warmup_ns': summary['warmup_ns'], 'profiling_ns': summary['profiling_ns'],
++                'profile_control_overhead_ns': control_overhead, 'heldout_generic_ns': sum(held_generic),
++                'heldout_optimized_ns': sum(held_opt), 'charged_overhead_ns': overhead,
++                'heldout_invocation_horizon': 200}
++            summary['post_heldout_decision'] = policy.choose()
++            summary['status'] = 'PASS'
++        except BaseException as exc:
++            summary['status'] = 'FAIL'
++            summary['failure'] = repr(exc)
++            run['failures'].append({'workload': name, 'error': repr(exc)})
++            record({'workload': name, 'phase': 'failure', 'error': repr(exc)})
++        finally:
++            for session in sessions.values():
++                session.close()
++            (work/'summary.json').write_text(json.dumps(summary, indent=2)+'\n')
++            (output/'results.json').write_text(json.dumps(run, indent=2)+'\n')
++    run['finished_utc'] = now()
++    run['implementation_binding_unchanged'] = all(sha(ROOT/name)==value for name,value in run['implementation_binding'].items())
++    if not run['implementation_binding_unchanged']:
++        run['failures'].append({'workload': 'binding', 'error': 'implementation changed during experiment; all observations retained'})
++    run['total_experiment_ns'] = time.perf_counter_ns()-started_all
++    run['peak_process_rss_kib'] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    run['functional_controls_pass'] = bool(run['workloads']) and not run['failures'] and all(
++        w.get('causal_fixture', {}).get('influence') and w.get('causal_fixture', {}).get('semantic_equal')
++        for w in run['workloads'].values())
++    run['established_cost_inclusive_benefit'] = run['functional_controls_pass'] and all(
++        w['heldout_analysis']['established_benefit'] for w in run['workloads'].values())
++    run['conclusion'] = ('Cost-inclusive benefit established on tested host/workloads.'
++        if run['established_cost_inclusive_benefit'] else
++        'No cost-inclusive performance benefit established; retained policy restores generic.')
++    (output/'results.json').write_text(json.dumps(run, indent=2)+'\n')
++    raw.close()
++    print(json.dumps({'results': str(output/'results.json'), 'functional_controls_pass': run['functional_controls_pass'],
++                      'established_cost_inclusive_benefit': run['established_cost_inclusive_benefit'], 'failures': run['failures']}))
++    return 0 if run['functional_controls_pass'] else 1
++
++def restart_check(request_path):
++    request = json.loads(Path(request_path).read_text())
++    source = Path(request['source']).read_text()
++    registry = VariantRegistry(hashlib.sha256(source.encode()).hexdigest(), ABI_VERSION, request['expected'])
++    sessions = {}
++    try:
++        for name, opt in [('generic', 0), ('optimized', 2)]:
++            session = JitSession(source, opt=opt, cache_dir=request['cache'])
++            sessions[name] = session
++            actual = session.run()
++            obj = Path(session.info['object'])
++            artifacts = {path.name: sha(path) for path in (obj, obj.with_suffix('.generic.o'), obj.with_suffix('.guard.o'))}
++            registry.validate(name, digest(artifacts), actual)
++        policy = RetainedPolicy(request['profile'], request['binding'], registry)
++        selection = policy.choose()
++        result = sessions[selection['variant']].run()
++        response = {'selection': selection, 'result': result,
++                    'semantic_equal': semantic_outcome(result) == request['expected']}
++        print(json.dumps(response))
++        return 0 if response['semantic_equal'] else 1
++    finally:
++        for session in sessions.values():
++            session.close()
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--output', type=Path)
++    parser.add_argument('--restart-check', type=Path)
++    args = parser.parse_args()
++    if args.restart_check:
++        raise SystemExit(restart_check(args.restart_check))
++    if not args.output:
++        parser.error('--output or --restart-check required')
++    raise SystemExit(execute(args.output.resolve()))
+--- /dev/null
++++ b/scripts/conformance_native.py
+@@ -0,0 +1,160 @@
++#!/usr/bin/env python3
++"""Independent expectations plus reference/AOT/ORC differential conformance.
++
++Seed and all source/outputs are persisted. This checks the declared finite core,
++not scientific claims about physical hardware or completeness of AOD ontology.
++"""
++import argparse
++import copy
++import datetime
++from fractions import Fraction
++import hashlib
++import json
++import os
++from pathlib import Path
++import random
++import subprocess
++import sys
++import traceback
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++from runtime.dec_language import compile_source, Interpreter, dumps_ir, loads_ir, DecError
++from runtime.dec_core import render
++
++SEED = 20261113
++LIMIT = (3**32-1)//2
++
++def program(body, result='int'):
++    return f'Dec main() -> result:\n    () -> {result} result:\n'+''.join('        '+s+'\n' for s in body.splitlines())
++
++def corpus():
++    cases=[]
++    def add(name, body, result='int', expected=None, error=None, emits=None, source=None):
++        cases.append(dict(name=name,source=source or program(body,result),expected=expected,
++                          error=error,emits=emits or []))
++    add('body_one','result = 1',expected='1')
++    add('body_mutated','result = 99',expected='99')
++    add('exact_big','result = (100000000000000000000000000000000000000000000000001 * 99999999999999999999999999999999999999999999999999)',
++        expected=str((10**50+1)*(10**50-1)))
++    add('ratio_reduction','result = ratio(100000000000000000000000000000000000000, 300000000000000000000000000000000000000)', 'ratio',expected='1/3')
++    add('floor_negative','emit -7 // 3\nemit 7 // -3\nemit -7 % 3\nemit 7 % -3\nresult = -7 // -3',expected='2',emits=['-3','-3','2','-2'])
++    add('boundaries',f'emit t32({LIMIT})\nemit t32({-LIMIT})\nassert unpack(pack(t32({LIMIT}))) == t32({LIMIT})\nassert unpack(pack(t32({-LIMIT}))) == t32({-LIMIT})\nresult = int(unpack(0))',expected='0',emits=[f't32({LIMIT})',f't32({-LIMIT})'])
++    add('overflow_intermediate',f'emit 7\nresult = int((t32({LIMIT}) + t32(1)) - t32(1))',error='t32 overflow',emits=['7'])
++    add('t1_carry','result = int(t1(1) + t1(1))',error='t1 outside {-1,0,+1}')
++    add('invalid_lane','result = int(unpack(3))',error='11 is invalid trit encoding; it is not Null')
++    add('invalid_u64',f'result = int(unpack({2**64}))',error='packed t32 outside u64')
++    add('nonintegral','result = int(ratio(1, 2))',error='ratio-to-int would lose a remainder')
++    add('zero_denominator','emit 2\nratio bad = ratio(1, 0)\nemit 3\nresult = 4',error='zero denominator',emits=['2'])
++    add('zero_divisor','result = 1 // 0',error='zero divisor')
++    add('assert_location','emit 12\nassert false\nemit 19\nresult = 0',error='line 4: assertion failed',emits=['12'])
++    add('unicode','emit "Ω\\u0000line\\nend"\nassert "é" != "e"\nresult = 1',expected='1',emits=['Ω\x00line\nend'])
++    add('short_circuit','assert true or (1 / 0 == ratio(0))\nassert not (false and (1 / 0 == ratio(0)))\nresult = 4 if true else 1 // 0',expected='4')
++    add('overload', '',expected='18',source='Dec twice(x) -> y:\n    (int x) -> int y:\n        y = x + x\n    (ratio x) -> ratio y:\n        y = x + x\n'+program('assert twice(ratio(1, 3)) == ratio(2, 3)\nresult = twice(9)'))
++    add('recursion','',expected='479001600',source='Dec fact(n) -> r:\n    (int n) -> int r:\n        r = 1 if n == 0 else n * fact(n - 1)\n'+program('result = fact(12)'))
++    add('effect_order','',expected='7',emits=['3','4'],source='Dec mark(x) -> y:\n    (int x) -> int y:\n        emit x\n        y = x\n'+program('result = mark(3) + mark(4)'))
++    add('effect_first_failure','',error='zero divisor',emits=['3'],source='Dec mark(x) -> y:\n    (int x) -> int y:\n        emit x\n        y = x\n'+program('result = (mark(3) // 0) + mark(4)'))
++    add('nonnegative_weights','result = probability(-1, 2, 3, t1(0))','ratio',error='weights must be exact and nonnegative')
++    add('zero_weights','result = probability(0, 0, 0, t1(0))','ratio',error='normalization requires positive total weight')
++    add('q4_bounds','result = int(q4(16))',error='q4 outside 0..15')
++    add('empty_scope','result = phases(trace(" ", "x", q4(0)))',error='scope, lineage and window names must be nonempty')
++    add('empty_rate','result = rate(trace("s", "x", q4(0)))','ratio',error='rate requires a positive committed event span')
++    add('no_hinge','trace t = trace("s", "x", q4(0))\nt = step(t,q4(1),t1(1))\nt = step(t,q4(0),t1(-1))\nresult = phases(close(t))',error='counterbranch orientation requires structural hinge')
++    add('hinge_first','result = phases(hinge(trace("s", "x", q4(0))))',error='one structural hinge must follow outgoing branch')
++    add('hamming_two','result = phases(step(trace("s", "x", q4(0)), q4(3), t1(1)))',error='atomic move must be Hamming-1')
++    add('null_orientation','result = phases(step(trace("s", "x", q4(0)), q4(1), t1(0)))',error='step requires nonzero orientation')
++    add('open_return','trace t = trace("s", "x", q4(0))\nt = step(t, q4(1), t1(1))\nt = hinge(t)\nt = step(t, q4(3), t1(-1))\nresult = phases(close(t))',error='open trace does not return to retained start')
++    add('dwell_return','trace t = trace("s", "x", q4(0))\nt = step(t, q4(1), t1(1))\nt = hinge(t)\nt = step(t, q4(0), t1(-1))\nt = dwell(t)\nresult = phases(close(t))',error='closure must identify a return event, not dwell')
++    recur='Dec cycle(t) -> out:\n    (trace t) -> trace out:\n        t = step(t, q4(1), t1(1))\n        t = hinge(t)\n        out = close(step(t, q4(0), t1(-1)))\n'
++    base='trace a = cycle(trace("s", "a", q4(0)))\ntrace b = cycle(trace("s", "b", q4(0)))\n'
++    add('closure_replay','',expected='1',source=recur+program(base+'assert phases(close(a)) == 1\nassert beats(a) == 0\nassert phases(cycle(a)) == 2\nresult = phases(a)'))
++    for name, body, error in [
++        ('same_parents','fusion f = fold(a, a, "o", "ab")','fold requires distinct inner lineages'),
++        ('same_outer_scope','fusion f = fold(a, b, "s", "ab")','outer scope must differ from inner scopes'),
++        ('unclosed_outer','fusion f = fold(a,b,"o","ab")\ntrace t = fuse(f,outer(f,q4(0)))','fusion requires independently witnessed outer closure'),
++        ('wrong_outer','fusion f = fold(a,b,"o","ab")\ntrace t = fuse(f,cycle(trace("o","ab",q4(0))))','outer trace belongs to a different proposal'),
++        ('contact_fabricated','coupling c = coupling(a,b,"w")\nc = contact(c,1,3)','contact must bind certified return events'),
++        ('contact_replay','coupling c = contact(coupling(a,b,"w"),3,3)\nc = contact(c,3,3)','contacts must be distinct, ordered and unreplayed'),
++        ('comparison_once','coupling c = contact(coupling(a,b,"w"),3,3)\nratio r = cadence(c)','comparison needs recurrent lineages and repeated bound contacts'),
++        ('same_lineage','coupling c = coupling(a,a,"w")','coupling needs distinct lineages in common scope'),
++        ('unequal_spans','coupling c = coupling(a,dwell(b),"w")','coupling needs equal positive committed event spans')]:
++        add(name,'',error=error,source=recur+program(base+body+'\nresult = 0'))
++    rng=random.Random(SEED); body=[]; expected=[]
++    for _ in range(64):
++        a=rng.randrange(-2**256,2**256); b=rng.randrange(1,2**160)
++        if rng.randrange(2): b=-b
++        c=rng.randrange(1,2**128); d=rng.randrange(1,2**128)
++        body.extend([f'emit {a} // {b}',f'emit {a} % {b}',f'emit ratio({a},{b}) + ratio({c},{d})'])
++        q=Fraction(a,b)+Fraction(c,d)
++        expected.extend([str(a//b),str(a%b),f'{q.numerator}/{q.denominator}'])
++    body.append('result = 64')
++    add('seeded_exact','\n'.join(body),expected='64',emits=expected)
++    for f in sorted((ROOT/'examples').glob('*.dec')):
++        add('example_'+f.stem,'',source=f.read_text())
++    return cases
++
++def reference(source, **kwargs):
++    out=[]
++    try:
++        v=Interpreter(compile_source(source),emit=out.append,**kwargs).run()
++        return dict(stdout=''.join(x+'\n' for x in out),result=render(v),error=None,exit_code=0)
++    except DecError as e:
++        return dict(stdout=''.join(x+'\n' for x in out),result=None,error=str(e),exit_code=1)
++
++def run(output):
++    from native.compiler import build, JitSession, lower
++    output.mkdir(parents=True,exist_ok=True)
++    rows=[]; cases=corpus()
++    (output/'corpus.json').write_text(json.dumps({'seed':SEED,'cases':cases},indent=2)+'\n')
++    for case in cases:
++        name=case['name']; source=case['source']; ref=reference(source)
++        (output/(name+'.dec')).write_text(source)
++        independent=True
++        if case['expected'] is not None or case['error'] is not None:
++            import re
++            actual_error=re.sub(r'^line [0-9]+: ', '', ref['error'] or '')
++            expected_error=re.sub(r'^line [0-9]+: ', '', case['error'] or '')
++            independent=ref['stdout']==''.join(x+'\n' for x in case['emits']) and actual_error==expected_error and (case['error'] is not None or ref['result']==case['expected'])
++        for opt in (0,2):
++            row=dict(name=name,opt=opt,source_sha256=hashlib.sha256(source.encode()).hexdigest(),reference=ref,independent_expected=independent)
++            try:
++                artifact=output/f'{name}-O{opt}'
++                row['build']=build(source,artifact,opt=opt)
++                p=subprocess.run([str(artifact.resolve())],capture_output=True,text=True,timeout=30)
++                row['aot']={'stdout':p.stdout,'stderr':p.stderr,'exit_code':p.returncode}
++                session=JitSession(source,opt=opt,cache_dir=output/'cache')
++                try: row['jit']=session.run()
++                finally: session.close()
++                expected_out=ref['stdout']+(ref['result']+'\n' if ref['exit_code']==0 else '')
++                jit=row['jit']
++                # Exact diagnostic prose remains an extra check, separate from located metadata.
++                aot_err=not ref['error'] or ref['error'] in p.stderr
++                row['pass']=independent and p.returncode==ref['exit_code'] and p.stdout==expected_out and aot_err and all(jit[k]==ref[k] for k in ('stdout','result','error','exit_code'))
++            except Exception as exc:
++                row.update(pass_=False,exception=repr(exc),traceback=traceback.format_exc()); row['pass']=False
++            rows.append(row)
++            (output/'results.json').write_text(json.dumps({'seed':SEED,'complete':False,'results':rows},indent=2,default=str)+'\n')
++            print(name,opt,'PASS' if row['pass'] else 'FAIL',flush=True)
++    malformed=[]
++    original=compile_source(program('result = 7'))
++    for mutation in ('hash','type','literal','extra','source','control'):
++        bad=copy.deepcopy(original)
++        if mutation=='hash': bad['source_sha256']='0'*64
++        elif mutation=='source': bad['source']=program('result = 8')
++        elif mutation=='extra': bad['unsafe']=True
++        else:
++            expr=bad['functions'][0]['branches'][0]['body'][0]['value']
++            if mutation=='type': expr['type']='bool'
++            elif mutation=='literal': expr['value']=True
++            else: expr['kind']='native_intrinsic'
++        rejected=False
++        try: lower(bad)
++        except (DecError,ValueError): rejected=True
++        malformed.append(dict(mutation=mutation,rejected=rejected))
++    result={'seed':SEED,'complete':True,'created_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'results':rows,'malformed_ir':malformed,'pass':all(r['pass'] for r in rows) and all(r['rejected'] for r in malformed)}
++    (output/'results.json').write_text(json.dumps(result,indent=2,default=str)+'\n')
++    return 0 if result['pass'] else 1
++
++if __name__=='__main__':
++    p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True)
++    raise SystemExit(run(p.parse_args().output))
+--- /dev/null
++++ b/scripts/isolate_native.py
+@@ -0,0 +1,85 @@
++#!/usr/bin/env python3
++"""Construct a Python-free minimal root, inspect dependencies and run via bwrap."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import re
++import shutil
++import subprocess
++import sys
++
++ROOT=Path(__file__).resolve().parents[1]
++sys.path.insert(0,str(ROOT))
++
++def prepare(out):
++    from native.compiler import build,object_file,ensure_runtime
++    out.mkdir(parents=True,exist_ok=True)
++    cage=out/'root';cage.mkdir(exist_ok=True)
++    binaries=[]
++    for source in sorted((ROOT/'examples').glob('*.dec')):
++        target=out/source.stem
++        info=build(source.read_text(),target,opt=2)
++        binaries.append((target,[],None))
++    source='Dec square(x) -> y:\n    (int x) -> int y:\n        y = x * x + 7\nDec main() -> result:\n    () -> int result:\n        result = 0\n'
++    (out/'runtime-input.dec').write_text(source)
++    obj,_=object_file(source,opt=2);_,runtime=ensure_runtime()
++    harness=out/'runtime-input.cpp'
++    harness.write_text('''#include "runtime.hpp"
++#include <cstdio>
++#include <cstring>
++extern "C" void* dec_square__int(void*,void*);
++int main(int argc,char** argv){
++  if(argc!=2)return 2;
++  void* c=dec_context_new(100000,128);if(!c)return 3;
++  void* a=dec_literal(c,"int",argv[1],std::strlen(argv[1]),0);
++  void* r=dec_square__int(c,a);
++  if(!dec_ok(c)){std::fprintf(stderr,"%s\\n",dec_error(c));dec_context_free(c);return 1;}
++  const char* p=dec_render(c,r);std::fwrite(p,1,dec_render_size(c),stdout);std::fputc('\\n',stdout);
++  dec_context_free(c);return 0;
++}
++''')
++    input_bin=out/'runtime-input'
++    subprocess.run(['g++','-std=c++17','-O2','-I',str(ROOT/'native'),str(harness),str(obj),str(runtime),'-lgmpxx','-lgmp','-lcrypto','-o',str(input_bin)],check=True)
++    for n in ('0','-11','12345678901234567890123456789012345678901234567890'):
++        binaries.append((input_bin,[n],str(int(n)**2+7)+'\n'))
++    manifest={};runs=[]
++    for binary,args,expected in binaries:
++        binary=binary.resolve()
++        ldd=subprocess.run(['ldd',str(binary)],capture_output=True,text=True,check=True).stdout
++        (out/(binary.name+'.ldd.txt')).write_text(ldd)
++        readelf=subprocess.run(['readelf','-d',str(binary)],capture_output=True,text=True,check=True).stdout
++        (out/(binary.name+'.dynamic.txt')).write_text(readelf)
++        disassembly=subprocess.run(['objdump','-d',str(binary)],capture_output=True,text=True,check=True).stdout
++        (out/(binary.name+'.disassembly.txt')).write_text(disassembly)
++        deps=re.findall(r'(/[^\s()]+)',ldd)
++        if any('python' in s.lower() for s in deps):raise RuntimeError('Unexpected Python dependency')
++        for dep in deps:
++            src=Path(dep);dest=cage/dep.lstrip('/')
++            dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);dest.chmod(0o755)
++            manifest[str(dest.relative_to(cage))]=hashlib.sha256(dest.read_bytes()).hexdigest()
++        dest=cage/'bin'/binary.name;dest.parent.mkdir(exist_ok=True)
++        shutil.copyfile(binary,dest);dest.chmod(0o755)
++        manifest[str(dest.relative_to(cage))]=hashlib.sha256(dest.read_bytes()).hexdigest()
++        normal=subprocess.run([str(binary)]+args,capture_output=True,text=True,check=True)
++        if expected is not None and expected!=normal.stdout:raise RuntimeError('Independent runtime-input expectation failed')
++        runs.append(dict(binary='/bin/'+binary.name,args=args,expected=expected or normal.stdout,dependencies=deps))
++    (cage/'proc').mkdir(exist_ok=True);(cage/'dev').mkdir(exist_ok=True)
++    spec={'root':str(cage.resolve()),'files':manifest,'runs':runs,'python_files':[],'claim':'Only listed executable and ELF dependency bytes exist in isolated root; no frontend, Python executable/library, source or transcript'}
++    (out/'isolation-spec.json').write_text(json.dumps(spec,indent=2)+'\n')
++    return spec
++
++def execute(out):
++    spec=json.loads((out/'isolation-spec.json').read_text());rows=[]
++    for run in spec['runs']:
++        command=['bwrap','--unshare-all','--die-with-parent','--ro-bind',spec['root'],'/','--proc','/proc','--dev','/dev','--clearenv',run['binary']]+run['args']
++        p=subprocess.run(command,capture_output=True,text=True,timeout=30)
++        rows.append(dict(command=command,stdout=p.stdout,stderr=p.stderr,exit_code=p.returncode,pass_=p.returncode==0 and p.stdout==run['expected']))
++    result={'pass':all(r['pass_'] for r in rows),'runs':rows,'spec_sha256':hashlib.sha256((out/'isolation-spec.json').read_bytes()).hexdigest()}
++    (out/'results.json').write_text(json.dumps(result,indent=2)+'\n')
++    print(json.dumps(result,indent=2));return 0 if result['pass'] else 1
++
++if __name__=='__main__':
++    p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--execute',action='store_true');a=p.parse_args()
++    if a.execute:raise SystemExit(execute(a.output))
++    prepare(a.output);print(a.output/'isolation-spec.json')
+--- /dev/null
++++ b/tests/test_learning.py
+@@ -0,0 +1,175 @@
++import hashlib
++import json
++import runpy
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import unittest
++
++sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
++from native.learning import (MAX_SAMPLES, RetainedPolicy, VariantRegistry, canonical,
++                             digest, paired_interval, semantic_outcome)
++
++RESULT = {'stdout': '2\n', 'result': 't32(0)', 'error': None, 'error_line': 0, 'exit_code': 0}
++
++
++def registry(optimized=True):
++    reg = VariantRegistry('source', 'abi1', RESULT)
++    reg.validate('generic', 'obj-O0', RESULT)
++    if optimized:
++        reg.validate('optimized', 'obj-O2', RESULT)
++    return reg
++
++
++class LearningPolicyTests(unittest.TestCase):
++    def setUp(self):
++        self.temp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.temp.cleanup)
++        self.path = Path(self.temp.name) / 'profile.json'
++        self.binding = {'host': 'host1', 'software': 'sw1', 'workload': 'work1'}
++
++    def trained(self):
++        p = RetainedPolicy(self.path, self.binding, registry())
++        for _ in range(5):
++            p.observe_pair(100, 70)
++        p.save()
++        return p
++
++    def test_semantic_gate_keeps_outputs_errors_and_location(self):
++        for key, value in [('stdout', '3\n'), ('result', 't32(1)'), ('error', 'overflow'),
++                           ('error_line', 5), ('exit_code', 1)]:
++            r = dict(RESULT, **{key: value})
++            with self.assertRaises(ValueError):
++                registry(False).validate('optimized', 'obj-O2', r)
++        registry(False).validate('optimized', 'obj-O2', dict(RESULT, execute_ns=999, address=1234))
++
++    def test_later_selection_causally_depends_on_retention(self):
++        p = RetainedPolicy(self.path, self.binding, registry())
++        self.assertEqual(p.choose()['variant'], 'generic')
++        self.trained()
++        # Current instance has not read later observations; next instance has.
++        self.assertEqual(p.choose()['variant'], 'generic')
++        resumed = RetainedPolicy(self.path, self.binding, registry())
++        self.assertEqual(resumed.choose()['variant'], 'optimized')
++        self.path.unlink()
++        self.assertEqual(RetainedPolicy(self.path, self.binding, registry()).choose()['variant'], 'generic')
++
++    def test_restart_reads_committed_profile(self):
++        self.trained()
++        code = '''import json,sys
++from native.learning import *
++r=VariantRegistry('source','abi1',json.loads(sys.argv[2]))
++r.validate('generic','obj-O0',json.loads(sys.argv[2]))
++r.validate('optimized','obj-O2',json.loads(sys.argv[2]))
++p=RetainedPolicy(sys.argv[1],{'host':'host1','software':'sw1','workload':'work1'},r)
++print(json.dumps(p.choose()))'''
++        proc = subprocess.run([sys.executable, '-c', code, str(self.path), json.dumps(RESULT)],
++                              cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
++        self.assertEqual(proc.returncode, 0, proc.stderr)
++        self.assertEqual(json.loads(proc.stdout)['variant'], 'optimized')
++
++    def test_generic_passive_frozen_active(self):
++        p = self.trained()
++        self.assertEqual(p.choose('generic')['variant'], 'generic')
++        self.assertEqual(p.choose('passive')['variant'], 'generic')
++        self.assertEqual(p.choose('frozen')['variant'], 'optimized')
++        self.assertEqual(p.choose('active')['variant'], 'optimized')
++        self.assertEqual(p.generation, 5)
++
++    def test_binding_version_registry_and_corruption_fallback(self):
++        self.trained()
++        for key in self.binding:
++            binding = dict(self.binding, **{key: 'incompatible'})
++            p = RetainedPolicy(self.path, binding, registry())
++            self.assertTrue(p.load_reason.startswith('rejected'))
++            self.assertEqual(p.choose()['variant'], 'generic')
++        different = registry()
++        different.validate('optimized', 'changed-object', RESULT)
++        self.assertEqual(RetainedPolicy(self.path, self.binding, different).choose()['variant'], 'generic')
++        original = self.path.read_text()
++        obj = json.loads(original)
++        obj['payload']['version'] = 99
++        obj['sha256'] = digest(obj['payload'])
++        self.path.write_text(canonical(obj))
++        self.assertEqual(RetainedPolicy(self.path, self.binding, registry()).choose()['variant'], 'generic')
++        for raw in ('{', 'null', '[]', '{"payload":1,"sha256":"a"}', 'x' * 1000001):
++            self.path.write_text(raw)
++            p = RetainedPolicy(self.path, self.binding, registry())
++            self.assertTrue(p.load_reason.startswith('rejected'), raw[:10])
++            self.assertEqual(p.choose()['variant'], 'generic')
++
++    def test_checksum_valid_unpaired_or_inconsistent_generation_rejected(self):
++        self.trained()
++        original = self.path.read_text()
++        for generation, generic_count, optimized_count in ((32,32,5), (5,2,2), (0,5,5), (5,0,0)):
++            obj = json.loads(original)
++            obj['payload']['generation'] = generation
++            obj['payload']['costs'] = {'generic':[100]*generic_count, 'optimized':[70]*optimized_count}
++            obj['sha256'] = digest(obj['payload'])
++            self.path.write_text(canonical(obj))
++            p = RetainedPolicy(self.path, self.binding, registry())
++            self.assertIn('paired counts', p.load_reason)
++            self.assertEqual(p.choose()['variant'], 'generic')
++        # A rolled, fully paired window is lawful when generation exceeds the cap.
++        obj = json.loads(original)
++        obj['payload']['generation'] = MAX_SAMPLES+1
++        obj['payload']['costs'] = {'generic':[100]*MAX_SAMPLES, 'optimized':[70]*MAX_SAMPLES}
++        obj['sha256'] = digest(obj['payload'])
++        self.path.write_text(canonical(obj))
++        p = RetainedPolicy(self.path, self.binding, registry())
++        self.assertEqual(p.load_reason, 'valid')
++        self.assertEqual(p.choose()['variant'], 'optimized')
++
++    def test_shuffled_costs_without_integrity_update_rejected(self):
++        self.trained()
++        obj = json.loads(self.path.read_text())
++        obj['payload']['costs']['generic'][0] = 1
++        self.path.write_text(canonical(obj))
++        p = RetainedPolicy(self.path, self.binding, registry())
++        self.assertIn('checksum', p.load_reason)
++        self.assertEqual(p.choose()['variant'], 'generic')
++
++    def test_atomic_write_ignores_interrupted_temporary(self):
++        self.trained()
++        (self.path.parent / ('.'+self.path.name+'.interrupted.tmp')).write_text('{"partial":')
++        p = RetainedPolicy(self.path, self.binding, registry())
++        self.assertEqual(p.load_reason, 'valid')
++        self.assertEqual(p.choose()['variant'], 'optimized')
++
++    def test_bounded_counts_invalid_costs_and_registry(self):
++        p = RetainedPolicy(self.path, self.binding, registry())
++        for _ in range(100):
++            p.observe_pair(100, 70)
++        self.assertEqual(len(p.costs['generic']), MAX_SAMPLES)
++        for value in (0, -1, True, 1.5, 2**63):
++            with self.assertRaises(ValueError):
++                p.observe_pair(value, 10)
++        with self.assertRaises(ValueError):
++            RetainedPolicy(self.path, self.binding, registry(False)).observe_pair(100, 70)
++        self.assertEqual(RetainedPolicy(self.path, self.binding, registry(False)).choose()['variant'], 'generic')
++
++    def test_zero_negative_gain_and_overhead_roll_back(self):
++        for generic, optimized, overhead in [([100]*10,[100]*10,0), ([100]*10,[110]*10,0),
++                                             ([100]*10,[70]*10,1000)]:
++            p = self.trained()
++            result = p.evaluate_heldout(generic, optimized, overhead)
++            self.assertFalse(result['established_benefit'])
++            self.assertTrue(p.rollback)
++            self.assertEqual(p.choose()['variant'], 'generic')
++        p = self.trained()
++        self.assertTrue(p.evaluate_heldout([100]*10, [70]*10, 0)['established_benefit'])
++
++    def test_benchmark_reference_preserves_error_location_and_effects(self):
++        helper = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'scripts/benchmark_native.py'))['reference']
++        source = ('Dec main() -> result:\n    () -> t32 result:\n'
++                  '        emit 123\n        result = t32(1000000000000000000000000000000)\n')
++        self.assertEqual(helper(source), {'stdout': '123\n', 'result': None,
++            'error': 'line 4: t32 overflow', 'error_line': 4, 'exit_code': 1})
++
++    def test_independent_paired_interval(self):
++        result = paired_interval([100]*10, [75]*10)
++        self.assertEqual((result['median_gain'], result['lower'], result['upper']), (0.25, 0.25, 0.25))
++
++if __name__ == '__main__':
++    unittest.main()
+--- /dev/null
++++ b/tests/test_native_backend.py
+@@ -0,0 +1,275 @@
++"""Independent compiler/ORC contract tests; run directly to retain JSON evidence."""
++from __future__ import annotations
++import argparse
++import copy
++import ctypes
++import hashlib
++import json
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import threading
++import time
++import unittest
++from unittest.mock import patch
++
++ROOT=Path(__file__).resolve().parents[1]
++sys.path.insert(0,str(ROOT))
++from native import compiler as backend
++from runtime.dec_language import Interpreter,compile_source,dumps_ir,DecError
++from runtime.dec_core import render
++
++SCALAR='''Dec square(n) -> r:
++    (int n) -> int r:
++        r = n * n
++Dec main() -> r:
++    () -> int r:
++        emit "start"
++        r = square(123456789012345678901234567890)
++'''
++TREE='''Dec tree(n) -> r:
++    (int n) -> int r:
++        r = 1 if n == 0 else tree(n - 1) + tree(n - 1)
++Dec main() -> r:
++    () -> int r:
++        r = tree(12)
++'''
++RECORDS=[]
++
++def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
++def reference(source,fuel=100000,depth=128):
++    out=[]
++    try:
++        value=Interpreter(compile_source(source),emit=out.append,max_steps=fuel,max_depth=depth).run()
++        return {'stdout':''.join(x+'\n' for x in out),'result':render(value),'error':None,'exit_code':0}
++    except Exception as e:
++        return {'stdout':''.join(x+'\n' for x in out),'result':None,'error':str(e),'exit_code':1}
++
++def observable(r):return {k:r[k] for k in ('stdout','result','error','exit_code')}
++
++class NativeBackend(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.temp=tempfile.TemporaryDirectory(prefix='dec-backend-')
++        cls.work=Path(cls.temp.name); cls.program=compile_source(SCALAR)
++        backend.ensure_runtime()
++    @classmethod
++    def tearDownClass(cls):cls.temp.cleanup()
++    def record(self,name,**fields):RECORDS.append({'test':self.id(),'check':name,**fields})
++    def test_cache_mutation_matrix(self):
++        directory=self.work/'matrix'
++        obj,base=backend.object_file(self.program,0,directory)
++        _,again=backend.object_file(self.program,0,directory)
++        self.assertFalse(base['cache_hit']);self.assertTrue(again['cache_hit'])
++        self.record('initial-and-repeat',key=base['key'],first_hit=base['cache_hit'],second_hit=again['cache_hit'])
++        mutated=compile_source(SCALAR.replace('n * n','n * n + 1'))
++        _,changed=backend.object_file(mutated,0,directory)
++        self.assertNotEqual(changed['key'],base['key']);self.assertFalse(changed['cache_hit'])
++        self.record('source-change',key=changed['key'])
++        _,optimized=backend.object_file(self.program,2,directory)
++        self.assertNotEqual(optimized['key'],base['key']);self.assertFalse(optimized['cache_hit'])
++        self.record('optimization-change',key=optimized['key'])
++        for name in ('ABI_VERSION','COMPILER_VERSION'):
++            with patch.object(backend,name,getattr(backend,name)+'-mutation'):
++                _,changed=backend.object_file(self.program,0,directory)
++            self.assertNotEqual(changed['key'],base['key']);self.assertFalse(changed['cache_hit'])
++            self.record(name,key=changed['key'])
++        real=backend.runtime_digest()
++        with patch.object(backend,'runtime_digest',return_value=real+'-mutation'):
++            _,changed=backend.object_file(self.program,0,directory)
++        self.assertNotEqual(changed['key'],base['key']);self.assertFalse(changed['cache_hit'])
++        self.record('runtime-source-binding-mutation',key=changed['key'],scope='synthetic digest mutation; runtime ABI remains fixed')
++        L=backend.llvm()
++        for attribute,value in [('cpu',L.cpu+'-mutation'),('features',L.features+',test-feature-mutation'),('triple','x86_64-unknown-linux-gnu')]:
++            with patch.object(L,attribute,value): _,changed=backend.object_file(self.program,0,directory)
++            self.assertNotEqual(changed['key'],base['key']);self.assertFalse(changed['cache_hit'])
++            self.record('host-'+attribute,key=changed['key'],scope='cache invalidation; no foreign architecture support inferred')
++    def test_cache_corruption_and_guard_repair(self):
++        cache=self.work/'corruption';obj,base=backend.object_file(self.program,2,cache)
++        orig=digest(obj); ir=Path(base['llvm_ir']); original_ir=ir.read_bytes()
++        obj.write_bytes(b'not an object')
++        repaired,info=backend.object_file(self.program,2,cache)
++        self.assertFalse(info['cache_hit']);self.assertEqual(digest(repaired),orig)
++        self.record('object-corruption-repaired',object_sha256=orig)
++        ir.write_bytes(original_ir+b'\n; hostile stale IR\n')
++        _,info=backend.object_file(self.program,2,cache)
++        self.assertFalse(info['cache_hit']);self.assertEqual(ir.read_bytes(),original_ir)
++        self.record('IR-corruption-repaired')
++        with backend.JitSession(SCALAR,opt=2,cache_dir=cache) as session:
++            first=session.run(); self.assertEqual(observable(first),reference(SCALAR))
++            actual=Path(session.info['object'])
++        for suffix in ('generic','guard'):
++            p=actual.with_suffix('.'+suffix+'.o'); before=digest(p);p.write_bytes(b'corrupt '+suffix.encode())
++            with backend.JitSession(SCALAR,opt=2,cache_dir=cache) as session:
++                fast=session.run();slow=session.run(guard_key='invalid')
++            self.assertEqual(digest(p),before);self.assertEqual(observable(fast),observable(slow));self.assertEqual(slow['dispatch'],'generic')
++            self.record(suffix+'-object-corruption-repaired',object_sha256=before,dispatch=[fast['dispatch'],slow['dispatch']])
++        manifest=actual.with_suffix('.json'); manifest.write_text('{broken')
++        _,info=backend.object_file(self.program,2,cache)
++        self.assertFalse(info['cache_hit']);self.record('malformed-manifest-repaired')
++    def test_entry_guards_and_runtime_inputs(self):
++        with backend.JitSession(SCALAR,opt=2,cache_dir=self.work/'entries') as session:
++            for value in (0,-1,123,10**90+3):
++                fast=session.run(function='square',args=[value]);slow=session.run(function='square',args=[value],guard_key='stale')
++                self.assertEqual(fast['result'],str(value*value));self.assertEqual(observable(fast),observable(slow))
++                self.assertEqual(fast['dispatch'],'specialized');self.assertEqual(slow['dispatch'],'generic');self.assertGreater(fast['address'],0)
++                self.record('external-input',input=str(value),expected=str(value*value),address=fast['address'],paths=[fast['dispatch'],slow['dispatch']])
++            with self.assertRaises(DecError):session.run(function='square',args=[True])
++            with self.assertRaises(DecError):session.run(function='absent',args=[])
++    def test_typed_foreign_entry(self):
++        source="""Dec ident(x) -> r:
++    (t1 x) -> t1 r:
++        r = x
++    (t32 x) -> t32 r:
++        r = x
++    (q4 x) -> q4 r:
++        r = x
++    (ratio x) -> ratio r:
++        r = x
++Dec main() -> r:
++    () -> int r:
++        r = 0
++"""
++        valid=[('t1','-1','t1(-1)'),('t32','926510094425920','t32(926510094425920)'),
++               ('q4','15','q4(15)'),('ratio','-20/-30','2/3'),('ratio','+2/+3','2/3'),('ratio','0/-3','0/1'),
++               ('ratio','7','7/1'),('ratio',str(10**100+7)+'/3',str(10**100+7)+'/3')]
++        invalid=[('t1','2','t1 outside {-1,0,+1}'),('t32','926510094425921','t32 overflow'),
++                 ('q4','16','q4 outside 0..15'),('ratio','1/0','zero denominator')]
++        with backend.JitSession(source,opt=2,cache_dir=self.work/'typed') as session:
++            for typ,text,expected in valid:
++                for key in (None,'stale'):
++                    result=session.run(function='ident',args=[(typ,text)],guard_key=key)
++                    self.assertEqual(result['exit_code'],0);self.assertEqual(result['result'],expected)
++                    self.record('typed-foreign-entry',type=typ,text=text,result=result)
++            for typ,text,error in invalid:
++                result=session.run(function='ident',args=[(typ,text)])
++                self.assertEqual(result['error'],error);self.assertEqual(result['exit_code'],1)
++                self.assertEqual(result['dispatch'],'not_entered');self.assertEqual(result['stdout'],'')
++                self.record('typed-foreign-invalid-domain',type=typ,text=text,result=result)
++            for typ,text in [('ratio','1/2/3'),('ratio','/2'),('ratio','1/'),('ratio','1.5/2'),('ratio',' 1/2'),('t32','1 2'),('t1','x')]:
++                with self.assertRaises(DecError):session.run(function='ident',args=[(typ,text)])
++                self.record('typed-foreign-malformed-rejected',type=typ,text=text)
++    def test_concurrent_first_publish(self):
++        shared=self.work/'parallel-cache'; parallel_root=self.work/'parallel-root';(parallel_root/'native').mkdir(parents=True)
++        # Isolated empty runtime directory exercises first runtime publication,
++        # while shared cache publication is independently serialized.
++        for name in ('runtime.cpp','runtime.hpp'):
++            (parallel_root/'native'/name).write_bytes((ROOT/'native'/name).read_bytes())
++        code="""import json,sys
++from pathlib import Path
++from native import compiler as c
++c.ROOT=Path(sys.argv[1])
++source=sys.argv[3]
++with c.JitSession(source,opt=2,cache_dir=sys.argv[2]) as j:
++ r=j.run(); print(json.dumps({'result':r,'object':c.sha(Path(j.info['object']).read_bytes())}))
++"""
++        command=[sys.executable,'-c',code,str(parallel_root),str(shared),SCALAR]
++        processes=[subprocess.Popen(command,cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True) for _ in range(3)]
++        observations=[]
++        for process in processes:
++            stdout,stderr=process.communicate(timeout=90)
++            self.assertEqual(process.returncode,0,stderr);observations.append(json.loads(stdout))
++        expected=reference(SCALAR)
++        for item in observations:self.assertEqual(observable(item['result']),expected)
++        self.assertEqual(len({item['object'] for item in observations}),1)
++        self.assertFalse(list(shared.glob('*.tmp')));self.assertFalse(list((parallel_root/'build/native').glob('*.tmp')))
++        self.record('three-process-first-publish',observations=observations,scope='same empty runtime build directory and same empty object cache')
++    def test_generated_code_permissions(self):
++        with backend.JitSession(SCALAR,opt=2,cache_dir=self.work/'permissions') as session:
++            result=session.run(); address=result['address']; found=[]
++            for row in Path('/proc/self/maps').read_text().splitlines():
++                span,perms,*_=row.split();lo,hi=[int(s,16) for s in span.split('-')]
++                if lo<=address<hi:found.append(row);self.assertIn('x',perms);self.assertNotIn('w',perms)
++            self.assertEqual(len(found),1);self.record('executed-address-mapping',address=address,mapping=found[0])
++    def test_repeated_lifetime_and_concurrent_close(self):
++        for i in range(5):
++            session=backend.JitSession(SCALAR,opt=2,cache_dir=self.work/'lifetime');result=session.run();self.assertEqual(observable(result),reference(SCALAR));session.close()
++            with self.assertRaisesRegex(DecError,'closed'):session.run()
++            session.close();self.record('load-run-close',iteration=i,address=result['address'])
++        session=backend.JitSession(TREE,opt=2,cache_dir=self.work/'concurrent');session._load()
++        native_new=session.runtime.dec_context_new;entered=threading.Event();release=threading.Event();closed=threading.Event();events=[];result=[]
++        def at_entry(*args):entered.set();self.assertTrue(release.wait(10));return native_new(*args)
++        session.runtime.dec_context_new=at_entry
++        def run():
++            try: result.append(session.run(fuel=1000000));events.append(('call-returned',time.perf_counter_ns()))
++            except BaseException as e:result.append(e)
++        def close():session.close();events.append(('close-returned',time.perf_counter_ns()));closed.set()
++        caller=threading.Thread(target=run);caller.start();self.assertTrue(entered.wait(10))
++        closer=threading.Thread(target=close);closer.start();self.assertFalse(closed.wait(.03));release.set();caller.join(20);closer.join(20)
++        self.assertFalse(caller.is_alive());self.assertFalse(closer.is_alive());self.assertTrue(closed.is_set());self.assertIsInstance(result[0],dict);self.assertEqual(result[0]['result'],'4096')
++        # The call has completed native execution before its lock is released;
++        # Python scheduling can append the diagnostic list after close acquired it.
++        self.assertTrue(session.closed);self.record('close-waits-for-owned-call',events=events,result=result[0],blocked_before_release=True)
++    def test_malformed_typed_IR_rejected(self):
++        cases=[]
++        bad=copy.deepcopy(self.program);bad['source_sha256']='0'*64;cases.append(bad)
++        bad=copy.deepcopy(self.program);bad['version']=True;cases.append(bad)
++        bad=copy.deepcopy(self.program);bad['functions'][0]['branches'][0]['body'][0]['value']['op']='+';cases.append(bad)
++        bad=copy.deepcopy(self.program);bad['functions'][0]['branches'][0]['return_type']='bool';cases.append(bad)
++        bad=copy.deepcopy(self.program);bad['extra']='forged';cases.append(bad)
++        for index,bad in enumerate(cases):
++            with self.assertRaises(DecError):backend.lower(bad)
++            with self.assertRaises(DecError):backend.JitSession(bad)
++            self.record('malformed-IR-rejected',mutation=index)
++    def test_deterministic_artifacts(self):
++        a,ia=backend.object_file(self.program,2,self.work/'repro-a');b,ib=backend.object_file(self.program,2,self.work/'repro-b')
++        self.assertEqual(a.read_bytes(),b.read_bytes());self.assertEqual(Path(ia['llvm_ir']).read_bytes(),Path(ib['llvm_ir']).read_bytes())
++        outa=self.work/'binary-a';outb=self.work/'binary-b'
++        backend.build(SCALAR,outa,opt=2,cache_dir=self.work/'repro-a');backend.build(SCALAR,outb,opt=2,cache_dir=self.work/'repro-b')
++        self.assertEqual(outa.read_bytes(),outb.read_bytes())
++        result=subprocess.run([str(outa)],capture_output=True,text=True,check=True)
++        expected=reference(SCALAR);self.assertEqual(result.stdout,expected['stdout']+expected['result']+'\n')
++        self.record('repeat-build-bytes',object_sha256=digest(a),binary_sha256=digest(outa),stdout=result.stdout)
++    def test_fuel_depth_and_effect_order(self):
++        source='''Dec probe(n) -> r:
++    (int n) -> int r:
++        emit n
++        r = 1 if n == 0 else probe(n - 1) + 1
++Dec main() -> r:
++    () -> int r:
++        emit "before"
++        r = probe(3)
++'''
++        with backend.JitSession(source,opt=2,cache_dir=self.work/'budgets') as session:
++            for depth in (0,1,2,3,4,5,128):
++                for fuel in (0,1,2,3,4,5,10,20,40,60,100,100000):
++                    expect=reference(source,fuel,depth);got=session.run(fuel=fuel,max_depth=depth)
++                    self.assertEqual(observable(got),expect,(fuel,depth,got,expect))
++                    self.record('budget-parity',fuel=fuel,depth=depth,observable=observable(got),execute_ns=got['execute_ns'])
++        # The invalid operands are untaken; neither error nor emit may occur.
++        branches='''Dec fail() -> r:
++    () -> int r:
++        emit "wrong"
++        r = 1 // 0
++Dec main() -> r:
++    () -> bool r:
++        bool a = false and fail() == 0
++        bool b = true or fail() == 0
++        int c = 7 if b else fail()
++        assert c == 7
++        r = b
++'''
++        with backend.JitSession(branches,opt=2,cache_dir=self.work/'shortcircuit') as session:
++            result=session.run();self.assertEqual(observable(result),reference(branches));self.assertEqual(result['stdout'],'');self.assertEqual(result['result'],'true');self.record('untaken-effects',result=result)
++        failures='''Dec bad() -> r:
++    () -> int r:
++        emit "inside"
++        r = 1 // 0
++Dec main() -> r:
++    () -> int r:
++        emit "before"
++        r = bad()
++        emit "after"
++'''
++        with backend.JitSession(failures,opt=2,cache_dir=self.work/'errors') as session:
++            result=session.run();self.assertEqual(observable(result),reference(failures));self.assertEqual(result['error_line'],4);self.record('first-error-and-emits',result=result)
++
++if __name__=='__main__':
++    parser=argparse.ArgumentParser();parser.add_argument('--evidence',type=Path);args=parser.parse_args()
++    suite=unittest.defaultTestLoader.loadTestsFromTestCase(NativeBackend)
++    started=time.time();result=unittest.TextTestRunner(verbosity=2).run(suite)
++    if args.evidence:
++        args.evidence.parent.mkdir(parents=True,exist_ok=True)
++        args.evidence.write_text(json.dumps({'started_unix':started,'completed_unix':time.time(),'tests_run':result.testsRun,'failures':[(str(t),e) for t,e in result.failures],'errors':[(str(t),e) for t,e in result.errors],'status':'PASS' if result.wasSuccessful() else 'FAIL','compiler_sha256':digest(ROOT/'native/compiler.py'),'runtime_sha256':backend.runtime_digest(),'records':RECORDS},indent=2)+'\n')
++    raise SystemExit(0 if result.wasSuccessful() else 1)

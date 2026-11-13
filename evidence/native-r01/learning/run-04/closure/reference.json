@@ -1,0 +1,7 @@
+{
+  "stdout": "{\"closures\":[{\"begin\":0,\"digest\":\"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a\",\"end\":3},{\"begin\":3,\"digest\":\"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f\",\"end\":6}],\"events\":[{\"kind\":\"step\",\"ordinal\":1,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":2,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":3,\"orientation\":-1,\"source\":1,\"target\":0},{\"kind\":\"step\",\"ordinal\":4,\"orientation\":1,\"source\":0,\"target\":1},{\"kind\":\"hinge\",\"ordinal\":5,\"orientation\":0,\"source\":1,\"target\":1},{\"kind\":\"step\",\"ordinal\":6,\"orientation\":-1,\"source\":1,\"target\":0}],\"lineage\":\"a\",\"parents\":[],\"proposal\":\"\",\"scope\":\"B\",\"start\":{\"value\":0}}\n1/3\n",
+  "result": "t32(0)",
+  "error": null,
+  "error_line": 0,
+  "exit_code": 0
+}

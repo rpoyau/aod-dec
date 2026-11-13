@@ -1,0 +1,57 @@
+{
+  "created_utc": "2026-11-13T12:27:42.845067+00:00",
+  "repository": "https://github.com/rpoyau/aod-lint",
+  "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+  "tracked_source_clean": true,
+  "tool_tests": {
+    "status": "PASS",
+    "tests": 4,
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "--target-dir",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target"
+    ],
+    "environment": {
+      "CARGO_HOME": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/cargo-cache"
+    },
+    "log": "lint-tests.log"
+  },
+  "initial_attempt": {
+    "status": "FAIL",
+    "exit_code": 101,
+    "reason": "Default local Cargo cache lacked colored; no checker result inferred",
+    "log": "lint-tests-initial.log"
+  },
+  "dependency_resolution": {
+    "source": "Copied existing workspace Cargo.lock and complete registry cache, then fresh offline locked build",
+    "lock_file": "lint.Cargo.lock",
+    "sha256": "82cdf620220a0fb722ece7923e9386c0e28a8eaba9f4c5cb43f59f219c9cd0ba"
+  },
+  "cargo_version": "cargo 1.97.1 (c980f4866 2026-06-30)",
+  "rustc_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "binary": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+    "sha256": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c",
+    "redistributed": false
+  },
+  "application": {
+    "command": [
+      "python3",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/scripts/check_aod_lint.py",
+      "--checkout",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/aod-lint",
+      "--binary",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/evidence/pr-import/lint-coverage.json"
+    ],
+    "exit_code": 0,
+    "report": "lint-coverage.json",
+    "log": "lint-run.log"
+  },
+  "status": "PASS_TOOL_TESTS_ONLY",
+  "compiler_correctness": "NOT_ESTABLISHED_BY_AOD_LINT"
+}

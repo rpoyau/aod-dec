@@ -1,0 +1,2 @@
+PASS native runtime: exact arithmetic, preserved cancellation, certificate/scope/parent/event/replay mutations, nested retention, allocation, ownership, fuel, depth, Unicode/NUL
+

@@ -1,0 +1,23 @@
+{
+  "retained_observations": [
+    {
+      "command": "work/candidate/native/runtime-tests",
+      "exit_code": 139,
+      "finding": "GMP rational copied before canonicalizing a deliberately negative denominator in hostile fixture",
+      "resolution": "numeric constructor now extracts numerator/denominator and normalizes sign before rational copy; exact same fixture passes"
+    },
+    {
+      "command": "g++ -std=c++17 -O1 -g -fsanitize=address,undefined ...",
+      "exit_code": 1,
+      "stderr": "/usr/bin/ld.bfd: cannot find /usr/lib64/libasan.so.8.0.0: No such file or directory\ncollect2: error: ld returned 1 exit status",
+      "status": "ENVIRONMENT_GAP"
+    },
+    {
+      "command": "gdb --batch -ex run -ex bt work/candidate/native/runtime-tests",
+      "exit_code": 1,
+      "stderr": "warning: Could not trace the inferior process.\nwarning: ptrace: Operation not permitted\nDuring startup program exited with code 127.\nNo stack.",
+      "status": "SANDBOX_LIMIT",
+      "subsequent_diagnosis": "Test-local backtrace handler identified __gmpn_copyi_x86_64; minimized GMP reproduction and constructor fix confirmed in debug/O3 tests"
+    }
+  ]
+}

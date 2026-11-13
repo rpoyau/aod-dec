@@ -1,0 +1,39 @@
+{
+  "passive": {
+    "stdout_equal": true,
+    "selection": {
+      "variant": "generic",
+      "reason": "generic control",
+      "generation": 0,
+      "load_reason": "missing",
+      "mode": "passive"
+    },
+    "next_invocation_preview": {
+      "variant": "generic",
+      "reason": "generic control",
+      "generation": 12,
+      "load_reason": "missing",
+      "mode": "passive"
+    },
+    "native_address": 140472024088576
+  },
+  "active": {
+    "stdout_equal": true,
+    "selection": {
+      "variant": "generic",
+      "reason": "no established practical improvement",
+      "generation": 12,
+      "load_reason": "valid",
+      "mode": "active"
+    },
+    "next_invocation_preview": {
+      "variant": "generic",
+      "reason": "no established practical improvement",
+      "generation": 12,
+      "load_reason": "valid",
+      "mode": "active"
+    },
+    "native_address": 140288145018880
+  },
+  "pass": true
+}

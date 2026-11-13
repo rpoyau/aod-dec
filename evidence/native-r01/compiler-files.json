@@ -1,0 +1,10 @@
+{
+  "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+  "native/runner.cpp": "eb5e5033b0f8ed1211b1955469199d7e7fe80424d4effc83aaea533313d76daa",
+  "native/toolchain-lock.json": "1c04098d271ae0fcdbf10f5fd233f62e5524273943aeddb766bd35c03aa148be",
+  "aodc.py": "1bb7c56d119a424b2fb3637b7755ca4aee5d5a69be79accc1648973f9fd4d31d",
+  "docs/LANGUAGE_CORE_V1.md": "1a8f1f025cb2ba258d7d2574c73ee64322508f1b1aebfc4421cbb8dff7ecc8d6",
+  "docs/NATIVE_ABI_V1.md": "4061cc31c788a7d3fce481d77c45086c7da98d4813a7fb32ce5998fd7da67b66",
+  "docs/BUILD_NATIVE.md": "81c365e2858da05b610a84143d55d5b6056e358c9481fe5bd85ce50e05a4f345",
+  "tests/test_native_backend.py": "7656174bf87e47cf713b147f224ad9ee9a434ec24564b8e28c925bdf10ac9050"
+}

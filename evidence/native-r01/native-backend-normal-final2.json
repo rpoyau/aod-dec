@@ -1,0 +1,1863 @@
+{
+  "started_unix": 1794571129.7293837,
+  "completed_unix": 1794571173.7324529,
+  "tests_run": 10,
+  "failures": [],
+  "errors": [],
+  "status": "PASS",
+  "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+  "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+  "records": [
+    {
+      "test": "__main__.NativeBackend.test_cache_corruption_and_guard_repair",
+      "check": "object-corruption-repaired",
+      "object_sha256": "db871820a954c8891c2e090711504a21d4619bb3ec0e966635cae7f5dc78e7f2"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_corruption_and_guard_repair",
+      "check": "IR-corruption-repaired"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_corruption_and_guard_repair",
+      "check": "generic-object-corruption-repaired",
+      "object_sha256": "76071df7c8a39066097878fa9f44f600b49022c41fda7b0e69498b28ef40ec15",
+      "dispatch": [
+        "specialized",
+        "generic"
+      ]
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_corruption_and_guard_repair",
+      "check": "guard-object-corruption-repaired",
+      "object_sha256": "4bde7034864b81c470e1d4325ec4443e7afa0cd0bedf7bae5beaafad93c3dff3",
+      "dispatch": [
+        "specialized",
+        "generic"
+      ]
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_corruption_and_guard_repair",
+      "check": "malformed-manifest-repaired"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "initial-and-repeat",
+      "key": "fd36491d9c4b741039f6f3e3fabc33a9393bdfb7f8ff8405683987f392fa078a",
+      "first_hit": false,
+      "second_hit": true
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "source-change",
+      "key": "e4738ad39c7f9bdcbbd79c9d9a34bc07211d4142a8352256469858ce8cda921d"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "optimization-change",
+      "key": "f68e2640ae47217b9627423c6fef8d91267aa5f6d635776705a3ba992c1aee7f"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "ABI_VERSION",
+      "key": "6751541ae18fb330f4e024710cc55cd9e511c590467974c24f97f195e3366684"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "COMPILER_VERSION",
+      "key": "5deb5a49e15f455be502d15f21312bf47a4d1ff9d1598000757a715fc04b1296"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "runtime-source-binding-mutation",
+      "key": "664d72e8edb908661817b0d4eb5723db65b3c1dc6dcfaf08dea302e5032cc410",
+      "scope": "synthetic digest mutation; runtime ABI remains fixed"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "host-cpu",
+      "key": "9ec9cc4648f31eb786f4d8b3d1f6932373694fed9da66d65bc8474d99b5a7a2a",
+      "scope": "cache invalidation; no foreign architecture support inferred"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "host-features",
+      "key": "037c6717b424640bbef07a112307b92497a50e1f4d20b5c708d97d48bd47e6aa",
+      "scope": "cache invalidation; no foreign architecture support inferred"
+    },
+    {
+      "test": "__main__.NativeBackend.test_cache_mutation_matrix",
+      "check": "host-triple",
+      "key": "541e91ed6afc5b09e082864c179489b726638178a83634fa1ca6740a9cb8ac9c",
+      "scope": "cache invalidation; no foreign architecture support inferred"
+    },
+    {
+      "test": "__main__.NativeBackend.test_concurrent_first_publish",
+      "check": "three-process-first-publish",
+      "observations": [
+        {
+          "result": {
+            "stdout": "start\n",
+            "result": "15241578753238836750495351562536198787501905199875019052100",
+            "error": null,
+            "error_line": 0,
+            "exit_code": 0,
+            "execute_ns": 191106,
+            "address": 140196640591968,
+            "cache_hit": false,
+            "compile_ns": 20919001394,
+            "load_ns": 7280328,
+            "key": "f68e2640ae47217b9627423c6fef8d91267aa5f6d635776705a3ba992c1aee7f",
+            "dispatch": "specialized"
+          },
+          "object": "db871820a954c8891c2e090711504a21d4619bb3ec0e966635cae7f5dc78e7f2"
+        },
+        {
+          "result": {
+            "stdout": "start\n",
+            "result": "15241578753238836750495351562536198787501905199875019052100",
+            "error": null,
+            "error_line": 0,
+            "exit_code": 0,
+            "execute_ns": 189272,
+            "address": 139753944248416,
+            "cache_hit": true,
+            "compile_ns": 19913798576,
+            "load_ns": 7250530,
+            "key": "f68e2640ae47217b9627423c6fef8d91267aa5f6d635776705a3ba992c1aee7f",
+            "dispatch": "specialized"
+          },
+          "object": "db871820a954c8891c2e090711504a21d4619bb3ec0e966635cae7f5dc78e7f2"
+        },
+        {
+          "result": {
+            "stdout": "start\n",
+            "result": "15241578753238836750495351562536198787501905199875019052100",
+            "error": null,
+            "error_line": 0,
+            "exit_code": 0,
+            "execute_ns": 192116,
+            "address": 139811434877024,
+            "cache_hit": true,
+            "compile_ns": 18963330194,
+            "load_ns": 7101400,
+            "key": "f68e2640ae47217b9627423c6fef8d91267aa5f6d635776705a3ba992c1aee7f",
+            "dispatch": "specialized"
+          },
+          "object": "db871820a954c8891c2e090711504a21d4619bb3ec0e966635cae7f5dc78e7f2"
+        }
+      ],
+      "scope": "same empty runtime build directory and same empty object cache"
+    },
+    {
+      "test": "__main__.NativeBackend.test_deterministic_artifacts",
+      "check": "repeat-build-bytes",
+      "object_sha256": "db871820a954c8891c2e090711504a21d4619bb3ec0e966635cae7f5dc78e7f2",
+      "binary_sha256": "fdb391d15d539b86dc5ef0c4b9bec72b3fa65b14ccfd0239b6f34ae0f1184845",
+      "stdout": "start\n15241578753238836750495351562536198787501905199875019052100\n"
+    },
+    {
+      "test": "__main__.NativeBackend.test_entry_guards_and_runtime_inputs",
+      "check": "external-input",
+      "input": "0",
+      "expected": "0",
+      "address": 140219150581760,
+      "paths": [
+        "specialized",
+        "generic"
+      ]
+    },
+    {
+      "test": "__main__.NativeBackend.test_entry_guards_and_runtime_inputs",
+      "check": "external-input",
+      "input": "-1",
+      "expected": "1",
+      "address": 140219150581760,
+      "paths": [
+        "specialized",
+        "generic"
+      ]
+    },
+    {
+      "test": "__main__.NativeBackend.test_entry_guards_and_runtime_inputs",
+      "check": "external-input",
+      "input": "123",
+      "expected": "15129",
+      "address": 140219150581760,
+      "paths": [
+        "specialized",
+        "generic"
+      ]
+    },
+    {
+      "test": "__main__.NativeBackend.test_entry_guards_and_runtime_inputs",
+      "check": "external-input",
+      "input": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+      "expected": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009",
+      "address": 140219150581760,
+      "paths": [
+        "specialized",
+        "generic"
+      ]
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 49234
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 32449
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 25505
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 24291
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 24042
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 23261
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 21895
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 21146
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 31349
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 25651
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 25688
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 0,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 42287
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 1,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 20845
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 1,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 20844
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 1,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 21719
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 38344
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 31328
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 27865
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 44688
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 33906
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 37578
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 34666
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 31901
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 1,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 29917
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 2,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 25823
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 2,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 23475
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 2,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 23319
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 38888
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 43333
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 27594
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 46319
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 74115
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 67318
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 62057
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 56354
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 2,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 53151
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 3,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 27219
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 3,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 22491
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 3,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 21976
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 28768
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 36176
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 29071
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 46787
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 90062
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n3\n2\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 92357
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n3\n2\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 112241
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n3\n2\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 78672
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 3,
+      "observable": {
+        "stdout": "before\n3\n2\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 84875
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 4,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 23797
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 4,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 22328
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 4,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 22280
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 28831
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 25012
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 25312
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 41914
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 66349
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 92354
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 109370
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 119092
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 4,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n",
+        "result": null,
+        "error": "call depth limit exceeded",
+        "exit_code": 1
+      },
+      "execute_ns": 92932
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 5,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 22526
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 5,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 21276
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 5,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 21125
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 29109
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 26245
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 26447
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 43070
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 123271
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 104980
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n0\n",
+        "result": "4",
+        "error": null,
+        "exit_code": 0
+      },
+      "execute_ns": 154837
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n0\n",
+        "result": "4",
+        "error": null,
+        "exit_code": 0
+      },
+      "execute_ns": 150964
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 5,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n0\n",
+        "result": "4",
+        "error": null,
+        "exit_code": 0
+      },
+      "execute_ns": 158193
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 0,
+      "depth": 128,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 23791
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 1,
+      "depth": 128,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 21662
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 2,
+      "depth": 128,
+      "observable": {
+        "stdout": "",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 21675
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 3,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 32026
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 4,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 27674
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 5,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 24870
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 10,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 41456
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 20,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n3\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 95579
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 40,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n",
+        "result": null,
+        "error": "execution step budget exhausted",
+        "exit_code": 1
+      },
+      "execute_ns": 100787
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 60,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n0\n",
+        "result": "4",
+        "error": null,
+        "exit_code": 0
+      },
+      "execute_ns": 151615
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n0\n",
+        "result": "4",
+        "error": null,
+        "exit_code": 0
+      },
+      "execute_ns": 157460
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "budget-parity",
+      "fuel": 100000,
+      "depth": 128,
+      "observable": {
+        "stdout": "before\n3\n2\n1\n0\n",
+        "result": "4",
+        "error": null,
+        "exit_code": 0
+      },
+      "execute_ns": 150001
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "untaken-effects",
+      "result": {
+        "stdout": "",
+        "result": "true",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 105319,
+        "address": 140219150581856,
+        "cache_hit": false,
+        "compile_ns": 126852481,
+        "load_ns": 4940264,
+        "key": "1837aa10e61f34cde775961e84f229eaa91184741ace53c14db515e9b96e93e5",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_fuel_depth_and_effect_order",
+      "check": "first-error-and-emits",
+      "result": {
+        "stdout": "before\ninside\n",
+        "result": null,
+        "error": "line 4: zero divisor",
+        "error_line": 4,
+        "exit_code": 1,
+        "execute_ns": 193277,
+        "address": 140219150581856,
+        "cache_hit": false,
+        "compile_ns": 86553397,
+        "load_ns": 4733319,
+        "key": "437af5bb94332fe32714c2ddc301d9af8bf01a77ed39c595e34140d431fe9dbf",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_generated_code_permissions",
+      "check": "executed-address-mapping",
+      "address": 140219150581856,
+      "mapping": "7f8750a94000-7f8750a95000 r-xp 00000000 00:00 0 "
+    },
+    {
+      "test": "__main__.NativeBackend.test_malformed_typed_IR_rejected",
+      "check": "malformed-IR-rejected",
+      "mutation": 0
+    },
+    {
+      "test": "__main__.NativeBackend.test_malformed_typed_IR_rejected",
+      "check": "malformed-IR-rejected",
+      "mutation": 1
+    },
+    {
+      "test": "__main__.NativeBackend.test_malformed_typed_IR_rejected",
+      "check": "malformed-IR-rejected",
+      "mutation": 2
+    },
+    {
+      "test": "__main__.NativeBackend.test_malformed_typed_IR_rejected",
+      "check": "malformed-IR-rejected",
+      "mutation": 3
+    },
+    {
+      "test": "__main__.NativeBackend.test_malformed_typed_IR_rejected",
+      "check": "malformed-IR-rejected",
+      "mutation": 4
+    },
+    {
+      "test": "__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close",
+      "check": "load-run-close",
+      "iteration": 0,
+      "address": 140219150581856
+    },
+    {
+      "test": "__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close",
+      "check": "load-run-close",
+      "iteration": 1,
+      "address": 140219150581856
+    },
+    {
+      "test": "__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close",
+      "check": "load-run-close",
+      "iteration": 2,
+      "address": 140219150581856
+    },
+    {
+      "test": "__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close",
+      "check": "load-run-close",
+      "iteration": 3,
+      "address": 140219150581856
+    },
+    {
+      "test": "__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close",
+      "check": "load-run-close",
+      "iteration": 4,
+      "address": 140219150581856
+    },
+    {
+      "test": "__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close",
+      "check": "close-waits-for-owned-call",
+      "events": [
+        [
+          "call-returned",
+          213189069191568
+        ],
+        [
+          "close-returned",
+          213189072585385
+        ]
+      ],
+      "result": {
+        "stdout": "",
+        "result": "4096",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 221727927,
+        "address": 140219150581856,
+        "cache_hit": false,
+        "compile_ns": 100375854,
+        "load_ns": 5028473,
+        "key": "7c2c7c2e1644cd718c09c55e50b1afe705dc6a0a0862f2b34ae296301a5ebf45",
+        "dispatch": "specialized"
+      },
+      "blocked_before_release": true
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "t1",
+      "text": "-1",
+      "result": {
+        "stdout": "",
+        "result": "t1(-1)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 36898,
+        "address": 140219150581760,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4676215,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "t1",
+      "text": "-1",
+      "result": {
+        "stdout": "",
+        "result": "t1(-1)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 20316,
+        "address": 140219150581760,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4676215,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "t32",
+      "text": "926510094425920",
+      "result": {
+        "stdout": "",
+        "result": "t32(926510094425920)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 15526,
+        "address": 140219150581856,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4724054,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "t32",
+      "text": "926510094425920",
+      "result": {
+        "stdout": "",
+        "result": "t32(926510094425920)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 15791,
+        "address": 140219150581856,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4724054,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "q4",
+      "text": "15",
+      "result": {
+        "stdout": "",
+        "result": "q4(15)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 14911,
+        "address": 140219150581952,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4754539,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "q4",
+      "text": "15",
+      "result": {
+        "stdout": "",
+        "result": "q4(15)",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 13322,
+        "address": 140219150581952,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4754539,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "-20/-30",
+      "result": {
+        "stdout": "",
+        "result": "2/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 19349,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "-20/-30",
+      "result": {
+        "stdout": "",
+        "result": "2/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 16728,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "+2/+3",
+      "result": {
+        "stdout": "",
+        "result": "2/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 14089,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "+2/+3",
+      "result": {
+        "stdout": "",
+        "result": "2/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 14291,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "0/-3",
+      "result": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 13698,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "0/-3",
+      "result": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 13189,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "7",
+      "result": {
+        "stdout": "",
+        "result": "7/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 13047,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "7",
+      "result": {
+        "stdout": "",
+        "result": "7/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 13438,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007/3",
+      "result": {
+        "stdout": "",
+        "result": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 13192,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "specialized"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-entry",
+      "type": "ratio",
+      "text": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007/3",
+      "result": {
+        "stdout": "",
+        "result": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 14395,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-invalid-domain",
+      "type": "t1",
+      "text": "2",
+      "result": {
+        "stdout": "",
+        "result": null,
+        "error": "t1 outside {-1,0,+1}",
+        "error_line": 0,
+        "exit_code": 1,
+        "execute_ns": 4849,
+        "address": 140219150581760,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "not_entered"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-invalid-domain",
+      "type": "t32",
+      "text": "926510094425921",
+      "result": {
+        "stdout": "",
+        "result": null,
+        "error": "t32 overflow",
+        "error_line": 0,
+        "exit_code": 1,
+        "execute_ns": 4597,
+        "address": 140219150581856,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "not_entered"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-invalid-domain",
+      "type": "q4",
+      "text": "16",
+      "result": {
+        "stdout": "",
+        "result": null,
+        "error": "q4 outside 0..15",
+        "error_line": 0,
+        "exit_code": 1,
+        "execute_ns": 4496,
+        "address": 140219150581952,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "not_entered"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-invalid-domain",
+      "type": "ratio",
+      "text": "1/0",
+      "result": {
+        "stdout": "",
+        "result": null,
+        "error": "zero denominator",
+        "error_line": 0,
+        "exit_code": 1,
+        "execute_ns": 3724,
+        "address": 140219150582048,
+        "cache_hit": false,
+        "compile_ns": 95637964,
+        "load_ns": 4795705,
+        "key": "8623380f39826f92370beafa48714e3ea4f53ac5e1c6303a214760a4a90b8dcd",
+        "dispatch": "not_entered"
+      }
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "ratio",
+      "text": "1/2/3"
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "ratio",
+      "text": "/2"
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "ratio",
+      "text": "1/"
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "ratio",
+      "text": "1.5/2"
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "ratio",
+      "text": " 1/2"
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "t32",
+      "text": "1 2"
+    },
+    {
+      "test": "__main__.NativeBackend.test_typed_foreign_entry",
+      "check": "typed-foreign-malformed-rejected",
+      "type": "t1",
+      "text": "x"
+    }
+  ]
+}

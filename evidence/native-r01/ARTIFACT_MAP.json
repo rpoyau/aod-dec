@@ -1,0 +1,844 @@
+{
+  "origin": "AOD_DEC_EXECUTION_REQUEST_R01",
+  "published_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+  "original_complete_archive_sha256": "c8208bc8f7af5900872dfbdb5ec06c1c878456a20f85a6b1371e334f69e54a3d",
+  "original_complete_archive_filename": "AOD_DEC_NATIVE_EXECUTION_R01_2026-11-13.zip",
+  "record_policy": "Copied records are byte-for-byte historical execution evidence; their original local paths remain provenance. Map relocated record paths using files. Generated binaries/caches, duplicate prior benchmark runs and foundation archives are not imported into Git; their hashes remain in original records/archive. New PR validation is separate in evidence/pr-import.",
+  "files": {
+    "work/evidence/learning-progress.md": {
+      "repository_path": "evidence/native-r01/learning-progress.md",
+      "sha256": "09bd2d31094c591ac9fed99755662edb43b17fab27e113dafc7a3c9f7c5f2d52"
+    },
+    "work/evidence/SOURCE_BINDING.json": {
+      "repository_path": "evidence/native-r01/SOURCE_BINDING.json",
+      "sha256": "5a87eed80e346ff92543e1bb080d3a0b52a7c6675726a7640e3c9c7e1d58d6ba"
+    },
+    "work/evidence/HANDOFF.md": {
+      "repository_path": "evidence/native-r01/HANDOFF.md",
+      "sha256": "a7f7bd6d28241df5ed47d48d512744f4da0135254f4453cdb02ffe8bc4b9b79b"
+    },
+    "work/evidence/ternary-first.ll": {
+      "repository_path": "evidence/native-r01/ternary-first.ll",
+      "sha256": "c3358d09510b534e74b09255b14bf34144942466c4eff91417cfaf5b9607be15"
+    },
+    "work/evidence/compiler-progress.md": {
+      "repository_path": "evidence/native-r01/compiler-progress.md",
+      "sha256": "03e0a91ca14c4d90382ee0a2a2d31423380d8595eb744af8406a484982ae642b"
+    },
+    "work/evidence/runtime-progress.md": {
+      "repository_path": "evidence/native-r01/runtime-progress.md",
+      "sha256": "13144c256ee1a0ff5cbfb6321c6632086a6f88e56412fd9232e0420e3b61f9ba"
+    },
+    "work/evidence/compiler-spike.json": {
+      "repository_path": "evidence/native-r01/compiler-spike.json",
+      "sha256": "f780f0c0358b9e33f1ab00ad8f5bfa4721001cb1415e51767d8d0800e1a2a899"
+    },
+    "work/evidence/runtime-differential.json": {
+      "repository_path": "evidence/native-r01/runtime-differential.json",
+      "sha256": "41be783610cbc387164c42d9ce6928c3d1e671705de38b40e12ce8534552fd7a"
+    },
+    "work/evidence/runtime-debug.log": {
+      "repository_path": "evidence/native-r01/runtime-debug.log",
+      "sha256": "6219882d499720cf89f0cb6b6f8e5a1e1cb93248e69d6e82c5615db0fe8a96d8"
+    },
+    "work/evidence/compiler-files.json": {
+      "repository_path": "evidence/native-r01/compiler-files.json",
+      "sha256": "53bc6bf2ebce2a8e9ecf05281d702fab7e4c3d68d0bbe7f28120e900aaa295e1"
+    },
+    "work/evidence/runtime-optimized.log": {
+      "repository_path": "evidence/native-r01/runtime-optimized.log",
+      "sha256": "6219882d499720cf89f0cb6b6f8e5a1e1cb93248e69d6e82c5615db0fe8a96d8"
+    },
+    "work/evidence/conformance-run-01.log": {
+      "repository_path": "evidence/native-r01/conformance-run-01.log",
+      "sha256": "2bcdea8a886f9e5ab5927c73f7b04fd1b74065306e20e91ff1a0c6f97475d8d4"
+    },
+    "work/evidence/runtime-results.json": {
+      "repository_path": "evidence/native-r01/runtime-results.json",
+      "sha256": "8cced313a97eaa802922548b39f4f088f19d00552294e1385e145ff48be1d6d2"
+    },
+    "work/evidence/runtime-development-failures.json": {
+      "repository_path": "evidence/native-r01/runtime-development-failures.json",
+      "sha256": "a175796b7bd218177a0261785dfcc635c7a68f05a61d5e496d8704cca560b4f6"
+    },
+    "work/evidence/native-backend-normal-final2.log": {
+      "repository_path": "evidence/native-r01/native-backend-normal-final2.log",
+      "sha256": "736374f11b87624596b601804ef7b1c1ed6f95dbb50f08cf497e6183534d19b2"
+    },
+    "work/evidence/native-backend-normal-final2.json": {
+      "repository_path": "evidence/native-r01/native-backend-normal-final2.json",
+      "sha256": "3622d08ad7a33e3611601ee23f917779ad0fe9761f17dc967e4a2c49bff908a7"
+    },
+    "work/evidence/native-backend-optimized-final2.log": {
+      "repository_path": "evidence/native-r01/native-backend-optimized-final2.log",
+      "sha256": "ca6aad94452ae42822f548aa9c68d3745ebc86bcae467777b192762278fd5884"
+    },
+    "work/evidence/native-backend-optimized-final2.json": {
+      "repository_path": "evidence/native-r01/native-backend-optimized-final2.json",
+      "sha256": "028333fdc3360a34e45a30ad129522b0a1421a8fa4ae1d9666521bc3fe92de0c"
+    },
+    "work/evidence/integration-findings.json": {
+      "repository_path": "evidence/native-r01/integration-findings.json",
+      "sha256": "748dcf4520afbd3ba3c5af467a9db5cc68746dfebf87d26410d8db5f495366a9"
+    },
+    "work/evidence/backend-audit.json": {
+      "repository_path": "evidence/native-r01/backend-audit.json",
+      "sha256": "863b19eab6f2f0d65fea2858b51b84add7812272b9f9dd1dae9835a53f7b93ac"
+    },
+    "work/evidence/conformance-run-02-final.log": {
+      "repository_path": "evidence/native-r01/conformance-run-02-final.log",
+      "sha256": "2bcdea8a886f9e5ab5927c73f7b04fd1b74065306e20e91ff1a0c6f97475d8d4"
+    },
+    "work/evidence/replay.json": {
+      "repository_path": "evidence/native-r01/replay.json",
+      "sha256": "f3bcc763e9e4186a3fde9f5bbc081d110d66b7ceb72b7042f651bfde37d9fcec"
+    },
+    "work/evidence/ACCEPTANCE_RESULTS.json": {
+      "repository_path": "evidence/native-r01/ACCEPTANCE_RESULTS.json",
+      "sha256": "b9a6f76641e6757fd74848dfd2223564e3d5094fa20001e135906b131284e6d1"
+    },
+    "work/evidence/REPORT.md": {
+      "repository_path": "evidence/native-r01/REPORT.md",
+      "sha256": "3d5b72e534faf15bccf40274d37c7df61e294c2d8d8f67ce420b636c853e9e75"
+    },
+    "work/evidence/learning/policy-tests.log": {
+      "repository_path": "evidence/native-r01/learning/policy-tests.log",
+      "sha256": "320584ed7f6a79f7983065726a323a7d9dad462e3b97bac931a8e6448ff65d72"
+    },
+    "work/evidence/learning/run-01.log": {
+      "repository_path": "evidence/native-r01/learning/run-01.log",
+      "sha256": "f19ba1ad5f29234849d2428809588c531919e8cf5ff5a6a22776faad5d881502"
+    },
+    "work/evidence/learning/policy-tests-optimized.log": {
+      "repository_path": "evidence/native-r01/learning/policy-tests-optimized.log",
+      "sha256": "01e1c52da63a7167e30116250309363ce0900e7ab20dead9216ffd4ec2d84d96"
+    },
+    "work/evidence/learning/run-02.log": {
+      "repository_path": "evidence/native-r01/learning/run-02.log",
+      "sha256": "21a6dd7be7b581d27558239136388f81c1649bf9334ec8f18f000dc495454b2b"
+    },
+    "work/evidence/learning/run-03.log": {
+      "repository_path": "evidence/native-r01/learning/run-03.log",
+      "sha256": "cbb32046ca0a77befc6f6215be535158e74f3f4766640f9cfc3e5afe8c3f6c28"
+    },
+    "work/evidence/learning/cli-passive.log": {
+      "repository_path": "evidence/native-r01/learning/cli-passive.log",
+      "sha256": "55e5fe60ec6242ace4bdf6fb7329a5c5ac2ceda4f25f29c94f525f4892e04466"
+    },
+    "work/evidence/learning/cli-active.log": {
+      "repository_path": "evidence/native-r01/learning/cli-active.log",
+      "sha256": "55e5fe60ec6242ace4bdf6fb7329a5c5ac2ceda4f25f29c94f525f4892e04466"
+    },
+    "work/evidence/learning/cli-results.json": {
+      "repository_path": "evidence/native-r01/learning/cli-results.json",
+      "sha256": "7d142c0da54fe87f513ee020fb20b1728d7e8615740747dbe3f1d1d6caebe58f"
+    },
+    "work/evidence/learning/ACCEPTANCE_M4_M5.json": {
+      "repository_path": "evidence/native-r01/learning/ACCEPTANCE_M4_M5.json",
+      "sha256": "75f405a6ef2bb4217ced18b2b90b99d601bfa487be7a6c0b813758e27fb30afc"
+    },
+    "work/evidence/learning/run-04.log": {
+      "repository_path": "evidence/native-r01/learning/run-04.log",
+      "sha256": "b5b4dab84b01c38018248f714acf7b76107e1c29eece7ef9c7067d1f861b361d"
+    },
+    "work/evidence/isolation/closure.build.json": {
+      "repository_path": "evidence/native-r01/isolation/closure.build.json",
+      "sha256": "8f7bee46ad1dcc1e57a09a0840334899aff9478c102c34ebbc795f381438a941"
+    },
+    "work/evidence/isolation/coupling.build.json": {
+      "repository_path": "evidence/native-r01/isolation/coupling.build.json",
+      "sha256": "3be819c12e2bbee080dab5f62c4a6177275014d3490ef85d2974bbd1d079bebc"
+    },
+    "work/evidence/isolation/fusion.build.json": {
+      "repository_path": "evidence/native-r01/isolation/fusion.build.json",
+      "sha256": "59021c4ef4923c7f04c3c66d4171ee90fb06b55ff32a218f71b3eaa9f06bfdec"
+    },
+    "work/evidence/isolation/ternary.build.json": {
+      "repository_path": "evidence/native-r01/isolation/ternary.build.json",
+      "sha256": "3b52a37345c590e14b371872f04cf763d252b47f083505eb6bfea4a2b38f9a25"
+    },
+    "work/evidence/isolation/weights.build.json": {
+      "repository_path": "evidence/native-r01/isolation/weights.build.json",
+      "sha256": "d861a55d4870bb49fc9d7f6c2829b47c282148129bd0e2f37bc5138eb2e593f1"
+    },
+    "work/evidence/isolation/runtime-input.dec": {
+      "repository_path": "evidence/native-r01/isolation/runtime-input.dec",
+      "sha256": "a4445c7d579cf2b1c84d79c8a67b4113efee55eeffd9e38dce25d592cb0708e4"
+    },
+    "work/evidence/isolation/runtime-input.cpp": {
+      "repository_path": "evidence/native-r01/isolation/runtime-input.cpp",
+      "sha256": "3b195f9faf52677d7958984d988e002cd8b9cbb87ab713785d41fdcc1a3788aa"
+    },
+    "work/evidence/isolation/closure.ldd.txt": {
+      "repository_path": "evidence/native-r01/isolation/closure.ldd.txt",
+      "sha256": "787525cf9e38ee31e2a63ab91e2bd473210873f49a9e7fcc5b75d43bcd509a8a"
+    },
+    "work/evidence/isolation/closure.dynamic.txt": {
+      "repository_path": "evidence/native-r01/isolation/closure.dynamic.txt",
+      "sha256": "4f505a40eedc53f224e3562845a3b09da9bf67e97d9b780d56b48a18bc8e5d34"
+    },
+    "work/evidence/isolation/coupling.ldd.txt": {
+      "repository_path": "evidence/native-r01/isolation/coupling.ldd.txt",
+      "sha256": "a679032dd7dc12c6302b1f227d02cbb0417bd2cbb869e237021b4740d1394e06"
+    },
+    "work/evidence/isolation/coupling.dynamic.txt": {
+      "repository_path": "evidence/native-r01/isolation/coupling.dynamic.txt",
+      "sha256": "5b5ff0a8bccb1c7d4a2e8b67c3a7366b7d87aae0586f3cbe86c5ffe3978dc5ff"
+    },
+    "work/evidence/isolation/fusion.ldd.txt": {
+      "repository_path": "evidence/native-r01/isolation/fusion.ldd.txt",
+      "sha256": "a389cf2ad64fa39c4fdb4505baebcde0e2fa0886055e9a7bb1926346de084a1a"
+    },
+    "work/evidence/isolation/fusion.dynamic.txt": {
+      "repository_path": "evidence/native-r01/isolation/fusion.dynamic.txt",
+      "sha256": "960de205dbf779323746eb77abdddc59c89ad5bd693f167b3097f0e3ecb15803"
+    },
+    "work/evidence/isolation/ternary.ldd.txt": {
+      "repository_path": "evidence/native-r01/isolation/ternary.ldd.txt",
+      "sha256": "d163c4a1d19b2964942bb6c1b0f3e002834a9372bff4152c2e3a0537e7fd2a29"
+    },
+    "work/evidence/isolation/ternary.dynamic.txt": {
+      "repository_path": "evidence/native-r01/isolation/ternary.dynamic.txt",
+      "sha256": "b534c43cb2f489d8efe5d8193c99659333e373a29291c0bcd44735fa6cbd18a6"
+    },
+    "work/evidence/isolation/ternary.disassembly.txt": {
+      "repository_path": "evidence/native-r01/isolation/ternary.disassembly.txt",
+      "sha256": "b33fd80658e69f62e58dc595c400f1c8c1ef4bacd9bc81b3548e62a4c635d902"
+    },
+    "work/evidence/isolation/weights.ldd.txt": {
+      "repository_path": "evidence/native-r01/isolation/weights.ldd.txt",
+      "sha256": "e2d249c91cca4c414746102e8207f68bd110f04d6fe6ea9f435aeddd6db4a65b"
+    },
+    "work/evidence/isolation/weights.dynamic.txt": {
+      "repository_path": "evidence/native-r01/isolation/weights.dynamic.txt",
+      "sha256": "e2f1e79ba7c039df87c01e86dd74c12248555a777168bf114125e576e2e15558"
+    },
+    "work/evidence/isolation/runtime-input.ldd.txt": {
+      "repository_path": "evidence/native-r01/isolation/runtime-input.ldd.txt",
+      "sha256": "72b8de65cce37d1752df2ae7d87552d15f5c7f1e8f3e813a604f006785739145"
+    },
+    "work/evidence/isolation/runtime-input.dynamic.txt": {
+      "repository_path": "evidence/native-r01/isolation/runtime-input.dynamic.txt",
+      "sha256": "e7abc3fc4efcf2c9df020bbb2458494ff6ed8acb576f9e95997652603c4d75e6"
+    },
+    "work/evidence/isolation/runtime-input.disassembly.txt": {
+      "repository_path": "evidence/native-r01/isolation/runtime-input.disassembly.txt",
+      "sha256": "d3954f679f773fc8734974ae130ce1c10003c6b9d25681d35b975bdae01c6a39"
+    },
+    "work/evidence/isolation/isolation-spec.json": {
+      "repository_path": "evidence/native-r01/isolation/isolation-spec.json",
+      "sha256": "b6f555c583996276d4c34c13aa3bc0713a7b5041d4c6ac13b9c74f1b37876e3f"
+    },
+    "work/evidence/isolation/results.json": {
+      "repository_path": "evidence/native-r01/isolation/results.json",
+      "sha256": "cfab941fe0d46b386aac6439f362a3353e0c2185caa2f10be64bb82f9d743c24"
+    },
+    "work/evidence/isolation/environment.json": {
+      "repository_path": "evidence/native-r01/isolation/environment.json",
+      "sha256": "3a3f0bbb49ab2228e9196db838994078f3b0089d23d0d2cfde750f54cfda6a16"
+    },
+    "work/evidence/isolation/final-rebinding.json": {
+      "repository_path": "evidence/native-r01/isolation/final-rebinding.json",
+      "sha256": "c24f7c769640b971e563a3a760c73cc17bf14f37062da650a1627a62b2aa9673"
+    },
+    "work/evidence/regression-final/bundle-integrity.log": {
+      "repository_path": "evidence/native-r01/regression-final/bundle-integrity.log",
+      "sha256": "61767895608ac0a1737fa69cef203a6db8879a777381fa654f0b01f63892f6b9"
+    },
+    "work/evidence/regression-final/results.json": {
+      "repository_path": "evidence/native-r01/regression-final/results.json",
+      "sha256": "ae6df242b1eff4ffd51d0329e618e6c4c54ccbafab860148be86a5a7ac68fa5b"
+    },
+    "work/evidence/regression-final/python-normal.log": {
+      "repository_path": "evidence/native-r01/regression-final/python-normal.log",
+      "sha256": "bd2fe4f8941367a9a7493da22b41357f1d3821a1c8f8040e8018fde232531464"
+    },
+    "work/evidence/regression-final/python-optimized.log": {
+      "repository_path": "evidence/native-r01/regression-final/python-optimized.log",
+      "sha256": "140b2bb96f8765e3f1e160876cb9e8b3ad554909e92d13755fad769a68e32022"
+    },
+    "work/evidence/conformance/run-02-final/corpus.json": {
+      "repository_path": "evidence/native-r01/conformance/run-02-final/corpus.json",
+      "sha256": "352cca15afd6c0d0c2616695c317766c692fb8a57979719af88471c1c4757d32"
+    },
+    "work/evidence/conformance/run-02-final/results.json": {
+      "repository_path": "evidence/native-r01/conformance/run-02-final/results.json",
+      "sha256": "66a55aed92fbcb0d177d3d16e12e138427d6a754bc89583e38419af64759a4e5"
+    },
+    "work/evidence/learning/run-04/BENCHMARK_PROTOCOL.md": {
+      "repository_path": "evidence/native-r01/learning/run-04/BENCHMARK_PROTOCOL.md",
+      "sha256": "ee68748a599fd6ab8afd48337f7f6530689e184235fbdad42f34be8c10c49fb4"
+    },
+    "work/evidence/learning/run-04/run-start.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/run-start.json",
+      "sha256": "fa93190d659e84738d78dd60623e693aa9dc2a2d8ccac09aa165089fbb4308f6"
+    },
+    "work/evidence/learning/run-04/host.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/host.json",
+      "sha256": "c3075be179b1c5daa2bb8feeeec4162088cd9a210af29f6323f747f407d609de"
+    },
+    "work/evidence/learning/run-04/observations.jsonl": {
+      "repository_path": "evidence/native-r01/learning/run-04/observations.jsonl",
+      "sha256": "0678c84b44002e098f13c2953630783c631c2308ebeb4521257a5fc3b047b3f8"
+    },
+    "work/evidence/learning/run-04/results.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/results.json",
+      "sha256": "3abccb65fafc4b086f6abf83b32ba243111ee69be266c3760787aa2e80b24eaa"
+    },
+    "work/evidence/learning/run-04/reanalysis.log": {
+      "repository_path": "evidence/native-r01/learning/run-04/reanalysis.log",
+      "sha256": "0f6ef1a48c6cb5618075422c21435d26edacf943194d9b7d5db361227abaf382"
+    },
+    "work/evidence/learning/run-04/reanalysis.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/reanalysis.json",
+      "sha256": "0f6ef1a48c6cb5618075422c21435d26edacf943194d9b7d5db361227abaf382"
+    },
+    "work/evidence/learning/run-04/REPORT.md": {
+      "repository_path": "evidence/native-r01/learning/run-04/REPORT.md",
+      "sha256": "c14afdf0fe5d794f52cae419282e5b435c172e72f9dfda0ad391706f19e9c96a"
+    },
+    "work/evidence/learning/cli-final/profile.json": {
+      "repository_path": "evidence/native-r01/learning/cli-final/profile.json",
+      "sha256": "53fc4aa1fd6ce16d2b3276dedb0a0b3e22c916a3883f8333c1c1460157726d40"
+    },
+    "work/evidence/learning/cli-final/passive.json": {
+      "repository_path": "evidence/native-r01/learning/cli-final/passive.json",
+      "sha256": "de1320e2a04bbdf425f45a7c2026428b4360c74b5675814bbfd9dc215cb8927b"
+    },
+    "work/evidence/learning/cli-final/passive.stdout": {
+      "repository_path": "evidence/native-r01/learning/cli-final/passive.stdout",
+      "sha256": "55e5fe60ec6242ace4bdf6fb7329a5c5ac2ceda4f25f29c94f525f4892e04466"
+    },
+    "work/evidence/learning/cli-final/passive.stderr": {
+      "repository_path": "evidence/native-r01/learning/cli-final/passive.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "work/evidence/learning/cli-final/active.json": {
+      "repository_path": "evidence/native-r01/learning/cli-final/active.json",
+      "sha256": "20e105ce03821aeec302bbd337fe0a9de68421e02ce86418b9928aa7ce7761d8"
+    },
+    "work/evidence/learning/cli-final/active.stdout": {
+      "repository_path": "evidence/native-r01/learning/cli-final/active.stdout",
+      "sha256": "55e5fe60ec6242ace4bdf6fb7329a5c5ac2ceda4f25f29c94f525f4892e04466"
+    },
+    "work/evidence/learning/cli-final/active.stderr": {
+      "repository_path": "evidence/native-r01/learning/cli-final/active.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "work/evidence/learning/cli-final/negative.dec": {
+      "repository_path": "evidence/native-r01/learning/cli-final/negative.dec",
+      "sha256": "7a46e4e63211567f2ce291470799b9a4e1822037115f077c0d66e340a9900f3f"
+    },
+    "work/evidence/learning/cli-final/negative.json": {
+      "repository_path": "evidence/native-r01/learning/cli-final/negative.json",
+      "sha256": "1fb9030eee24a31f99dfa65978506a07d953c2eb2b4b433c5cff4e17ca8cdbdb"
+    },
+    "work/evidence/learning/cli-final/negative.stdout": {
+      "repository_path": "evidence/native-r01/learning/cli-final/negative.stdout",
+      "sha256": "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b"
+    },
+    "work/evidence/learning/cli-final/negative.stderr": {
+      "repository_path": "evidence/native-r01/learning/cli-final/negative.stderr",
+      "sha256": "ff6b3c178c110e084a3f3165d907f0a72db643bd493e120d3bc0d1588ea7f675"
+    },
+    "work/evidence/learning/cli-final/results.json": {
+      "repository_path": "evidence/native-r01/learning/cli-final/results.json",
+      "sha256": "3a867edbb587da566381816615bef907a1f8dd9da14503eadc4f4a05d09f97b4"
+    },
+    "work/evidence/learning/run-04/ternary/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/source.dec",
+      "sha256": "d009e7bcbe71a4f8cd8622e35d58beffaf493c52caf7b17dc2d6cca50587e6e2"
+    },
+    "work/evidence/learning/run-04/ternary/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/reference.json",
+      "sha256": "9630367c6b815da53df8737e008bded857ce910e3bdcde5d0d03697757cdad2c"
+    },
+    "work/evidence/learning/run-04/ternary/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/generic.build.json",
+      "sha256": "ce8c33736a6170452ee071b39385c9c3e48c46863639f79bda3236f4138a2808"
+    },
+    "work/evidence/learning/run-04/ternary/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/optimized.build.json",
+      "sha256": "aa90b6aa79eac59651804a423a1939362230fb6f53ee49c8ef08f3460c4ad107"
+    },
+    "work/evidence/learning/run-04/ternary/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/variant-registry.json",
+      "sha256": "1d4a91c7186349c5f903de674b3ff039bc82f3111a9b100ab616fbeefa25e813"
+    },
+    "work/evidence/learning/run-04/ternary/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/frozen-profile.json",
+      "sha256": "0e6b4fb3d42fbec5150ed541fb5f326b02635f724265775d7282a00bda896b7a"
+    },
+    "work/evidence/learning/run-04/ternary/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/stale-profile.json",
+      "sha256": "0e6b4fb3d42fbec5150ed541fb5f326b02635f724265775d7282a00bda896b7a"
+    },
+    "work/evidence/learning/run-04/ternary/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/shuffled-profile.json",
+      "sha256": "eb44abfd4d785b2e5cba52351a761c8b6237b668bf5f80124aad154dd8e2d2ae"
+    },
+    "work/evidence/learning/run-04/ternary/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/active-profile.json",
+      "sha256": "3c3a236e2f1cffe2d645835938c502a65e9423d791e18425e7328d92e229b34d"
+    },
+    "work/evidence/learning/run-04/ternary/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/passive-profile.json",
+      "sha256": "3b8f4f6ebcd0b9588c3db40673f0fd6d5417d720f8fc22e5afd9c652e49b9f62"
+    },
+    "work/evidence/learning/run-04/ternary/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/causal-fixture-profile.json",
+      "sha256": "cb2390716f4dd974167a7086590c1731a4b84d4244b88fee04d1f6e5e965b17d"
+    },
+    "work/evidence/learning/run-04/ternary/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/restart-request.json",
+      "sha256": "7e5048b4d84cd499decf2995ea160ccd8e36fca999cccbae3fb6199e02f7c2bc"
+    },
+    "work/evidence/learning/run-04/ternary/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/trained-profile.json",
+      "sha256": "f7359ac0399c73d4b31d3185797bf0a382d764550fb9494a03daa65b1bbed056"
+    },
+    "work/evidence/learning/run-04/ternary/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/ternary/summary.json",
+      "sha256": "f3ac47ae395e13f597ad0236ac237a22d5c67def20ad8adffef17cfa3ece6249"
+    },
+    "work/evidence/learning/run-04/weights/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/source.dec",
+      "sha256": "f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054"
+    },
+    "work/evidence/learning/run-04/weights/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/reference.json",
+      "sha256": "bb3ceabc94adf21087e2030ca73d48b198c65b71d134df1b33aafb91574cea10"
+    },
+    "work/evidence/learning/run-04/weights/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/generic.build.json",
+      "sha256": "a387f2bfff3490e00529e99bddc70ac714755c52cc6324731d2775d5a81f8852"
+    },
+    "work/evidence/learning/run-04/weights/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/optimized.build.json",
+      "sha256": "4d9904023691a4a6094835607ebbad8a7d50f84a6934584e6812b6accc3e5e4a"
+    },
+    "work/evidence/learning/run-04/weights/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/variant-registry.json",
+      "sha256": "137e5cf9c980d9cdc77cc6d4db094d27d8e7fb78617288edbde02020b7091f22"
+    },
+    "work/evidence/learning/run-04/weights/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/frozen-profile.json",
+      "sha256": "9d0ce0b939028a881752eb111688327d20effbd5de53a6b9ae24cb7c7385593d"
+    },
+    "work/evidence/learning/run-04/weights/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/stale-profile.json",
+      "sha256": "9d0ce0b939028a881752eb111688327d20effbd5de53a6b9ae24cb7c7385593d"
+    },
+    "work/evidence/learning/run-04/weights/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/shuffled-profile.json",
+      "sha256": "8e6cb360c075387946fb4e3ae9c80ea935b66e8dc19b5f518cd3f93cfd639db4"
+    },
+    "work/evidence/learning/run-04/weights/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/active-profile.json",
+      "sha256": "31d10a3b866c5b56838982e1cb5a3a476934d39198f3503b7e8054c74512761a"
+    },
+    "work/evidence/learning/run-04/weights/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/passive-profile.json",
+      "sha256": "83f3c12d64a1dd08d40a8655c93a81bd7bec13e5d08c7cf46cb2b5c4e62c7913"
+    },
+    "work/evidence/learning/run-04/weights/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/causal-fixture-profile.json",
+      "sha256": "a95735e4782f3dd5fcda14e0e04b5ecc4da8c7e73ef0b23221c77772d3abfa62"
+    },
+    "work/evidence/learning/run-04/weights/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/restart-request.json",
+      "sha256": "a5bf03bcb7f80fe4230510883b2b92fae78345d34ad3e29b075220390891183b"
+    },
+    "work/evidence/learning/run-04/weights/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/trained-profile.json",
+      "sha256": "072017eadba2daf35c44c0b19a124e97a06cbe151032da4f577673ef2a3fa3df"
+    },
+    "work/evidence/learning/run-04/weights/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/weights/summary.json",
+      "sha256": "d903caa3d30fd975405b06408926d0bc786a4954be912037301fb83b548dcd45"
+    },
+    "work/evidence/learning/run-04/closure/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/source.dec",
+      "sha256": "68a58121e7ad796f15c5671a9974e92f879babecfebb83ef2fdeaa5f3614c931"
+    },
+    "work/evidence/learning/run-04/closure/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/reference.json",
+      "sha256": "4131d5132421d6a5a0e4b3749cdb7ef73a0c956b4803eb1803c687d3717d0ab9"
+    },
+    "work/evidence/learning/run-04/closure/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/generic.build.json",
+      "sha256": "135f3139e09575dbe41c4ac0ad5789ae3b69ed7ff8ba2ce1407c3114c79e79cc"
+    },
+    "work/evidence/learning/run-04/closure/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/optimized.build.json",
+      "sha256": "758bc74faf0729cbab140c06f8ab0bb5fd091941ce3cb6b0bc3da2b035ecde07"
+    },
+    "work/evidence/learning/run-04/closure/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/variant-registry.json",
+      "sha256": "2523433633cb8209c3e3cce3284bfb5d840bdce3d6eb62fda599d44042941e9c"
+    },
+    "work/evidence/learning/run-04/closure/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/frozen-profile.json",
+      "sha256": "204a47c07f6b19d3a85afa115cd6bc794e6d78c14fcd028852fdcc7d1caa99e0"
+    },
+    "work/evidence/learning/run-04/closure/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/stale-profile.json",
+      "sha256": "204a47c07f6b19d3a85afa115cd6bc794e6d78c14fcd028852fdcc7d1caa99e0"
+    },
+    "work/evidence/learning/run-04/closure/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/shuffled-profile.json",
+      "sha256": "99f6f845c9d7df1dc11081661f5321bddca45764985a54961e0d85849d954b60"
+    },
+    "work/evidence/learning/run-04/closure/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/passive-profile.json",
+      "sha256": "117a70290d0157a40a029a1f63c289c4d850968a454209dfcbd660bd8a6ad915"
+    },
+    "work/evidence/learning/run-04/closure/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/active-profile.json",
+      "sha256": "6ac7386e77d7133e1fee13d6b78599b5652ceb55dfcac6701dad447cb44098ab"
+    },
+    "work/evidence/learning/run-04/closure/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/causal-fixture-profile.json",
+      "sha256": "0c3b974d01421f0eac028f43d112c01cd5789212a396ed250e5c64916f4f7e9e"
+    },
+    "work/evidence/learning/run-04/closure/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/restart-request.json",
+      "sha256": "fc698c42bd37c82c40e1fadfcfab00f62889b6515f74f2054bcbd62a855b702d"
+    },
+    "work/evidence/learning/run-04/closure/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/trained-profile.json",
+      "sha256": "d2946d695b3a6b4d8e31e0b7e7dcf0a432ffa5c1906b279d15940901ccaf454c"
+    },
+    "work/evidence/learning/run-04/closure/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/closure/summary.json",
+      "sha256": "d0d6ac5b8d287fb02b184e65570159d5633376927a42fb65051f8fdf5ce6ce79"
+    },
+    "work/evidence/learning/run-04/fusion/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/source.dec",
+      "sha256": "d6769bf948b34e00e51f9f622220a5f0d1d6d32d947fa5c9c2601c2459a76bae"
+    },
+    "work/evidence/learning/run-04/fusion/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/reference.json",
+      "sha256": "c5fe48929b8d1267e69bc9e72295146d75568b6c019e66ae9aec9178e4f45405"
+    },
+    "work/evidence/learning/run-04/fusion/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/generic.build.json",
+      "sha256": "060078b7c5401de7808278a8894935ff04cea288b0c81ebf6b47029e39b5a142"
+    },
+    "work/evidence/learning/run-04/fusion/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/optimized.build.json",
+      "sha256": "a5b50746c1e1c5e52dccd780833df3c01f98251b28671472693f0892ed53a924"
+    },
+    "work/evidence/learning/run-04/fusion/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/variant-registry.json",
+      "sha256": "db3368749f5f69d777af0abe1160535686ec5a714632f2d0c78d1e9024258786"
+    },
+    "work/evidence/learning/run-04/fusion/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/frozen-profile.json",
+      "sha256": "8fa3980b296cc5ee97b6070f8c952064f3cc01e6196167685f26860d8ac0c59b"
+    },
+    "work/evidence/learning/run-04/fusion/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/stale-profile.json",
+      "sha256": "8fa3980b296cc5ee97b6070f8c952064f3cc01e6196167685f26860d8ac0c59b"
+    },
+    "work/evidence/learning/run-04/fusion/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/shuffled-profile.json",
+      "sha256": "dc50ddba5b630b04c9027f59df1dfa75f9b7d0c35d730c3a8b6679eeef4bdd14"
+    },
+    "work/evidence/learning/run-04/fusion/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/active-profile.json",
+      "sha256": "c8718b582a6c8b17d85b98adcd844de4e7894f9c1e257ea5b36a01da4a7d5ac1"
+    },
+    "work/evidence/learning/run-04/fusion/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/passive-profile.json",
+      "sha256": "c891f318ab93655f28e9e98554b96003c8f190ca7bb95c66e2677bf5843c8f54"
+    },
+    "work/evidence/learning/run-04/fusion/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/causal-fixture-profile.json",
+      "sha256": "aaa09e650103e6e5a2488fa1dda0153aa7b681de6694bc5a18c94801e668db85"
+    },
+    "work/evidence/learning/run-04/fusion/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/restart-request.json",
+      "sha256": "a8c1bcc058407a57ce6e119baa8fba6df93efdc99c64cab242f26f623827f0ef"
+    },
+    "work/evidence/learning/run-04/fusion/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/trained-profile.json",
+      "sha256": "d5d1172cd4fcd3a4484e1128169eb9f57f77b5b205ba865aa88659eadd4fc57e"
+    },
+    "work/evidence/learning/run-04/fusion/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/fusion/summary.json",
+      "sha256": "0ae1d8ca794f853f6f55d6cf78e9d7fb1cfb312d0128cbaa7bd2abb20dbecc5f"
+    },
+    "work/evidence/learning/run-04/coupling/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/source.dec",
+      "sha256": "c162acf7baa463f80be0428e2d0275db6bfebe54a8c967f4e6c5e38ed81db8f7"
+    },
+    "work/evidence/learning/run-04/coupling/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/reference.json",
+      "sha256": "51f90048c8c3c56725414b1512216e55b3a9689b9223c7bd05488bf40797557b"
+    },
+    "work/evidence/learning/run-04/coupling/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/generic.build.json",
+      "sha256": "58eae835b3c2ba15b74ce86db48b87a1786a614383f7fdacc60ce553bebc42a5"
+    },
+    "work/evidence/learning/run-04/coupling/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/optimized.build.json",
+      "sha256": "b44bb34ba923cd797bc09a29bd055b215ca64710c62b5a25bc0b597b737b6e70"
+    },
+    "work/evidence/learning/run-04/coupling/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/variant-registry.json",
+      "sha256": "4a4f9b4faabbde472824d5e032147023344414fbef9e04aadcd14711486ba142"
+    },
+    "work/evidence/learning/run-04/coupling/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/frozen-profile.json",
+      "sha256": "771bc26782c098b76e883c808a75c6b17042773c154879d4be535c996b4a77f8"
+    },
+    "work/evidence/learning/run-04/coupling/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/stale-profile.json",
+      "sha256": "771bc26782c098b76e883c808a75c6b17042773c154879d4be535c996b4a77f8"
+    },
+    "work/evidence/learning/run-04/coupling/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/shuffled-profile.json",
+      "sha256": "7256ded4136bc4bd6e06e33501a0f44af1c88fa572fb827dac8844294c3343c4"
+    },
+    "work/evidence/learning/run-04/coupling/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/active-profile.json",
+      "sha256": "c28f111e9b30746ccc0af97e032b44f03106ce38038e4f3b7903d6851894ea53"
+    },
+    "work/evidence/learning/run-04/coupling/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/passive-profile.json",
+      "sha256": "dc1a95752e105ea1b3ffb3f0077cf2849c5656da1352d86ad4f2ea1c66a8213c"
+    },
+    "work/evidence/learning/run-04/coupling/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/causal-fixture-profile.json",
+      "sha256": "9dd2c60fce149c34b9fd7a44798f14a2c489cbf58135ae61991df7f4b75e7e4e"
+    },
+    "work/evidence/learning/run-04/coupling/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/restart-request.json",
+      "sha256": "940ac3572563eb22964125137b50abe052858c7a07e9b59ce09828f08d5ba94e"
+    },
+    "work/evidence/learning/run-04/coupling/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/trained-profile.json",
+      "sha256": "08e34be246510632aa23b4f98888f623cbcade56ab4ac785273520d3d4991d94"
+    },
+    "work/evidence/learning/run-04/coupling/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/coupling/summary.json",
+      "sha256": "646e646e7347971add983205bc7120d9d8e24e6ded7ad53e0ed0053b1f390da8"
+    },
+    "work/evidence/learning/run-04/rational_stress/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/source.dec",
+      "sha256": "5526f04e20a4dc28b1a745722308440e95d64850c6cbcf88b04a31608a00ec0a"
+    },
+    "work/evidence/learning/run-04/rational_stress/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/reference.json",
+      "sha256": "ec55ba31dd2dfb1431f01cf022837c22be8c2adf205ba3b8483cd61bc2b3d659"
+    },
+    "work/evidence/learning/run-04/rational_stress/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/generic.build.json",
+      "sha256": "4957a53bd3b2403b8ab48827823371a8b8d0f0076041e936a1e0b82f46971363"
+    },
+    "work/evidence/learning/run-04/rational_stress/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/optimized.build.json",
+      "sha256": "2f6f4fcbaed318309304a7030bd492467f05c010bf4053b9bc4ae6e8df1ff3ab"
+    },
+    "work/evidence/learning/run-04/rational_stress/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/variant-registry.json",
+      "sha256": "d29d0c60d3a8881073426810e7d9ddf1ede5745951704008ea356feb82134318"
+    },
+    "work/evidence/learning/run-04/rational_stress/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/frozen-profile.json",
+      "sha256": "d0e50d53f97a4e09c2a741e8b0e9c4513e536a16be5a2b2524e7e3dded980316"
+    },
+    "work/evidence/learning/run-04/rational_stress/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/stale-profile.json",
+      "sha256": "d0e50d53f97a4e09c2a741e8b0e9c4513e536a16be5a2b2524e7e3dded980316"
+    },
+    "work/evidence/learning/run-04/rational_stress/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/shuffled-profile.json",
+      "sha256": "2e3bab76c66febed2a33ea40a4ebb5ad70b1682fa9453bbf03661e6c31b2b963"
+    },
+    "work/evidence/learning/run-04/rational_stress/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/passive-profile.json",
+      "sha256": "17462cd670df07de7818f4517203e1af60f5f2cd5d83ed2139c45cc534c0f68d"
+    },
+    "work/evidence/learning/run-04/rational_stress/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/active-profile.json",
+      "sha256": "39466517b817cb49b7d74bbe05012721b3b05fbabe4c1e8ecf935f04e1c9c2eb"
+    },
+    "work/evidence/learning/run-04/rational_stress/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/causal-fixture-profile.json",
+      "sha256": "6f79016c036974742d0a251f6ea6d09ece24671fa1079d003ce40bc34bd4ddcd"
+    },
+    "work/evidence/learning/run-04/rational_stress/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/restart-request.json",
+      "sha256": "5b1cdcccfdc1b75522f8fd3f66532a74d20c6bc028f677b8e20a2d75d4ebdcc0"
+    },
+    "work/evidence/learning/run-04/rational_stress/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/trained-profile.json",
+      "sha256": "c076b3e7bbc3293034d7c22c490d82f31befae1547a1b42efdd3736a0db44ae9"
+    },
+    "work/evidence/learning/run-04/rational_stress/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/rational_stress/summary.json",
+      "sha256": "2688fc6707561e765d317d6071a73a385242969f5e348ce1210bb0886b4aba96"
+    },
+    "work/evidence/learning/run-04/nested_fusion/source.dec": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/source.dec",
+      "sha256": "ecede42ba74f79e83d4ba01d220d1689e30eada4774936917859eff9152cdb9d"
+    },
+    "work/evidence/learning/run-04/nested_fusion/reference.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/reference.json",
+      "sha256": "7f9ae85be5ba99dff858dea0d989158715d1205f2d27e592d01f27fd694fd72c"
+    },
+    "work/evidence/learning/run-04/nested_fusion/generic.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/generic.build.json",
+      "sha256": "ddfba346ae52571200b845f51bf4050d8390d20c71bdbdf197d9b59e27bb1629"
+    },
+    "work/evidence/learning/run-04/nested_fusion/optimized.build.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/optimized.build.json",
+      "sha256": "bfcbeb14f14a36a7a387b4a1e130ab24fb90c858eaa07110e2f28654fd8570fa"
+    },
+    "work/evidence/learning/run-04/nested_fusion/variant-registry.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/variant-registry.json",
+      "sha256": "d1e9f3ba400752f117f0a1ecbeedddc179f0acd57ef1abbee75a953870fbcfe9"
+    },
+    "work/evidence/learning/run-04/nested_fusion/frozen-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/frozen-profile.json",
+      "sha256": "fb3b0aa3148faf6fa96654fb7120c992136f84ded2ecefe2106e3cb62948018f"
+    },
+    "work/evidence/learning/run-04/nested_fusion/stale-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/stale-profile.json",
+      "sha256": "fb3b0aa3148faf6fa96654fb7120c992136f84ded2ecefe2106e3cb62948018f"
+    },
+    "work/evidence/learning/run-04/nested_fusion/shuffled-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/shuffled-profile.json",
+      "sha256": "013eeaa7b260382d9ea9134a5f8a568cf52cb6b969734057a8e95ffc0b5b1eb8"
+    },
+    "work/evidence/learning/run-04/nested_fusion/active-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/active-profile.json",
+      "sha256": "b40130befbe23eb0055a4207e9bea3f736dc105cb14bbed000084887bacdfab0"
+    },
+    "work/evidence/learning/run-04/nested_fusion/passive-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/passive-profile.json",
+      "sha256": "c6df8fddfbb1c1cffce88f8460aad6b6e277a906f4e8fd5d3e2ff7037f754f9e"
+    },
+    "work/evidence/learning/run-04/nested_fusion/causal-fixture-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/causal-fixture-profile.json",
+      "sha256": "fe85a41b491dda5edcd2ed43788c1c8313bd03f16c9672d839e494a593020e2f"
+    },
+    "work/evidence/learning/run-04/nested_fusion/restart-request.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/restart-request.json",
+      "sha256": "251de2ec3db750932ccd68ffb0c7d32672c958f71c12e2ce6cc72561ec724750"
+    },
+    "work/evidence/learning/run-04/nested_fusion/trained-profile.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/trained-profile.json",
+      "sha256": "114f372a9995f468058850e76ce7a199b0a265a86cebfaa45aa5cb9d722b6181"
+    },
+    "work/evidence/learning/run-04/nested_fusion/summary.json": {
+      "repository_path": "evidence/native-r01/learning/run-04/nested_fusion/summary.json",
+      "sha256": "fc34f66a21393a776825a7cdaa98a2877b63a66c6fc596a7b620797ec6e9d051"
+    },
+    "work/baseline/run-wqmsxlay/python-normal.log": {
+      "repository_path": "evidence/native-r01/baseline/python-normal.log",
+      "sha256": "50f97c71bd149a9411b792436ae86b6a45ba516d743e4287366b2677e4a7d00d"
+    },
+    "work/baseline/run-wqmsxlay/python-optimized.log": {
+      "repository_path": "evidence/native-r01/baseline/python-optimized.log",
+      "sha256": "34a650bd3fb2b2bea582996d389e3072ca28fdc7ef564b770c0e167153195ff9"
+    },
+    "work/baseline/run-wqmsxlay/rust-version.log": {
+      "repository_path": "evidence/native-r01/baseline/rust-version.log",
+      "sha256": "10dfb7fcebeb0f9a73b633f7e195a77190ac3f46e3494948219ba07c4d86343e"
+    },
+    "work/baseline/run-wqmsxlay/rust-debug-optimized.log": {
+      "repository_path": "evidence/native-r01/baseline/rust-debug-optimized.log",
+      "sha256": "3c3bc9ac9f74b20500cbeae9e82eda39ebd26ebee600460e7db4f0cdd6ece99b"
+    },
+    "work/baseline/run-wqmsxlay/examples.log": {
+      "repository_path": "evidence/native-r01/baseline/examples.log",
+      "sha256": "28eda2304032d4ed5d1f6441cc642669abadc68f544931a57bb218f78ddfbcdb"
+    },
+    "work/baseline/run-wqmsxlay/results.json": {
+      "repository_path": "evidence/native-r01/baseline/results.json",
+      "sha256": "73d9293d5f01edc1b6e364bf7dfd9f9b19c7e64610078c4b7b617f3a5337671e"
+    },
+    "work/delivery/source-manifest.json": {
+      "repository_path": "evidence/native-r01/delivery/source-manifest.json",
+      "sha256": "aae101c488a0e2235272ac6453954bd1c6502883bc79d888604d94af16cc60ca"
+    },
+    "work/delivery/candidate.patch": {
+      "repository_path": "evidence/native-r01/delivery/candidate.patch",
+      "sha256": "ea5c039435e743411ddd1ae0a03da85d1930a92a1373230c45fceb591e8c978c"
+    },
+    "work/delivery/package-manifest.json": {
+      "repository_path": "evidence/native-r01/delivery/package-manifest.json",
+      "sha256": "0ac97f505050a5db83b80a3dc467fd0ad0bdcb28f6ddf0399e5558c7477b10d8"
+    },
+    "WORK_REQUEST.md": {
+      "repository_path": "evidence/native-r01/request/WORK_REQUEST.md",
+      "sha256": "2ba68ff81450f38f894dd3a217cf547e0c446703c9f6f23a7f06d17f353578a6"
+    },
+    "plan/ROADMAP.md": {
+      "repository_path": "evidence/native-r01/request/plan/ROADMAP.md",
+      "sha256": "c53cfd8f3b4b6c358f033a75bf8aee379202fef43a581670b269a01198f4904d"
+    },
+    "acceptance/criteria.json": {
+      "repository_path": "evidence/native-r01/request/acceptance/criteria.json",
+      "sha256": "c6878fa62a4f32a6bbbda8ffc9962926faa4d879fa3cc6a5eea3e69f116fe139"
+    },
+    "MANIFEST.json": {
+      "repository_path": "evidence/native-r01/request/MANIFEST.json",
+      "sha256": "f0449f962e9ed2c06dcb0df4f84e97b857c034bc4d98f0ab0320663871fbbb0a"
+    }
+  },
+  "omitted_redundant_records": {
+    "work/evidence/native-backend-normal.log": {
+      "repository_path": "evidence/native-r01/native-backend-normal.log",
+      "sha256": "a9ea9466deb85a3589e362498201942a601c010ff5d87336ad5e3d6a0a9a5cda"
+    },
+    "work/evidence/native-backend-normal.json": {
+      "repository_path": "evidence/native-r01/native-backend-normal.json",
+      "sha256": "eb728bcb0309dcc7a389c78992c10edbcdcd3dfc2ae6e6334ee39512ee53f201"
+    },
+    "work/evidence/native-backend-optimized.log": {
+      "repository_path": "evidence/native-r01/native-backend-optimized.log",
+      "sha256": "f0c65a7d125803d6f184a276061941506802e20ac95c87599c42552f94d8d159"
+    },
+    "work/evidence/native-backend-optimized.json": {
+      "repository_path": "evidence/native-r01/native-backend-optimized.json",
+      "sha256": "4121388561bb53917b4a7f601fa76180ea5640b0595941fbcef67dbbb2691957"
+    },
+    "work/evidence/native-backend-normal-final.log": {
+      "repository_path": "evidence/native-r01/native-backend-normal-final.log",
+      "sha256": "1f09c178aa65a9fcb319da86d7401aecbd8e148878d21eb9c183e3c11827df28"
+    },
+    "work/evidence/native-backend-normal-final.json": {
+      "repository_path": "evidence/native-r01/native-backend-normal-final.json",
+      "sha256": "a9aa860524538ff172aa2f7217a080fafc760f294259e47ceed9a5159b007e0d"
+    },
+    "work/evidence/native-backend-optimized-final.log": {
+      "repository_path": "evidence/native-r01/native-backend-optimized-final.log",
+      "sha256": "3d6f797db609671d08a0b306b3a6d2c46ebdc07f130f8d9165eb4a66ba0e8ddd"
+    },
+    "work/evidence/native-backend-optimized-final.json": {
+      "repository_path": "evidence/native-r01/native-backend-optimized-final.json",
+      "sha256": "f94367113d43918214c5021c3630a144800b3e8bbb9f09cc559149b684ad0dfe"
+    },
+    "work/evidence/isolation/closure.disassembly.txt": {
+      "repository_path": "evidence/native-r01/isolation/closure.disassembly.txt",
+      "sha256": "eba1483b4690c59a8c08c090e0b2e2dc93383217a849875f3313a72edc25dbae"
+    },
+    "work/evidence/isolation/coupling.disassembly.txt": {
+      "repository_path": "evidence/native-r01/isolation/coupling.disassembly.txt",
+      "sha256": "954e706ee37a2e99021771f1952dacc63051c516f01ef4f4144ccfe6e1fe40d5"
+    },
+    "work/evidence/isolation/fusion.disassembly.txt": {
+      "repository_path": "evidence/native-r01/isolation/fusion.disassembly.txt",
+      "sha256": "f3d37e6f7ebe763eb7eb98f0a32932b140aeb03de0da53c7c048215380ec5504"
+    },
+    "work/evidence/isolation/weights.disassembly.txt": {
+      "repository_path": "evidence/native-r01/isolation/weights.disassembly.txt",
+      "sha256": "f0d3dc1ae7d01a84a265c02448171323f7cfa0c7c00f322574af4bfff9d67349"
+    }
+  },
+  "omission_reason": "Keep the PR within GitHub diff file limits: earlier successful duplicate backend runs and four redundant runtime disassemblies remain in the complete original archive. Final backend evidence and complete ternary/runtime-input disassemblies are retained in Git."
+}

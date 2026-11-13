@@ -27,7 +27,9 @@ The C ABI defines opaque immutable values and context ownership separately.
 
 This candidate binds the supplied repaired core, not an inferred current remote
 repository. The request manifest, baseline archive and foundation hashes are
-recorded in the delivered `work/evidence/SOURCE_BINDING.json`. Semantic anchors:
+recorded in `evidence/native-r01/SOURCE_BINDING.json`. The table below retains
+paths from the original request; its `source/` subtree is now the repository
+root. `evidence/native-r01/ARTIFACT_MAP.json` maps archived evidence. Semantic anchors:
 
 | Concern | Bound source anchor |
 |---|---|

@@ -1,0 +1,15 @@
+test_cache_corruption_and_guard_repair (__main__.NativeBackend.test_cache_corruption_and_guard_repair) ... ok
+test_cache_mutation_matrix (__main__.NativeBackend.test_cache_mutation_matrix) ... ok
+test_concurrent_first_publish (__main__.NativeBackend.test_concurrent_first_publish) ... ok
+test_deterministic_artifacts (__main__.NativeBackend.test_deterministic_artifacts) ... ok
+test_entry_guards_and_runtime_inputs (__main__.NativeBackend.test_entry_guards_and_runtime_inputs) ... ok
+test_fuel_depth_and_effect_order (__main__.NativeBackend.test_fuel_depth_and_effect_order) ... ok
+test_generated_code_permissions (__main__.NativeBackend.test_generated_code_permissions) ... ok
+test_malformed_typed_IR_rejected (__main__.NativeBackend.test_malformed_typed_IR_rejected) ... ok
+test_repeated_lifetime_and_concurrent_close (__main__.NativeBackend.test_repeated_lifetime_and_concurrent_close) ... ok
+test_typed_foreign_entry (__main__.NativeBackend.test_typed_foreign_entry) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 26.010s
+
+OK

@@ -2,14 +2,17 @@
 
 ## Language and artifacts
 
-The compiler is `aodc.py`, using `runtime/dec_language.py` and `runtime/dec_core.py`.
-Compilation produces canonical JSON with format `aod.dec.ir`, version 1, original
+The reference frontend is `aodc.py`, using `runtime/dec_language.py` and `runtime/dec_core.py`.
+The `compile` command produces canonical JSON with format `aod.dec.ir`, version 1, original
 source, SHA-256 and typed function bodies. It contains no timestamps, machine
 probe results or output filename. The VM reconstructs and validates the typed
 program against that source before execution. This detects inconsistent/edited IR;
 it is not a cryptographic signature or a claim that arbitrary source is trustworthy.
 
-Commands: `check SOURCE`, `run SOURCE`, `compile SOURCE -o OUTPUT`, `exec IR`.
+Reference commands: `check SOURCE`, `run SOURCE`, `compile SOURCE -o OUTPUT`, `exec IR`.
+The implemented native commands are `build SOURCE -o OUTPUT` and `jit SOURCE`;
+their verified lowering and ABI are documented in `LANGUAGE_CORE_V1.md` and
+`NATIVE_ABI_V1.md`. All modes retain the grammar and model specified here.
 No missing input is replaced with a sample. Output cannot be the source path.
 Compile-time checking is distinct from successful runtime assertions or AOD
 witness checks. The final main result is printed; errors produce nonzero status.
@@ -145,10 +148,12 @@ and the region boundary sum from the same p/P data. It does not accept arbitrary
 precomputed divergences. Those collection-based functions are not yet callable
 from Dec source because arrays are not in core v1.
 
-## Reference limits and future backends
+## Execution limits and remaining extensions
 
 The parser accepts at most 1 MB source and the IR loader at most 8 MB. The VM uses
 an operation budget and call-depth limit. These prevent accidental unbounded
 execution in the reference implementation; they are not a complete untrusted-code
-resource sandbox. Native compilation, a Dec-written compiler and hardware learning
-must preserve the language/model contract before they can be advertised.
+resource sandbox. Native AOT, ORC JIT and persistent implementation selection now
+have executed conformance evidence under `evidence/native-r01/`; see the repository
+evidence index for exact scope and subsequent checks. A Dec-written compiler,
+additional grammar and AArch64 execution remain future work.

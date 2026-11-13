@@ -1,0 +1,36 @@
+{
+  "created_utc": "2026-11-13T12:00:11.166244+00:00",
+  "findings": [
+    {
+      "finding": "Reference error classes are separate: core errors must be wrapped by innermost language statement line",
+      "evidence": "root independent reference corpus initially raised uncaught dec_language.DecError; inspected source/runtime/dec_language.py definitions and statement exception handler",
+      "resolution": "runtime helpers preserve line N: prefix, fuel/depth unlocated; final94 conformance validated exact failure text",
+      "status": "FIXED_AND_TESTED"
+    },
+    {
+      "finding": "Advertised typed JIT external arguments failed invalid literal type",
+      "evidence": "final engineering audit typed t32 entry reproducer",
+      "resolution": "compiler converts through checked native builtins; final backend tests cover typed success/malformed/domain failures",
+      "status": "FIXED_AND_TESTED"
+    },
+    {
+      "finding": "Shared runtime/object cache publication could race between fresh processes",
+      "evidence": "source audit: direct object writes without interprocess serialization",
+      "resolution": "per-directory flock and fsync/atomic replace; three-process regression",
+      "status": "FIXED_AND_TESTED"
+    },
+    {
+      "finding": "Benchmark reference helper stripped source-line prefix",
+      "evidence": "source audit and independently expected overflow outcome",
+      "resolution": "preserve complete diagnostic; independent negative fixture",
+      "status": "FIXED_AND_TESTED"
+    },
+    {
+      "finding": "Checksum-valid profile can contain unequal paired sample counts",
+      "evidence": "audit profile generic32/optimized5 accepted and selected optimized",
+      "resolution": "require equal counts and count=min(generation,MAX_SAMPLES)",
+      "status": "FIXED_AND_TESTED"
+    }
+  ],
+  "final_compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854"
+}

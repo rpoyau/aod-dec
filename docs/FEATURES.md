@@ -31,4 +31,6 @@ published caches. Cache directories are trusted local build storage.
 
 Performance is separately evaluated: functional profile influence is demonstrated,
 but the delivered held-out experiment does not establish cost-inclusive speedup.
-Final per-criterion evidence is outside source in `work/evidence/ACCEPTANCE_RESULTS.json`.
+The source-bound execution dispositions are in
+`evidence/native-r01/ACCEPTANCE_RESULTS.json`; `evidence/README.md` explains their
+archived paths and the separate fresh repository checks.

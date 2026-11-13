@@ -1,0 +1,187 @@
+rustc -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1 bootstrap/aod_stage0_seed.rs -o build/aod_stage0_seed
+rustc -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1 bootstrap/aod_self_host_compiler.rs -o build/aod_self_host_compiler
+rustc -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1 bootstrap/aod_stage2_bootstrap.rs -o build/aod_stage2_bootstrap
+rustc --test tests/bootstrap_regressions.rs -o build/bootstrap_tests
+rustc --test -O tests/bootstrap_regressions.rs -o build/bootstrap_tests_opt
+./build/bootstrap_tests
+
+running 9 tests
+test packed_trit_validation ... ok
+test arm_relocations_resolve_to_data_and_code ... ok
+test elf_deterministic_and_header ... ok
+test q4_domain_and_all_edges ... ok
+test ratio_overflow_regression ... ok
+test source_overwrite_guard_and_io_failure ... ok
+test ratio_small_exact ... ok
+test emitted_program_execution ... ok
+test ternary_roundtrip_and_carry ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+./build/bootstrap_tests_opt
+
+running 9 tests
+test arm_relocations_resolve_to_data_and_code ... ok
+test q4_domain_and_all_edges ... ok
+test elf_deterministic_and_header ... ok
+test packed_trit_validation ... ok
+test ratio_overflow_regression ... ok
+test source_overwrite_guard_and_io_failure ... ok
+test ratio_small_exact ... ok
+test emitted_program_execution ... ok
+test ternary_roundtrip_and_carry ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+
+warning: method `value` is never used
+  --> bootstrap/primitives.rs:10:12
+   |
+ 6 | impl Q4 {
+   | ------- method in this implementation
+...
+10 |     pub fn value(self) -> u8 { self.0 }
+   |            ^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated items `from_bits`, `bits`, and `neg` are never used
+  --> bootstrap/primitives.rs:18:12
+   |
+16 | impl T32 {
+   | -------- associated items in this implementation
+17 |     pub const MAX: i64 = (3_i64.pow(32) - 1) / 2;
+18 |     pub fn from_bits(bits: u64) -> Result<Self, &'static str> {
+   |            ^^^^^^^^^
+...
+34 |     pub fn bits(self) -> u64 { self.0 }
+   |            ^^^^
+...
+44 |     pub fn neg(self) -> Self {
+   |            ^^^
+
+warning: methods `numerator` and `denominator` are never used
+  --> bootstrap/primitives.rs:72:12
+   |
+56 | impl Ratio {
+   | ---------- methods in this implementation
+...
+72 |     pub fn numerator(self) -> i64 { self.num }
+   |            ^^^^^^^^^
+73 |     pub fn denominator(self) -> i64 { self.den }
+   |            ^^^^^^^^^^^
+
+warning: methods `label`, `jump`, `arm_jump`, `write`, and `check_write` are never used
+  --> bootstrap/native_elf.rs:21:8
+   |
+18 | impl Code {
+   | --------- methods in this implementation
+...
+21 |     fn label(&mut self,n:&'static str) { assert!(self.labels.insert(n,self.bytes.len()).is_none()); }
+   |        ^^^^^
+22 |     fn jump(&mut self,n:&'static str,condition:u8) {
+   |        ^^^^
+...
+25 |     fn arm_jump(&mut self,n:&'static str,condition:u32) {
+   |        ^^^^^^^^
+...
+28 |     fn write(&mut self,arch:Arch,label:&'static str,fd:u32,len:usize) {
+   |        ^^^^^
+...
+49 |     fn check_write(&mut self,arch:Arch,len:usize) {
+   |        ^^^^^^^^^^^
+
+warning: constant `BANNER` is never used
+  --> bootstrap/native_elf.rs:88:11
+   |
+88 | pub const BANNER: &[u8] = b"[DEC-NATIVE-DEMO] Standalone Linux ELF write/exit.\n";
+   |           ^^^^^^
+
+warning: function `banner_elf` is never used
+  --> bootstrap/native_elf.rs:89:8
+   |
+89 | pub fn banner_elf(arch:Arch)->Vec<u8> {
+   |        ^^^^^^^^^^
+
+warning: constant `PROBE_OK` is never used
+  --> bootstrap/native_elf.rs:94:11
+   |
+94 | pub const PROBE_OK: &[u8] = b"[DEC-FILE-PROBE] Open/close succeeded; no compilation performed.\n";
+   |           ^^^^^^^^
+
+warning: constant `PROBE_USAGE` is never used
+  --> bootstrap/native_elf.rs:95:11
+   |
+95 | pub const PROBE_USAGE: &[u8] = b"Usage: dec-file-probe FILE\n";
+   |           ^^^^^^^^^^^
+
+warning: constant `PROBE_ERROR` is never used
+  --> bootstrap/native_elf.rs:96:11
+   |
+96 | pub const PROBE_ERROR: &[u8] = b"[DEC-FILE-PROBE] Open/close failed.\n";
+   |           ^^^^^^^^^^^
+
+warning: function `file_probe_elf` is never used
+  --> bootstrap/native_elf.rs:97:8
+   |
+97 | pub fn file_probe_elf(arch:Arch)->Vec<u8> {
+   |        ^^^^^^^^^^^^^^
+
+warning: 10 warnings emitted
+
+warning: function `exit_elf` is never used
+  --> bootstrap/native_elf.rs:93:8
+   |
+93 | pub fn exit_elf(arch:Arch)->Vec<u8> {let mut c=Code::default();c.exit(arch,0);elf(arch,&c.finish())}
+   |        ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `PROBE_OK` is never used
+  --> bootstrap/native_elf.rs:94:11
+   |
+94 | pub const PROBE_OK: &[u8] = b"[DEC-FILE-PROBE] Open/close succeeded; no compilation performed.\n";
+   |           ^^^^^^^^
+
+warning: constant `PROBE_USAGE` is never used
+  --> bootstrap/native_elf.rs:95:11
+   |
+95 | pub const PROBE_USAGE: &[u8] = b"Usage: dec-file-probe FILE\n";
+   |           ^^^^^^^^^^^
+
+warning: constant `PROBE_ERROR` is never used
+  --> bootstrap/native_elf.rs:96:11
+   |
+96 | pub const PROBE_ERROR: &[u8] = b"[DEC-FILE-PROBE] Open/close failed.\n";
+   |           ^^^^^^^^^^^
+
+warning: function `file_probe_elf` is never used
+  --> bootstrap/native_elf.rs:97:8
+   |
+97 | pub fn file_probe_elf(arch:Arch)->Vec<u8> {
+   |        ^^^^^^^^^^^^^^
+
+warning: 5 warnings emitted
+
+warning: constant `BANNER` is never used
+  --> bootstrap/native_elf.rs:88:11
+   |
+88 | pub const BANNER: &[u8] = b"[DEC-NATIVE-DEMO] Standalone Linux ELF write/exit.\n";
+   |           ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `banner_elf` is never used
+  --> bootstrap/native_elf.rs:89:8
+   |
+89 | pub fn banner_elf(arch:Arch)->Vec<u8> {
+   |        ^^^^^^^^^^
+
+warning: function `exit_elf` is never used
+  --> bootstrap/native_elf.rs:93:8
+   |
+93 | pub fn exit_elf(arch:Arch)->Vec<u8> {let mut c=Code::default();c.exit(arch,0);elf(arch,&c.finish())}
+   |        ^^^^^^^^
+
+warning: 3 warnings emitted
+

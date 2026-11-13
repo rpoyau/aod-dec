@@ -1,0 +1,61 @@
+{
+  "mode": "active",
+  "source_sha256": "7a46e4e63211567f2ce291470799b9a4e1822037115f077c0d66e340a9900f3f",
+  "profile": "work/evidence/learning/cli-final/negative-profile.json",
+  "observations": [],
+  "performance_claim": "No speedup claim; use held-out benchmark with all overheads.",
+  "binding": {
+    "host": "75134c40870de52b8030ebf73f82491c8f89bd951334dae1073f55ef5934c264",
+    "software": "d6c0cdbea5be07f7efb01a785272c8cc191e7124b1a1f0abfd8fe3b9022ec4c4",
+    "workload": "7a46e4e63211567f2ce291470799b9a4e1822037115f077c0d66e340a9900f3f"
+  },
+  "variant_registry": {
+    "generic": {
+      "name": "generic",
+      "source_sha256": "7a46e4e63211567f2ce291470799b9a4e1822037115f077c0d66e340a9900f3f",
+      "artifact_sha256": "744823cf1fcc818423280776c5e964ee66aa585beae71785053c813cec2e4326",
+      "abi": "aod-native-1",
+      "outcome_sha256": "8f6a0682d5cd6b4e7deb3217a3cc985e98c467cba80839215d9d92a2c1399e24"
+    },
+    "optimized": {
+      "name": "optimized",
+      "source_sha256": "7a46e4e63211567f2ce291470799b9a4e1822037115f077c0d66e340a9900f3f",
+      "artifact_sha256": "d50edb8f528a8de58728895b065cdfa9faa6faea910ba89cf35fbf58fa4df2a2",
+      "abi": "aod-native-1",
+      "outcome_sha256": "8f6a0682d5cd6b4e7deb3217a3cc985e98c467cba80839215d9d92a2c1399e24"
+    }
+  },
+  "preparation_ns": 1355575264,
+  "selection_ns": 412034,
+  "selection": {
+    "variant": "generic",
+    "reason": "insufficient evidence",
+    "generation": 0,
+    "load_reason": "missing",
+    "mode": "active"
+  },
+  "invocation_wall_ns": 563592,
+  "executed": {
+    "stdout": "123\n",
+    "result": null,
+    "error": "line 4: t32 overflow",
+    "error_line": 4,
+    "exit_code": 1,
+    "execute_ns": 256132,
+    "address": 139803042766848,
+    "cache_hit": false,
+    "compile_ns": 1139342226,
+    "load_ns": 8897030,
+    "key": "6d548d21b0e93bf2bc342189dc9f84c11be3dd5ab90dfb34f7beaa53cf9bdbab",
+    "dispatch": "specialized"
+  },
+  "profiling_ns": 82183,
+  "next_invocation_preview": {
+    "variant": "generic",
+    "reason": "insufficient evidence",
+    "generation": 0,
+    "load_reason": "missing",
+    "mode": "active"
+  },
+  "total_ns": 1356713005
+}

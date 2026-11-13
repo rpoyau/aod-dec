@@ -1,0 +1,43 @@
+{
+  "compile_ns": 63482748,
+  "cache_hit": false,
+  "key": "77de7b164562de09da79f8843ed3deb8290de657bb74c00d296785081647490c",
+  "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/fusion/cache/77de7b164562de09da79f8843ed3deb8290de657bb74c00d296785081647490c.o",
+  "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/fusion/cache/77de7b164562de09da79f8843ed3deb8290de657bb74c00d296785081647490c.ll",
+  "binding": {
+    "compiler": "dec-llvm-1",
+    "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "semantic_version": 1,
+    "abi": "aod-native-1",
+    "source_sha256": "d6769bf948b34e00e51f9f622220a5f0d1d6d32d947fa5c9c2601c2459a76bae",
+    "ir_sha256": "16f861275fd55509960be70121ba70b6e81806f084cde958746263e0e47a8a60",
+    "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+    "llvm_version": [
+      16,
+      0,
+      6
+    ],
+    "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+    "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+    "target": "x86_64-redhat-linux-gnu",
+    "cpu": "goldmont",
+    "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+    "opt": 0
+  },
+  "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/fusion/generic",
+  "link_ns": 725940499,
+  "total_ns": 797392102,
+  "command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate/native/runner.cpp",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/fusion/cache/77de7b164562de09da79f8843ed3deb8290de657bb74c00d296785081647490c.o",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate/build/native/runtime-60a0dbc95eecc1e2.o",
+    "-lgmpxx",
+    "-lgmp",
+    "-lcrypto",
+    "-o",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/evidence/learning/run-04/fusion/generic"
+  ]
+}

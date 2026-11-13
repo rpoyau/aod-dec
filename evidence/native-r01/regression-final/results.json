@@ -1,0 +1,46 @@
+[
+  {
+    "name": "bundle-integrity",
+    "command": [
+      "/usr/bin/python3",
+      "scripts/verify_bundle.py"
+    ],
+    "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01",
+    "started_utc": "2026-11-13T12:01:22.921286+00:00",
+    "exit_code": 0,
+    "log": "bundle-integrity.log"
+  },
+  {
+    "name": "python-normal",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ],
+    "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate",
+    "started_utc": "2026-11-13T12:01:24.012102+00:00",
+    "exit_code": 0,
+    "log": "python-normal.log"
+  },
+  {
+    "name": "python-optimized",
+    "command": [
+      "/usr/bin/python3",
+      "-O",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ],
+    "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/candidate",
+    "started_utc": "2026-11-13T12:02:11.976079+00:00",
+    "exit_code": 0,
+    "log": "python-optimized.log"
+  }
+]

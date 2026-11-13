@@ -1,0 +1,63 @@
+{
+  "status": "PASS",
+  "source_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+  "patch_sha256": "ea5c039435e743411ddd1ae0a03da85d1930a92a1373230c45fceb591e8c978c",
+  "source_file_count": 60,
+  "source_bytes_equal": true,
+  "records": [
+    {
+      "command": [
+        "patch",
+        "--batch",
+        "-p1",
+        "-i",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/delivery/candidate.patch"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/delivery/replay",
+      "exit_code": 0,
+      "stdout": "patching file README.md\npatching file SHA256SUMS\npatching file aodc.py\npatching file docs/BENCHMARK_PROTOCOL.md\npatching file docs/BUILD_NATIVE.md\npatching file docs/EXECUTION_NATIVE.md\npatching file docs/FEATURES.md\npatching file docs/HARDWARE_LEARNING.md\npatching file docs/LANGUAGE_CORE_V1.md\npatching file docs/NATIVE_ABI_V1.md\npatching file docs/NATIVE_RUNTIME_ABI.md\npatching file docs/SEMANTIC_IR_V1.md\npatching file native/check_runtime.py\npatching file native/compiler.py\npatching file native/learning.py\npatching file native/runner.cpp\npatching file native/runtime.cpp\npatching file native/runtime.hpp\npatching file native/test_runtime.cpp\npatching file native/toolchain-lock.json\npatching file scripts/adapt_native.py\npatching file scripts/analyze_native_benchmark.py\npatching file scripts/benchmark_native.py\npatching file scripts/conformance_native.py\npatching file scripts/isolate_native.py\npatching file tests/test_learning.py\npatching file tests/test_native_backend.py\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "sha256sum",
+        "-c",
+        "SHA256SUMS"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/delivery/replay",
+      "exit_code": 0,
+      "stdout": ".gitignore: OK\nMakefile: OK\nREADME.md: OK\nSOURCE_BINDING.json: OK\naodc.py: OK\nbootstrap/aod_self_host_compiler.rs: OK\nbootstrap/aod_stage0_seed.rs: OK\nbootstrap/aod_stage2_bootstrap.rs: OK\nbootstrap/native_elf.rs: OK\nbootstrap/primitives.rs: OK\ndec/00_primitives.dec: OK\ndec/01_dec_ledger_shedding.dec: OK\ndec/02_tesseract_jitter_motifs.dec: OK\ndec/03_hardware_tiers_frg_awareness.dec: OK\ndec/04_harmonics_stokes_gpu_uma.dec: OK\ndec/05_self_host_compiler_elf64.dec: OK\ndec/kernel.dec: OK\ndocs/BENCHMARK_PROTOCOL.md: OK\ndocs/BUILD_NATIVE.md: OK\ndocs/EXECUTION_NATIVE.md: OK\ndocs/FEATURES.md: OK\ndocs/FIRST_PRINCIPLES_DERIVATION.md: OK\ndocs/HARDWARE_LEARNING.md: OK\ndocs/LANGUAGE_CORE_V1.md: OK\ndocs/NATIVE_ABI_V1.md: OK\ndocs/NATIVE_RUNTIME_ABI.md: OK\ndocs/REPAIR_NOTES.md: OK\ndocs/SEMANTIC_IR_V1.md: OK\ndocs/SPECIFICATION.md: OK\nevidence/environment.json: OK\nevidence/python_optimized.txt: OK\nevidence/verify.txt: OK\nexamples/closure.dec: OK\nexamples/coupling.dec: OK\nexamples/fusion.dec: OK\nexamples/ternary.dec: OK\nexamples/weights.dec: OK\nnative/check_runtime.py: OK\nnative/compiler.py: OK\nnative/learning.py: OK\nnative/runner.cpp: OK\nnative/runtime.cpp: OK\nnative/runtime.hpp: OK\nnative/test_runtime.cpp: OK\nnative/toolchain-lock.json: OK\nruntime/dec_core.py: OK\nruntime/dec_language.py: OK\nscripts/adapt_native.py: OK\nscripts/analyze_native_benchmark.py: OK\nscripts/benchmark_native.py: OK\nscripts/build_and_verify.sh: OK\nscripts/conformance_native.py: OK\nscripts/isolate_native.py: OK\ntests/bootstrap_regressions.rs: OK\ntests/test_core.py: OK\ntests/test_integration.py: OK\ntests/test_language.py: OK\ntests/test_learning.py: OK\ntests/test_native_backend.py: OK\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "aodc.py",
+        "build",
+        "examples/ternary.dec",
+        "-O",
+        "2",
+        "-o",
+        "build/replay-ternary"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/delivery/replay",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/work/delivery/replay/build/replay-ternary"
+      ],
+      "exit_code": 0,
+      "stdout": "t32(2)\n1/2000000000\nt32(0)\n",
+      "stderr": ""
+    },
+    {
+      "claim": "final compiler rebuilt isolated tested native artifact byte-for-byte",
+      "equal": true,
+      "isolated_binary_sha256": "92ea13d6681c7b95a8e1ac1a2183e41dda760b613ae444f376d17bcd5c33b327",
+      "replay_binary_sha256": "92ea13d6681c7b95a8e1ac1a2183e41dda760b613ae444f376d17bcd5c33b327"
+    }
+  ]
+}

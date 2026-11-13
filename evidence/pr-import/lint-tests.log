@@ -1,0 +1,108 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling crossbeam-utils v0.8.23
+   Compiling crossbeam-epoch v0.9.21
+   Compiling version_check v0.9.5
+   Compiling crossbeam-deque v0.8.8
+   Compiling libc v0.2.191
+   Compiling memchr v2.8.3
+   Compiling cfg-if v1.0.5
+   Compiling rayon-core v1.13.0
+   Compiling parking_lot_core v0.9.12
+   Compiling zmij v1.0.23
+   Compiling typenum v1.20.1
+   Compiling portable-atomic v1.15.0
+   Compiling serde_json v1.0.154
+   Compiling scopeguard v1.2.0
+   Compiling equivalent v1.0.3
+   Compiling hashbrown v0.17.1
+   Compiling utf8parse v0.2.2
+   Compiling smallvec v1.16.5
+   Compiling lock_api v0.4.14
+   Compiling anstyle-parse v1.0.0
+   Compiling anstyle-query v1.1.5
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling winnow v0.7.15
+   Compiling toml_write v0.1.2
+   Compiling either v1.19.0
+   Compiling itoa v1.0.19
+   Compiling heck v0.5.0
+   Compiling once_cell v1.21.4
+   Compiling unicode-math-class v0.1.0
+   Compiling strsim v0.11.1
+   Compiling generic-array v0.14.7
+   Compiling anstream v1.0.0
+   Compiling clap_lex v1.1.1
+   Compiling regex-syntax v0.8.11
+   Compiling thin-vec v0.2.21
+   Compiling siphasher v1.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling lazy_static v1.5.1
+   Compiling unicode-segmentation v1.13.3
+   Compiling unicode-script v0.5.9
+   Compiling unscanny v0.1.0
+   Compiling colored v2.2.0
+   Compiling clap_builder v4.6.7
+   Compiling aho-corasick v1.1.5
+   Compiling indexmap v2.14.2
+   Compiling syn v3.0.10
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling parking_lot v0.12.5
+   Compiling rayon v1.12.0
+   Compiling sha2 v0.10.9
+   Compiling regex-automata v0.4.18
+   Compiling typst-utils v0.13.1
+   Compiling serde_derive v1.0.229
+   Compiling clap_derive v4.6.7
+   Compiling regex v1.13.1
+   Compiling clap v4.6.7
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling ecow v0.2.6
+   Compiling typst-timing v0.13.1
+   Compiling toml_edit v0.22.27
+   Compiling toml v0.8.23
+   Compiling typst-syntax v0.13.1
+   Compiling aod-lint v0.1.0 (/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/aod-lint)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 51.12s
+     Running unittests src/lib.rs (/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/deps/aod_lint-7bf471d3202d9569)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/deps/aod_lint-b00c9335daa64f84)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_digest_and_slice.rs (/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/deps/test_digest_and_slice-b2b71a31c1d2b511)
+
+running 3 tests
+test test_main_to_manual_firewall_violation ... ok
+test test_latex_digest_slice_and_check ... ok
+test test_digest_manifest_frozen_guard_and_slice ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/test_stokes.rs (/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/deps/test_stokes-8fc721f9a7678680)
+
+running 1 test
+test test_afc_stokes_invariants ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests aod_lint
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

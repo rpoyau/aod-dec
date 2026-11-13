@@ -1,0 +1,39 @@
+{
+  "repository": "https://github.com/rpoyau/aod-lint",
+  "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+  "binary_sha256": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c",
+  "cargo_lock_sha256": "82cdf620220a0fb722ece7923e9386c0e28a8eaba9f4c5cb43f59f219c9cd0ba",
+  "target": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+  "status": "NOT_APPLICABLE",
+  "scope": "Typst/LaTeX manuscript diagnostics only",
+  "manuscript_files": [],
+  "manuscript_file_count": 0,
+  "uncovered_source_types": [
+    "Dec",
+    "Python",
+    "C++",
+    "Rust compiler runtime code",
+    "Markdown"
+  ],
+  "interpretation": "No manuscript files were found. No compiler or scientific correctness claim follows.",
+  "digest": {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+      "digest",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "{\n  \"schema_version\": \"1.0\",\n  \"root\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec\",\n  \"files\": [],\n  \"edges\": [],\n  \"firewall_violations\": [],\n  \"include_cycles\": []\n}\n",
+    "stderr": ""
+  },
+  "manifest": {
+    "schema_version": "1.0",
+    "root": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+    "files": [],
+    "edges": [],
+    "firewall_violations": [],
+    "include_cycles": []
+  },
+  "checks": []
+}

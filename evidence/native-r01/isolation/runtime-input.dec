@@ -1,0 +1,6 @@
+Dec square(x) -> y:
+    (int x) -> int y:
+        y = x * x + 7
+Dec main() -> result:
+    () -> int result:
+        result = 0

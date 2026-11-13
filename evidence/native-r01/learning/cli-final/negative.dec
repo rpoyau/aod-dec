@@ -1,0 +1,4 @@
+Dec main() -> result:
+    () -> t32 result:
+        emit 123
+        result = t32(1000000000000000000000000000000)

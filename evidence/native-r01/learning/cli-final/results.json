@@ -1,0 +1,69 @@
+{
+  "passive": {
+    "command": [
+      "/usr/bin/python3",
+      "work/candidate/scripts/adapt_native.py",
+      "work/candidate/examples/weights.dec",
+      "--profile",
+      "work/evidence/learning/cli-final/profile.json",
+      "--mode",
+      "passive",
+      "--json-report",
+      "work/evidence/learning/cli-final/passive.json",
+      "--train-pairs",
+      "12"
+    ],
+    "exit_code": 0,
+    "stdout_equal": true,
+    "selection": {
+      "variant": "generic",
+      "reason": "generic control",
+      "generation": 0,
+      "load_reason": "missing",
+      "mode": "passive"
+    },
+    "native_address": 140293361283072
+  },
+  "active": {
+    "command": [
+      "/usr/bin/python3",
+      "work/candidate/scripts/adapt_native.py",
+      "work/candidate/examples/weights.dec",
+      "--profile",
+      "work/evidence/learning/cli-final/profile.json",
+      "--mode",
+      "active",
+      "--json-report",
+      "work/evidence/learning/cli-final/active.json"
+    ],
+    "exit_code": 0,
+    "stdout_equal": true,
+    "selection": {
+      "variant": "generic",
+      "reason": "no established practical improvement",
+      "generation": 12,
+      "load_reason": "valid",
+      "mode": "active"
+    },
+    "native_address": 140490039701504
+  },
+  "negative": {
+    "command": [
+      "/usr/bin/python3",
+      "work/candidate/scripts/adapt_native.py",
+      "work/evidence/learning/cli-final/negative.dec",
+      "--profile",
+      "work/evidence/learning/cli-final/negative-profile.json",
+      "--mode",
+      "active",
+      "--json-report",
+      "work/evidence/learning/cli-final/negative.json"
+    ],
+    "exit_code": 1,
+    "stdout_equal": true,
+    "stderr_equal": true,
+    "error_line": 4,
+    "native_address": 139803042766848
+  },
+  "pass": true
+}

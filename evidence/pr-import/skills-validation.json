@@ -1,0 +1,27 @@
+{
+  "repository": "https://github.com/rpoyau/aod-skills",
+  "commit": "630af16a7c51fb8836e603eb54c67bf8560fb463",
+  "scope": "Upstream portable skill metadata, references and bound snapshots; not a compiler semantic or scientific proof check",
+  "validation": {
+    "command": ["python3", "scripts/validate_repository.py"],
+    "environment": {"PYTHONDONTWRITEBYTECODE": "1"},
+    "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/aod-skills",
+    "exit_code": 0,
+    "stdout": "{\n  \"status\": \"PASS\",\n  \"skills\": 4,\n  \"bound_snapshots\": 11,\n  \"failures\": []\n}\n",
+    "stderr": "",
+    "recording_note": "Persisted from the actual previously observed execution output; the validator was not rerun to create this record."
+  },
+  "tracked_source_status": {
+    "command": ["git", "status", "--porcelain", "--untracked-files=no"],
+    "stdout": "",
+    "exit_code": 0,
+    "clean": true
+  },
+  "head_verification": {
+    "command": ["git", "rev-parse", "HEAD"],
+    "stdout": "630af16a7c51fb8836e603eb54c67bf8560fb463\n",
+    "exit_code": 0
+  },
+  "applied_guidance": "docs/SKILLS.md",
+  "upstream_modified": false
+}

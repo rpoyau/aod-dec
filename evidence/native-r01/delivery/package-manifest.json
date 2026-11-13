@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-11-13T12:07:44.647586+00:00",
+  "files": 3314,
+  "checksum_file": "work/delivery/SHA256SUMS",
+  "excluded": [
+    "work/candidate/build/",
+    "work/delivery/replay/",
+    "work/evidence/isolation/root/ (system libraries; manifest/recreation script retained)",
+    "temporary __pycache__/bytecode",
+    "work/baseline/*/source/ (duplicate baseline; fresh logs retained)"
+  ],
+  "request_integrity": "python3 scripts/verify_bundle.py",
+  "package_integrity": "sha256sum -c work/delivery/SHA256SUMS"
+}

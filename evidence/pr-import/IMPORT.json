@@ -1,0 +1,83 @@
+{
+  "created_utc": "2026-11-13T12:30:18.289329+00:00",
+  "repository": "https://github.com/rpoyau/aod-dec",
+  "base_commit": "79bf6594a14be02e6203fae365386193b7f89740",
+  "branch": "codex/native-compiler-jit-learning",
+  "authorization": "Owner explicitly requested PR to rpoyau/aod-dec using aod-lint and aod-skills; supersedes detached-run-only remote restriction for this repository import.",
+  "original_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+  "original_complete_archive_sha256": "c8208bc8f7af5900872dfbdb5ec06c1c878456a20f85a6b1371e334f69e54a3d",
+  "unchanged_implementation_files": [
+    "aodc.py",
+    "bootstrap/aod_self_host_compiler.rs",
+    "bootstrap/aod_stage0_seed.rs",
+    "bootstrap/aod_stage2_bootstrap.rs",
+    "bootstrap/native_elf.rs",
+    "bootstrap/primitives.rs",
+    "examples/closure.dec",
+    "examples/coupling.dec",
+    "examples/fusion.dec",
+    "examples/ternary.dec",
+    "examples/weights.dec",
+    "native/check_runtime.py",
+    "native/compiler.py",
+    "native/learning.py",
+    "native/runner.cpp",
+    "native/runtime.cpp",
+    "native/runtime.hpp",
+    "native/test_runtime.cpp",
+    "native/toolchain-lock.json",
+    "runtime/dec_core.py",
+    "runtime/dec_language.py",
+    "scripts/adapt_native.py",
+    "scripts/analyze_native_benchmark.py",
+    "scripts/benchmark_native.py",
+    "scripts/conformance_native.py",
+    "scripts/isolate_native.py",
+    "tests/bootstrap_regressions.rs",
+    "tests/test_core.py",
+    "tests/test_integration.py",
+    "tests/test_language.py",
+    "tests/test_learning.py",
+    "tests/test_native_backend.py"
+  ],
+  "modified_from_candidate": [
+    "Makefile",
+    "README.md",
+    "SHA256SUMS",
+    "docs/FEATURES.md",
+    "docs/SEMANTIC_IR_V1.md",
+    "docs/SPECIFICATION.md"
+  ],
+  "integration_additions": [
+    "AGENTS.md",
+    "docs/SKILLS.md",
+    "docs/LINT.md",
+    "docs/CI.md",
+    "scripts/check_aod_lint.py",
+    "scripts/check_import_provenance.py",
+    "scripts/verify_native.py",
+    ".github/workflows/ci.yml",
+    ".gitattributes",
+    "evidence/README.md",
+    "evidence/native-r01/",
+    "evidence/pr-import/"
+  ],
+  "tools": {
+    "aod-lint": {
+      "repository": "https://github.com/rpoyau/aod-lint",
+      "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+      "scope": "Typst/LaTeX only; no applicable manuscript files in this compiler repository"
+    },
+    "aod-skills": {
+      "repository": "https://github.com/rpoyau/aod-skills",
+      "revision": "630af16a7c51fb8836e603eb54c67bf8560fb463",
+      "scope": "AOD/AF source binding, finite-model limits and current owner manuscript amendment reconciliation"
+    }
+  },
+  "remaining": [
+    "M6 self-hosting",
+    "AArch64 executed port",
+    "No demonstrated cost-inclusive speedup"
+  ],
+  "current_validation": "Fresh local validation is retained separately from original execution; remote CI status is reported after PR creation."
+}

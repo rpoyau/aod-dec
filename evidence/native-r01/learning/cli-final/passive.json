@@ -1,0 +1,254 @@
+{
+  "mode": "passive",
+  "source_sha256": "f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054",
+  "profile": "work/evidence/learning/cli-final/profile.json",
+  "observations": [
+    {
+      "pair": 0,
+      "variant": "optimized",
+      "wall_ns": 349317,
+      "generated_code_ns": 184975,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 0,
+      "variant": "generic",
+      "wall_ns": 288059,
+      "generated_code_ns": 158496,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 1,
+      "variant": "optimized",
+      "wall_ns": 268303,
+      "generated_code_ns": 158253,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 1,
+      "variant": "generic",
+      "wall_ns": 248690,
+      "generated_code_ns": 154746,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 2,
+      "variant": "optimized",
+      "wall_ns": 251422,
+      "generated_code_ns": 150573,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 2,
+      "variant": "generic",
+      "wall_ns": 245369,
+      "generated_code_ns": 151032,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 3,
+      "variant": "generic",
+      "wall_ns": 235413,
+      "generated_code_ns": 147038,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 3,
+      "variant": "optimized",
+      "wall_ns": 233991,
+      "generated_code_ns": 150912,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 4,
+      "variant": "optimized",
+      "wall_ns": 266361,
+      "generated_code_ns": 169491,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 4,
+      "variant": "generic",
+      "wall_ns": 231847,
+      "generated_code_ns": 145084,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 5,
+      "variant": "generic",
+      "wall_ns": 234261,
+      "generated_code_ns": 146705,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 5,
+      "variant": "optimized",
+      "wall_ns": 245741,
+      "generated_code_ns": 145204,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 6,
+      "variant": "optimized",
+      "wall_ns": 218378,
+      "generated_code_ns": 138569,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 6,
+      "variant": "generic",
+      "wall_ns": 217209,
+      "generated_code_ns": 142382,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 7,
+      "variant": "optimized",
+      "wall_ns": 217982,
+      "generated_code_ns": 140834,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 7,
+      "variant": "generic",
+      "wall_ns": 242189,
+      "generated_code_ns": 159831,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 8,
+      "variant": "optimized",
+      "wall_ns": 218580,
+      "generated_code_ns": 140287,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 8,
+      "variant": "generic",
+      "wall_ns": 219595,
+      "generated_code_ns": 143126,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 9,
+      "variant": "optimized",
+      "wall_ns": 216740,
+      "generated_code_ns": 136578,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 9,
+      "variant": "generic",
+      "wall_ns": 217788,
+      "generated_code_ns": 142433,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 10,
+      "variant": "generic",
+      "wall_ns": 218709,
+      "generated_code_ns": 141404,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 10,
+      "variant": "optimized",
+      "wall_ns": 219303,
+      "generated_code_ns": 140097,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 11,
+      "variant": "optimized",
+      "wall_ns": 230959,
+      "generated_code_ns": 135590,
+      "address": 140293232857088,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    {
+      "pair": 11,
+      "variant": "generic",
+      "wall_ns": 216090,
+      "generated_code_ns": 136734,
+      "address": 140293361283072,
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    }
+  ],
+  "performance_claim": "No speedup claim; use held-out benchmark with all overheads.",
+  "binding": {
+    "host": "75134c40870de52b8030ebf73f82491c8f89bd951334dae1073f55ef5934c264",
+    "software": "2ca40ae2bbd263ca1b9acfe14a7a3efb8b7a6242afcc367c5c5164f75b6354f0",
+    "workload": "f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054"
+  },
+  "variant_registry": {
+    "generic": {
+      "name": "generic",
+      "source_sha256": "f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054",
+      "artifact_sha256": "39ba320aded98591e83f4f457f4bd954178de9793e1d2ed0fd2f355e5484bbb3",
+      "abi": "aod-native-1",
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    },
+    "optimized": {
+      "name": "optimized",
+      "source_sha256": "f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054",
+      "artifact_sha256": "29c4de0f55af76b602a8adc0f3d78e5beebac3d20f18bf90d94de3259bace85c",
+      "abi": "aod-native-1",
+      "outcome_sha256": "3a3a0bd66114e74a42a625db6c001f376b4880e0090346b0c8550c411155794c"
+    }
+  },
+  "preparation_ns": 1494408721,
+  "selection_ns": 353700,
+  "selection": {
+    "variant": "generic",
+    "reason": "generic control",
+    "generation": 0,
+    "load_reason": "missing",
+    "mode": "passive"
+  },
+  "invocation_wall_ns": 568527,
+  "executed": {
+    "stdout": "1/3\n1/6\n1/2\n",
+    "result": "t32(0)",
+    "error": null,
+    "error_line": 0,
+    "exit_code": 0,
+    "execute_ns": 307069,
+    "address": 140293361283072,
+    "cache_hit": false,
+    "compile_ns": 1161022105,
+    "load_ns": 7477598,
+    "key": "130d6164aa624921a32e212cd342976775e24338c458edc8926f1373f6bb332f",
+    "dispatch": "specialized"
+  },
+  "profiling_ns": 15601678,
+  "next_invocation_preview": {
+    "variant": "generic",
+    "reason": "generic control",
+    "generation": 12,
+    "load_reason": "missing",
+    "mode": "passive"
+  },
+  "total_ns": 1511002058
+}

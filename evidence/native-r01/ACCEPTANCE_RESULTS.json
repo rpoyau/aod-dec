@@ -1,0 +1,334 @@
+{
+  "request": "AOD_DEC_EXECUTION_REQUEST_R01",
+  "candidate_digest": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+  "created_utc": "2026-11-13T12:07:26.853387+00:00",
+  "results": [
+    {
+      "id": "M0-BASE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/SOURCE_BINDING.json",
+        "work/evidence/regression-final/bundle-integrity.log",
+        "work/baseline/run-wqmsxlay/results.json"
+      ],
+      "explanation": "All 61 immutable supplied files verified; fresh 57 Python tests in normal/optimized modes and nine Rust tests in debug/optimized modes pass. Supplied source/foundation archives remain unchanged.",
+      "requirement": "Verify bundled hashes and reproduce baseline, preserving immutable source.",
+      "scope": "required"
+    },
+    {
+      "id": "M0-SEMANTICS",
+      "status": "PASS",
+      "evidence": [
+        "work/candidate/docs/LANGUAGE_CORE_V1.md",
+        "work/candidate/docs/SEMANTIC_IR_V1.md",
+        "work/evidence/conformance/run-02-final/results.json",
+        "work/evidence/native-backend-normal-final2.json"
+      ],
+      "explanation": "Frozen repaired core v1, canonical typed IR verifier, checked intermediate ternary arithmetic, exact values and reference-equivalent first failure/effect order. Independent values and 84 fuel/depth parity points supplement differential checks.",
+      "requirement": "Freeze language/IR semantics, ternary encoding, exact arithmetic, overflow, errors and effect ordering.",
+      "scope": "required"
+    },
+    {
+      "id": "M0-ABI",
+      "status": "PASS",
+      "evidence": [
+        "work/candidate/docs/NATIVE_ABI_V1.md",
+        "work/candidate/docs/NATIVE_RUNTIME_ABI.md",
+        "work/evidence/runtime-results.json",
+        "work/evidence/native-backend-normal-final2.json"
+      ],
+      "explanation": "Context-owned immutable values and length-bearing strings; no C++ exception propagation across C ABI. Debug/O3 hostile witness/lifetime/allocation and typed external input tests pass. GMP system allocation exhaustion remains explicitly fail-stop.",
+      "requirement": "Define ownership, numeric layout, runtime errors and native/JIT ABI.",
+      "scope": "required"
+    },
+    {
+      "id": "M0-BACKEND",
+      "status": "PASS",
+      "evidence": [
+        "work/candidate/native/toolchain-lock.json",
+        "work/candidate/docs/BUILD_NATIVE.md",
+        "work/evidence/compiler-spike.json",
+        "work/evidence/ternary-first.ll",
+        "work/evidence/ternary-first.o",
+        "work/evidence/native-backend-normal-final2.json"
+      ],
+      "explanation": "Released LLVM 16.0.6 C API emits objects, links native GMP runtime and executes ORC machine-code addresses. C++/GMP runtime replaces the recommended Rust implementation language as a documented engineering choice. Compiler/JIT host uses Python; emitted AOT runtime does not.",
+      "requirement": "Pin released backend and dependencies; prove object emission, runtime linking and minimal executable JIT spike.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-NATIVE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/conformance/run-02-final/results.json",
+        "work/evidence/isolation/ternary.disassembly.txt",
+        "work/evidence/native-backend-normal-final2.json"
+      ],
+      "explanation": "Direct LLVM functions, branches, calls and recursion execute runtime helpers; changed bodies change output. Exact overloads and external runtime inputs execute generated native addresses.",
+      "requirement": "Compile scalar bodies, branches, explicit overloads, calls and bounded recursion to executed machine code.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-EXACT",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/runtime-differential.json",
+        "work/evidence/conformance/run-02-final/corpus.json",
+        "work/evidence/conformance/run-02-final/results.json"
+      ],
+      "explanation": "1,979 runtime cases and seeded source corpus cover beyond-word integers/ratios, signed floor/remainder, invalid trit11, t32 bounds and intermediate overflow at O0/O2.",
+      "requirement": "Preserve unbounded int/ratio and intermediate checked t32 arithmetic under optimization.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-ERRORS",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/conformance/run-02-final/results.json",
+        "work/evidence/native-backend-normal-final2.json",
+        "work/evidence/learning/cli-final/negative.json"
+      ],
+      "explanation": "Exact ordered emits, first failure text and source location agree with reference and independent outcomes. Later effects are suppressed; resource/depth failures retain unlocated reference form.",
+      "requirement": "Preserve source-located errors, assertion failures and ordered emits.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-ISOLATION",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/isolation/results.json",
+        "work/evidence/isolation/isolation-spec.json",
+        "work/evidence/isolation/environment.json",
+        "work/evidence/isolation/final-rebinding.json"
+      ],
+      "explanation": "Five native examples plus three independently calculated runtime-input cases pass in an empty Bubblewrap root populated only by binaries and ELF dependencies, without Python or source files. Final compiler rebuilds all five isolated example binaries byte-for-byte.",
+      "requirement": "Run compiled scalar/weight programs with no Python runtime dependency.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-CORPUS",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/conformance/run-02-final/corpus.json",
+        "work/evidence/conformance/run-02-final/results.json",
+        "work/evidence/native-backend-normal-final2.json",
+        "work/evidence/integration-findings.json"
+      ],
+      "explanation": "47 source programs at two optimization levels pass AOT/reference/JIT equality, including seeded exact randomized arithmetic, boundaries, malformed IR and optimizer-hostile failures. Repaired development failures remain retained.",
+      "requirement": "Exercise boundaries, generated cases, malformed IR and optimizer-hostile cases.",
+      "scope": "required"
+    },
+    {
+      "id": "M2-WITNESS",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/runtime-results.json",
+        "work/evidence/runtime-debug.log",
+        "work/evidence/runtime-optimized.log",
+        "work/evidence/runtime-differential.json",
+        "work/evidence/conformance/run-02-final/results.json"
+      ],
+      "explanation": "Native immutable trace/fusion/coupling records retain parents and canonical certificates. Independent forged digest/history/parent/scope/return/contact/replay cases reject invalid witnesses; canonical full-history comparisons pass.",
+      "requirement": "Implement native immutable scoped traces and closure/fusion/coupling witnesses.",
+      "scope": "required"
+    },
+    {
+      "id": "M2-EXAMPLES",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/conformance/run-02-final/results.json",
+        "work/evidence/isolation/results.json"
+      ],
+      "explanation": "All five repaired examples execute in AOT and ORC with exact full observable output and canonical witness equality; all five also pass Python-free isolation.",
+      "requirement": "Execute all five repaired examples natively with exact reference behavior.",
+      "scope": "required"
+    },
+    {
+      "id": "M2-LANGUAGE",
+      "status": "PASS",
+      "evidence": [
+        "work/candidate/docs/FEATURES.md",
+        "work/candidate/docs/LANGUAGE_CORE_V1.md",
+        "work/evidence/regression-final/python-normal.log"
+      ],
+      "explanation": "Core v1 positive/negative syntax/type/runtime tests and explicit feature inventory pass. No grammar extension was required by the M0\u2013M5 workloads. Structs, collections, loops, modules, I/O and pattern dispatch remain unsupported; original sketches are rejected. M6 needs separate increments.",
+      "requirement": "Inventory supported syntax and add required grammar features in documented increments.",
+      "scope": "required"
+    },
+    {
+      "id": "M3-SHARED",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/conformance/run-02-final/results.json",
+        "work/evidence/native-backend-normal-final2.json",
+        "work/candidate/docs/NATIVE_ABI_V1.md"
+      ],
+      "explanation": "AOT and ORC share verified lowering, object emission and native C ABI. Generated addresses, direct user functions and both native entry paths execute and compare with reference.",
+      "requirement": "Use verified lowering and common runtime ABI for AOT and JIT.",
+      "scope": "required"
+    },
+    {
+      "id": "M3-CACHE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/native-backend-normal-final2.json",
+        "work/evidence/native-backend-optimized-final2.json",
+        "work/evidence/backend-audit.json"
+      ],
+      "explanation": "Source/ABI/compiler/runtime/CPU/features/target/options mutations invalidate cache identities. Corrupt objects, IR and manifests rebuild; tests cover three-process first builds, locked atomic publication, repeated unload, concurrent close and executable nonwritable mappings.",
+      "requirement": "Validate JIT caching, invalidation, code lifetime and runtime symbol resolution.",
+      "scope": "required"
+    },
+    {
+      "id": "M3-GUARDS",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/native-backend-normal-final2.json",
+        "work/evidence/learning/run-04/results.json",
+        "work/candidate/docs/NATIVE_ABI_V1.md"
+      ],
+      "explanation": "Generated entry identity guard invokes separate O0 generic code on mismatch before source effects. Both paths execute and compare equal. Guard scope is whole-function identity; no input-range speculation or mid-function deoptimization is claimed.",
+      "requirement": "Guard specializations at entry and invoke generic native fallback on guard failure.",
+      "scope": "required"
+    },
+    {
+      "id": "M4-HOST",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/host.json"
+      ],
+      "explanation": "Actual x86-64 hardware/OS/features/topology/affinity/load/memory and perf counter probe retained; unavailable counters are not zero.",
+      "requirement": "Discover actual hardware capabilities and distinguish unavailable counters.",
+      "scope": "required"
+    },
+    {
+      "id": "M4-PROTOCOL",
+      "status": "PASS",
+      "evidence": [
+        "work/candidate/docs/BENCHMARK_PROTOCOL.md",
+        "work/evidence/learning/run-04/run-start.json"
+      ],
+      "explanation": "Protocol fixed before measurements: 3 warmups, 12 paired tuning, 20 paired held-out, fixed randomization, 2000-bootstrap uncertainty, 5% improvement/regression thresholds.",
+      "requirement": "Declare workloads, warmup, paired/randomized order, sample counts, timing and uncertainty before measurements.",
+      "scope": "required"
+    },
+    {
+      "id": "M4-RAW",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/observations.jsonl",
+        "work/evidence/learning/run-04/results.json",
+        "work/evidence/learning/run-04/reanalysis.json"
+      ],
+      "explanation": "Seven actual AOT+ORC workloads retain build/link/load/profile/native-call/full-invocation/total costs, raw timestamped controls and reproducible analysis; final implementation hashes unchanged.",
+      "requirement": "Measure compilation, profiling, loading, steady-state and total costs.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-EQUIVALENCE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/results.json",
+        "work/evidence/learning/policy-tests.log",
+        "work/evidence/learning/cli-final/negative.json"
+      ],
+      "explanation": "Exact source and main/generic/guard object hashes are prevalidated against reference and AOT output. Forced native guard failure executes generic path with equal observable results.",
+      "requirement": "Allow learning to select only prevalidated semantically equivalent implementations.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-PERSISTENCE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/results.json",
+        "work/evidence/learning/cli-final/results.json",
+        "work/evidence/learning/policy-tests.log"
+      ],
+      "explanation": "Fresh subprocesses reload committed synthetic-fixture observations, revalidate exact native objects and actually dispatch optimized; absent state restores generic. Synthetic fixture establishes policy influence only. Separate real-measurement passive\u2192active CLI reload passed and correctly retained generic.",
+      "requirement": "Retain observations at k and demonstrate influence on execution selection at k+1.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-CONTROLS",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/observations.jsonl",
+        "work/evidence/learning/run-04/reanalysis.json"
+      ],
+      "explanation": "All seven controls execute matching workloads/fresh contexts with exact semantic equality; 140 recorded control batches per workload. Frozen profile read-only, active updates after dispatch.",
+      "requirement": "Compare generic, passive, frozen, active, stale/shuffled and state-removal controls.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-HELDOUT",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/REPORT.md",
+        "work/evidence/learning/run-04/reanalysis.json"
+      ],
+      "explanation": "No cost-inclusive benefit. Every workload restores generic. Later samples use doubled batches of the same programs; no unseen-program generalization. Concurrent compilation/conformance is a retained limitation.",
+      "requirement": "Evaluate held-out results including overhead and regressions; preserve zero/negative gains.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-SAFETY",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/policy-tests.log",
+        "work/evidence/learning/policy-tests-optimized.log",
+        "work/evidence/learning/run-04/results.json"
+      ],
+      "explanation": "Normal and optimized policy suites pass 12 tests each including restart, corruption, stale host/software/workload/artifact, version, invalid costs, state removal and interrupted temporary-file writes. Profile input/work/update costs bounded; single-writer ownership explicit. Checksum-valid unpaired counts or histories inconsistent with min(generation,32) reject; lawful capped paired histories load.",
+      "requirement": "Invalidate incompatible profiles and keep correct generic fallback for corrupt or mismatched state.",
+      "scope": "required"
+    },
+    {
+      "id": "M6-BOOTSTRAP",
+      "status": "NOT_RUN",
+      "evidence": [
+        "work/candidate/docs/FEATURES.md",
+        "work/evidence/HANDOFF.md"
+      ],
+      "explanation": "Separate continuation not executed: no Dec-written frontend/lowering or seed\u2192stage1\u2192stage2\u2192stage3 chain. Collections/modules/I/O remain future grammar increments. Legacy ELF demonstrations do not establish self-hosting.",
+      "requirement": "Execute genuine Dec frontend/lowering bootstrap seed to stage1 to stage2 to stage3.",
+      "scope": "continuation"
+    },
+    {
+      "id": "DELIVERY-REPLAY",
+      "status": "PASS",
+      "evidence": [
+        "work/delivery/candidate.patch",
+        "work/delivery/source-manifest.json",
+        "work/evidence/replay.json"
+      ],
+      "explanation": "Detached patch cleanly replays onto pristine source; all 60 candidate source files match. Replayed compiler builds/runs ternary and reproduces the isolation-tested binary byte-for-byte.",
+      "requirement": "Deliver candidate and detached patch with clean replay onto bundled source.",
+      "scope": "required"
+    },
+    {
+      "id": "DELIVERY-REPORT",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/ACCEPTANCE_RESULTS.json",
+        "work/evidence/REPORT.md",
+        "work/evidence/HANDOFF.md",
+        "work/candidate/docs/FEATURES.md",
+        "work/delivery/README.md"
+      ],
+      "explanation": "All 26 supplied criteria have explicit dispositions/evidence. Native compilation, JIT, persistent adaptation, no measured cost-inclusive benefit and unimplemented self-hosting are reported separately. Source, raw/failure evidence, replay and checksum manifests are delivered.",
+      "requirement": "Report every criterion with evidence and separate compilation/JIT/learning/performance/self-host statuses.",
+      "scope": "required"
+    }
+  ],
+  "summary": {
+    "required_pass": 25,
+    "required_fail": 0,
+    "separate_continuation_not_run": 1,
+    "native_compilation": "PASS Linux x86-64",
+    "jit_execution": "PASS LLVM ORC",
+    "persistent_adaptation": "PASS",
+    "heldout_cost_inclusive_benefit": false,
+    "self_hosting": "NOT_RUN",
+    "AArch64": "UNSUPPORTED"
+  }
+}

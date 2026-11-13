@@ -1,0 +1,94 @@
+{
+  "scope": "Final engineering acceptance audit of candidate compiler/runtime/learning; no manuscript changes.",
+  "findings": [
+    {
+      "id": "typed-foreign-entry",
+      "kind": "executed reproducer",
+      "original": "JitSession accepted tuple type names but sent t32 text to dec_literal, whose ABI admits only int/bool/str literals.",
+      "reproducer": "with JitSession('Dec ident(x) -> r:\\n    (t32 x) -> t32 r:\\n        r = x\\nDec main() -> r:\\n    () -> int r:\\n        r = 0\\n') as j: print(j.run(function='ident',args=[('t32','5')]))",
+      "observed": {
+        "stdout": "",
+        "result": null,
+        "error": "invalid literal type",
+        "error_line": 0,
+        "exit_code": 1,
+        "dispatch": "not_entered"
+      },
+      "repair": "Foreign t1/t32/q4/ratio entry values now use checked native conversion builtins. Ratio text parser accepts exact N/D or integer text and rejects malformed input.",
+      "evidence": [
+        "native-backend-normal-final2.json",
+        "native-backend-optimized-final2.json"
+      ]
+    },
+    {
+      "id": "explicit-plus-numeric-entry",
+      "kind": "executed reproducer",
+      "reproducer": "JitSession(ratio_identity_source).run(function='ident',args=[('ratio','+2/+3')])",
+      "observed": {
+        "stdout": "",
+        "result": null,
+        "error": "invalid integer literal",
+        "error_line": 0,
+        "exit_code": 1,
+        "dispatch": "not_entered"
+      },
+      "repair": "Normalize a validated leading plus sign before calling the GMP-backed integer constructor; explicit +2/+3 now tested as 2/3.",
+      "evidence": [
+        "native-backend-normal-final2.json",
+        "native-backend-optimized-final2.json"
+      ]
+    },
+    {
+      "id": "paired-profile-shape",
+      "kind": "executed reproducer",
+      "reproducer": "Train five (100,70) cost pairs; save; change generic costs to [100]*32 while optimized stays [70]*5; recompute payload SHA256; load and choose.",
+      "observed": {
+        "load_reason": "valid",
+        "selection": {
+          "variant": "optimized",
+          "reason": "validated retained improvement",
+          "generation": 5,
+          "load_reason": "valid",
+          "mode": "active"
+        }
+      },
+      "repair_owner": "profile_learning",
+      "disposition": "Owner confirmed repaired and frozen before benchmark run04; final acceptance evidence owned by profile_learning/root."
+    },
+    {
+      "id": "cache-concurrent-publication",
+      "kind": "source inspection; no observed failing production run",
+      "original": "Runtime and object cache files were written directly without interprocess locking. Simultaneous first builds could observe incomplete artifacts.",
+      "repair": "Linux flock serializes publishers; runtime libraries/objects/manifests and generated object/IR/manifests are staged, fsynced and atomically replaced.",
+      "evidence": [
+        "native-backend-normal-final2.json",
+        "native-backend-optimized-final2.json"
+      ],
+      "test": "Three real subprocesses share an initially empty runtime directory and object cache, execute the same compiled program and obtain the same object digest."
+    },
+    {
+      "id": "benchmark-error-observation",
+      "kind": "source inspection",
+      "original": "benchmark_native.reference stripped the line prefix from runtime-error text while native runtime and adapt_native.reference retain it.",
+      "impact": "All seven measured workloads succeed, so existing successful benchmark results are unaffected; future negative benchmark inputs could be incorrectly rejected.",
+      "repair_owner": "profile_learning",
+      "disposition": "Owner confirmed repaired and frozen before benchmark run04; final acceptance evidence owned by profile_learning/root."
+    }
+  ],
+  "acceptance_scope_notes": [
+    "Core semantic evidence combines independent runtime properties, supplied reference comparisons and actual AOT/ORC execution; no exhaustive proof of every possible source is claimed.",
+    "Native entry specialization guards implementation identity; this is not speculative input-range optimization or mid-function deoptimization.",
+    "Held-out performance observations are later windows of the same seven programs, not unseen programs. All measured preparation/profiling costs remain part of the negative benefit conclusion.",
+    "Profile causal influence uses explicitly labelled synthetic costs and actual subsequent native dispatch; this fixture does not support a speedup claim.",
+    "Unrecoverable system allocator/GMP exhaustion is fail-stop; runtime deterministic value-allocation failures are tested separately.",
+    "Self-hosting, AArch64 execution and grammar extensions beyond original core v1 remain unsupported."
+  ],
+  "compiler_final_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+  "final_backend_tests": {
+    "normal": "native-backend-normal-final2.json",
+    "optimized": "native-backend-optimized-final2.json",
+    "status": "PASS",
+    "groups_per_mode": 10,
+    "retained_observations_per_mode": 145
+  }
+}

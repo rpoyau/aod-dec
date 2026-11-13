@@ -1,0 +1,27 @@
+/usr/bin/python3 aodc.py run examples/ternary.dec
+t32(2)
+1/2000000000
+t32(0)
+/usr/bin/python3 aodc.py run examples/closure.dec
+{"closures":[{"begin":0,"digest":"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a","end":3},{"begin":3,"digest":"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f","end":6}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0},{"kind":"step","ordinal":4,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":5,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":6,"orientation":-1,"source":1,"target":0}],"lineage":"a","parents":[],"proposal":"","scope":"B","start":{"value":0}}
+1/3
+t32(0)
+/usr/bin/python3 aodc.py run examples/fusion.dec
+{"closures":[{"begin":0,"digest":"5a09578bd64dff8777973961dfa6f0b02b30fd6b24e2cbcfae1f2fa7bb830377","end":3}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0}],"lineage":"ab","parents":[{"closures":[{"begin":0,"digest":"62495d0527f948d27d6cfa06d6da752f6593f71d48ee3366b39d837fca314fe0","end":3}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0}],"lineage":"a","parents":[],"proposal":"","scope":"inner","start":{"value":0}},{"closures":[{"begin":0,"digest":"672971e85ef1d8c1ea5578ca41e2354cf8bc5c90b23096aea4a8a9ac2ea3a3fe","end":3}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0}],"lineage":"b","parents":[],"proposal":"","scope":"inner","start":{"value":0}}],"proposal":"eb23daa8f032eb72c1f073ef41dffdc28568126806617d09d8f58d3242db2c62","scope":"outer","start":{"value":0}}
+t32(0)
+/usr/bin/python3 aodc.py run examples/coupling.dec
+1/1
+-1
+0
+t32(0)
+/usr/bin/python3 aodc.py run examples/weights.dec
+1/3
+1/6
+1/2
+t32(0)
+/usr/bin/python3 aodc.py compile examples/closure.dec -o build/closure.dec.json
+/usr/bin/python3 aodc.py exec build/closure.dec.json
+{"closures":[{"begin":0,"digest":"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a","end":3},{"begin":3,"digest":"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f","end":6}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0},{"kind":"step","ordinal":4,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":5,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":6,"orientation":-1,"source":1,"target":0}],"lineage":"a","parents":[],"proposal":"","scope":"B","start":{"value":0}}
+1/3
+t32(0)
+

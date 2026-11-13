@@ -1,0 +1,47 @@
+{
+  "pass": true,
+  "final_compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+  "explanation": "All final-compiler native example binaries are byte-identical to the binaries actually executed in Python-free isolation. JIT foreign-input/cache-publication fixes did not alter emitted AOT behavior.",
+  "examples": [
+    {
+      "example": "ternary",
+      "isolated_binary": "work/evidence/isolation/ternary",
+      "final_binary": "work/evidence/conformance/run-02-final/example_ternary-O2",
+      "isolated_sha256": "92ea13d6681c7b95a8e1ac1a2183e41dda760b613ae444f376d17bcd5c33b327",
+      "final_sha256": "92ea13d6681c7b95a8e1ac1a2183e41dda760b613ae444f376d17bcd5c33b327",
+      "byte_identical": true
+    },
+    {
+      "example": "weights",
+      "isolated_binary": "work/evidence/isolation/weights",
+      "final_binary": "work/evidence/conformance/run-02-final/example_weights-O2",
+      "isolated_sha256": "8222f4d39be221adb3f0e6e8b167658fc6339b309e875ca2d290dd481fde4bff",
+      "final_sha256": "8222f4d39be221adb3f0e6e8b167658fc6339b309e875ca2d290dd481fde4bff",
+      "byte_identical": true
+    },
+    {
+      "example": "closure",
+      "isolated_binary": "work/evidence/isolation/closure",
+      "final_binary": "work/evidence/conformance/run-02-final/example_closure-O2",
+      "isolated_sha256": "15f14ae7c2126437194a61ec4aa5545d704fec7b92817e8a11a18f757dcb706b",
+      "final_sha256": "15f14ae7c2126437194a61ec4aa5545d704fec7b92817e8a11a18f757dcb706b",
+      "byte_identical": true
+    },
+    {
+      "example": "fusion",
+      "isolated_binary": "work/evidence/isolation/fusion",
+      "final_binary": "work/evidence/conformance/run-02-final/example_fusion-O2",
+      "isolated_sha256": "f12a334e629b05fd1073bf89d40e4499fb3f60100fb78043a22928bfbd2dd358",
+      "final_sha256": "f12a334e629b05fd1073bf89d40e4499fb3f60100fb78043a22928bfbd2dd358",
+      "byte_identical": true
+    },
+    {
+      "example": "coupling",
+      "isolated_binary": "work/evidence/isolation/coupling",
+      "final_binary": "work/evidence/conformance/run-02-final/example_coupling-O2",
+      "isolated_sha256": "70667b4d017ea868b0b1556d7eecfde683421d7de8449950c43f6b8f1d3f9521",
+      "final_sha256": "70667b4d017ea868b0b1556d7eecfde683421d7de8449950c43f6b8f1d3f9521",
+      "byte_identical": true
+    }
+  ]
+}

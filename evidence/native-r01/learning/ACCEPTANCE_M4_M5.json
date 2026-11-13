@@ -1,0 +1,84 @@
+{
+  "results": [
+    {
+      "id": "M4-HOST",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/host.json"
+      ],
+      "explanation": "Actual x86-64 hardware/OS/features/topology/affinity/load/memory and perf counter probe retained; unavailable counters are not zero."
+    },
+    {
+      "id": "M4-PROTOCOL",
+      "status": "PASS",
+      "evidence": [
+        "work/candidate/docs/BENCHMARK_PROTOCOL.md",
+        "work/evidence/learning/run-04/run-start.json"
+      ],
+      "explanation": "Protocol fixed before measurements: 3 warmups, 12 paired tuning, 20 paired held-out, fixed randomization, 2000-bootstrap uncertainty, 5% improvement/regression thresholds."
+    },
+    {
+      "id": "M4-RAW",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/observations.jsonl",
+        "work/evidence/learning/run-04/results.json",
+        "work/evidence/learning/run-04/reanalysis.json"
+      ],
+      "explanation": "Seven actual AOT+ORC workloads retain build/link/load/profile/native-call/full-invocation/total costs, raw timestamped controls and reproducible analysis; final implementation hashes unchanged."
+    },
+    {
+      "id": "M5-EQUIVALENCE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/results.json",
+        "work/evidence/learning/policy-tests.log",
+        "work/evidence/learning/cli-final/negative.json"
+      ],
+      "explanation": "Exact source and main/generic/guard object hashes are prevalidated against reference and AOT output. Forced native guard failure executes generic path with equal observable results."
+    },
+    {
+      "id": "M5-PERSISTENCE",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/results.json",
+        "work/evidence/learning/cli-final/results.json",
+        "work/evidence/learning/policy-tests.log"
+      ],
+      "explanation": "Fresh subprocesses reload committed synthetic-fixture observations, revalidate exact native objects and actually dispatch optimized; absent state restores generic. Synthetic fixture establishes policy influence only. Separate real-measurement passive\u2192active CLI reload passed and correctly retained generic."
+    },
+    {
+      "id": "M5-CONTROLS",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/observations.jsonl",
+        "work/evidence/learning/run-04/reanalysis.json"
+      ],
+      "explanation": "All seven controls execute matching workloads/fresh contexts with exact semantic equality; 140 recorded control batches per workload. Frozen profile read-only, active updates after dispatch."
+    },
+    {
+      "id": "M5-HELDOUT",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/run-04/REPORT.md",
+        "work/evidence/learning/run-04/reanalysis.json"
+      ],
+      "explanation": "No cost-inclusive benefit. Every workload restores generic. Later samples use doubled batches of the same programs; no unseen-program generalization. Concurrent compilation/conformance is a retained limitation."
+    },
+    {
+      "id": "M5-SAFETY",
+      "status": "PASS",
+      "evidence": [
+        "work/evidence/learning/policy-tests.log",
+        "work/evidence/learning/policy-tests-optimized.log",
+        "work/evidence/learning/run-04/results.json"
+      ],
+      "explanation": "Normal and optimized policy suites pass 12 tests each including restart, corruption, stale host/software/workload/artifact, version, invalid costs, state removal and interrupted temporary-file writes. Profile input/work/update costs bounded; single-writer ownership explicit. Checksum-valid unpaired counts or histories inconsistent with min(generation,32) reject; lawful capped paired histories load."
+    }
+  ],
+  "functional_native_adaptation": true,
+  "heldout_cost_inclusive_benefit": false,
+  "self_hosting": "NOT_ASSESSED_HERE",
+  "final_compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+  "implementation_binding_unchanged": true
+}

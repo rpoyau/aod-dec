@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "request": "AOD_DEC_EXECUTION_REQUEST_R01",
+  "first_checkpoint": [
+    "M0",
+    "M1"
+  ],
+  "functional_scope": [
+    "M0",
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5"
+  ],
+  "separate_continuation": [
+    "M6"
+  ],
+  "allowed_statuses": [
+    "PASS",
+    "FAIL",
+    "BLOCKED",
+    "NOT_RUN"
+  ],
+  "criteria": [
+    {
+      "id": "M0-BASE",
+      "milestone": "M0",
+      "requirement": "Verify bundled hashes and reproduce baseline, preserving immutable source.",
+      "evidence_required": "Integrity output, host/toolchain inventory, fresh test logs.",
+      "scope": "required"
+    },
+    {
+      "id": "M0-SEMANTICS",
+      "milestone": "M0",
+      "requirement": "Freeze language/IR semantics, ternary encoding, exact arithmetic, overflow, errors and effect ordering.",
+      "evidence_required": "Versioned contract with independent boundary cases and negative tests.",
+      "scope": "required"
+    },
+    {
+      "id": "M0-ABI",
+      "milestone": "M0",
+      "requirement": "Define ownership, numeric layout, runtime errors and native/JIT ABI.",
+      "evidence_required": "ABI document and cross-boundary lifecycle/error tests.",
+      "scope": "required"
+    },
+    {
+      "id": "M0-BACKEND",
+      "milestone": "M0",
+      "requirement": "Pin released backend and dependencies; prove object emission, runtime linking and minimal executable JIT spike.",
+      "evidence_required": "Dependency lock, licenses, build commands, object and generated-code invocation evidence.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-NATIVE",
+      "milestone": "M1",
+      "requirement": "Compile scalar bodies, branches, explicit overloads, calls and bounded recursion to executed machine code.",
+      "evidence_required": "Source, object/disassembly, executable outputs; mutation of body changes behavior.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-EXACT",
+      "milestone": "M1",
+      "requirement": "Preserve unbounded int/ratio and intermediate checked t32 arithmetic under optimization.",
+      "evidence_required": "Independent exact and overflow cases, including values beyond machine-word range.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-ERRORS",
+      "milestone": "M1",
+      "requirement": "Preserve source-located errors, assertion failures and ordered emits.",
+      "evidence_required": "Success/failure differential records with independent expected results.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-ISOLATION",
+      "milestone": "M1",
+      "requirement": "Run compiled scalar/weight programs with no Python runtime dependency.",
+      "evidence_required": "Isolated execution, dependency/process inspection and runtime-input cases; PATH alone insufficient.",
+      "scope": "required"
+    },
+    {
+      "id": "M1-CORPUS",
+      "milestone": "M1",
+      "requirement": "Exercise boundaries, generated cases, malformed IR and optimizer-hostile cases.",
+      "evidence_required": "Reproducible corpus seeds, raw results, failure retention and regression tests.",
+      "scope": "required"
+    },
+    {
+      "id": "M2-WITNESS",
+      "milestone": "M2",
+      "requirement": "Implement native immutable scoped traces and closure/fusion/coupling witnesses.",
+      "evidence_required": "Canonical trace/certificate comparisons; reject wrong parent/scope, forged return and replay.",
+      "scope": "required"
+    },
+    {
+      "id": "M2-EXAMPLES",
+      "milestone": "M2",
+      "requirement": "Execute all five repaired examples natively with exact reference behavior.",
+      "evidence_required": "Commands, outputs, ordered effects and canonical evidence equality.",
+      "scope": "required"
+    },
+    {
+      "id": "M2-LANGUAGE",
+      "milestone": "M2",
+      "requirement": "Inventory supported syntax and add required grammar features in documented increments.",
+      "evidence_required": "Feature matrix and positive/negative parser/type/runtime tests; unsupported constructs rejected.",
+      "scope": "required"
+    },
+    {
+      "id": "M3-SHARED",
+      "milestone": "M3",
+      "requirement": "Use verified lowering and common runtime ABI for AOT and JIT.",
+      "evidence_required": "Native/JIT/reference differential results and executed-code evidence.",
+      "scope": "required"
+    },
+    {
+      "id": "M3-CACHE",
+      "milestone": "M3",
+      "requirement": "Validate JIT caching, invalidation, code lifetime and runtime symbol resolution.",
+      "evidence_required": "Source/ABI/options/target cache mutations; safe lifetime tests.",
+      "scope": "required"
+    },
+    {
+      "id": "M3-GUARDS",
+      "milestone": "M3",
+      "requirement": "Guard specializations at entry and invoke generic native fallback on guard failure.",
+      "evidence_required": "Both paths executed and compared; unsupported mid-function deoptimization excluded.",
+      "scope": "required"
+    },
+    {
+      "id": "M4-HOST",
+      "milestone": "M4",
+      "requirement": "Discover actual hardware capabilities and distinguish unavailable counters.",
+      "evidence_required": "Host/OS/toolchain identifiers, capability probes and permission failures.",
+      "scope": "required"
+    },
+    {
+      "id": "M4-PROTOCOL",
+      "milestone": "M4",
+      "requirement": "Declare workloads, warmup, paired/randomized order, sample counts, timing and uncertainty before measurements.",
+      "evidence_required": "Dated protocol, held-out split, practical improvement threshold and regression bound.",
+      "scope": "required"
+    },
+    {
+      "id": "M4-RAW",
+      "milestone": "M4",
+      "requirement": "Measure compilation, profiling, loading, steady-state and total costs.",
+      "evidence_required": "Raw timestamped observations and reproducible analysis with uncertainty; censored runs retained.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-EQUIVALENCE",
+      "milestone": "M5",
+      "requirement": "Allow learning to select only prevalidated semantically equivalent implementations.",
+      "evidence_required": "Variant provenance, equivalence cases and guard/fallback results.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-PERSISTENCE",
+      "milestone": "M5",
+      "requirement": "Retain observations at k and demonstrate influence on execution selection at k+1.",
+      "evidence_required": "Reload/restart tests, retained-state changes and actual later dispatch evidence.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-CONTROLS",
+      "milestone": "M5",
+      "requirement": "Compare generic, passive, frozen, active, stale/shuffled and state-removal controls.",
+      "evidence_required": "Matched raw runs and distinct policy-influence vs performance conclusions.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-HELDOUT",
+      "milestone": "M5",
+      "requirement": "Evaluate held-out results including overhead and regressions; preserve zero/negative gains.",
+      "evidence_required": "Reproducible uncertainty analysis and fallback decisions; no positive speedup prerequisite.",
+      "scope": "required"
+    },
+    {
+      "id": "M5-SAFETY",
+      "milestone": "M5",
+      "requirement": "Invalidate incompatible profiles and keep correct generic fallback for corrupt or mismatched state.",
+      "evidence_required": "Version/target/workload/corruption tests and bounded profiling/selection costs.",
+      "scope": "required"
+    },
+    {
+      "id": "M6-BOOTSTRAP",
+      "milestone": "M6",
+      "requirement": "Execute genuine Dec frontend/lowering bootstrap seed to stage1 to stage2 to stage3.",
+      "evidence_required": "Build provenance, executed test corpus and stage2/stage3 comparison; external dependencies declared.",
+      "scope": "continuation"
+    },
+    {
+      "id": "DELIVERY-REPLAY",
+      "milestone": "DELIVERY",
+      "requirement": "Deliver candidate and detached patch with clean replay onto bundled source.",
+      "evidence_required": "Replay log, final source digest and artifact hashes.",
+      "scope": "required"
+    },
+    {
+      "id": "DELIVERY-REPORT",
+      "milestone": "DELIVERY",
+      "requirement": "Report every criterion with evidence and separate compilation/JIT/learning/performance/self-host statuses.",
+      "evidence_required": "ACCEPTANCE_RESULTS.json, report, feature inventory and HANDOFF when incomplete.",
+      "scope": "required"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "yaml_parser": "PyYAML BaseLoader",
+  "shell": "bash -n",
+  "embedded_python": "ast.parse",
+  "checkout_sha": "11bd71901bbe5b1630ceea73d27597364c9af683",
+  "upload_artifact_sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+  "action_refs": "verified through GitHub API tags v4.2.2 and v4.6.2",
+  "llvm_package": "libllvm16t64=1:16.0.6-23ubuntu4",
+  "package_source": "https://packages.ubuntu.com/noble/libllvm16t64",
+  "remote_execution": "NOT_RUN"
+}

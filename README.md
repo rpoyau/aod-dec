@@ -22,6 +22,12 @@ Persistent hardware selection is available through `scripts/adapt_native.py`.
 The measured seven-workload experiment established functional adaptation but no
 cost-inclusive speedup; every measured workload retained the generic variant.
 
+Completed execution records and repository validation are indexed in
+[evidence/README.md](evidence/README.md). The repository uses pinned
+[AOD skills](docs/SKILLS.md) and [AOD lint](docs/LINT.md); the latter currently
+checks Typst/LaTeX manuscripts and reports no applicable manuscript inputs here.
+[CI and local validation](docs/CI.md) run the compiler's semantic conformance.
+
 ## Run
 
 ```sh
@@ -92,6 +98,8 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 python3 -O -m unittest discover -s tests -p 'test_*.py' -v
 make verify                     # includes Rust debug/optimized tests and examples
 # Or: make verify RUSTC=/absolute/path/to/rustc
+make verify-native              # reference, native runtime, AOT and ORC conformance
+python3 scripts/check_import_provenance.py
 ```
 
 The Rust filenames remain for patch continuity. Their current commands are:

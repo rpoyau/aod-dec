@@ -1,0 +1,82 @@
+{
+  "scope": "Repaired reference baseline only; no new native backend/JIT/learner acceptance",
+  "platform": "Linux-7.3.3-300.fc45.x86_64-x86_64-with-glibc2.44",
+  "python": "3.15.2 (3.15.2-1.fc45.x86_64, Oct 26 2026, 00:00:00) [GCC 16.2.1 20260819 (Red Hat 16.2.1-2)]",
+  "rustc": "/home/reginaldpoyau/.cargo/bin/rustc",
+  "results": [
+    {
+      "name": "python-normal",
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "started": "2026-11-13T10:53:20.128084+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "log": "python-normal.log"
+    },
+    {
+      "name": "python-optimized",
+      "command": [
+        "/usr/bin/python3",
+        "-O",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "started": "2026-11-13T10:53:45.355527+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "log": "python-optimized.log"
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "/home/reginaldpoyau/.cargo/bin/rustc",
+        "--version"
+      ],
+      "started": "2026-11-13T10:54:10.570566+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "log": "rust-version.log"
+    },
+    {
+      "name": "rust-debug-optimized",
+      "command": [
+        "make",
+        "verify-rust",
+        "RUSTC=/home/reginaldpoyau/.cargo/bin/rustc"
+      ],
+      "started": "2026-11-13T10:54:10.647367+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "log": "rust-debug-optimized.log"
+    },
+    {
+      "name": "examples",
+      "command": [
+        "make",
+        "examples",
+        "PYTHON=/usr/bin/python3"
+      ],
+      "started": "2026-11-13T10:54:22.855532+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "log": "examples.log"
+    }
+  ],
+  "rust_status": "RUN",
+  "status": "PASS"
+}

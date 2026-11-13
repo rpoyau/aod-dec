@@ -1,0 +1,58 @@
+[
+  {
+    "stdout": "",
+    "result": "30414093201713378043612608166064768844377641568960512000000000000",
+    "error": null,
+    "error_line": 0,
+    "exit_code": 0,
+    "execute_ns": 1475332,
+    "address": 139653559177312,
+    "cache_hit": false,
+    "compile_ns": 19086199351,
+    "load_ns": 7183178,
+    "key": "0b3ab8d20ce2762d0fd56fa3b28dc86a1ddd32eaef760f5c419f1e75d0f41681",
+    "dispatch": "specialized"
+  },
+  {
+    "stdout": "",
+    "result": "265252859812191058636308480000000",
+    "error": null,
+    "error_line": 0,
+    "exit_code": 0,
+    "execute_ns": 806129,
+    "address": 139653559177216,
+    "cache_hit": false,
+    "compile_ns": 19086199351,
+    "load_ns": 7257884,
+    "key": "0b3ab8d20ce2762d0fd56fa3b28dc86a1ddd32eaef760f5c419f1e75d0f41681",
+    "dispatch": "specialized"
+  },
+  {
+    "stdout": "",
+    "result": "30414093201713378043612608166064768844377641568960512000000000000",
+    "error": null,
+    "error_line": 0,
+    "exit_code": 0,
+    "execute_ns": 1292404,
+    "address": 139653559177312,
+    "cache_hit": false,
+    "compile_ns": 19086199351,
+    "load_ns": 7257884,
+    "key": "0b3ab8d20ce2762d0fd56fa3b28dc86a1ddd32eaef760f5c419f1e75d0f41681",
+    "dispatch": "generic"
+  },
+  {
+    "stdout": "",
+    "result": null,
+    "error": "execution step budget exhausted",
+    "error_line": 0,
+    "exit_code": 1,
+    "execute_ns": 17516,
+    "address": 139653559177312,
+    "cache_hit": false,
+    "compile_ns": 19086199351,
+    "load_ns": 7257884,
+    "key": "0b3ab8d20ce2762d0fd56fa3b28dc86a1ddd32eaef760f5c419f1e75d0f41681",
+    "dispatch": "specialized"
+  }
+]

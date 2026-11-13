@@ -1,0 +1,11 @@
+evidence/native-r01/**/*.json linguist-generated=true
+evidence/native-r01/**/*.jsonl linguist-generated=true
+evidence/native-r01/**/*.log linguist-generated=true
+evidence/native-r01/**/*.txt linguist-generated=true
+evidence/native-r01/**/*.patch linguist-generated=true
+evidence/pr-import/*.json linguist-generated=true
+evidence/pr-import/*.log linguist-generated=true
+# Keep raw tool output and archived patches byte-identical to their recorded hashes.
+evidence/**/*.txt -whitespace
+evidence/**/*.log -whitespace
+evidence/**/*.patch -whitespace

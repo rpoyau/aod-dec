@@ -3,7 +3,7 @@ RUSTC ?= rustc
 RUSTFLAGS := -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1
 BUILD_DIR := build
 
-.PHONY: all verify verify-python verify-rust examples clean
+.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci examples clean
 all: $(BUILD_DIR)/aod_stage0_seed $(BUILD_DIR)/aod_self_host_compiler $(BUILD_DIR)/aod_stage2_bootstrap
 
 $(BUILD_DIR):
@@ -14,6 +14,16 @@ $(BUILD_DIR)/%: bootstrap/%.rs $(wildcard bootstrap/*.rs) | $(BUILD_DIR)
 
 verify-python:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
+
+verify-python-optimized:
+	$(PYTHON) -O -m unittest discover -s tests -p 'test_*.py' -v
+
+# Includes reference/native Python tests, retained Rust checks, native witness
+# tests and both exact differential corpora; all command logs are retained.
+verify-native:
+	$(PYTHON) scripts/verify_native.py --output $(BUILD_DIR)/verification
+
+verify-ci: verify-native
 
 $(BUILD_DIR)/bootstrap_tests: tests/bootstrap_regressions.rs $(wildcard bootstrap/*.rs) | $(BUILD_DIR)
 	$(RUSTC) --test tests/bootstrap_regressions.rs -o $@

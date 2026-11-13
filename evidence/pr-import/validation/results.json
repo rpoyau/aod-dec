@@ -1,0 +1,217 @@
+{
+  "started_utc": "2026-11-13T12:27:19.863447+00:00",
+  "platform": "Linux-7.3.3-300.fc45.x86_64-x86_64-with-glibc2.44",
+  "python": "3.15.2 (3.15.2-1.fc45.x86_64, Oct 26 2026, 00:00:00) [GCC 16.2.1 20260819 (Red Hat 16.2.1-2)]",
+  "python_executable": "/usr/bin/python3",
+  "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+  "scope": "Linux x86-64 native core conformance; no performance claim",
+  "checks": [
+    {
+      "name": "cxx-version",
+      "command": [
+        "g++",
+        "--version"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:27:20.840495+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 10707456,
+      "status": "PASS",
+      "log": "cxx-version.log"
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:27:20.853648+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 69444409,
+      "status": "PASS",
+      "log": "rust-version.log"
+    },
+    {
+      "name": "python-normal",
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:27:20.924657+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 70483537844,
+      "status": "PASS",
+      "log": "python-normal.log"
+    },
+    {
+      "name": "python-optimized",
+      "command": [
+        "/usr/bin/python3",
+        "-O",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:28:31.409937+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 52368233272,
+      "status": "PASS",
+      "log": "python-optimized.log"
+    },
+    {
+      "name": "legacy-rust",
+      "command": [
+        "make",
+        "verify-rust"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:29:23.780035+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 12185092649,
+      "status": "PASS",
+      "log": "legacy-rust.log"
+    },
+    {
+      "name": "runtime-debug-build",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/test_runtime.cpp",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/runtime-debug"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:29:35.967328+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 9918995328,
+      "status": "PASS",
+      "log": "runtime-debug-build.log"
+    },
+    {
+      "name": "runtime-debug",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/runtime-debug"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:29:45.888487+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 46382902,
+      "status": "PASS",
+      "log": "runtime-debug.log"
+    },
+    {
+      "name": "runtime-optimized-build",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O3",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/test_runtime.cpp",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/runtime-optimized"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:29:45.937217+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 23931501550,
+      "status": "PASS",
+      "log": "runtime-optimized-build.log"
+    },
+    {
+      "name": "runtime-optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/runtime-optimized"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:30:09.871434+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 26276436,
+      "status": "PASS",
+      "log": "runtime-optimized.log"
+    },
+    {
+      "name": "runtime-differential-build",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-fPIC",
+        "-shared",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runtime.cpp",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/libruntime-check.so"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:30:09.900733+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 17970492902,
+      "status": "PASS",
+      "log": "runtime-differential-build.log"
+    },
+    {
+      "name": "runtime-differential",
+      "command": [
+        "/usr/bin/python3",
+        "native/check_runtime.py",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/libruntime-check.so",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/runtime-differential.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:30:27.873608+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 876392981,
+      "status": "PASS",
+      "log": "runtime-differential.log"
+    },
+    {
+      "name": "source-conformance",
+      "command": [
+        "/usr/bin/python3",
+        "scripts/conformance_native.py",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/verification-pr-ci/conformance"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "started_utc": "2026-11-13T12:30:28.752425+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 107259863782,
+      "status": "PASS",
+      "log": "source-conformance.log"
+    }
+  ],
+  "complete": true,
+  "backend": {
+    "version": [
+      16,
+      0,
+      6
+    ],
+    "target": "x86_64-redhat-linux-gnu",
+    "cpu": "goldmont",
+    "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+    "library_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f"
+  },
+  "status": "PASS",
+  "finished_utc": "2026-11-13T12:32:16.014859+00:00"
+}

@@ -1,0 +1,77 @@
+{
+  "input": "work/evidence/learning/run-04",
+  "workloads": {
+    "ternary": {
+      "pairs": 20,
+      "median_gain": -0.01609011731954015,
+      "lower": -0.04895793439920018,
+      "upper": -0.004051516778098458,
+      "total_gain_ns": -4872108258,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    },
+    "weights": {
+      "pairs": 20,
+      "median_gain": -0.00931350906029921,
+      "lower": -0.052445527639869385,
+      "upper": 0.012140745758731792,
+      "total_gain_ns": -3876883229,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    },
+    "closure": {
+      "pairs": 20,
+      "median_gain": -0.01584397148169427,
+      "lower": -0.02107003609494566,
+      "upper": -0.004971612030067331,
+      "total_gain_ns": -4115243839,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    },
+    "fusion": {
+      "pairs": 20,
+      "median_gain": -0.010220490593337381,
+      "lower": -0.023923634983230156,
+      "upper": -0.004075154589507968,
+      "total_gain_ns": -4233489039,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    },
+    "coupling": {
+      "pairs": 20,
+      "median_gain": -0.015467255977650342,
+      "lower": -0.023398568823101325,
+      "upper": 0.01296709389575186,
+      "total_gain_ns": -4438773240,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    },
+    "rational_stress": {
+      "pairs": 20,
+      "median_gain": -0.001623181508917651,
+      "lower": -0.015348877228689755,
+      "upper": 0.0033421376273260585,
+      "total_gain_ns": -6406075913,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    },
+    "nested_fusion": {
+      "pairs": 20,
+      "median_gain": -0.013966617303177786,
+      "lower": -0.01659547954330306,
+      "upper": 0.00011164941246494402,
+      "total_gain_ns": -4784529602,
+      "established_benefit": false,
+      "controls_equal": true,
+      "status": "PASS"
+    }
+  },
+  "failures_retained": [],
+  "status": "PASS"
+}
