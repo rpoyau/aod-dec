@@ -1,0 +1,56 @@
+{
+  "llvm_version": [
+    16,
+    0,
+    6
+  ],
+  "target": "x86_64-redhat-linux-gnu",
+  "cpu": "goldmont",
+  "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+  "python": "3.15.2 (3.15.2-1.fc45.x86_64, Oct 26 2026, 00:00:00) [GCC 16.2.1 20260819 (Red Hat 16.2.1-2)]",
+  "python_executable": "/usr/bin/python3",
+  "platform": "Linux-7.3.3-300.fc45.x86_64-x86_64-with-glibc2.44",
+  "gcc_version": "g++ (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)",
+  "packages": [
+    "llvm16-libs-16.0.6-9.fc40.x86_64",
+    "gmp-6.3.0-6.fc45.x86_64",
+    "gmp-devel-6.3.0-6.fc45.x86_64",
+    "openssl-libs-4.0.3-1.fc45.x86_64",
+    "gcc-c++-16.2.1-3.fc45.x86_64",
+    "glibc-2.44-2.fc45.x86_64"
+  ],
+  "files": [
+    {
+      "path": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+      "resolved": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+      "sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f"
+    },
+    {
+      "path": "/usr/bin/g++",
+      "resolved": "/usr/bin/g++",
+      "sha256": "1ad8469b205daace0f9f9f001f5ec2ab01012e79abe4648f7f0a3d298e9cd79b"
+    },
+    {
+      "path": "/lib64/libgmp.so.10",
+      "resolved": "/usr/lib64/libgmp.so.10.5.0",
+      "sha256": "ceb0bb46e92482a4723b734beb481aaf39f8649b2f1153ea49b6f502b0c9a61a"
+    },
+    {
+      "path": "/lib64/libgmpxx.so.4",
+      "resolved": "/usr/lib64/libgmpxx.so.4.7.0",
+      "sha256": "f5ab1951fc03520477692d6e446d8195ba531a9d253cd1960c7f2f5af2b8f8cf"
+    },
+    {
+      "path": "/lib64/libcrypto.so.4",
+      "resolved": "/usr/lib64/libcrypto.so.4.0.3",
+      "sha256": "d7a694d6c0504aab4cbaf1d209d19c846f1407e4356f9f13a8c8638b51fa3f90"
+    }
+  ],
+  "licenses": {
+    "LLVM": "Apache-2.0 WITH LLVM-exception",
+    "GMP": "LGPL-3.0-or-later OR GPL-2.0-or-later",
+    "OpenSSL": "Apache-2.0",
+    "GCC": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "glibc": "LGPL-2.1-or-later"
+  }
+}

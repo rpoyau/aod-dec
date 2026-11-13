@@ -1,14 +1,26 @@
-# Ternary AOD Dec — executable core R01
+# Ternary AOD Dec — native compiler and JIT
 
-Dec now has an executable, explicitly typed ternary core. Source is parsed,
-checked and compiled into deterministic typed JSON intermediate code. An exact
-reference virtual machine executes that code. Function bodies determine results;
-assertions, invalid types, invalid witnesses and arithmetic errors are enforced.
+Dec compiles its explicitly typed ternary core to Linux x86-64 executables and
+executes the same lowered code through LLVM ORC JIT. Exact GMP values and retained
+closure/fusion/coupling histories use a native runtime. The original typed JSON
+IR and exact reference VM remain available for comparison.
 
-Requirements: Python 3.10+ (standard library only). Optional Linux ELF utilities
-and their tests require Rust, a linker and Make. The language compiler/runtime is
-currently Python-hosted; self-hosting and native Dec code generation remain later
-implementation milestones. The Rust utilities are separate ELF demonstrations.
+Requirements for the native compiler/JIT: Python, LLVM 16.0.6 shared library,
+C++17/g++, GMP and OpenSSL development libraries. Emitted executables run without
+Python. The frontend and JIT host still use Python. Optional legacy ELF utilities
+require Rust and Make. Self-hosting is not implemented.
+
+```sh
+python3 aodc.py build examples/ternary.dec -O 2 -o build/ternary-native
+./build/ternary-native
+python3 aodc.py jit examples/closure.dec -O 2
+```
+
+See [native usage](docs/EXECUTION_NATIVE.md), [build requirements](docs/BUILD_NATIVE.md),
+[language inventory](docs/LANGUAGE_CORE_V1.md), and [ABI](docs/NATIVE_ABI_V1.md).
+Persistent hardware selection is available through `scripts/adapt_native.py`.
+The measured seven-workload experiment established functional adaptation but no
+cost-inclusive speedup; every measured workload retained the generic variant.
 
 ## Run
 
@@ -56,6 +68,10 @@ Dec main() -> result:
   provides a finite normalized AFC flux/Stokes fixture.
 - Deterministic typed IR, validated again before execution; bounded recursion and
   an operation budget.
+- LLVM object emission, native linking, lazy ORC JIT, checked object caches,
+  generated entry guards and generic native fallback.
+- Bounded persistent selection over prevalidated O0/O2 implementations, with
+  matched controls, retained observations and held-out rollback.
 
 The Q4 trace and coupled-window model are **declared finite specializations**.
 They do not supply a universal AOD transition law, physical hardware learning,
