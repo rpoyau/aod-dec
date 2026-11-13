@@ -42,3 +42,39 @@ also remains separately recorded: hosted-runner namespace policy is not assumed.
 Only Linux x86-64 is executed here. No AArch64 or self-hosting claim follows from
 this workflow. Until a remote workflow actually completes, local driver results
 are evidence of local validation only.
+
+## Documentation
+
+The standalone driver is `docs/language-and-compiler.typ`. It uses no external
+Typst packages or network assets. Install Typst 0.13.1 and the DejaVu Sans Mono
+font, then run:
+
+```sh
+make docs
+# Or select a compiler outside PATH:
+make docs TYPST=/absolute/path/to/typst
+# Also replay every example through native AOT and ORC at O0 and O2:
+make docs-native TYPST=/absolute/path/to/typst
+```
+
+The PDF is `build/docs/aod-dec-language-and-compiler.pdf`. The build also writes
+`build/docs/report.json` and extracts the ten complete programs to
+`build/docs/examples/`. Each literal `dec` code block is paired with its following
+`expect` block. The driver checks source syntax, reference execution, and typed
+JSON compile/exec against those expected bytes. `--native` adds executable and
+JIT checks at both optimization levels. Snippets marked `text`, `python`, or `sh`
+are explanatory and are not counted as executable Dec examples.
+
+The three computational applications reproduce the supplied AOD Manual's kernel
+normalization/hinge-slide, short-window residual/surplus, and boundary-current
+substitutions. The other examples document language operations and the repaired
+core's finite closure/fusion/coupling contracts. Source archive hashes, exact
+Main/Manual labels, lint results, and PDF inspection evidence are retained in
+`evidence/typst-documentation.json`. Main/Manual manuscripts remain unchanged.
+
+The workflow downloads a checksum-pinned Typst release, builds the PDF, and
+replays native examples after compiler conformance. It retains the PDF and build
+report as Actions artifacts. Generated PDFs and extracted examples stay under
+ignored `build/`; the Typst source is the editable publication artifact. Typst
+compilation and example execution are independent of the local-only private
+`aod-lint` invocation documented in `LINT.md`.

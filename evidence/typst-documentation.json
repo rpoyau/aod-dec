@@ -1,0 +1,3319 @@
+{
+  "format": "aod.dec.typst-documentation-evidence",
+  "version": 1,
+  "created_utc": "2026-11-13T13:31:36.524656+00:00",
+  "status": "PASS",
+  "implementation_base_revision": "ab64e3822276a77fd121050484bf155b770a5cf4",
+  "scope": "Language/compiler documentation and source-bound computational applications. No Main/Manual mutation, new physical law, or scientific manuscript review.",
+  "source_binding": {
+    "source_archive": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/foundations/AOD_v40_01r10_source.zip",
+    "sha256": "a178a5bf06d51c8ab8852e9cabfb6c5eb61456f70739d7391582c08c524f34c7",
+    "binding": "Supplied execution-request Main/Manual baseline, not a claim of latest accepted manuscripts",
+    "owner_amendment": {
+      "path": "foundations/OWNER_M1_PLAN.md",
+      "sha256": "d3ed657888a6a3c63b13dd34b92a38557189aaccda81775144598267c053859c",
+      "relevant_sections": [
+        "3.3",
+        "3.4",
+        "3.7",
+        "3.8",
+        "3.9",
+        "3.10",
+        "3.11"
+      ]
+    },
+    "entries": [
+      {
+        "archive_member": "sections/04_cut_running_fractal_tesseract.tex",
+        "sha256": "7763e5487c6b6358bb8835a439804cf1c8b9b4c6fe7dd3040d844e9b2b6b9e54",
+        "labels": {
+          "subsec:q4-hamming-ternary-kernel": 146,
+          "eq:hinge-saturation-weighted": 213
+        }
+      },
+      {
+        "archive_member": "sections/05_curl_closure_duon_current.tex",
+        "sha256": "1a33998a4cf7faca6616d5abdf67dd8f7fc8219f5a697d5a0941c9f3f56e25ec",
+        "labels": {
+          "subsec:monon-beat": 25,
+          "eq:branch-hinge-rd": 98,
+          "eq:branch-hinge-rd-symmetric": 103
+        }
+      },
+      {
+        "archive_member": "sections/06_field.tex",
+        "sha256": "65e5889526b48a87f18fa6e1d9d5e696f4451735d9fe3763825ce060453e7cc1",
+        "labels": {
+          "eq:window-clipped-rho": 101,
+          "eq:b-scoped-channel-pressure": 133,
+          "eq:b-scoped-flux": 149,
+          "eq:b-scoped-flux-antisymmetry": 171,
+          "eq:moving-boundary": 277,
+          "eq:closure-residual": 644,
+          "eq:shedding-excess": 651,
+          "eq:fusion-closure": 906
+        }
+      },
+      {
+        "archive_member": "manual/sections/00_dec_ledger.tex",
+        "sha256": "8cede50c74dccb7ab694b3cbfaa90eb44b866cf8514feba25aba3f24682bec66",
+        "labels": {
+          "manual:dec-ledger:kernel": 72,
+          "manual:dec-ledger:hinge-slide": 125,
+          "manual:dec-ledger:adar-sadar": 258,
+          "manual:dec-ledger:boundary-audit": 280
+        }
+      },
+      {
+        "archive_member": "manual/sections/03_short_window_rcd_shedding_fixtures.tex",
+        "sha256": "36dd99ed8d5e1501381aa34c2d49f934b29ea3c8028bc2dfb82c05707307b33c",
+        "labels": {
+          "manual:short-window:equations": 227,
+          "manual:short-window:fixture-table": 248,
+          "manual:short-window:127": 268,
+          "manual:short-window:129": 291,
+          "manual:short-window:1210": 308
+        }
+      },
+      {
+        "archive_member": "manual/sections/04_boundary_current_applications.tex",
+        "sha256": "33b8191bb98f6677103fa55e63bab7a1ea05ffb7c143f78bed03fa7a53d05b84",
+        "labels": {
+          "manual:boundary-current:shared-setup": 5,
+          "manual:boundary-current:worked-substitution": 74
+        }
+      }
+    ],
+    "notes": [
+      "Manual has some stale main: provenance aliases: use actual verified Main label identifiers listed here.",
+      "Manual scalar arithmetic applications do not implement general RCD, SADAR dynamics, routing or empirical calibration.",
+      "Three-role probability builtin is not a four-edge slot kernel; scalar ratio expressions evaluate the Manual edge-state weights."
+    ]
+  },
+  "source_anchor_verification": {
+    "status": "PASS",
+    "archive_members": 6,
+    "verified_labels": 24
+  },
+  "typst_release": {
+    "url": "https://github.com/typst/typst/releases/download/v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz",
+    "archive_sha256": "7d214bfeffc2e585dc422d1a09d2b144969421281e8c7f5d784b65fc69b5673f"
+  },
+  "build": {
+    "format": "aod.dec.documentation-build",
+    "version": 1,
+    "status": "PASS",
+    "started_utc": "2026-11-13T13:28:47.787909+00:00",
+    "root": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+    "source": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/language-and-compiler.typ",
+    "source_sha256": "2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6",
+    "driver_sha256": "0fda2369251fce2b89236b265cd5142776d7e293b1e01c3341b40006b38e7b48",
+    "creation_timestamp": "1794528000",
+    "native_requested": true,
+    "commands": [
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+          "--version"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "typst 0.13.1 (8ace67d9)\n",
+        "stderr": "",
+        "elapsed_seconds": 0.011913525988347828
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+          "compile",
+          "--root",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+          "--creation-timestamp",
+          "1794528000",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/language-and-compiler.typ",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/aod-dec-language-and-compiler.pdf"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 3.1401249970076606
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3346469070238527,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "t32(2)\n1/2\nt32(0)\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3364606169925537,
+        "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.33816385999671184
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "t32(2)\n1/2\nt32(0)\n",
+        "stderr": "",
+        "elapsed_seconds": 0.338900533010019,
+        "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1124377560045104
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "t32(2)\n1/2\nt32(0)\n",
+        "stderr": "",
+        "elapsed_seconds": 0.01624817500123754,
+        "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "t32(2)\n1/2\nt32(0)\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4095171739754733,
+        "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.127161142998375
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "t32(2)\n1/2\nt32(0)\n",
+        "stderr": "",
+        "elapsed_seconds": 0.017039172002114356,
+        "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "t32(2)\n1/2\nt32(0)\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4064671939995605,
+        "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.32766467597684823,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "-3\n2\n7/3\n6\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.32784820298547857,
+        "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.3342672870203387
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "-3\n2\n7/3\n6\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3334004439821001,
+        "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.116969788999995
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "-3\n2\n7/3\n6\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.015135266992729157,
+        "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "-3\n2\n7/3\n6\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.3954657860158477,
+        "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1222461010038387
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "-3\n2\n7/3\n6\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.015404687001137063,
+        "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "-3\n2\n7/3\n6\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4032104100042488,
+        "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33044686500215903,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "720\ntrue\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33560219599166885,
+        "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.33679058600682765
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "720\ntrue\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.32975245398120023,
+        "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1097597040061373
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "720\ntrue\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.016455829987535253,
+        "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "720\ntrue\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.3962657009833492,
+        "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.112838728004135
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "720\ntrue\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.016943891008850187,
+        "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "720\ntrue\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4075186609989032,
+        "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.327456794999307,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33537029699073173,
+        "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.3350142829876859
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3407030369853601,
+        "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1261331110144965
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.01718442898709327,
+        "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4119322929764166,
+        "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.118185977014946
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.01686656300444156,
+        "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4028438089881092,
+        "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.32468452301691286,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.32649193800170906,
+        "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.3301861349900719
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.336489557987079,
+        "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1113791409879923
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.014458913006819785,
+        "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4013073729875032,
+        "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1096206060028635
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.01446510900859721,
+        "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.393044322001515,
+        "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33120027600671165,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3332287009980064,
+        "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.33007101400289685
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33269781901617534,
+        "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1091881269821897
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.014391172007890418,
+        "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.391454453987535,
+        "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.098459475004347
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.016937626991420984,
+        "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4127668159781024,
+        "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33013376998133026,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.346447096002521,
+        "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.3345409640169237
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.34249225797248073,
+        "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1101680179999676
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.022304420999716967,
+        "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4072490179969463,
+        "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1167254709871486
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.025129409012151882,
+        "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4109946520184167,
+        "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33345920700230636,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "0\n1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.34738270900561474,
+        "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.3470982859726064
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "0\n1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3479507229931187,
+        "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.13177689499571
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "0\n1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.02687759802211076,
+        "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "0\n1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.417368977010483,
+        "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1377752129919827
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "0\n1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.025508285005344078,
+        "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "0\n1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4340426990238484,
+        "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33228274100110866,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/1\n-1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3546184879960492,
+        "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.33752006498980336
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/1\n-1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.35962005000328645,
+        "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.1193186789751053
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/1\n-1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.02533954198588617,
+        "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/1\n-1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4185205409885384,
+        "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.115679929003818
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/1\n-1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.024948584992671385,
+        "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/1\n-1\n0\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4812599170254543,
+        "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "OK: Dec core v1\n",
+        "stderr": "",
+        "elapsed_seconds": 0.32831236100173555,
+        "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "run",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/3\n1/6\n1/2\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.3350395550078247,
+        "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "compile",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 0.33213358899229206
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "exec",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.json"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/3\n1/6\n1/2\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.33893355599138886,
+        "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec",
+          "-O",
+          "0",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.10750859498512
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/3\n1/6\n1/2\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.01545523398090154,
+        "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec",
+          "-O",
+          "0"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/3\n1/6\n1/2\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.396179403993301,
+        "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "build",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec",
+          "-O",
+          "2",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "elapsed_seconds": 2.112410178000573
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/3\n1/6\n1/2\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 0.01701426602085121,
+        "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+      },
+      {
+        "command": [
+          "/usr/bin/python3",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/aodc.py",
+          "jit",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec",
+          "-O",
+          "2"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "status": "PASS",
+        "returncode": 0,
+        "stdout": "1/3\n1/6\n1/2\n0\n",
+        "stderr": "",
+        "elapsed_seconds": 1.4068944070022553,
+        "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+      }
+    ],
+    "examples": [
+      {
+        "number": 1,
+        "source_line": 72,
+        "expect_line": 96,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01.dec",
+        "source_sha256": "bcaca700a8e59aca80435b7d95f087ed84467fdd83a0483016673c9f86184f34",
+        "expected_stdout": "t32(2)\n1/2\nt32(0)\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "89a557cf089e394ccebe63f61ef981d3091f835551c9e627b0cca1bf12c4d6c5"
+      },
+      {
+        "number": 2,
+        "source_line": 149,
+        "expect_line": 159,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02.dec",
+        "source_sha256": "921948cdadf37838305d15f62bc3274831f391bca5c85660d6996ddb60cc7752",
+        "expected_stdout": "-3\n2\n7/3\n6\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "ba6068dab1065f6c86a84336dc4622b1ca8b4c8cc40c879f395cc46adba0bc4b"
+      },
+      {
+        "number": 3,
+        "source_line": 258,
+        "expect_line": 270,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03.dec",
+        "source_sha256": "700052da7a08de644bd209a5bcd2adbc3c6940df25f4e5eb11d6504fd6a257d2",
+        "expected_stdout": "720\ntrue\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "89b7282eada95acc687a64c8bd3a778d2f7192b64572d9b37f8be548701ca503"
+      },
+      {
+        "number": 4,
+        "source_line": 300,
+        "expect_line": 321,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04.dec",
+        "source_sha256": "2ceca9a9786a9b45c17409c307fff65cf97499d8beca4aa695c93221e82907c8",
+        "expected_stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "e5a005c0ce18d17cd7319e839f1ab9375e1454c8d6351b44200fe3d8ceb9d8b3"
+      },
+      {
+        "number": 5,
+        "source_line": 351,
+        "expect_line": 375,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05.dec",
+        "source_sha256": "42f8a56fdb2b86374e85256bc1508ad2e53809895a7d4a91c0a55fd8339e55f9",
+        "expected_stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "6fb437d41cf1546af334a14c79f2241f9420b0cd87fd1a72e4fb0ab36010cf0c"
+      },
+      {
+        "number": 6,
+        "source_line": 410,
+        "expect_line": 433,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06.dec",
+        "source_sha256": "7fe526f968a6a10a56b56b7e7e5f1092639685730886634ecaba95e0ed46f043",
+        "expected_stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "6884be0d94b5efa6cf7f573c353191f48d293e8d2c17d0a4efb333432166b4ab"
+      },
+      {
+        "number": 7,
+        "source_line": 467,
+        "expect_line": 488,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07.dec",
+        "source_sha256": "ddd81692942213a25265b3571b9becdf469836d81d33d1df26b3033bd84e88bd",
+        "expected_stdout": "1\n0\n2\n1\n1/3\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "a479d27513cadc88b2f9124a6e056ee11d4855dcb0ae3f4626db6cc40533b1a0"
+      },
+      {
+        "number": 8,
+        "source_line": 515,
+        "expect_line": 536,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08.dec",
+        "source_sha256": "ef14ec2dbf2f8ae4041258d54c1b7351ecd68155cd6bbde50e00f4fac10d2762",
+        "expected_stdout": "0\n1\n0\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "5a0191b199557ccbd94e42f519be5c38117cb4796bec2e70908527d9c407d1c6"
+      },
+      {
+        "number": 9,
+        "source_line": 565,
+        "expect_line": 587,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09.dec",
+        "source_sha256": "aeb2e946fe2dff01fb773509cc5e16542b204644cb53e816c9b6660aacc0530e",
+        "expected_stdout": "1/1\n-1\n0\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "dfe30a0eb3ae3016b95b80d16d222daaeef2f2f20fa1d31f915349a9f30b3f4e"
+      },
+      {
+        "number": 10,
+        "source_line": 614,
+        "expect_line": 626,
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10.dec",
+        "source_sha256": "f6f62bf0191d93a0f8d9e5ff3c74858db41a500660e18832ad78955761626557",
+        "expected_stdout": "1/3\n1/6\n1/2\n0\n",
+        "status": "PASS",
+        "modes": [
+          "reference",
+          "typed-ir",
+          "aot-O0",
+          "jit-O0",
+          "aot-O2",
+          "jit-O2"
+        ],
+        "ir_sha256": "c30df51ebe18aebc15d7187abb967e098d4d871ea39de61cbe4a85e9e7129341"
+      }
+    ],
+    "example_count": 10,
+    "typst": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+      "version": "typst 0.13.1 (8ace67d9)",
+      "sha256": "61f743dccaaf7d763072ae046ad71f2303752e78d499d319043248f894602f45"
+    },
+    "pdf": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/aod-dec-language-and-compiler.pdf",
+      "sha256": "62998adc71e3b54a1efd8920fd316d0c4caaadc9f7501fdc3f219866ee40391e",
+      "bytes": 159777
+    },
+    "finished_utc": "2026-11-13T13:30:16.315264+00:00"
+  },
+  "lint": {
+    "repository": "https://github.com/rpoyau/aod-lint",
+    "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "binary_sha256": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c",
+    "cargo_lock_sha256": "82cdf620220a0fb722ece7923e9386c0e28a8eaba9f4c5cb43f59f219c9cd0ba",
+    "target": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+    "status": "PASS",
+    "scope": "Typst/LaTeX manuscript diagnostics only",
+    "manuscript_files": [
+      "docs/language-and-compiler.typ"
+    ],
+    "manuscript_file_count": 1,
+    "uncovered_source_types": [
+      "Dec",
+      "Python",
+      "C++",
+      "Rust compiler runtime code",
+      "Markdown"
+    ],
+    "interpretation": "Only the listed manuscript files were scanned. Lint diagnostics are not a proof of scientific or compiler correctness.",
+    "digest": {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "digest",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"schema_version\": \"1.0\",\n  \"root\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec\",\n  \"files\": [\n    {\n      \"path\": \"docs/language-and-compiler.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6\",\n      \"line_count\": 1112,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"First program\",\n          \"line\": 66\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Values and exact arithmetic\",\n          \"line\": 120\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Declarations, statements, and dispatch\",\n          \"line\": 173\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Expressions and control flow\",\n          \"line\": 228\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Computational examples and applications\",\n          \"line\": 282\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual kernel normalization and hinge slide\",\n          \"line\": 291\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual short-window residual and surplus\",\n          \"line\": 344\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual boundary-current substitution\",\n          \"line\": 402\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Retained closure and recurrence\",\n          \"line\": 458\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Composition with an independent outer return\",\n          \"line\": 509\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Comparing recurrent lineages\",\n          \"line\": 559\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Exact normalized continuation weights\",\n          \"line\": 608\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Extending Manual applications\",\n          \"line\": 642\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Built-in reference\",\n          \"line\": 661\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Scalar operations\",\n          \"line\": 667\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Trace operations\",\n          \"line\": 690\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Composition and comparison operations\",\n          \"line\": 708\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Output and failures\",\n          \"line\": 732\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Commands, installation, and artifacts\",\n          \"line\": 761\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Compiler architecture\",\n          \"line\": 813\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Source-bound typed IR\",\n          \"line\": 834\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Native lowering\",\n          \"line\": 848\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Native runtime and embedding\",\n          \"line\": 863\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Python JIT API\",\n          \"line\": 877\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Caches, guards, and retained selection\",\n          \"line\": 924\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Artifact reuse and entry guards\",\n          \"line\": 926\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Persistent policy\",\n          \"line\": 944\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Validation and practical limits\",\n          \"line\": 984\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Troubleshooting\",\n          \"line\": 1007\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Supported boundary\",\n          \"line\": 1027\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Source authority and reading map\",\n          \"line\": 1041\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Main and Manual destinations\",\n          \"line\": 1058\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Implementation destinations\",\n          \"line\": 1089\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 34,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"start\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 66,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"installation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 106,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"values\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 120,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:balanced\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 139,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"grammar\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 173,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"expressions\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 228,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"applications\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 282,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 288,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-kernel\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 291,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-window\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 344,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-boundary\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 402,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"closure\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 458,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"fusion\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 509,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"coupling\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 559,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"weights\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 608,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:weights\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 634,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"builtins\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 661,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"errors\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 732,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"installation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 761,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"architecture\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 813,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"embedding\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 863,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"adaptation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 924,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"validation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 984,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 1041,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\",\n        \"SADAR\"\n      ]\n    }\n  ],\n  \"edges\": [\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:SADAR\",\n      \"kind\": \"MotifDependency\"\n    }\n  ],\n  \"firewall_violations\": [],\n  \"include_cycles\": []\n}\n",
+      "stderr": ""
+    },
+    "manifest": {
+      "schema_version": "1.0",
+      "root": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "files": [
+        {
+          "path": "docs/language-and-compiler.typ",
+          "tier": "Other",
+          "frozen": false,
+          "sha256": "2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6",
+          "line_count": 1112,
+          "includes": [],
+          "headings": [
+            {
+              "level": 1,
+              "title": "First program",
+              "line": 66
+            },
+            {
+              "level": 1,
+              "title": "Values and exact arithmetic",
+              "line": 120
+            },
+            {
+              "level": 1,
+              "title": "Declarations, statements, and dispatch",
+              "line": 173
+            },
+            {
+              "level": 1,
+              "title": "Expressions and control flow",
+              "line": 228
+            },
+            {
+              "level": 1,
+              "title": "Computational examples and applications",
+              "line": 282
+            },
+            {
+              "level": 2,
+              "title": "Manual kernel normalization and hinge slide",
+              "line": 291
+            },
+            {
+              "level": 2,
+              "title": "Manual short-window residual and surplus",
+              "line": 344
+            },
+            {
+              "level": 2,
+              "title": "Manual boundary-current substitution",
+              "line": 402
+            },
+            {
+              "level": 2,
+              "title": "Retained closure and recurrence",
+              "line": 458
+            },
+            {
+              "level": 2,
+              "title": "Composition with an independent outer return",
+              "line": 509
+            },
+            {
+              "level": 2,
+              "title": "Comparing recurrent lineages",
+              "line": 559
+            },
+            {
+              "level": 2,
+              "title": "Exact normalized continuation weights",
+              "line": 608
+            },
+            {
+              "level": 2,
+              "title": "Extending Manual applications",
+              "line": 642
+            },
+            {
+              "level": 1,
+              "title": "Built-in reference",
+              "line": 661
+            },
+            {
+              "level": 2,
+              "title": "Scalar operations",
+              "line": 667
+            },
+            {
+              "level": 2,
+              "title": "Trace operations",
+              "line": 690
+            },
+            {
+              "level": 2,
+              "title": "Composition and comparison operations",
+              "line": 708
+            },
+            {
+              "level": 2,
+              "title": "Output and failures",
+              "line": 732
+            },
+            {
+              "level": 1,
+              "title": "Commands, installation, and artifacts",
+              "line": 761
+            },
+            {
+              "level": 1,
+              "title": "Compiler architecture",
+              "line": 813
+            },
+            {
+              "level": 2,
+              "title": "Source-bound typed IR",
+              "line": 834
+            },
+            {
+              "level": 2,
+              "title": "Native lowering",
+              "line": 848
+            },
+            {
+              "level": 1,
+              "title": "Native runtime and embedding",
+              "line": 863
+            },
+            {
+              "level": 2,
+              "title": "Python JIT API",
+              "line": 877
+            },
+            {
+              "level": 1,
+              "title": "Caches, guards, and retained selection",
+              "line": 924
+            },
+            {
+              "level": 2,
+              "title": "Artifact reuse and entry guards",
+              "line": 926
+            },
+            {
+              "level": 2,
+              "title": "Persistent policy",
+              "line": 944
+            },
+            {
+              "level": 1,
+              "title": "Validation and practical limits",
+              "line": 984
+            },
+            {
+              "level": 2,
+              "title": "Troubleshooting",
+              "line": 1007
+            },
+            {
+              "level": 2,
+              "title": "Supported boundary",
+              "line": 1027
+            },
+            {
+              "level": 1,
+              "title": "Source authority and reading map",
+              "line": 1041
+            },
+            {
+              "level": 2,
+              "title": "Main and Manual destinations",
+              "line": 1058
+            },
+            {
+              "level": 2,
+              "title": "Implementation destinations",
+              "line": 1089
+            }
+          ],
+          "labels": [
+            {
+              "name": "sources",
+              "file": "docs/language-and-compiler.typ",
+              "line": 34,
+              "kind": "Other"
+            },
+            {
+              "name": "start",
+              "file": "docs/language-and-compiler.typ",
+              "line": 66,
+              "kind": "Other"
+            },
+            {
+              "name": "installation",
+              "file": "docs/language-and-compiler.typ",
+              "line": 106,
+              "kind": "Other"
+            },
+            {
+              "name": "values",
+              "file": "docs/language-and-compiler.typ",
+              "line": 120,
+              "kind": "Other"
+            },
+            {
+              "name": "eq:balanced",
+              "file": "docs/language-and-compiler.typ",
+              "line": 139,
+              "kind": "Equation"
+            },
+            {
+              "name": "grammar",
+              "file": "docs/language-and-compiler.typ",
+              "line": 173,
+              "kind": "Other"
+            },
+            {
+              "name": "expressions",
+              "file": "docs/language-and-compiler.typ",
+              "line": 228,
+              "kind": "Other"
+            },
+            {
+              "name": "applications",
+              "file": "docs/language-and-compiler.typ",
+              "line": 282,
+              "kind": "Other"
+            },
+            {
+              "name": "sources",
+              "file": "docs/language-and-compiler.typ",
+              "line": 288,
+              "kind": "Other"
+            },
+            {
+              "name": "manual-kernel",
+              "file": "docs/language-and-compiler.typ",
+              "line": 291,
+              "kind": "Other"
+            },
+            {
+              "name": "manual-window",
+              "file": "docs/language-and-compiler.typ",
+              "line": 344,
+              "kind": "Other"
+            },
+            {
+              "name": "manual-boundary",
+              "file": "docs/language-and-compiler.typ",
+              "line": 402,
+              "kind": "Other"
+            },
+            {
+              "name": "closure",
+              "file": "docs/language-and-compiler.typ",
+              "line": 458,
+              "kind": "Other"
+            },
+            {
+              "name": "fusion",
+              "file": "docs/language-and-compiler.typ",
+              "line": 509,
+              "kind": "Other"
+            },
+            {
+              "name": "coupling",
+              "file": "docs/language-and-compiler.typ",
+              "line": 559,
+              "kind": "Other"
+            },
+            {
+              "name": "weights",
+              "file": "docs/language-and-compiler.typ",
+              "line": 608,
+              "kind": "Other"
+            },
+            {
+              "name": "eq:weights",
+              "file": "docs/language-and-compiler.typ",
+              "line": 634,
+              "kind": "Equation"
+            },
+            {
+              "name": "builtins",
+              "file": "docs/language-and-compiler.typ",
+              "line": 661,
+              "kind": "Other"
+            },
+            {
+              "name": "errors",
+              "file": "docs/language-and-compiler.typ",
+              "line": 732,
+              "kind": "Other"
+            },
+            {
+              "name": "installation",
+              "file": "docs/language-and-compiler.typ",
+              "line": 761,
+              "kind": "Other"
+            },
+            {
+              "name": "architecture",
+              "file": "docs/language-and-compiler.typ",
+              "line": 813,
+              "kind": "Other"
+            },
+            {
+              "name": "embedding",
+              "file": "docs/language-and-compiler.typ",
+              "line": 863,
+              "kind": "Other"
+            },
+            {
+              "name": "adaptation",
+              "file": "docs/language-and-compiler.typ",
+              "line": 924,
+              "kind": "Other"
+            },
+            {
+              "name": "validation",
+              "file": "docs/language-and-compiler.typ",
+              "line": 984,
+              "kind": "Other"
+            },
+            {
+              "name": "sources",
+              "file": "docs/language-and-compiler.typ",
+              "line": 1041,
+              "kind": "Other"
+            }
+          ],
+          "references": [],
+          "distinctions": [],
+          "motifs": [
+            "DEC",
+            "Hinge",
+            "SADAR"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "origin": "docs/language-and-compiler.typ",
+          "target": "motif:DEC",
+          "kind": "MotifDependency"
+        },
+        {
+          "origin": "docs/language-and-compiler.typ",
+          "target": "motif:Hinge",
+          "kind": "MotifDependency"
+        },
+        {
+          "origin": "docs/language-and-compiler.typ",
+          "target": "motif:SADAR",
+          "kind": "MotifDependency"
+        }
+      ],
+      "firewall_violations": [],
+      "include_cycles": []
+    },
+    "checks": [
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+          "check",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/language-and-compiler.typ",
+          "--strict",
+          "--json"
+        ],
+        "exit_code": 0,
+        "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/language-and-compiler.typ\"\n}\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "native_example_artifacts": [
+    {
+      "executable": "build/docs/examples/example-01-O0",
+      "sha256": "d898b76616a1709eaf8c5de7ac5efd28286188e9919ed659f1dcf1beeeddb628",
+      "build_manifest": {
+        "compile_ns": 958462384,
+        "cache_hit": true,
+        "key": "7774cb234ee34f6542f9077720fcf063d279fa6c5504bd9514583103c89a8c13",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7774cb234ee34f6542f9077720fcf063d279fa6c5504bd9514583103c89a8c13.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7774cb234ee34f6542f9077720fcf063d279fa6c5504bd9514583103c89a8c13.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "bcaca700a8e59aca80435b7d95f087ed84467fdd83a0483016673c9f86184f34",
+          "ir_sha256": "89a557cf089e394ccebe63f61ef981d3091f835551c9e627b0cca1bf12c4d6c5",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O0",
+        "link_ns": 721976663,
+        "total_ns": 1689032454,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7774cb234ee34f6542f9077720fcf063d279fa6c5504bd9514583103c89a8c13.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-01-O2",
+      "sha256": "6f72a339729a477d91df814de5d791727416587d948cfe199150aa454bceb503",
+      "build_manifest": {
+        "compile_ns": 970909702,
+        "cache_hit": true,
+        "key": "57fa0f98bc37f6e364feb0a53630348565ae13d173ac972b0911322b38812db2",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/57fa0f98bc37f6e364feb0a53630348565ae13d173ac972b0911322b38812db2.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/57fa0f98bc37f6e364feb0a53630348565ae13d173ac972b0911322b38812db2.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "bcaca700a8e59aca80435b7d95f087ed84467fdd83a0483016673c9f86184f34",
+          "ir_sha256": "89a557cf089e394ccebe63f61ef981d3091f835551c9e627b0cca1bf12c4d6c5",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O2",
+        "link_ns": 727980294,
+        "total_ns": 1707527511,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/57fa0f98bc37f6e364feb0a53630348565ae13d173ac972b0911322b38812db2.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-01-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-02-O0",
+      "sha256": "c9e7e6a7a1ebd2b1dd34804ca915e2e2a8556448ee304701b8743671e2615ac7",
+      "build_manifest": {
+        "compile_ns": 961599053,
+        "cache_hit": true,
+        "key": "1f9cbf0007849dd1338abe22d1ee158d0e09d5848a19432fc40cf001b1a3f807",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/1f9cbf0007849dd1338abe22d1ee158d0e09d5848a19432fc40cf001b1a3f807.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/1f9cbf0007849dd1338abe22d1ee158d0e09d5848a19432fc40cf001b1a3f807.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "921948cdadf37838305d15f62bc3274831f391bca5c85660d6996ddb60cc7752",
+          "ir_sha256": "ba6068dab1065f6c86a84336dc4622b1ca8b4c8cc40c879f395cc46adba0bc4b",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O0",
+        "link_ns": 723966067,
+        "total_ns": 1693362064,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/1f9cbf0007849dd1338abe22d1ee158d0e09d5848a19432fc40cf001b1a3f807.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-02-O2",
+      "sha256": "ba3e1f425e67dda7f1bd9f863fa67632879a5b42c9e810e4745a3109afdbde8f",
+      "build_manifest": {
+        "compile_ns": 965425025,
+        "cache_hit": true,
+        "key": "7b06fbf5015c35c440e9623ffdd8dbabf67bd1c2fde486c881577c58ff5436f8",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7b06fbf5015c35c440e9623ffdd8dbabf67bd1c2fde486c881577c58ff5436f8.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7b06fbf5015c35c440e9623ffdd8dbabf67bd1c2fde486c881577c58ff5436f8.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "921948cdadf37838305d15f62bc3274831f391bca5c85660d6996ddb60cc7752",
+          "ir_sha256": "ba6068dab1065f6c86a84336dc4622b1ca8b4c8cc40c879f395cc46adba0bc4b",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O2",
+        "link_ns": 729043957,
+        "total_ns": 1702354323,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7b06fbf5015c35c440e9623ffdd8dbabf67bd1c2fde486c881577c58ff5436f8.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-02-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-03-O0",
+      "sha256": "c25ddf79c66a5efdb67fbf43a456fae08fdbee7d6060eb61c090ff4a7e1dc4a8",
+      "build_manifest": {
+        "compile_ns": 957392034,
+        "cache_hit": true,
+        "key": "722698003bad8456a31400ec5e6063ddd60c95c68163d9638267d4c4ca14463e",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/722698003bad8456a31400ec5e6063ddd60c95c68163d9638267d4c4ca14463e.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/722698003bad8456a31400ec5e6063ddd60c95c68163d9638267d4c4ca14463e.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "700052da7a08de644bd209a5bcd2adbc3c6940df25f4e5eb11d6504fd6a257d2",
+          "ir_sha256": "89b7282eada95acc687a64c8bd3a778d2f7192b64572d9b37f8be548701ca503",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O0",
+        "link_ns": 724182860,
+        "total_ns": 1689671974,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/722698003bad8456a31400ec5e6063ddd60c95c68163d9638267d4c4ca14463e.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-03-O2",
+      "sha256": "ddf053a9b6b0cf54aed3bf7c7ca7b04214a24e03372d3f5f8a67a361815e63a3",
+      "build_manifest": {
+        "compile_ns": 957576738,
+        "cache_hit": true,
+        "key": "d8c845878abead9b531d66cf01877c011ab480cfb94bc41acccb20df22032382",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/d8c845878abead9b531d66cf01877c011ab480cfb94bc41acccb20df22032382.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/d8c845878abead9b531d66cf01877c011ab480cfb94bc41acccb20df22032382.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "700052da7a08de644bd209a5bcd2adbc3c6940df25f4e5eb11d6504fd6a257d2",
+          "ir_sha256": "89b7282eada95acc687a64c8bd3a778d2f7192b64572d9b37f8be548701ca503",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O2",
+        "link_ns": 721770730,
+        "total_ns": 1687276045,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/d8c845878abead9b531d66cf01877c011ab480cfb94bc41acccb20df22032382.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-03-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-04-O0",
+      "sha256": "5bad35a4487b98408705206d3a1df3fab5e5ec66fa8c859ed5a499f0dc017505",
+      "build_manifest": {
+        "compile_ns": 954834023,
+        "cache_hit": true,
+        "key": "58ebaa564b375730e8eb49e9160eb7fef9e219de7803c2e77ab412ef7f70f49b",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/58ebaa564b375730e8eb49e9160eb7fef9e219de7803c2e77ab412ef7f70f49b.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/58ebaa564b375730e8eb49e9160eb7fef9e219de7803c2e77ab412ef7f70f49b.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "2ceca9a9786a9b45c17409c307fff65cf97499d8beca4aa695c93221e82907c8",
+          "ir_sha256": "e5a005c0ce18d17cd7319e839f1ab9375e1454c8d6351b44200fe3d8ceb9d8b3",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O0",
+        "link_ns": 729395043,
+        "total_ns": 1693967047,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/58ebaa564b375730e8eb49e9160eb7fef9e219de7803c2e77ab412ef7f70f49b.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-04-O2",
+      "sha256": "964dd7a9616cff4f5ad4ff3c592a4b4eceb936a9b2ce27c1e6d7bfe995c052bd",
+      "build_manifest": {
+        "compile_ns": 956535098,
+        "cache_hit": true,
+        "key": "f630194f2f2e1a8d8b5a2b1967fcc2468a3ad8cc95f9cd421b6b7ef046cb9490",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/f630194f2f2e1a8d8b5a2b1967fcc2468a3ad8cc95f9cd421b6b7ef046cb9490.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/f630194f2f2e1a8d8b5a2b1967fcc2468a3ad8cc95f9cd421b6b7ef046cb9490.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "2ceca9a9786a9b45c17409c307fff65cf97499d8beca4aa695c93221e82907c8",
+          "ir_sha256": "e5a005c0ce18d17cd7319e839f1ab9375e1454c8d6351b44200fe3d8ceb9d8b3",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O2",
+        "link_ns": 724359507,
+        "total_ns": 1690859403,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/f630194f2f2e1a8d8b5a2b1967fcc2468a3ad8cc95f9cd421b6b7ef046cb9490.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-04-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-05-O0",
+      "sha256": "d982d3f95a7f29f27d111893e22e099d98113dd5e38998347e78f6199bf0f1c0",
+      "build_manifest": {
+        "compile_ns": 963214986,
+        "cache_hit": true,
+        "key": "d0f2673b3f21a15e437f8e9cf3452a34f275b88d31c27b7448200eef74b2416c",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/d0f2673b3f21a15e437f8e9cf3452a34f275b88d31c27b7448200eef74b2416c.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/d0f2673b3f21a15e437f8e9cf3452a34f275b88d31c27b7448200eef74b2416c.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "42f8a56fdb2b86374e85256bc1508ad2e53809895a7d4a91c0a55fd8339e55f9",
+          "ir_sha256": "6fb437d41cf1546af334a14c79f2241f9420b0cd87fd1a72e4fb0ab36010cf0c",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O0",
+        "link_ns": 718558507,
+        "total_ns": 1690961925,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/d0f2673b3f21a15e437f8e9cf3452a34f275b88d31c27b7448200eef74b2416c.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-05-O2",
+      "sha256": "7bab99cba30a765f46aee001880cbe6f667d783bd6d4685a826a74eb1a4ad621",
+      "build_manifest": {
+        "compile_ns": 956490126,
+        "cache_hit": true,
+        "key": "7af529e898f8774a939fac43dd0c44d458ee6552b45e891f0a39c624232510d5",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7af529e898f8774a939fac43dd0c44d458ee6552b45e891f0a39c624232510d5.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7af529e898f8774a939fac43dd0c44d458ee6552b45e891f0a39c624232510d5.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "42f8a56fdb2b86374e85256bc1508ad2e53809895a7d4a91c0a55fd8339e55f9",
+          "ir_sha256": "6fb437d41cf1546af334a14c79f2241f9420b0cd87fd1a72e4fb0ab36010cf0c",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O2",
+        "link_ns": 724235386,
+        "total_ns": 1689864631,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7af529e898f8774a939fac43dd0c44d458ee6552b45e891f0a39c624232510d5.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-05-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-06-O0",
+      "sha256": "43c70f822bde44181efec3e66c21279598ea58a2eb0ac279d0fedc811ab3d8c3",
+      "build_manifest": {
+        "compile_ns": 956964062,
+        "cache_hit": true,
+        "key": "da117675b961159daedb6166c66aff900d83304727b3b018fe8b2dbe6f1c75ba",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/da117675b961159daedb6166c66aff900d83304727b3b018fe8b2dbe6f1c75ba.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/da117675b961159daedb6166c66aff900d83304727b3b018fe8b2dbe6f1c75ba.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "7fe526f968a6a10a56b56b7e7e5f1092639685730886634ecaba95e0ed46f043",
+          "ir_sha256": "6884be0d94b5efa6cf7f573c353191f48d293e8d2c17d0a4efb333432166b4ab",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O0",
+        "link_ns": 725090433,
+        "total_ns": 1691254037,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/da117675b961159daedb6166c66aff900d83304727b3b018fe8b2dbe6f1c75ba.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-06-O2",
+      "sha256": "4a2d682ee217545743553cc488965e1a829a550b4ffb61d6dbbfd4e7c752c2af",
+      "build_manifest": {
+        "compile_ns": 953410243,
+        "cache_hit": true,
+        "key": "f1e60a0f447edc72c3f411fcba1673930be55927b23beaccc6d20dc10eb03b70",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/f1e60a0f447edc72c3f411fcba1673930be55927b23beaccc6d20dc10eb03b70.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/f1e60a0f447edc72c3f411fcba1673930be55927b23beaccc6d20dc10eb03b70.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "7fe526f968a6a10a56b56b7e7e5f1092639685730886634ecaba95e0ed46f043",
+          "ir_sha256": "6884be0d94b5efa6cf7f573c353191f48d293e8d2c17d0a4efb333432166b4ab",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O2",
+        "link_ns": 721794058,
+        "total_ns": 1684376385,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/f1e60a0f447edc72c3f411fcba1673930be55927b23beaccc6d20dc10eb03b70.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-06-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-07-O0",
+      "sha256": "0867625e2182281d8e1403bacdd4e299d718de79504914d41a292f59f7025ac2",
+      "build_manifest": {
+        "compile_ns": 959360866,
+        "cache_hit": true,
+        "key": "b99b0f5092066b8d6b4940fafb734ef67cd32a804d9827b593464253de7a3719",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/b99b0f5092066b8d6b4940fafb734ef67cd32a804d9827b593464253de7a3719.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/b99b0f5092066b8d6b4940fafb734ef67cd32a804d9827b593464253de7a3719.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "ddd81692942213a25265b3571b9becdf469836d81d33d1df26b3033bd84e88bd",
+          "ir_sha256": "a479d27513cadc88b2f9124a6e056ee11d4855dcb0ae3f4626db6cc40533b1a0",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O0",
+        "link_ns": 717307348,
+        "total_ns": 1686295026,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/b99b0f5092066b8d6b4940fafb734ef67cd32a804d9827b593464253de7a3719.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-07-O2",
+      "sha256": "ac5d9a39054d4ceb69c584fadaaf022c1f795f10dc778a71e1073f29ecd56c12",
+      "build_manifest": {
+        "compile_ns": 955074545,
+        "cache_hit": true,
+        "key": "3ae2c185c482b626231aeb2e98019ac14bda4d5d50091e2afa244c338146ef15",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/3ae2c185c482b626231aeb2e98019ac14bda4d5d50091e2afa244c338146ef15.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/3ae2c185c482b626231aeb2e98019ac14bda4d5d50091e2afa244c338146ef15.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "ddd81692942213a25265b3571b9becdf469836d81d33d1df26b3033bd84e88bd",
+          "ir_sha256": "a479d27513cadc88b2f9124a6e056ee11d4855dcb0ae3f4626db6cc40533b1a0",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O2",
+        "link_ns": 721132024,
+        "total_ns": 1685894248,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/3ae2c185c482b626231aeb2e98019ac14bda4d5d50091e2afa244c338146ef15.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-07-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-08-O0",
+      "sha256": "d27bc36a4eadae6c7b86b100e38cf5dfb5ae4f30ce194e089c57c31fa7a35213",
+      "build_manifest": {
+        "compile_ns": 965934445,
+        "cache_hit": true,
+        "key": "fc9b22d048f17078efe45ee0d58324895daf32e3461415f11e3ac6af7a732408",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/fc9b22d048f17078efe45ee0d58324895daf32e3461415f11e3ac6af7a732408.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/fc9b22d048f17078efe45ee0d58324895daf32e3461415f11e3ac6af7a732408.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "ef14ec2dbf2f8ae4041258d54c1b7351ecd68155cd6bbde50e00f4fac10d2762",
+          "ir_sha256": "5a0191b199557ccbd94e42f519be5c38117cb4796bec2e70908527d9c407d1c6",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O0",
+        "link_ns": 724409273,
+        "total_ns": 1700347889,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/fc9b22d048f17078efe45ee0d58324895daf32e3461415f11e3ac6af7a732408.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-08-O2",
+      "sha256": "cbfb05701b464d2c8e167bafee57dd127643de97a6b0bfcbf2ca3af9dbaa8757",
+      "build_manifest": {
+        "compile_ns": 968093364,
+        "cache_hit": true,
+        "key": "4f38a13de9bf7c5ca016814c26746dff4c3aa67afc54dec3eb85f67ec240174e",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/4f38a13de9bf7c5ca016814c26746dff4c3aa67afc54dec3eb85f67ec240174e.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/4f38a13de9bf7c5ca016814c26746dff4c3aa67afc54dec3eb85f67ec240174e.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "ef14ec2dbf2f8ae4041258d54c1b7351ecd68155cd6bbde50e00f4fac10d2762",
+          "ir_sha256": "5a0191b199557ccbd94e42f519be5c38117cb4796bec2e70908527d9c407d1c6",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O2",
+        "link_ns": 729918218,
+        "total_ns": 1708020895,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/4f38a13de9bf7c5ca016814c26746dff4c3aa67afc54dec3eb85f67ec240174e.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-08-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-09-O0",
+      "sha256": "a2981e2ee3392d55ff43d498e176962c9cfc5263270bb834a36af876fd2977fc",
+      "build_manifest": {
+        "compile_ns": 955805930,
+        "cache_hit": true,
+        "key": "e6b347dc34a298fdf09398f6dc38372f03b0023ebc9e53c99888d63e28a27ade",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/e6b347dc34a298fdf09398f6dc38372f03b0023ebc9e53c99888d63e28a27ade.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/e6b347dc34a298fdf09398f6dc38372f03b0023ebc9e53c99888d63e28a27ade.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "aeb2e946fe2dff01fb773509cc5e16542b204644cb53e816c9b6660aacc0530e",
+          "ir_sha256": "dfe30a0eb3ae3016b95b80d16d222daaeef2f2f20fa1d31f915349a9f30b3f4e",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O0",
+        "link_ns": 728654418,
+        "total_ns": 1694767900,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/e6b347dc34a298fdf09398f6dc38372f03b0023ebc9e53c99888d63e28a27ade.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-09-O2",
+      "sha256": "fb10b5270122f89667ee6bad84eed28844d5875cab4b7454493baf4fd3667365",
+      "build_manifest": {
+        "compile_ns": 952466816,
+        "cache_hit": true,
+        "key": "7b687e7006ddbd0a81f9cd0e95c791469cd7059161c717467124536e88aa9f7a",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7b687e7006ddbd0a81f9cd0e95c791469cd7059161c717467124536e88aa9f7a.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7b687e7006ddbd0a81f9cd0e95c791469cd7059161c717467124536e88aa9f7a.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "aeb2e946fe2dff01fb773509cc5e16542b204644cb53e816c9b6660aacc0530e",
+          "ir_sha256": "dfe30a0eb3ae3016b95b80d16d222daaeef2f2f20fa1d31f915349a9f30b3f4e",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O2",
+        "link_ns": 725329924,
+        "total_ns": 1687955521,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/7b687e7006ddbd0a81f9cd0e95c791469cd7059161c717467124536e88aa9f7a.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-09-O2"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-10-O0",
+      "sha256": "687e568f1a1c569f6bf59e015316714545546835dc74327a83fb0de5a8985b51",
+      "build_manifest": {
+        "compile_ns": 953875350,
+        "cache_hit": true,
+        "key": "514b92e70a327926c78e68f5873bd63899e6b54bf6d11fb967af27b40256f225",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/514b92e70a327926c78e68f5873bd63899e6b54bf6d11fb967af27b40256f225.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/514b92e70a327926c78e68f5873bd63899e6b54bf6d11fb967af27b40256f225.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "f6f62bf0191d93a0f8d9e5ff3c74858db41a500660e18832ad78955761626557",
+          "ir_sha256": "c30df51ebe18aebc15d7187abb967e098d4d871ea39de61cbe4a85e9e7129341",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O0",
+        "link_ns": 727698147,
+        "total_ns": 1689807606,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/514b92e70a327926c78e68f5873bd63899e6b54bf6d11fb967af27b40256f225.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O0"
+        ]
+      }
+    },
+    {
+      "executable": "build/docs/examples/example-10-O2",
+      "sha256": "0a595d94012fd183505abe6de32e0a0562811cb620b959c8a747802a52ad80d9",
+      "build_manifest": {
+        "compile_ns": 958004506,
+        "cache_hit": true,
+        "key": "fc703d7ee45213925e4d91efdf0186a249a2ac135ced2e7b299f50b5aa8d04a7",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/fc703d7ee45213925e4d91efdf0186a249a2ac135ced2e7b299f50b5aa8d04a7.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/fc703d7ee45213925e4d91efdf0186a249a2ac135ced2e7b299f50b5aa8d04a7.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "f6f62bf0191d93a0f8d9e5ff3c74858db41a500660e18832ad78955761626557",
+          "ir_sha256": "c30df51ebe18aebc15d7187abb967e098d4d871ea39de61cbe4a85e9e7129341",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O2",
+        "link_ns": 723386339,
+        "total_ns": 1689738438,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/fc703d7ee45213925e4d91efdf0186a249a2ac135ced2e7b299f50b5aa8d04a7.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/docs/examples/example-10-O2"
+        ]
+      }
+    }
+  ],
+  "embedding": {
+    "status": "PASS",
+    "expected_result": "t32(13)",
+    "record": {
+      "stdout": "",
+      "result": "t32(13)",
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "execute_ns": 68768,
+      "address": 139948710248448,
+      "cache_hit": true,
+      "compile_ns": 971357232,
+      "load_ns": 8014125,
+      "key": "57fa0f98bc37f6e364feb0a53630348565ae13d173ac972b0911322b38812db2",
+      "dispatch": "specialized"
+    }
+  },
+  "import_provenance": {
+    "status": "PASS",
+    "archived_records": 196,
+    "unchanged_implementation_files": 32,
+    "original_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+    "scope": "Byte provenance only; execute semantic tests for current compiler correctness."
+  },
+  "render_review": {
+    "status": "PASS",
+    "pages": 22,
+    "inspected_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22
+    ],
+    "method": "All-page rendered contact sheets; detailed pages 7,14,18,21,22; final architecture page17 reinspected at1200px. Final render comparison confirms other21 pages pixel-identical to inspected renders.",
+    "text_bounds": {
+      "pages": 22,
+      "violations": []
+    },
+    "final_page_sha256": {
+      "final-render-01.png": "f0ba1a2dabe16cf98c1733556d5f5ab46839c7f6e6cc9ab0720f5069b1c14967",
+      "final-render-02.png": "acd76fdd849eca2bc4b462e8936065274704b04f6a17bf4f91554e823a46f7dc",
+      "final-render-03.png": "0ebb6d1e6e8027a5b68effbca3de2d3a292356b47b7d098c0300e95bf5ee1ffb",
+      "final-render-04.png": "094bc0c28689e48f980b19a2483329524c5e570431a2987ff3f96b5d086e27b4",
+      "final-render-05.png": "d8972ffbb8c1ee9a3b4ff8202a7ac6fe369f3ec5759ad8315960eae0a10d3480",
+      "final-render-06.png": "fb450471974ad6d82ca02d41d44fe3a11407ec07cc736c151c018cffaee4311f",
+      "final-render-07.png": "051813831acf28fcd81c09cecf2825a25818625092911a97b0565c9df3694951",
+      "final-render-08.png": "1d7155c5c3814a2612756df4391c03a060256899b691003e0941af17fca91080",
+      "final-render-09.png": "1c36c9ef06fe60502ffe16379cca95c18b524b4fa1ad7685886b1b7605a53b5a",
+      "final-render-10.png": "d1baeb6fbaf09af02c7e9485ef833068478989c40a0e4ba06206cbef8fb6078d",
+      "final-render-11.png": "fa83b457f033f30fcd071651c84ba5cbfd78025c0376b5b692faf7c9192d3c81",
+      "final-render-12.png": "631982c059cef420174ad86af79eed6a9029a896cfe34665e17412a04560e67b",
+      "final-render-13.png": "0844565a9c83baa1b098bde62cea685f8671f2611ab06ff8a6297b55c1752cc1",
+      "final-render-14.png": "e3e98ad08fef607aa7a7893bf717d3b3a5dff47940157069c925af98040d04d7",
+      "final-render-15.png": "ea16532f54ac79a954a2f3eef1f307b117724520ac8e92dc672d19709eae851d",
+      "final-render-16.png": "53282ba43ae4cd63d66a116af10424e4c90e9199c00bcea09b795a02fdf221d1",
+      "final-render-17.png": "b4bd0d3f1a4bc5e9e8ce31249481e591c5782eecc3550903591a3170da7c9549",
+      "final-render-18.png": "1a5b64090a44a2c2288fae6d62fad6580d09e849e39a1ac0aed194c57e565a3e",
+      "final-render-19.png": "a2126a1aabbea3c602f0e3a4c4d1b84d7ece947151354b4eff45a5bde093d7d7",
+      "final-render-20.png": "332d91acb2dc004347c42367485758ed1df9a159a349931e9f68dcd28645238e",
+      "final-render-21.png": "1dbd3247165441f133a55148e73a4ce8794b107d13fd0eb1f3eb51a8a91cacc3",
+      "final-render-22.png": "4bc492a479dabb59cb2ed6ddaeeaf9e36c64361a0b2f91f6e2c438cbc4ec7258"
+    }
+  }
+}

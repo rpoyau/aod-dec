@@ -18,6 +18,10 @@ python3 aodc.py jit examples/closure.dec -O 2
 
 See [native usage](docs/EXECUTION_NATIVE.md), [build requirements](docs/BUILD_NATIVE.md),
 [language inventory](docs/LANGUAGE_CORE_V1.md), and [ABI](docs/NATIVE_ABI_V1.md).
+The [Typst language and compiler manual](docs/language-and-compiler.typ) contains
+the language reference, native architecture, and executable computational
+applications drawn from the bound AOD Main and Manual. Build its PDF and check
+the examples with `make docs`; see [documentation builds](docs/CI.md#documentation).
 Persistent hardware selection is available through `scripts/adapt_native.py`.
 The measured seven-workload experiment established functional adaptation but no
 cost-inclusive speedup; every measured workload retained the generic variant.
@@ -25,7 +29,7 @@ cost-inclusive speedup; every measured workload retained the generic variant.
 Completed execution records and repository validation are indexed in
 [evidence/README.md](evidence/README.md). The repository uses pinned
 [AOD skills](docs/SKILLS.md) and [AOD lint](docs/LINT.md); the latter currently
-checks Typst/LaTeX manuscripts and reports no applicable manuscript inputs here.
+checks the Typst manual with its supported manuscript rules.
 [CI and local validation](docs/CI.md) run the compiler's semantic conformance.
 
 ## Run

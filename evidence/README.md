@@ -45,7 +45,7 @@ bound implementation. Run `make verify-native` for current semantic validation;
 CI retains its own logs as workflow artifacts.
 
 The requested [`aod-lint`](../docs/LINT.md) revision was built and tested. Its
-actual repository digest contains no Typst/LaTeX files, so applicability is
+initial import digest contained no Typst/LaTeX files, so that historical applicability is
 **NOT_APPLICABLE**, not a compiler lint pass. [`aod-skills`](../docs/SKILLS.md)
 supplies source-bound AOD/AF guidance under the current owner amendment.
 
@@ -53,3 +53,17 @@ The earlier request prohibited remote writes during detached execution. The
 owner's later instruction explicitly authorizes this repository and PR import.
 Historical manuscript milestone labels and publication gates do not govern the
 compiler milestones. No upstream manuscript or tooling repository is changed.
+
+## Typst language and compiler manual
+
+[`typst-documentation.json`](typst-documentation.json) records the subsequent
+Typst manual build, actual strict manuscript lint, all ten executable examples
+through reference/typed IR/AOT/ORC, the Python embedding check, Main/Manual source
+anchors, and rendered PDF inspection. The three Manual applications reproduce
+exact kernel/hinge-slide fractions, short-window residual/surplus values, and
+boundary-current substitutions. Their model scope is explicit in the manuscript.
+
+The original empty lint scan remains unchanged under `pr-import/`; current
+manuscript coverage is one Typst file. `make docs-native` reproduces the PDF and
+example checks with Typst 0.13.1. CI retains its current PDF and validation report
+as workflow artifacts. The generated PDF is not committed as a source file.

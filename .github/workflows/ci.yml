@@ -1,4 +1,4 @@
-name: Native core conformance
+name: Native conformance and documentation
 
 on:
   pull_request:
@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 25
     env:
       PYTHONDONTWRITEBYTECODE: '1'
+      TYPST_ARCHIVE_SHA256: 7d214bfeffc2e585dc422d1a09d2b144969421281e8c7f5d784b65fc69b5673f
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -28,7 +29,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            build-essential python3 rustc libgmp-dev libssl-dev \
+            build-essential python3 rustc libgmp-dev libssl-dev curl xz-utils fonts-dejavu-core \
             libllvm16t64=1:16.0.6-23ubuntu4
           mkdir -p build/ci
           dpkg-query --show --showformat='${Package} ${Version}\n' \
@@ -51,6 +52,29 @@ jobs:
         run: python3 scripts/check_import_provenance.py
       - name: Run native and reference conformance
         run: python3 scripts/verify_native.py --output build/ci
+      - name: Install pinned Typst 0.13.1
+        run: |
+          mkdir -p build/tools
+          curl --fail --location --retry 3 --output build/tools/typst.tar.xz \
+            https://github.com/typst/typst/releases/download/v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz
+          printf '%s  %s\n' "$TYPST_ARCHIVE_SHA256" build/tools/typst.tar.xz | sha256sum -c -
+          tar -xJf build/tools/typst.tar.xz -C build/tools
+          build/tools/typst-x86_64-unknown-linux-musl/typst --version
+      - name: Build manual and verify published examples
+        run: |
+          python3 scripts/build_docs.py --native \
+            --typst build/tools/typst-x86_64-unknown-linux-musl/typst \
+            --output build/docs
+      - name: Retain language and compiler manual
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: language-and-compiler-manual-${{ github.sha }}
+          path: |
+            build/docs/aod-dec-language-and-compiler.pdf
+            build/docs/report.json
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

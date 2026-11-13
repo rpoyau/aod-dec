@@ -3,15 +3,16 @@
 This repository uses [rpoyau/aod-lint](https://github.com/rpoyau/aod-lint/tree/68bc4795e982bbdeb266e346d694b08c7c49c844)
 at commit `68bc4795e982bbdeb266e346d694b08c7c49c844`. Its actual implementation
 parses `.typ` and `.tex` manuscripts. It has no Dec, Python, C++, Rust-source or
-Markdown checker. The supplied compiler repository has no Typst or LaTeX
-manuscript files, so manuscript coverage is **NOT_APPLICABLE**. This result does
-not establish compiler correctness or scientific acceptance.
+Markdown checker. The language and compiler manual at
+`docs/language-and-compiler.typ` is now an applicable manuscript input. Its
+strict check and digest are retained with the documentation evidence. This
+does not establish compiler correctness or scientific acceptance.
 
 `scripts/check_aod_lint.py` checks the tool's revision and clean tracked source,
 invokes its real `digest` command, and invokes strict `check` for every manuscript
 found. It reports coverage and raw tool output. A successful empty digest is
-reported as `NOT_APPLICABLE`, not a manuscript pass. If manuscript files are added
-later, they are listed individually and their actual diagnostics are retained.
+reported as `NOT_APPLICABLE`, not a manuscript pass. Manuscript files are listed
+individually and their actual diagnostics are retained.
 The wrapper's exit status is zero when applicability was established without a
 tool failure; consumers must read the JSON `status` and `manuscript_file_count`.
 
@@ -48,3 +49,14 @@ and measured adaptation controls described in the execution evidence.
 
 The CI native semantic tests are independent of the sibling private repositories.
 A missing private-tool checkout is an unavailable lint run, not a lint pass.
+
+The original `evidence/pr-import/lint-coverage.json` remains the historical empty
+scan made before the manual existed. Current documentation evidence is recorded
+in `evidence/typst-documentation.json`; the manuscript build and executable
+examples have separate results. The upstream Typst pass checks a limited set of
+reference, vague-range, midstream-import and undeclared-manifold diagnostics.
+It does not establish Typst compilation, resolve Main/Manual LaTeX equation
+labels, validate Dec code blocks, or check rendered layout. Its digest also treats label literals inside `link`
+calls as labels; the compiled Typst document resolves the actual internal links.
+These limitations are preserved rather than interpreting the tool's rubric bits
+as a scientific review.

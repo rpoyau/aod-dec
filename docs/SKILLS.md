@@ -51,8 +51,14 @@ held-out timing with compilation, loading and profiling overhead. The completed
 experiment did not establish a cost-inclusive benefit. That outcome, unsupported
 targets and the unimplemented self-hosting continuation remain explicit.
 
-The current task imports and checks completed engineering work. It does not
-conduct or claim a new scientific manuscript review. AFC's general finite
+The import and its language/compiler documentation describe completed engineering
+work. The Typst manual places computational examples and applications at the
+Manual/application layer, using exact Main and Manual labels from the bound
+v40.01r10 archive. It includes kernel normalization, short-window signed
+residual/surplus, and boundary-current substitutions as scalar fixtures, alongside
+the repaired core's retained-witness examples. The source bindings and executable
+checks are recorded in `evidence/typst-documentation.json`. No Main/Manual source
+is changed and no new scientific manuscript review is claimed. AFC's general finite
 Stokes helper remains a Python fixture, with no newly inferred physical pressure,
 metric, SI time or native collection-based interface. Historical M1/M2/M3 gates
 in `aod-skills/projects/aod/` do not govern these compiler M0–M6 labels; those

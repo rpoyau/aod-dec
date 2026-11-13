@@ -1,9 +1,10 @@
 PYTHON ?= python3
 RUSTC ?= rustc
+TYPST ?= typst
 RUSTFLAGS := -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1
 BUILD_DIR := build
 
-.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci examples clean
+.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native examples clean
 all: $(BUILD_DIR)/aod_stage0_seed $(BUILD_DIR)/aod_self_host_compiler $(BUILD_DIR)/aod_stage2_bootstrap
 
 $(BUILD_DIR):
@@ -24,6 +25,14 @@ verify-native:
 	$(PYTHON) scripts/verify_native.py --output $(BUILD_DIR)/verification
 
 verify-ci: verify-native
+
+# Compile the manual and execute its published Dec examples through the
+# reference VM and typed IR. The native variant also checks AOT/JIT at O0/O2.
+docs:
+	$(PYTHON) scripts/build_docs.py --typst "$(TYPST)" --output $(BUILD_DIR)/docs
+
+docs-native:
+	$(PYTHON) scripts/build_docs.py --typst "$(TYPST)" --output $(BUILD_DIR)/docs --native
 
 $(BUILD_DIR)/bootstrap_tests: tests/bootstrap_regressions.rs $(wildcard bootstrap/*.rs) | $(BUILD_DIR)
 	$(RUSTC) --test tests/bootstrap_regressions.rs -o $@
