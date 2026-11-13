@@ -64,6 +64,22 @@ exact kernel/hinge-slide fractions, short-window residual/surplus values, and
 boundary-current substitutions. Their model scope is explicit in the manuscript.
 
 The original empty lint scan remains unchanged under `pr-import/`; current
-manuscript coverage is one Typst file. `make docs-native` reproduces the PDF and
+manuscript coverage in that record is one Typst file. `make docs-native` reproduces the PDF and
 example checks with Typst 0.13.1. CI retains its current PDF and validation report
 as workflow artifacts. The generated PDF is not committed as a source file.
+
+## Tesseract-cell jitter application
+
+[`cell-jitter/results.json`](cell-jitter/results.json) records explicit cell
+topology, 1,024 exact region balances, 18 fixed-path refinement cases, 33
+continuous-reference jitter realizations, and four generated Dec programs through
+six execution modes. [`cell-jitter/source-binding.json`](cell-jitter/source-binding.json)
+binds the Main/Manual and AFC source labels used for this declared application.
+[`cell-jitter/validation.json`](cell-jitter/validation.json) records tests, PDF
+inspection and the subsequent two-manuscript lint run. The figure is retained
+beside the numerical records; binaries and the companion PDF are build artifacts.
+
+Run `python3 scripts/simulate_cell_jitter.py --native --plots` to reproduce the
+study. `make docs-cells` builds the companion using the retained evidence; CI
+builds it from its fresh study results. Numerical refinement error and response
+to jitter are reported separately. Physical maser accuracy remains unestablished.

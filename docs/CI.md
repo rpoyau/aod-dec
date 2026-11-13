@@ -78,3 +78,20 @@ report as Actions artifacts. Generated PDFs and extracted examples stay under
 ignored `build/`; the Typst source is the editable publication artifact. Typst
 compilation and example execution are independent of the local-only private
 `aod-lint` invocation documented in `LINT.md`.
+
+## Tesseract-cell application
+
+`make simulate-cells` runs the exact topology/conservation checks, 18 refinement
+cases, 33 continuous-reference jitter realizations, and four generated Dec
+programs through reference/typed IR execution. It writes
+`build/cell-jitter/results.json`. Add `--native` to the script for AOT/ORC O0/O2
+replay and `--plots` for Matplotlib PNG/PDF charts. Missing requested native or
+plotting dependencies fail the run. Thirty model tests are included in the
+normal and optimized Python suites.
+
+`make docs-cells` builds `docs/tesseract-cell-jitter.typ` against the retained
+evidence. CI instead builds the companion against its newly generated results
+and chart. It installs the distribution's `python3-matplotlib`, records that
+package version, and retains the application PDF, figures, results, and generated
+Dec sources. Exact model results are distinct from rounded plot labels, physical
+maser accuracy, and compiler performance measurements.

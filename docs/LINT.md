@@ -60,3 +60,9 @@ labels, validate Dec code blocks, or check rendered layout. Its digest also trea
 calls as labels; the compiled Typst document resolves the actual internal links.
 These limitations are preserved rather than interpreting the tool's rubric bits
 as a scientific review.
+
+The tesseract-cell companion adds a second actual Typst input. The subsequent
+two-file digest and strict checks are retained in
+`evidence/cell-jitter/aod-lint.json`, with PDF compilation and rendered inspection
+reported separately in `evidence/cell-jitter/validation.json`. This later coverage
+does not change the earlier one-file and empty-scan records.

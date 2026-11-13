@@ -1,0 +1,111 @@
+{
+  "format": "aod.dec.cell-jitter-source-binding",
+  "version": 1,
+  "status": "SOURCE_BOUND",
+  "source_scope": "Supplied execution-request archives, not an inferred latest Main/Manual release. Read-only application binding; not a scientific review or source repair.",
+  "archives": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/foundations/AOD_v40_01r10_source.zip",
+      "sha256": "a178a5bf06d51c8ab8852e9cabfb6c5eb61456f70739d7391582c08c524f34c7",
+      "members": [
+        {
+          "path": "sections/04_cut_running_fractal_tesseract.tex",
+          "sha256": "7763e5487c6b6358bb8835a439804cf1c8b9b4c6fe7dd3040d844e9b2b6b9e54",
+          "labels": {
+            "eq:cut-running-form": 27,
+            "subsec:fractal-tesseract": 104,
+            "subsec:fractal-jitter": 108,
+            "subsec:finite-q4-witness": 134,
+            "subsec:q4-hamming-ternary-kernel": 146,
+            "eq:hinge-saturation-weighted": 213,
+            "eq:tesseract-admissible-boundary": 234,
+            "eq:tesseract-boundary-window": 239
+          }
+        },
+        {
+          "path": "sections/06_field.tex",
+          "sha256": "65e5889526b48a87f18fa6e1d9d5e696f4451735d9fe3763825ce060453e7cc1",
+          "labels": {
+            "subsec:field-region": 12,
+            "subsec:field-boundary": 17,
+            "eq:b-scoped-divergence": 177,
+            "eq:b-scoped-stokes": 184,
+            "eq:slice-flux": 222,
+            "eq:window-current": 235,
+            "eq:current-magnitude-split": 264,
+            "eq:moving-boundary": 277
+          }
+        },
+        {
+          "path": "manual/sections/00_dec_ledger.tex",
+          "sha256": "8cede50c74dccb7ab694b3cbfaa90eb44b866cf8514feba25aba3f24682bec66",
+          "labels": {
+            "manual:dec-ledger:kernel": 72,
+            "manual:dec-ledger:hinge-slide": 125,
+            "manual:dec-ledger:boundary-audit": 280
+          }
+        },
+        {
+          "path": "manual/sections/06_field_dynamics_applications.tex",
+          "sha256": "eb83dc3d4d65ebdbd3ac87c6c909c5cc267f7bc8a72c2fd18e320ff6041e697a",
+          "labels": {
+            "manual:orbital-retention-field-dynamics-fixture": 508
+          }
+        }
+      ]
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/foundations/AFC.zip",
+      "sha256": "24587c1ddd7dd5b7673795adf97954a3b40e6480fef54a9d8917e6d77ac0b950",
+      "members": [
+        {
+          "path": "afc-main/tex/sections/04_choices.tex",
+          "sha256": "3dc7799b86f5d09230eeb1688979472c69f9fd984ea2981eff75a71a981253b0",
+          "labels": {
+            "choice:memory-state": 10,
+            "choice:kernel": 23,
+            "choice:flux": 38,
+            "choice:divergence": 48,
+            "choice:region": 56
+          }
+        },
+        {
+          "path": "afc-main/tex/corollaries/00_stokes.tex",
+          "sha256": "5df66ef3ed351b20c833f8a7df37db62f271ba25e3ff2c9b40c9f6e67cd0fed5",
+          "labels": {
+            "cor:afc-stokes": 7,
+            "eq:afc-stokes-cor": 13,
+            "subsec:discrete-stokes-map": 80,
+            "eq:discrete-stokes": 85
+          }
+        }
+      ]
+    }
+  ],
+  "owner_amendment": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/foundations/OWNER_M1_PLAN.md",
+    "sha256": "d3ed657888a6a3c63b13dd34b92a38557189aaccda81775144598267c053859c",
+    "sections": {
+      "3.3": "Atomic Hamming-1 and composite paths; stochastic weights are a declared downstream choice over admissible events.",
+      "3.8": "Folded cell-complex proposal requires independent outer closure/certificate; adjacency is insufficient."
+    }
+  },
+  "interpretation": {
+    "jitter": "Main subsec:fractal-jitter defines unresolved successor movement before seating/return stabilization. A distribution or perturbation law is a new application choice, not derived from that definition.",
+    "cells": "Main supplies finite Q4 vertex/edge support. Explicit oriented cubical filling (16 vertices,32 edges,24 squares,8 cubes,1 four-cell) and a facet-dual transport graph must be declared application constructions under the current user direction.",
+    "boundary": "Main eq:tesseract-admissible-boundary is a retained shell cut in E(Q4) x {-1,0,+1}; application cell boundaries require an explicit dictionary to this support. A cut-frame index is a separate retained observation index, not another spatial axis or automatic SI time.",
+    "flux_current": "Phi^D_boundary(t) is signed one-cut crossing; J^D_boundary(window) is the sum across the declared window. Pair cancellation preserves input histories.",
+    "afc": "Normalized memory/kernel hypotheses are p>=0,sum p=1,P>=0,row sums1. Antisymmetric flux is p_i P_ij-p_j P_ji. Unnormalized injected mass uses a separately declared mass specialization or normalization; no normalized |phi|<=1 claim transfers automatically.",
+    "accuracy": "Exact conservation and boundary-of-boundary zero check implementation/topology. Refinement error against the same model/reference checks numerical accuracy. Jitter sensitivity is a model response. Physical maser accuracy requires independent calibrated dynamics/measurement data.",
+    "maser_scope": "No native maser Hamiltonian, stimulated-emission model, SI-frequency law or hardware observation map is supplied by these source anchors."
+  },
+  "recommended_falsifiers": [
+    "Flip one incidence sign: boundary-of-boundary check must reject.",
+    "Drop an internal pair or duplicate a crossing: regional conservation must fail.",
+    "Permit negative transition probabilities or an invalid row sum: kernel construction must reject.",
+    "Change jitter realization while refining substeps: label this a different experiment rather than a numerical convergence comparison.",
+    "Treat total pair cancellation as deletion of parent histories: provenance check must fail.",
+    "Claim isotropic flux from an invariant kernel with noninvariant memory: retain the AFC counterexample instead."
+  ],
+  "verified_label_count": 29
+}

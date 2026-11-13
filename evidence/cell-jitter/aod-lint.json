@@ -1,0 +1,529 @@
+{
+  "repository": "https://github.com/rpoyau/aod-lint",
+  "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+  "binary_sha256": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c",
+  "cargo_lock_sha256": "82cdf620220a0fb722ece7923e9386c0e28a8eaba9f4c5cb43f59f219c9cd0ba",
+  "target": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+  "status": "PASS",
+  "scope": "Typst/LaTeX manuscript diagnostics only",
+  "manuscript_files": [
+    "docs/language-and-compiler.typ",
+    "docs/tesseract-cell-jitter.typ"
+  ],
+  "manuscript_file_count": 2,
+  "uncovered_source_types": [
+    "Dec",
+    "Python",
+    "C++",
+    "Rust compiler runtime code",
+    "Markdown"
+  ],
+  "interpretation": "Only the listed manuscript files were scanned. Lint diagnostics are not a proof of scientific or compiler correctness.",
+  "digest": {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+      "digest",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "{\n  \"schema_version\": \"1.0\",\n  \"root\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec\",\n  \"files\": [\n    {\n      \"path\": \"docs/language-and-compiler.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6\",\n      \"line_count\": 1112,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"First program\",\n          \"line\": 66\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Values and exact arithmetic\",\n          \"line\": 120\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Declarations, statements, and dispatch\",\n          \"line\": 173\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Expressions and control flow\",\n          \"line\": 228\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Computational examples and applications\",\n          \"line\": 282\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual kernel normalization and hinge slide\",\n          \"line\": 291\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual short-window residual and surplus\",\n          \"line\": 344\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual boundary-current substitution\",\n          \"line\": 402\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Retained closure and recurrence\",\n          \"line\": 458\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Composition with an independent outer return\",\n          \"line\": 509\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Comparing recurrent lineages\",\n          \"line\": 559\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Exact normalized continuation weights\",\n          \"line\": 608\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Extending Manual applications\",\n          \"line\": 642\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Built-in reference\",\n          \"line\": 661\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Scalar operations\",\n          \"line\": 667\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Trace operations\",\n          \"line\": 690\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Composition and comparison operations\",\n          \"line\": 708\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Output and failures\",\n          \"line\": 732\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Commands, installation, and artifacts\",\n          \"line\": 761\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Compiler architecture\",\n          \"line\": 813\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Source-bound typed IR\",\n          \"line\": 834\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Native lowering\",\n          \"line\": 848\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Native runtime and embedding\",\n          \"line\": 863\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Python JIT API\",\n          \"line\": 877\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Caches, guards, and retained selection\",\n          \"line\": 924\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Artifact reuse and entry guards\",\n          \"line\": 926\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Persistent policy\",\n          \"line\": 944\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Validation and practical limits\",\n          \"line\": 984\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Troubleshooting\",\n          \"line\": 1007\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Supported boundary\",\n          \"line\": 1027\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Source authority and reading map\",\n          \"line\": 1041\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Main and Manual destinations\",\n          \"line\": 1058\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Implementation destinations\",\n          \"line\": 1089\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 34,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"start\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 66,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"installation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 106,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"values\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 120,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:balanced\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 139,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"grammar\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 173,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"expressions\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 228,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"applications\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 282,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 288,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-kernel\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 291,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-window\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 344,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-boundary\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 402,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"closure\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 458,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"fusion\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 509,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"coupling\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 559,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"weights\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 608,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:weights\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 634,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"builtins\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 661,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"errors\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 732,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"installation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 761,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"architecture\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 813,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"embedding\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 863,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"adaptation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 924,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"validation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 984,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 1041,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\",\n        \"SADAR\"\n      ]\n    },\n    {\n      \"path\": \"docs/tesseract-cell-jitter.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"ec34531ecf061ed14fb0d17f9c16bf2b68754460c17d38f80f3b668a5531d32a\",\n      \"line_count\": 300,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Explicit cells and spatial cuts\",\n          \"line\": 42\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Emitter and cell transport\",\n          \"line\": 69\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Jitter and the accuracy experiment\",\n          \"line\": 116\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Measured computational results\",\n          \"line\": 159\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Dec execution and reproduction\",\n          \"line\": 201\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Source binding, checks, and next physical model\",\n          \"line\": 254\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"cells\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 42,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:cell-boundary\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 59,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"transport\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 69,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:transport\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 102,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"eq:balance\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 109,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"experiment\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 116,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:jitter\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 122,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"eq:tail\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 142,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"results\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 159,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"execution\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 201,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 254,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": []\n    }\n  ],\n  \"edges\": [\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:SADAR\",\n      \"kind\": \"MotifDependency\"\n    }\n  ],\n  \"firewall_violations\": [],\n  \"include_cycles\": []\n}\n",
+    "stderr": ""
+  },
+  "manifest": {
+    "schema_version": "1.0",
+    "root": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec",
+    "files": [
+      {
+        "path": "docs/language-and-compiler.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6",
+        "line_count": 1112,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "First program",
+            "line": 66
+          },
+          {
+            "level": 1,
+            "title": "Values and exact arithmetic",
+            "line": 120
+          },
+          {
+            "level": 1,
+            "title": "Declarations, statements, and dispatch",
+            "line": 173
+          },
+          {
+            "level": 1,
+            "title": "Expressions and control flow",
+            "line": 228
+          },
+          {
+            "level": 1,
+            "title": "Computational examples and applications",
+            "line": 282
+          },
+          {
+            "level": 2,
+            "title": "Manual kernel normalization and hinge slide",
+            "line": 291
+          },
+          {
+            "level": 2,
+            "title": "Manual short-window residual and surplus",
+            "line": 344
+          },
+          {
+            "level": 2,
+            "title": "Manual boundary-current substitution",
+            "line": 402
+          },
+          {
+            "level": 2,
+            "title": "Retained closure and recurrence",
+            "line": 458
+          },
+          {
+            "level": 2,
+            "title": "Composition with an independent outer return",
+            "line": 509
+          },
+          {
+            "level": 2,
+            "title": "Comparing recurrent lineages",
+            "line": 559
+          },
+          {
+            "level": 2,
+            "title": "Exact normalized continuation weights",
+            "line": 608
+          },
+          {
+            "level": 2,
+            "title": "Extending Manual applications",
+            "line": 642
+          },
+          {
+            "level": 1,
+            "title": "Built-in reference",
+            "line": 661
+          },
+          {
+            "level": 2,
+            "title": "Scalar operations",
+            "line": 667
+          },
+          {
+            "level": 2,
+            "title": "Trace operations",
+            "line": 690
+          },
+          {
+            "level": 2,
+            "title": "Composition and comparison operations",
+            "line": 708
+          },
+          {
+            "level": 2,
+            "title": "Output and failures",
+            "line": 732
+          },
+          {
+            "level": 1,
+            "title": "Commands, installation, and artifacts",
+            "line": 761
+          },
+          {
+            "level": 1,
+            "title": "Compiler architecture",
+            "line": 813
+          },
+          {
+            "level": 2,
+            "title": "Source-bound typed IR",
+            "line": 834
+          },
+          {
+            "level": 2,
+            "title": "Native lowering",
+            "line": 848
+          },
+          {
+            "level": 1,
+            "title": "Native runtime and embedding",
+            "line": 863
+          },
+          {
+            "level": 2,
+            "title": "Python JIT API",
+            "line": 877
+          },
+          {
+            "level": 1,
+            "title": "Caches, guards, and retained selection",
+            "line": 924
+          },
+          {
+            "level": 2,
+            "title": "Artifact reuse and entry guards",
+            "line": 926
+          },
+          {
+            "level": 2,
+            "title": "Persistent policy",
+            "line": 944
+          },
+          {
+            "level": 1,
+            "title": "Validation and practical limits",
+            "line": 984
+          },
+          {
+            "level": 2,
+            "title": "Troubleshooting",
+            "line": 1007
+          },
+          {
+            "level": 2,
+            "title": "Supported boundary",
+            "line": 1027
+          },
+          {
+            "level": 1,
+            "title": "Source authority and reading map",
+            "line": 1041
+          },
+          {
+            "level": 2,
+            "title": "Main and Manual destinations",
+            "line": 1058
+          },
+          {
+            "level": 2,
+            "title": "Implementation destinations",
+            "line": 1089
+          }
+        ],
+        "labels": [
+          {
+            "name": "sources",
+            "file": "docs/language-and-compiler.typ",
+            "line": 34,
+            "kind": "Other"
+          },
+          {
+            "name": "start",
+            "file": "docs/language-and-compiler.typ",
+            "line": 66,
+            "kind": "Other"
+          },
+          {
+            "name": "installation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 106,
+            "kind": "Other"
+          },
+          {
+            "name": "values",
+            "file": "docs/language-and-compiler.typ",
+            "line": 120,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:balanced",
+            "file": "docs/language-and-compiler.typ",
+            "line": 139,
+            "kind": "Equation"
+          },
+          {
+            "name": "grammar",
+            "file": "docs/language-and-compiler.typ",
+            "line": 173,
+            "kind": "Other"
+          },
+          {
+            "name": "expressions",
+            "file": "docs/language-and-compiler.typ",
+            "line": 228,
+            "kind": "Other"
+          },
+          {
+            "name": "applications",
+            "file": "docs/language-and-compiler.typ",
+            "line": 282,
+            "kind": "Other"
+          },
+          {
+            "name": "sources",
+            "file": "docs/language-and-compiler.typ",
+            "line": 288,
+            "kind": "Other"
+          },
+          {
+            "name": "manual-kernel",
+            "file": "docs/language-and-compiler.typ",
+            "line": 291,
+            "kind": "Other"
+          },
+          {
+            "name": "manual-window",
+            "file": "docs/language-and-compiler.typ",
+            "line": 344,
+            "kind": "Other"
+          },
+          {
+            "name": "manual-boundary",
+            "file": "docs/language-and-compiler.typ",
+            "line": 402,
+            "kind": "Other"
+          },
+          {
+            "name": "closure",
+            "file": "docs/language-and-compiler.typ",
+            "line": 458,
+            "kind": "Other"
+          },
+          {
+            "name": "fusion",
+            "file": "docs/language-and-compiler.typ",
+            "line": 509,
+            "kind": "Other"
+          },
+          {
+            "name": "coupling",
+            "file": "docs/language-and-compiler.typ",
+            "line": 559,
+            "kind": "Other"
+          },
+          {
+            "name": "weights",
+            "file": "docs/language-and-compiler.typ",
+            "line": 608,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:weights",
+            "file": "docs/language-and-compiler.typ",
+            "line": 634,
+            "kind": "Equation"
+          },
+          {
+            "name": "builtins",
+            "file": "docs/language-and-compiler.typ",
+            "line": 661,
+            "kind": "Other"
+          },
+          {
+            "name": "errors",
+            "file": "docs/language-and-compiler.typ",
+            "line": 732,
+            "kind": "Other"
+          },
+          {
+            "name": "installation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 761,
+            "kind": "Other"
+          },
+          {
+            "name": "architecture",
+            "file": "docs/language-and-compiler.typ",
+            "line": 813,
+            "kind": "Other"
+          },
+          {
+            "name": "embedding",
+            "file": "docs/language-and-compiler.typ",
+            "line": 863,
+            "kind": "Other"
+          },
+          {
+            "name": "adaptation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 924,
+            "kind": "Other"
+          },
+          {
+            "name": "validation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 984,
+            "kind": "Other"
+          },
+          {
+            "name": "sources",
+            "file": "docs/language-and-compiler.typ",
+            "line": 1041,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Hinge",
+          "SADAR"
+        ]
+      },
+      {
+        "path": "docs/tesseract-cell-jitter.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "ec34531ecf061ed14fb0d17f9c16bf2b68754460c17d38f80f3b668a5531d32a",
+        "line_count": 300,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Explicit cells and spatial cuts",
+            "line": 42
+          },
+          {
+            "level": 1,
+            "title": "Emitter and cell transport",
+            "line": 69
+          },
+          {
+            "level": 1,
+            "title": "Jitter and the accuracy experiment",
+            "line": 116
+          },
+          {
+            "level": 1,
+            "title": "Measured computational results",
+            "line": 159
+          },
+          {
+            "level": 1,
+            "title": "Dec execution and reproduction",
+            "line": 201
+          },
+          {
+            "level": 1,
+            "title": "Source binding, checks, and next physical model",
+            "line": 254
+          }
+        ],
+        "labels": [
+          {
+            "name": "cells",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 42,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:cell-boundary",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 59,
+            "kind": "Equation"
+          },
+          {
+            "name": "transport",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 69,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:transport",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 102,
+            "kind": "Equation"
+          },
+          {
+            "name": "eq:balance",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 109,
+            "kind": "Equation"
+          },
+          {
+            "name": "experiment",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 116,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:jitter",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 122,
+            "kind": "Equation"
+          },
+          {
+            "name": "eq:tail",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 142,
+            "kind": "Equation"
+          },
+          {
+            "name": "results",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 159,
+            "kind": "Other"
+          },
+          {
+            "name": "execution",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 201,
+            "kind": "Other"
+          },
+          {
+            "name": "sources",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 254,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": []
+      }
+    ],
+    "edges": [
+      {
+        "origin": "docs/language-and-compiler.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/language-and-compiler.typ",
+        "target": "motif:Hinge",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/language-and-compiler.typ",
+        "target": "motif:SADAR",
+        "kind": "MotifDependency"
+      }
+    ],
+    "firewall_violations": [],
+    "include_cycles": []
+  },
+  "checks": [
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/language-and-compiler.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/language-and-compiler.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/tesseract-cell-jitter.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/docs/tesseract-cell-jitter.typ\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

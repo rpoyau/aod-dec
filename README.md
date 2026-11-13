@@ -22,6 +22,13 @@ The [Typst language and compiler manual](docs/language-and-compiler.typ) contain
 the language reference, native architecture, and executable computational
 applications drawn from the bound AOD Main and Manual. Build its PDF and check
 the examples with `make docs`; see [documentation builds](docs/CI.md#documentation).
+The [tesseract-cell jitter companion](docs/tesseract-cell-jitter.typ) adds an
+explicit oriented cell complex, exact emitter/storage/output accounting, and a
+numerical refinement study against an independent continuous reference.
+Run `make simulate-cells`; add `--native --plots` to
+`scripts/simulate_cell_jitter.py` for native replay and charts. This is an
+uncalibrated transport application, with jitter on successor weights; it does
+not implement a quantum maser or a physical clock.
 Persistent hardware selection is available through `scripts/adapt_native.py`.
 The measured seven-workload experiment established functional adaptation but no
 cost-inclusive speedup; every measured workload retained the generic variant.

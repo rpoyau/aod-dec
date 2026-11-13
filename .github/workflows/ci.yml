@@ -29,11 +29,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            build-essential python3 rustc libgmp-dev libssl-dev curl xz-utils fonts-dejavu-core \
+            build-essential python3 python3-matplotlib rustc libgmp-dev libssl-dev curl xz-utils fonts-dejavu-core \
             libllvm16t64=1:16.0.6-23ubuntu4
           mkdir -p build/ci
           dpkg-query --show --showformat='${Package} ${Version}\n' \
-            gcc g++ libc6 python3 rustc libgmp-dev libssl-dev libllvm16t64 \
+            gcc g++ libc6 python3 python3-matplotlib rustc libgmp-dev libssl-dev libllvm16t64 \
             > build/ci/ubuntu-packages.txt
           python3 - <<'PY'
           import os
@@ -73,6 +73,27 @@ jobs:
           path: |
             build/docs/aod-dec-language-and-compiler.pdf
             build/docs/report.json
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Run cell jitter study and native replay
+        run: python3 scripts/simulate_cell_jitter.py --native --plots --output build/cell-jitter
+      - name: Build computational application from fresh results
+        run: |
+          build/tools/typst-x86_64-unknown-linux-musl/typst compile --root . \
+            --creation-timestamp 1794528000 \
+            --input results=../build/cell-jitter/results.json \
+            --input chart=../build/cell-jitter/accuracy-and-jitter.png \
+            docs/tesseract-cell-jitter.typ build/cell-jitter/tesseract-cell-jitter.pdf
+      - name: Retain cell jitter study
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tesseract-cell-jitter-${{ github.sha }}
+          path: |
+            build/cell-jitter/results.json
+            build/cell-jitter/*.pdf
+            build/cell-jitter/*.png
+            build/cell-jitter/dec/*.dec
           if-no-files-found: warn
           retention-days: 90
       - name: Retain validation evidence

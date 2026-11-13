@@ -83,3 +83,13 @@ reported as substantive validation of this repository.
 Only integration guidance is recorded here. The upstream skill packages and
 scientific snapshots remain in their owning repository; no global skill
 installation or upstream edit is required by this import.
+
+The tesseract-cell application supplies an explicit oriented cubical filling,
+bounded successor-weight jitter, and a conservative transport model. Its
+Main/Manual and AFC anchors are recorded in
+`evidence/cell-jitter/source-binding.json`. AFC applies to the declared normalized
+kernel and chain/cochain fixtures; pumped transport mass is not automatically an
+AFC probability state. Refinement against an independent continuous reference
+measures discretization error, while the retained ensemble measures response to
+changed jitter paths. Neither establishes physical maser accuracy. This companion
+adds application source and execution records without changing Main or Manual.
