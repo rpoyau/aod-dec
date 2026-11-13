@@ -1,0 +1,25 @@
+{
+  "reviewed_dec_head": "89a3653cca528963297fae73bd2aa6869df73e23",
+  "manual_candidate_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+  "manual_candidate_tree": "b2b55cbcf18354828f7b34418ab3fa26d747a927",
+  "manual_candidate_role": "Delivered local candidate; not asserted accepted remote Main",
+  "observed_remote_main": "1a80693cf6235809244479a5f52ed333662bf51d",
+  "remote_observation_source": "https://api.github.com/repos/rpoyau/aod/branches/main",
+  "files": {
+    "manual/sections/00_scope.tex": "7e6fda648cfc969e9b6430a2c4680e15300031f97bce7d975f4d8f7b33834431",
+    "manual/sections/00_dec_ledger.tex": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277",
+    "manual/sections/02_m3_mapping_error.tex": "4580fd1c23a8e8b4d3c1c0b3c07fffe987927485d086c0ba35c4422fde51d627",
+    "manual/sections/03_m3_temporal.tex": "dc2dfaa86c4e7ce3d4201f618b67b7b860866988f8dfd21c6f7ff300a4d15612",
+    "manual/sections/06_field_dynamics_applications.tex": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+    "sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+    "sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+    "manual/scripts/aod_native_closure_wave.py": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf",
+    "contracts/scientific/ERROR_BUDGET.json": "d0e1b02709b32464d95dad29342748702593ea889b201aad71ee9d071bd6a257"
+  },
+  "old_archive_binding": "evidence/cell-jitter/source-binding.json",
+  "guidance": {
+    "aod_skills_commit": "630af16a7c51fb8836e603eb54c67bf8560fb463",
+    "aod_lint_commit": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "current_owner_routing": "AOD style/ownership, AF inference, AFC declared finite fixtures, persistent source-bound review"
+  }
+}

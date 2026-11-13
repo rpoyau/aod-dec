@@ -27,6 +27,9 @@ from simulations.tesseract_cells import (FACETS, TESSERACT, boundary, boundary_c
                                         cells, facet_interfaces)
 from simulations.transport_reference import (compare_precisions, flatten_reference,
                                              simulate_reference)
+from simulations.report_contract import terminal_report
+from simulations.manual_dec_fixture import build_fixture as manual_dec_fixture
+from simulations.manual_si_fixture import build_fixture as manual_si_fixture
 
 
 def digest(path):
@@ -125,7 +128,9 @@ def studies(config, seed, ensemble_size):
                                 "terminal": result["final"], "l1_error": error,
                                 "relative_l1_error": relative,
                                 "observed_order": None if previous is None else math.log2(float(previous / error)),
-                                "checks": result["checks"]})
+                                "checks": result["checks"],
+                                "output_report": terminal_report(result, reference,
+                                    reference_id="independent-generator:" + schedule["sha256"])})
             previous = error
     ensemble = []
     # Use the continuous reference here to avoid mixing coarse Euler error into
@@ -210,10 +215,12 @@ def plots(report, output):
     for amp, color in zip((Fraction(0), Fraction(1, 4), Fraction(1, 2)), colors):
         rows = [r for r in report["convergence"] if r["amplitude"] == amp]
         axes[0].loglog([r["substeps"] for r in rows],
-                       [float(r["relative_l1_error"]) for r in rows],
-                       "o-", label=f"jitter amplitude {float(amp):g}", color=color)
-    axes[0].set(xlabel="Substeps per fixed interval", ylabel="Relative terminal L1 error",
-                title="Numerical refinement: same jitter path")
+                       [float(abs(r["output_report"]["outputs"]["output"]["fractional_discrepancy"]))
+                        for r in rows],
+                       "o-", label=f"jitter amplitude {amp}", color=color)
+    axes[0].set(xlabel="Substeps per fixed interval",
+                ylabel="Absolute fractional boundary-output discrepancy",
+                title="Solver comparison with declared numerical reference")
     axes[0].legend(fontsize=8)
     axes[0].grid(True, alpha=.2, which="both")
     for index, entry in enumerate(report["jitter_ensemble"]):
@@ -239,19 +246,26 @@ def main(argv=None):
     args = parser.parse_args(argv)
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    report = {"format": "aod.dec.cell-jitter-study", "version": 1, "status": "RUNNING",
-              "scope": "Declared tesseract-cell transport and numerical accuracy study; uncalibrated maser-inspired energy accounting.",
+    report = {"format": "aod.dec.cell-jitter-study", "version": 2, "status": "RUNNING",
+              "scope": "Auxiliary cubical transport solver control plus separate source-bound D.E.C. history/RCD and conditional observed-cycle SI fixtures.",
+              "classification": {"transport": "declared numerical control; not an admitted AOD field or SI maser model",
+                  "manual_dec": "D0 exact internal fixture; recurrent identities and contacts retained",
+                  "manual_si": "conditional observed-cycle map; measured hydrogen target separately bound"},
+              "historical_metric": "relative_l1_error is a supplied-mass-normalized aggregate solver diagnostic, not a kernel probability, output-relative error, or physical accuracy percentage.",
               "jitter_interpretation": "Bounded transition-weight proxy for unresolved successor possibilities; incidence remains fixed.",
               "physical_accuracy": "NOT_ESTABLISHED; no stimulated gain, coherence, Hamiltonian, SI clock, or empirical data.",
               "native_requested": args.native, "commands": [],
               "source_sha256": {str(p.relative_to(ROOT)): digest(p) for p in
-                  sorted([*ROOT.glob('simulations/*.py'), Path(__file__).resolve(),
+                  sorted([*ROOT.glob('simulations/**/*.py'), Path(__file__).resolve(),
+                          ROOT / 'simulations/vendor/LICENSE',
                           ROOT / 'examples/tesseract_cell_jitter.dec'])}}
     path = output / "results.json"
     try:
         config, seed = ModelConfig(), 7
         report.update(config=asdict(config), state_names=STATE_NAMES, fixed_seed=seed,
                       topology=topology_checks())
+        report["manual_dec"] = manual_dec_fixture()
+        report["manual_si"] = manual_si_fixture()
         schedule = make_schedule(config.intervals, Fraction(1, 4), seed)
         demo = simulate(config, 1, schedule)
         for step in demo["steps"]:

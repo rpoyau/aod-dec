@@ -95,3 +95,12 @@ and chart. It installs the distribution's `python3-matplotlib`, records that
 package version, and retains the application PDF, figures, results, and generated
 Dec sources. Exact model results are distinct from rounded plot labels, physical
 maser accuracy, and compiler performance measurements.
+
+The corrected version additionally executes the exact Manual D.E.C./RCD and
+observed-cycle SI fixtures, preserving complete return/contact records and
+per-output error components. Thirty further tests cover these interfaces,
+including history-loss controls, target isolation, unit/quantity-kind rejection,
+and exact source-reported hydrogen reductions. The native transport replay is
+unchanged in scope; the host Manual interfaces are not new native Dec types.
+Historical version-1 results stay under `evidence/cell-jitter/`; the corrected
+version-2 report and source review are under `evidence/manual-alignment/`.

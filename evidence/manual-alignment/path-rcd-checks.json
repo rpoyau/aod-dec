@@ -1,0 +1,138 @@
+{
+  "scope": "Read-only focused fidelity review and exact diagnostics; not whole-source validation",
+  "source": {
+    "root": "/home/reginaldpoyau/projects/aod/AOD_M3_MANUALI_FEEDBACK_2026-11-11/aod",
+    "commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+    "tree": "b2b55cbcf18354828f7b34418ab3fa26d747a927",
+    "role": "delivered local Manual I candidate; acceptance not inferred",
+    "files": {
+      "manual/sections/00_scope.tex": "7e6fda648cfc969e9b6430a2c4680e15300031f97bce7d975f4d8f7b33834431",
+      "manual/sections/00_dec_ledger.tex": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277",
+      "manual/sections/03_short_window_rcd_shedding_fixtures.tex": "9d0b1ceebf6878f9b9fadd43524ab209d479241b6e67fbc4979e2805df113c17",
+      "manual/sections/06_field_dynamics_applications.tex": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+      "sections/05_curl_closure_duon_current.tex": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+      "sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+      "sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+      "manual/scripts/aod_native_closure_wave.py": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf"
+    }
+  },
+  "supplied_archive": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/foundations/AOD_v40_01r10_source.zip",
+    "sha256": "a178a5bf06d51c8ab8852e9cabfb6c5eb61456f70739d7391582c08c524f34c7",
+    "inspected_members": {
+      "manual/sections/00_dec_ledger.tex": {
+        "sha256": "8cede50c74dccb7ab694b3cbfaa90eb44b866cf8514feba25aba3f24682bec66",
+        "terms": {
+          "path-history": false,
+          "D.E.C.": true,
+          "Markov": true,
+          "rho^D": true,
+          "RCD": false
+        }
+      },
+      "manual/sections/03_short_window_rcd_shedding_fixtures.tex": {
+        "sha256": "36dd99ed8d5e1501381aa34c2d49f934b29ea3c8028bc2dfb82c05707307b33c",
+        "terms": {
+          "path-history": false,
+          "D.E.C.": false,
+          "Markov": false,
+          "rho^D": true,
+          "RCD": true
+        }
+      },
+      "manual/sections/06_field_dynamics_applications.tex": {
+        "sha256": "eb83dc3d4d65ebdbd3ac87c6c909c5cc267f7bc8a72c2fd18e320ff6041e697a",
+        "terms": {
+          "path-history": false,
+          "D.E.C.": true,
+          "Markov": false,
+          "rho^D": true,
+          "RCD": true
+        }
+      },
+      "sections/06_field.tex": {
+        "sha256": "65e5889526b48a87f18fa6e1d9d5e696f4451735d9fe3763825ce060453e7cc1",
+        "terms": {
+          "path-history": true,
+          "D.E.C.": false,
+          "Markov": false,
+          "rho^D": true,
+          "RCD": true
+        }
+      }
+    }
+  },
+  "checks": {
+    "same_endpoint_distinct_history": {
+      "status": "PASS",
+      "endpoints": [
+        0,
+        0
+      ],
+      "vertices": [
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          3,
+          1,
+          0
+        ]
+      ],
+      "trace_digests": [
+        "c64cc148a4f41e70f8e64e45b4ca67c1e952cd36b7fae3e63cfea51805868650",
+        "2c68b0cb38db062a40c27717a4e2b1d7ccbaebf15bfa4a247d0b34514f76afc4"
+      ],
+      "return_ids": [
+        "ec2304e2d2e8e24161dc1b555aa90979f6029b1a043726ebd339158414172f00",
+        "880cdd47c46897f6d9ef7425b511c1656e3c4a92d2d7b970290a2583efb058f7"
+      ],
+      "atomic_traversals": [
+        2,
+        4
+      ],
+      "branch_hinge_support": [
+        3,
+        5
+      ],
+      "conclusion": "Endpoint compression discards distinct histories and support needed by a later duration accessor."
+    },
+    "kernel_invariant_memory_not_invariant": {
+      "status": "COUNTEREXAMPLE",
+      "memory": [
+        "1",
+        "0"
+      ],
+      "kernel": [
+        [
+          "1/2",
+          "1/2"
+        ],
+        [
+          "1/2",
+          "1/2"
+        ]
+      ],
+      "phi_01": "1/2",
+      "phi_10": "-1/2",
+      "conclusion": "Kernel symmetry does not imply invariant flux without matching memory."
+    },
+    "cancelled_channels_retain_lineage": {
+      "status": "PASS",
+      "channel_values": [
+        "4",
+        "-4"
+      ],
+      "boundary": "0",
+      "lineages": [
+        "history-minus",
+        "history-plus"
+      ],
+      "conclusion": "Zero sum does not erase contributing path identities."
+    }
+  }
+}

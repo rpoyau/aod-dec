@@ -1,0 +1,81 @@
+{
+  "format": "aod-dec.manual-error-si-audit",
+  "date": "2026-11-13",
+  "scope": "read-only bounded review; source repair separate",
+  "candidate": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_M3_MANUALI_FEEDBACK_2026-11-11/aod",
+    "commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+    "tree": "b2b55cbcf18354828f7b34418ab3fa26d747a927",
+    "tracked_status": "",
+    "authority": "delivered local Manual I candidate; no accepted-remote-head claim",
+    "files": {
+      "manual/main.tex": "a3c67a8540a5ca1d7af22192b876d42c82734700397bb15ae7966d17be17efe8",
+      "manual/sections/00_scope.tex": "7e6fda648cfc969e9b6430a2c4680e15300031f97bce7d975f4d8f7b33834431",
+      "manual/sections/00_dec_ledger.tex": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277",
+      "manual/sections/02_m3_mapping_error.tex": "4580fd1c23a8e8b4d3c1c0b3c07fffe987927485d086c0ba35c4422fde51d627",
+      "manual/sections/03_m3_temporal.tex": "dc2dfaa86c4e7ce3d4201f618b67b7b860866988f8dfd21c6f7ff300a4d15612",
+      "manual/sections/06_field_dynamics_applications.tex": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+      "manual/sections/09_prediction_test_fixture_registry.tex": "b9bf6ca9d7e2682aa81300cf7ac8585735cbf961c37328ac41497ab249ce7ef9",
+      "contracts/scientific/ERROR_BUDGET.json": "d0e1b02709b32464d95dad29342748702593ea889b201aad71ee9d071bd6a257",
+      "manual/scripts/aod_mapping_error.py": "77afd00aac413fbaf7b4386d40f79be318d7d813081c6db17ffce1cb6c41f480",
+      "manual/scripts/aod_m3_metrology.py": "d2f53146257b1d29939587abc167f87e9e810f904660b3bfd81a5015ef6e9618",
+      "manual/data/m3/temporal_metrology/hydrogen/source/source_receipt.json": "397f81e68f5bfa57db0cee5abbf4c2dea5dec6cbc000c99b623e0ef361750bf7",
+      "manual/data/m3/temporal_metrology/cesium/source/source_receipt.json": "43fec317110ec9c033a7da5b3858af15e70132fc1e6af480cbe6bc27182c9298"
+    }
+  },
+  "original_archive": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/foundations/AOD_v40_01r10_source.zip",
+    "sha256": "a178a5bf06d51c8ab8852e9cabfb6c5eb61456f70739d7391582c08c524f34c7",
+    "members": {
+      "manual/sections/00_scope.tex": "29d0ee8a7122d69507c465437a04174c08588ecf569040c876aff5c40f419704",
+      "manual/sections/00_dec_ledger.tex": "8cede50c74dccb7ab694b3cbfaa90eb44b866cf8514feba25aba3f24682bec66",
+      "manual/sections/09_prediction_test_fixture_registry.tex": "3853d45fee68f23d018fd4a413514c759cdb098e0b66e9f5feb911bcfc4de333"
+    }
+  },
+  "application": {
+    "commit": "89a3653cca528963297fae73bd2aa6869df73e23",
+    "files": {
+      "scripts/simulate_cell_jitter.py": "2ecac14758080943ca79f4085e0fe170c944df0122c37ee23ad8b2449b5eb6ab",
+      "simulations/cell_transport.py": "b41cad788cbc7d174d984b04358706f8c0273ef4c256315488dd9b2e14ae4876",
+      "simulations/transport_reference.py": "41796e37a44d9d4d63ab60e1cea387221b47897a460d4db88baf9b529370cba4",
+      "docs/tesseract-cell-jitter.typ": "ec34531ecf061ed14fb0d17f9c16bf2b68754460c17d38f80f3b668a5531d32a",
+      "evidence/cell-jitter/results.json": "7355cf6eecb13708301337e4870b0bdcaeecc1906288e6143cb08a16013ceb3b"
+    }
+  },
+  "numerical_countercheck": [
+    {
+      "substeps": 1,
+      "exact_output": "1419/1048576",
+      "approx_reference_output": "0.0064650138786307556511446432778700668668345976633982985034236291910199787056091684",
+      "signed_output_discrepancy": "-0.00511175002365028690114464327787006686683459766339829850342363",
+      "fractional_output_discrepancy": "-0.790678894061851497308469306806359343150004010660599502407382",
+      "aggregate_normalized_l1": "0.034959972136353820807697534280730530637536347314563474493949994043404056051951722",
+      "precision": 60,
+      "scope": "diagnostic against represented Decimal reference, not a full error bound"
+    },
+    {
+      "substeps": 32,
+      "exact_output": "157680110318658716875788024761747062111879678869576230046941431878945085301330874148247913141780095330939634383879799744463642955957339023503984758164632401756934617470392841324731847529453902876058166020893586561553566860151143519645778289723279199454259980743216382818216566357740390737832594602998144220830039044887357732946803941879014338762856539739565573325141416450277744059987743253604570711792820709714181059043587125318968288420204552903754953433848297154943027942349848952092719884017/25030115284779067606215814464341263129845567019730407905165858037314880885778991695276909187083511720130162316106380306848964779375889006927100521175821950637595577907661016323584724562528566005587351697961368721524448316263806708272638340799123548991667328074818897367500803588235708298977181072154716884877872107761733949414746536311042239101323209092315028303337644113623575178366436677500350834327644353912091151462678024100713019721296957931103378736467725136570721563652787701095808800653312",
+      "approx_reference_output": "0.0064650138786307556511446432778700668668345976633982985034236291910199787056091684",
+      "signed_output_discrepancy": "-0.000165398054865663229212029693841411281603901603924037244047739",
+      "fractional_output_discrepancy": "-0.0255835575871483466732863615939396599926379844160251358703806",
+      "aggregate_normalized_l1": "0.0010113905247977702356304351403134390202607935348915393217502692954455205470876552",
+      "precision": 60,
+      "scope": "diagnostic against represented Decimal reference, not a full error bound"
+    }
+  ],
+  "source_reductions_executed": {
+    "method": "python3 -B; imported bound candidate aod_m3_metrology without modifying source",
+    "hydrogen_receipt": "PASS",
+    "cesium_receipt": "PASS",
+    "hydrogen_table_iv_hz": "14204057517691/10000",
+    "hydrogen_table_vi_hz": "14204057517667/10000",
+    "printed_input_mean_hz": "14204057517679/10000",
+    "published_mean_token": "1420405751.768",
+    "hydrogen_status": "measured_input_reduction; not independent atomic prediction",
+    "cesium_August2013_typeA_hz": "10111894947/2500000000000000",
+    "cesium_August2013_typeB_hz": "919263177/625000000000000",
+    "raw_replay": false
+  },
+  "digest_sha256": "529f201dbd749537cc76ca25adfbbdd7dc97fe5a0ae593f09a9a2e749859fcd9"
+}

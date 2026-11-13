@@ -66,3 +66,7 @@ two-file digest and strict checks are retained in
 `evidence/cell-jitter/aod-lint.json`, with PDF compilation and rendered inspection
 reported separately in `evidence/cell-jitter/validation.json`. This later coverage
 does not change the earlier one-file and empty-scan records.
+
+The Manual-alignment correction retains its new two-file scan and PDF checks in
+`evidence/manual-alignment/`. Its scientific findings come from a bounded
+source/code review and exact counterchecks, not the manuscript lint pass.

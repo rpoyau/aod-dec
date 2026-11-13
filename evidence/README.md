@@ -83,3 +83,20 @@ Run `python3 scripts/simulate_cell_jitter.py --native --plots` to reproduce the
 study. `make docs-cells` builds the companion using the retained evidence; CI
 builds it from its fresh study results. Numerical refinement error and response
 to jitter are reported separately. Physical maser accuracy remains unestablished.
+
+## Manual-alignment correction
+
+The initial normalized L1 diagnostic is mathematically defined but does not
+measure the boundary output's relative error. The source-bound
+[`manual-alignment/REVIEW.md`](manual-alignment/REVIEW.md) records this reporting
+defect and the separate missing path/population/RCD and SI-map interfaces.
+Historical version-1 results and validation remain unchanged above.
+
+[`manual-alignment/results.json`](manual-alignment/results.json) supplies the
+corrected per-output reports, exact D.E.C. kernel/history/RCD fixture, conditional
+observed-cycle SI map, and published hydrogen input reduction. Its error budgets
+keep exact arithmetic, diagnostics, unavailable bounds and unknown physical
+quantities separate. Target values cannot change the fixture prediction.
+Source bindings, bounded review digests, tests, lint and revised PDF validation
+are retained alongside it. The reviewed Manual I candidate is identified as a
+delivered local candidate, not silently promoted to accepted remote Main.

@@ -1,0 +1,64 @@
+[
+  {
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_manual_*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "log": "normal-test_manual_all.py.log"
+  },
+  {
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_report_contract.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "log": "normal-test_report_contract.py.log"
+  },
+  {
+    "command": [
+      "/usr/bin/python3",
+      "-O",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_manual_*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "log": "optimized-test_manual_all.py.log"
+  },
+  {
+    "command": [
+      "/usr/bin/python3",
+      "-O",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_report_contract.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "log": "optimized-test_report_contract.py.log"
+  }
+]

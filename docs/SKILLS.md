@@ -93,3 +93,14 @@ AFC probability state. Refinement against an independent continuous reference
 measures discretization error, while the retained ensemble measures response to
 changed jitter paths. Neither establishes physical maser accuracy. This companion
 adds application source and execution records without changing Main or Manual.
+
+The subsequent owner correction invokes a persistent AF review of error
+coordinates, path retention, population/RCD typing, and SI target mappings.
+`evidence/manual-alignment/REVIEW.md` records its actual coverage and findings
+separately from the repair. The supplied archive remains the historical binding;
+the 11 November delivered Manual I candidate is additionally bound by commit,
+tree, file hashes and exact anchors, without treating it as the accepted remote
+Main. Its native fixture producer is vendored byte-for-byte with its MIT license
+for the explicitly exercised host interfaces. Only the declared normalized
+memory/kernel fixture invokes AFC; pressure-bearing AOD flux retains its own
+path operands and count domain.
