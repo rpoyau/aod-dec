@@ -97,7 +97,7 @@
   },
   "documentation": {
     "source": "docs/tesseract-cell-jitter.typ",
-    "source_sha256": "5160f0947a35fa91c47bc246eeff611dea6b045d4b19ff5267134af5fa4169d2",
+    "source_sha256": "85d18ef533a473858304898d1f1cd090446f25e4d20dd5db48bffc24a0d57203",
     "typst_version": "typst 0.13.1 (8ace67d9)",
     "command": [
       "../tools/typst-x86_64-unknown-linux-musl/typst",
@@ -109,8 +109,8 @@
       "docs/tesseract-cell-jitter.typ",
       "build/manual-alignment/tesseract-cell-jitter.pdf"
     ],
-    "pdf_sha256": "737630319c637f52f01bf93851ea44967888fe7c6acf95c619f52a2e146a022c",
-    "pdf_bytes": 195250,
+    "pdf_sha256": "59a3404519c69b662e3585c5688a152875f0ce1d3d9bf2efab5f01948aca36b5",
+    "pdf_bytes": 195252,
     "pages": 9,
     "rendered_pages_inspected": [
       1,
@@ -125,7 +125,8 @@
     ],
     "final_changed_pages_reinspected": [
       3,
-      5
+      5,
+      9
     ],
     "out_of_page_words": 0,
     "status": "PASS"
@@ -166,7 +167,7 @@
   "file_sha256": {
     "evidence/manual-alignment/REVIEW.md": "3ecf8e70d545c42ddfc56bc452ab2044b3eafe9f08e169e75d67c21fb5ed6085",
     "evidence/manual-alignment/accuracy-and-jitter.png": "1fdd6fbe6c088adce80864c8c906c4cb155bab56e7733d74326ade811adf8662",
-    "evidence/manual-alignment/aod-lint.json": "dfc7be3cc25e9841c2899fd41353f317d1d97c11e31bb8d64ab32e92bfd5001e",
+    "evidence/manual-alignment/aod-lint.json": "a8199810b97212ff20938906957181ffc25908a93e62d6fdae8e97332119c5c8",
     "evidence/manual-alignment/error-si-binding.json": "867280f8fd7819ecd8be361cf64ccc993ac06af4ebebcf860aecf1bfd7fa2f97",
     "evidence/manual-alignment/error-si.md": "529f201dbd749537cc76ca25adfbbdd7dc97fe5a0ae593f09a9a2e749859fcd9",
     "evidence/manual-alignment/import-provenance.json": "d50487b226eb8c2b20f613495a62779a97c3c0ae84f5a4d0ed24a481ef2976d7",
@@ -202,5 +203,6 @@
   "development_repairs": [
     "Renamed integer-fixture target/observed fields to predicted/comparator and updated the expected schema test; both modes subsequently pass.",
     "Corrected Typst RD and sign operator syntax before the successful build and rendered inspection."
-  ]
+  ],
+  "integration_review": "No blocking contradiction found; corrected wording to say population aliases are resolved, not rejected."
 }

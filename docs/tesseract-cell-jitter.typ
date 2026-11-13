@@ -465,8 +465,8 @@ its discretization, inputs, executable checks, and output records.
 *Falsification checks.* Tests include explicit incidence signs, all-region
 cancellation, invalid departure bounds, corrupted jitter schedules, nonnegative
 states, isolated analytic solutions, and rejection of same-step premature leakage.
-Manual checks additionally reject replayed returns, forged contact prefixes,
-population aliases, mismatched duration domains, absent reference realization,
+Manual checks resolve population aliases and reject replayed returns, forged
+contact prefixes, mismatched duration domains, absent reference realization,
 quantity-kind mismatch, and evaluation-target leakage. A reduction counterexample
 retains the histories whose discarded reflection data change the later response.
 
