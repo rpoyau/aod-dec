@@ -1,0 +1,163 @@
+{
+  "format": "aod-dec.routing-parallel-source-review",
+  "version": 1,
+  "date": "2026-11-13",
+  "status": "SOURCE_BOUND_SCOPED_REVIEW",
+  "dec_base_commit": "ff1c624382e47b807ec6e48798c8ec521dac7d89",
+  "owner_instructions": [
+    "Probabilistic model is not the engine.",
+    "Collision simulation and tracing; multicore CPU and GPU.",
+    "Shedding aka routing.",
+    "Octaves means octal coordinates in Main for Monon and beat records, not a beat-count alias.",
+    "Wave lengths need typed observation maps."
+  ],
+  "manual_i": {
+    "root": "/home/reginaldpoyau/projects/aod/AOD_M3_MANUALI_FEEDBACK_2026-11-11/aod",
+    "commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+    "tree": "b2b55cbcf18354828f7b34418ab3fa26d747a927",
+    "role": "delivered local candidate, not promoted to accepted remote release",
+    "files": [
+      {
+        "path": "sections/03_afc_basis.tex",
+        "sha256": "d5b648c0c74afe8c34a344d5069e78b5be5d9a98851ce1abcc6c0f9d1df8c6d3",
+        "labels": {
+          "eq:first-anchor": 44
+        }
+      },
+      {
+        "path": "sections/04_cut_running_fractal_tesseract.tex",
+        "sha256": "d52b8b2548bd61534a2b18c664284fdb14ec7ac7fe1d8b715c47483ca8e09d11",
+        "labels": {
+          "eq:closure-trace": 10,
+          "eq:monon-cycle": 27,
+          "eq:closure-phase": 40,
+          "eq:return-identity": 81,
+          "eq:beat-reclosure": 91,
+          "eq:cumulative-closure-counts": 101,
+          "eq:closure-phase-window": 109
+        }
+      },
+      {
+        "path": "sections/05_curl_closure_duon_current.tex",
+        "sha256": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+        "labels": {
+          "eq:fold-outer-closure": 260,
+          "eq:expose-inner-lineage": 273
+        }
+      },
+      {
+        "path": "sections/06_field.tex",
+        "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+        "labels": {
+          "eq:closure-residual": 619,
+          "eq:shedding-excess": 626,
+          "eq:sheddic-path": 638,
+          "eq:shedding-route-partition": 645,
+          "eq:support-enclosure-retention": 788,
+          "subsec:sheddic-path-audit": 1703,
+          "eq:beat-count": 1315
+        }
+      },
+      {
+        "path": "sections/06_wave_state_relational_time.tex",
+        "sha256": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+        "labels": {
+          "eq:cadence-ratio": 114,
+          "eq:relational-time": 148
+        }
+      },
+      {
+        "path": "manual/sections/00_dec_ledger.tex",
+        "sha256": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277",
+        "labels": {
+          "manual:dec-ledger:boundary-audit": 334
+        }
+      },
+      {
+        "path": "manual/sections/00_awareness_fixtures.tex",
+        "sha256": "d9713f844617347c490a1abf86e23334113e2da411237a5b06f09b80c504a710",
+        "labels": {
+          "eq:awareness-shedding-bridge": 254,
+          "eq:awareness-conditioned-shedding": 268
+        }
+      },
+      {
+        "path": "manual/sections/06_field_dynamics_applications.tex",
+        "sha256": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+        "labels": {
+          "manual:orbital-retention-field-dynamics-fixture": 539
+        }
+      },
+      {
+        "path": "manual/sections/02_hydrogen_facing_shell_tests.tex",
+        "sha256": "e1fd2981fcd3030da2d64aa976339389ec890818092153ef4c3b34f5c2bd586e",
+        "labels": {
+          "manual:hydrogen:energy-transitions": 127
+        }
+      }
+    ]
+  },
+  "matter_i": {
+    "root": "/home/reginaldpoyau/projects/aod/AOD_MATTERI_MASS_IMPLEMENTATION_2026-11-12/delivery-verification/reconstructed-source-verified",
+    "base_commit": "904d4a9b2fc90fc96050f6c3b555d5d921c0a8d9",
+    "role": "verified detached delivery reconstruction",
+    "files": [
+      {
+        "path": "manual2/sections/05-fusion-handedness-relational-time.tex",
+        "sha256": "dadc77d96f57ce399799e2cf04387c19ef47d633564cc7f899f0a167c23de39c"
+      },
+      {
+        "path": "manual2/sections/10-all-element-campaign.tex",
+        "sha256": "6c78aa1668a8f4ca3ded366b16c2970d78ced34955f57c255439d379f2554a42"
+      },
+      {
+        "path": "manual2/scripts/matter1_campaign_engine.py",
+        "sha256": "ede36a2934a38d9e442fed1bf47b18b248d51b188bc64bdc1f6ad9b26a1f75ef"
+      }
+    ]
+  },
+  "executed_base_interfaces": [
+    {
+      "path": "simulations/vendor/aod_manual_native.py",
+      "sha256": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf"
+    },
+    {
+      "path": "runtime/dec_core.py",
+      "sha256": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a"
+    },
+    {
+      "path": "native/runtime.cpp",
+      "sha256": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1"
+    },
+    {
+      "path": "simulations/chiral_collision.py",
+      "sha256": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62"
+    }
+  ],
+  "guidance": {
+    "aod_authority": "fc881342ffac7b6a5b4e13e295888c49bbd67520330752878cca5960b9b805a6",
+    "aod_manuscripts": "e8599fe258eddffd77624c49942153e693af3d1e2dff36da82c2d8400cb4e85c",
+    "local_amendment": "3160241652ba9a4a986ff4837fc4cc1c7695a619c23bd2e6a791a51fffe3ae47",
+    "af_review": "09723f57c333102d5e1d4d22a0d9fad27638daacfa66608376edcc41343408c8",
+    "af_protocol": "3f162c49b63231aaff9f60925dab7adbe4e5eeed1ff7de846ee890d60fa333b3"
+  },
+  "coverage": "Focused definition/fixture/interface fidelity; no whole-source, physical proton or GPU-performance verdict.",
+  "minimal_contract": {
+    "materialization": "actual retained carrier return selection -> separately admitted 3:3 recurrent support with component and scope/lineage provenance",
+    "bridge": "L=F_A+F_B;C=declared exact closure_cost in dimensionless model-load coordinate",
+    "surplus": "X=max(0,L-C)",
+    "routing": "positive X needs actual Duon/E2 form, explicit compatible seat and TTL window, independent outer fold, later commitment, exact one-route partition",
+    "address_map": "Scoped trace namespace and base-8 committed-cut encoding bound to immutableevent identities; distinct from Q4 vertices/fibre roles/beat count",
+    "wavelength": "No default physical mapping; actual spatial phase/propagation and SI calibration remain additional operands"
+  },
+  "application_implementation": [
+    {
+      "path": "simulations/collision_routing.py",
+      "sha256": "a08a131c2470139ea85f5ab54730944907bdb04bfdb54588a42be50bdd33b388"
+    },
+    {
+      "path": "tests/test_collision_routing.py",
+      "sha256": "bf87c37214b05b19edb7502029bb8338ba2c2f60fceceb86f9aa38fc66e1e1b4"
+    }
+  ]
+}

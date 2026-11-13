@@ -1,0 +1,13 @@
+{
+  "loaded_libraries": [
+    {
+      "path": "/usr/lib64/libcuda.so.620.70.06",
+      "sha256": "aa6bd5117c0c66bb804ec63b31b8b5d54130259b1079941b9e00e6b928e8ed71"
+    },
+    {
+      "path": "/usr/local/cuda-12.9/targets/x86_64-linux/lib/libnvrtc.so.12.9.86",
+      "sha256": "c3430e8b6b0d8d3a74f5f839118a85e13e3ad6e4d6203ea1b6a27a0c0b4fe10a"
+    }
+  ],
+  "scope": "Library byte binding only; no GPU-device execution inferred."
+}

@@ -1,0 +1,142 @@
+{
+  "format": "aod-dec.routing-parallel-validation",
+  "version": 1,
+  "status": "PASS",
+  "base_commit": "ff1c624382e47b807ec6e48798c8ec521dac7d89",
+  "model_execution_boundary": "Application supplies transition tables, tickets, supports, load bridge and routing/retention declarations. Execution backends apply supplied tables. Full host producer checks formation, closures, lineage and route witnesses.",
+  "source_sha256": {
+    "scripts/simulate_routing_parallel.py": "2e0634b623d54520a7e6c48f12fd537c7635e5e983a2dbb1b21bb5839072fcd9",
+    "simulations/chiral_batch.py": "a31c158f625dfef5357492984802caef1ef19dae5dfbdc81085f22895c8dcf1f",
+    "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618",
+    "simulations/kernels/chiral_batch.cu": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+    "simulations/collision_routing.py": "a08a131c2470139ea85f5ab54730944907bdb04bfdb54588a42be50bdd33b388",
+    "simulations/wave_observables.py": "35b11af059931802e49dd3ba56530d496a1e470a5b07d4405f846734205c9c03",
+    "simulations/chiral_collision.py": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62",
+    "simulations/manual_dec_fixture.py": "e63ff1d9dffc1fcee816ed8afecb7ea7012c261a353fc334a02804065f134760",
+    "simulations/vendor/aod_manual_native.py": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf",
+    "simulations/vendor/LICENSE": "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7",
+    "simulations/tesseract_cells.py": "0d8a15ba047e5c1cd17b36977815cd19fb5928426b9e8ae3b6c35053362b6b1a",
+    "evidence/chiral-collision/cohort.json.gz": "5ee8c1dde797f46890ab989cb181afa2b44ef78279fad040f490b61c3d406581",
+    "evidence/chiral-collision/results.json": "c072c224b4eddd06bb44390cb5513af55266eeaa3ed658f78dcdd0b85227a59c"
+  },
+  "python_tests": {
+    "normal": {
+      "status": "PASS_WITH_EXPLICIT_SKIPS",
+      "total": 44,
+      "passed": 42,
+      "skipped": 2,
+      "skip_scope": "Actual CUDA device execution unavailable",
+      "log": "tests-normal.log"
+    },
+    "optimized": {
+      "status": "PASS_WITH_EXPLICIT_SKIPS",
+      "total": 44,
+      "passed": 42,
+      "skipped": 2,
+      "skip_scope": "Actual CUDA device execution unavailable",
+      "log": "tests-optimized.log"
+    }
+  },
+  "retained_reference": {
+    "status": "PASS",
+    "paths_checked": 256,
+    "transitions_checked": 2048,
+    "prior_cohort_sha256": "42981b2017b77d9f4bee7cbeb6f8e8dd67dda8788230811c22633937b50481ef",
+    "scope": "Every selected prior core-only seed available in the bound 256-path cohort."
+  },
+  "full_trace_candidate_comparison": {
+    "status": "PASS",
+    "paths_checked": 16,
+    "transitions_checked": 128,
+    "scope": "Every retained full trace joined to its supplied seed, initial state, tickets and candidate states/signs, including seeds beyond the prior cohort."
+  },
+  "candidate_semantic_sha256": "6544189756e1722f7cd9c978bed2a79662608a533873c8c0ef388845a191656b",
+  "candidate_workers": 4,
+  "full_trace_workers": 4,
+  "full_trace_semantic_sha256": "2911a79c9bb20d7d6ffeef717b6b07b430052c5c338740fef60df7282298674f",
+  "gpu": {
+    "execution": {
+      "status": "UNAVAILABLE",
+      "backend": "cuda-gpu",
+      "reason": "cuInit: CUDA_ERROR_NO_DEVICE",
+      "gpu_executed": false,
+      "driver_version": 13050,
+      "cuda_status": 100
+    },
+    "compilation": {
+      "status": "COMPILED",
+      "gpu_executed": false,
+      "architecture": "compute_75",
+      "nvrtc_version": [
+        12,
+        9
+      ],
+      "source_sha256": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+      "ptx_sha256": "156cccf0cd9dea5c88a122fba99138920b78b599213229027e7380c36f204d47",
+      "compiler_log": "",
+      "scope": "Actual NVRTC compilation only; no device execution or acceleration demonstrated."
+    }
+  },
+  "limits": {
+    "physical_proton_collision": "NOT_INSTANTIATED",
+    "GPU_full_witness_admission": "NOT_IMPLEMENTED; host validates all materialized witnesses",
+    "wavelength_map": "NOT_INSTANTIATED",
+    "general_GPU_Dec_compiler_target": "NOT_IMPLEMENTED"
+  },
+  "source_review": {
+    "source_binding": "source-binding.json",
+    "review": "FINAL-REVIEW.md",
+    "coverage": "Bound definitions, finite declared fixtures, implementation and document; not whole-source or physical proton validity"
+  },
+  "tools": {
+    "aod_skills_revision": "630af16a7c51fb8836e603eb54c67bf8560fb463",
+    "aod_lint_revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "lint_files": [
+      "chiral-core-collision.typ",
+      "language-and-compiler.typ",
+      "routing-parallel.typ",
+      "tesseract-cell-jitter.typ"
+    ],
+    "lint_status": "PASS",
+    "typst": "typst 0.13.1 (8ace67d9)"
+  },
+  "pdf": {
+    "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/output/pdf/routing-parallel.pdf",
+    "sha256": "f9e3df613a0699aaf8ad7ae215a6e7692d4bf7cfe283ca024ed9d2edbc1d4943",
+    "pages": 5,
+    "source_sha256": "afbc404b78f944f5f0c453338d5c46d24995af06f7c8fde40054cc3cb2a3bf28",
+    "visual_review": "All five final rendered pages inspected; no clipping, overlap or missing glyphs observed.",
+    "bbox_words_inside_page": 1853,
+    "creation_timestamp": 1794528000
+  },
+  "import_provenance": {
+    "status": "PASS",
+    "archived_records": 196,
+    "unchanged_implementation_files": 32,
+    "original_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+    "scope": "Byte provenance only; execute semantic tests for current compiler correctness."
+  },
+  "files": {
+    "CONTROLLER-REVIEW.md": "93505df92629663b73c9441b1c00b211af5fc8024fb4fef1b0048eb8d9973c1b",
+    "DOC-REVIEW.md": "541afd7143458cb1eaca69c3a52165bd549efbbd93c9f65d9b1575bf03d1fdd5",
+    "FINAL-REVIEW.md": "d2ed6bc6b169d5886439c2dfc993cb999cd33713e8665b5833e0bfddf9b4fd6f",
+    "IMPLEMENTATION.md": "312e4cdfcbb2e4fa5560069a073f8229b8e723606ede634e2b2741ae7c92e6bb",
+    "PARALLEL-REVIEW.md": "3985b4d9229911d21945ac0621a5b47f988d2777c7bf000e9e2c691ce43b76f6",
+    "SOURCES.md": "59dd099ec9b7d5e53e1440c5dfed163e3898309bd7d89cef213aba688e5aaa7e",
+    "aod-lint.json": "5e893ec1918b16a26a2edb2bf25619c515ebaadd4923828b37018e88eec668eb",
+    "candidate-records.json.gz": "c2676ae359a78306cfef705b2a80eb255a4de274d6a4c045fbaa8d2f712d6522",
+    "chiral_batch.ptx": "156cccf0cd9dea5c88a122fba99138920b78b599213229027e7380c36f204d47",
+    "doc-review-binding.json": "5345e54c3a885ff43b1b754c1abb5263cacfc196adae90dfb4b98e9db98e5266",
+    "gpu-libraries.json": "ee5cd116d97cbb9ffbadf6c87e6cbbbc4c8a617dffc2209d2d004e7b4d799409",
+    "gpu-probe.json": "a5d0564a272ff7d78f04b4015f9d6574c76154928a7db413144cb81da2330f63",
+    "results.json": "b29c8d42d0247d2fd9bba7a6332997249a69de33ffd895e640ccecc38a716e45",
+    "routing-parallel.png": "d25c659c379c503c6d34cb2cf6bbf57c6f5b2d82dc420a811b17fc9c00a849bd",
+    "source-binding.json": "5a80bd57d48c7dc69e4c877dc6e3fb850ccd5bf810105c0d333840a779c3c473",
+    "tests-normal.log": "b0686c42a4ec580b2c72f7586d731dd9e75bc4a79972be5afc9b211887078ae6",
+    "tests-optimized.log": "5eaf7658ac0243c7d16281833cfa291f5939a3cd3ef4fdfa4748f3ecee705e8f",
+    "tests-routing-normal.log": "8071ea117037cbccff053925ea47e84f5da7527bc0409e64a8fdc9cf996db5a4",
+    "tests-routing-optimized.log": "9cd2a05f08e48d7d0f27e5e5138d9e31e471979ad615593e4ce99b8ba9878fc2",
+    "traces.json.gz": "3d24074c17d5b5c0cf789cbc52d7e6f04e23a1c21c79f18b741b4519738c546d",
+    "wavelength-control.json": "75782cd6cb15cb55a5ab75ab391448cf0f72d76fd34e2b8fe3c1eb5870cc0f5e"
+  }
+}

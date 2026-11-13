@@ -116,3 +116,16 @@ The full position/chirality state defines the Markov law while complete historie
 remain retained. Exact enumeration and native replay check that finite model;
 they supply no physical proton–proton preparation, SI clock, collision energy or
 empirical calibration. No Main/Manual source is changed.
+
+The routed tracing extension binds shedding, route targets, retained Duon/E2
+form and proton-facing preparation in `evidence/routing-parallel/`. Its admitted
+`3:3` computational preparation does not establish the missing physical proton
+map. The fixture derives a sheddic route from declared positive surplus and
+retains its source state, causal history, target and TTL/seat gate operands.
+The application model supplies those rules; scalar/multicore/GPU execution of
+integer candidate tables is a separate layer from full host witness admission.
+The owner's octave terminology retains the octal coordinate presentation with
+Monon/beat records, separately from event counts. It supplies no physical
+frequency-doubling law or wavelength from topology alone.
+Source review, model falsifiers, execution coverage and physical calibration
+remain separate records under the same AOD/AF routing and current owner amendment.

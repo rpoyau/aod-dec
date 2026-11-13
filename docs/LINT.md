@@ -77,3 +77,9 @@ read the recorded file list, diagnostics and status for actual coverage. The
 Markov kernel, exact tickets, retained return histories and native replay require
 their separate executable checks. Manuscript lint establishes no physical
 proton–proton calibration or cross-section prediction.
+
+`docs/routing-parallel.typ` adds a fourth manuscript. Its actual scan and build
+coverage are retained in `evidence/routing-parallel/`. Lint does not check GPU
+availability, exact backend equivalence, worker participation, retained route
+admission, or physical proton correspondence. Those require their source-bound
+reviews and executable evidence; a missing GPU is not a successful hardware run.

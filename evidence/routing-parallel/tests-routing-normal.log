@@ -1,0 +1,18 @@
+test_actual_33_support_retains_every_source_return_and_component (tests.test_collision_routing.CollisionRoutingTests.test_actual_33_support_retains_every_source_return_and_component) ... ok
+test_empty_selected_window_retains_formation_without_fabricated_events (tests.test_collision_routing.CollisionRoutingTests.test_empty_selected_window_retains_formation_without_fabricated_events) ... ok
+test_exact_zero_one_and_multiple_flip_controls (tests.test_collision_routing.CollisionRoutingTests.test_exact_zero_one_and_multiple_flip_controls) ... ok
+test_exoshedding_exposes_the_actual_retained_inner_pair (tests.test_collision_routing.CollisionRoutingTests.test_exoshedding_exposes_the_actual_retained_inner_pair) ... ok
+test_octal_addresses_bind_events_without_changing_beat_or_wavelength_types (tests.test_collision_routing.CollisionRoutingTests.test_octal_addresses_bind_events_without_changing_beat_or_wavelength_types) ... ok
+test_octal_encoding_rejects_an_address_below_the_declared_origin (tests.test_collision_routing.CollisionRoutingTests.test_octal_encoding_rejects_an_address_below_the_declared_origin) ... ok
+test_positive_route_has_actual_duon_form_and_causal_order (tests.test_collision_routing.CollisionRoutingTests.test_positive_route_has_actual_duon_form_and_causal_order) ... ok
+test_rejects_changed_source_tickets_and_preserves_compact_input (tests.test_collision_routing.CollisionRoutingTests.test_rejects_changed_source_tickets_and_preserves_compact_input) ... ok
+test_rejects_missing_form_wrong_partition_and_forged_bridge (tests.test_collision_routing.CollisionRoutingTests.test_rejects_missing_form_wrong_partition_and_forged_bridge) ... ok
+test_rejects_route_and_retention_precondition_failures (tests.test_collision_routing.CollisionRoutingTests.test_rejects_route_and_retention_precondition_failures) ... ok
+test_routing_counterfactuals_do_not_reuse_outer_events_with_changed_payloads (tests.test_collision_routing.CollisionRoutingTests.test_routing_counterfactuals_do_not_reuse_outer_events_with_changed_payloads) ... ok
+test_same_formation_prefix_and_different_continuation_bindings (tests.test_collision_routing.CollisionRoutingTests.test_same_formation_prefix_and_different_continuation_bindings) ... ok
+test_source_state_orientation_tracks_last_return_not_formation (tests.test_collision_routing.CollisionRoutingTests.test_source_state_orientation_tracks_last_return_not_formation) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 26.556s
+
+OK

@@ -1,0 +1,56 @@
+{
+  "probe": {
+    "status": "UNAVAILABLE",
+    "backend": "cuda-gpu",
+    "reason": "cuInit: CUDA_ERROR_NO_DEVICE",
+    "gpu_executed": false,
+    "driver_version": 13050,
+    "cuda_status": 100
+  },
+  "scope": "CUDA integer table-execution backend; host witness certification remains separate.",
+  "unsandboxed_probe": {
+    "command": [
+      "nvidia-smi"
+    ],
+    "status": "ABORTED_BY_USER",
+    "gpu_execution_observed": false
+  },
+  "sources": [
+    "https://docs.nvidia.com/cuda/archive/12.9.1/nvrtc/index.html",
+    "https://docs.nvidia.com/cuda/archive/12.9.1/cuda-driver-api/group__CUDA__EXEC.html",
+    "https://docs.nvidia.com/cuda/archive/12.9.1/cuda-driver-api/group__CUDA__DEVICE.html"
+  ],
+  "offline_compilation": {
+    "status": "COMPILED",
+    "gpu_executed": false,
+    "architecture": "compute_75",
+    "nvrtc_version": [
+      12,
+      9
+    ],
+    "source_sha256": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+    "ptx_sha256": "156cccf0cd9dea5c88a122fba99138920b78b599213229027e7380c36f204d47",
+    "compiler_log": "",
+    "scope": "Actual NVRTC compilation only; no device execution or acceleration demonstrated."
+  },
+  "source_sha256": {
+    "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/simulations/kernels/chiral_batch.cu": "561b0cfb926805d75b6bf3b95cbbbdcb443f77af8b4e795f608375fb07f4238e",
+    "tests/test_chiral_gpu.py": "4dd8482f212b9583987fdc9d4f181e6f79f46cab56ad5b2f5ed7d110bee5634e"
+  },
+  "tests": {
+    "normal": {
+      "total": 11,
+      "passed": 9,
+      "skipped": 2
+    },
+    "optimized": {
+      "total": 11,
+      "passed": 9,
+      "skipped": 2
+    },
+    "skipped_scope": "Actual CUDA device execution; cuInit returned CUDA_ERROR_NO_DEVICE.",
+    "host_kernel_body": "Same .cu body compiled using g++ with scalar launch-index shims and checked against scalar supplied-table execution, including UINT32_MAX thresholds and strict equality boundary. This is CPU execution, not CUDA execution.",
+    "cleanup": "Injected free/unload/destruction failures check that every release is attempted, cleanup failures aggregate only without a primary error, and original launch/compiler errors are preserved."
+  }
+}

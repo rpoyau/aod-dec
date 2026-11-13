@@ -121,6 +121,31 @@ jobs:
             build/chiral-collision/dec/*.json
           if-no-files-found: warn
           retention-days: 90
+      - name: Run routed tracing and parallel application study
+        run: |
+          python3 scripts/simulate_routing_parallel.py --output build/routing-parallel \
+            --workers 2 --paths 256 --traced-paths 16 --gpu auto --plots
+      - name: Build routed tracing application from fresh results
+        run: |
+          build/tools/typst-x86_64-unknown-linux-musl/typst compile --root . \
+            --creation-timestamp 1794528000 \
+            --input results=../build/routing-parallel/results.json \
+            --input chart=../build/routing-parallel/routing-parallel.png \
+            docs/routing-parallel.typ build/routing-parallel/routing-parallel.pdf
+      - name: Retain routed tracing and parallel study
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: routing-parallel-${{ github.sha }}
+          path: |
+            build/routing-parallel/results.json
+            build/routing-parallel/*.json.gz
+            build/routing-parallel/*.json
+            build/routing-parallel/*.png
+            build/routing-parallel/*.pdf
+            build/routing-parallel/*.ptx
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

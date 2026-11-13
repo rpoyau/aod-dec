@@ -48,6 +48,23 @@ Run `make simulate-chiral` for the study and chart; add `--native --plots` to
 to build the Typst PDF from retained evidence. Plotting needs Matplotlib, native
 replay needs the compiler toolchain, and the PDF requires Typst.
 
+The [routed tracing companion](docs/routing-parallel.typ) adds explicit shedding
+routes and table-driven batch execution. Scalar CPU, multicore CPU and GPU
+backends consume the same exact model tables and supplied tickets. Their
+candidate rows remain separate from host construction and validation of full
+return, preparation and route witnesses. The probabilistic law stays in the
+application model; these execution backends add no intrinsic collision law.
+The admitted `3:3` proton-facing preparation fixture is distinct from a physical
+proton correspondence. Positive declared surplus is routed with retained
+Duon/E2 form and explicit TTL/seat gates. Octaves retain the octal coordinate
+presentation with Monon/beat records; event counts are separate, and physical
+frequency or wavelength requires an observation map.
+Run `make simulate-routing` and `make docs-routing`. The study's `--gpu auto`
+records `UNAVAILABLE` when no GPU can execute; `--gpu required` fails instead.
+Read the retained device/execution evidence before claiming GPU validation or
+speedup. Physical proton-proton preparation, scattering and SI calibration remain
+unestablished.
+
 Persistent hardware selection is available through `scripts/adapt_native.py`.
 The measured seven-workload experiment established functional adaptation but no
 cost-inclusive speedup; every measured workload retained the generic variant.

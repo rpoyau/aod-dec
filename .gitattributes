@@ -10,6 +10,8 @@ evidence/cell-jitter/*.json linguist-generated=true
 evidence/manual-alignment/*.json linguist-generated=true
 evidence/chiral-collision/*.json linguist-generated=true
 evidence/chiral-collision/dec/* linguist-generated=true
+evidence/routing-parallel/*.json linguist-generated=true
+evidence/routing-parallel/*.json.gz linguist-generated=true
 # Keep raw tool output and archived patches byte-identical to their recorded hashes.
 evidence/**/*.txt -whitespace
 evidence/**/*.log -whitespace

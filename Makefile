@@ -4,7 +4,7 @@ TYPST ?= typst
 RUSTFLAGS := -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1
 BUILD_DIR := build
 
-.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native simulate-cells docs-cells simulate-chiral docs-chiral examples clean
+.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native simulate-cells docs-cells simulate-chiral docs-chiral simulate-routing docs-routing examples clean
 all: $(BUILD_DIR)/aod_stage0_seed $(BUILD_DIR)/aod_self_host_compiler $(BUILD_DIR)/aod_stage2_bootstrap
 
 $(BUILD_DIR):
@@ -51,6 +51,17 @@ docs-chiral:
 		--input results=../evidence/chiral-collision/results.json \
 		--input chart=../evidence/chiral-collision/chiral-study.png \
 		docs/chiral-core-collision.typ $(BUILD_DIR)/chiral-collision/chiral-core-collision.pdf
+
+simulate-routing:
+	$(PYTHON) scripts/simulate_routing_parallel.py --output $(BUILD_DIR)/routing-parallel \
+		--workers 4 --paths 256 --traced-paths 16 --gpu auto --plots
+
+docs-routing:
+	mkdir -p $(BUILD_DIR)/routing-parallel
+	$(TYPST) compile --root . --creation-timestamp 1794528000 \
+		--input results=../evidence/routing-parallel/results.json \
+		--input chart=../evidence/routing-parallel/routing-parallel.png \
+		docs/routing-parallel.typ $(BUILD_DIR)/routing-parallel/routing-parallel.pdf
 
 $(BUILD_DIR)/bootstrap_tests: tests/bootstrap_regressions.rs $(wildcard bootstrap/*.rs) | $(BUILD_DIR)
 	$(RUSTC) --test tests/bootstrap_regressions.rs -o $@

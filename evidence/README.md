@@ -130,3 +130,26 @@ The [source-bound review](chiral-collision/SOURCES.md) and
 [implementation review](chiral-collision/IMPLEMENTATION-REVIEW.md) cover their
 cited semantic units, not the whole AOD corpus. No calibrated physical
 proton–proton collision prediction is established.
+
+## Routed tracing and parallel execution
+
+[`routing-parallel/`](routing-parallel/) binds the declared shedding/routing
+fixture, scalar and multicore execution, optional GPU probe/execution, and the
+Typst companion. All candidate backends consume the same exact model tables
+and tickets. Host return/preparation/routing witnesses are retained and checked
+separately; candidate-row equivalence does not itself admit a route or a proton.
+
+The `3:3` proton-facing preparation is an admitted computational fixture with
+physical correspondence still unset. Positive declared sheddic surplus retains
+Duon/E2 form and route/target history under explicit TTL/seat gates. Octaves
+retain the octal coordinate presentation with Monon/beat records; event counts
+remain separate. Physical frequency doubling and wavelength are not inferred.
+The probabilistic law belongs to the application model and remains
+distinct from the execution engines.
+
+Run `make simulate-routing` for the study and `make docs-routing` for the PDF
+from retained evidence. CI executes with two CPU workers and `--gpu auto`, then
+builds the companion from fresh results. It retains JSON records, compressed
+traces, figure and PDF. An absent GPU is reported `UNAVAILABLE`, never passed by
+substituting a CPU; `--gpu required` fails in that case. Read actual device and
+comparison records before claiming GPU verification or a cost-inclusive speedup.

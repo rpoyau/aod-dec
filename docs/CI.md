@@ -120,3 +120,33 @@ witness exemplars, generated sources, typed IR, AOT build manifests and stdout.
 The committed cohort uses lossless gzip; its decoded hash is recorded in
 `evidence/chiral-collision/validation.json`. No calibrated physical proton-proton
 prediction, clock, energy or cross-section map is supplied.
+
+## Routed tracing and parallel application
+
+`make simulate-routing` runs `scripts/simulate_routing_parallel.py` with four CPU
+workers, 256 ticket paths, 16 fully traced paths and `--gpu auto --plots`. CI uses
+two CPU workers with the same sample and trace counts. The integer candidate
+evaluation uses caller-supplied movement and flip tables; deterministic tickets
+and ordered rows support exact scalar/multicore/GPU comparisons. Backend
+participation, data-transfer/startup costs and full host witness work must remain
+separate evidence fields. A kernel timing alone does not establish a speedup for
+the full simulation and tracing workflow.
+
+No GPU dependencies are installed for the hosted CI job. `--gpu auto` records
+an explicit `UNAVAILABLE` result when no usable GPU exists; that result is not a
+GPU pass or an implicit CPU fallback. `--gpu required` makes an unavailable GPU
+an error. Actual device execution and output comparison are required before
+reporting a verified GPU backend.
+
+The host fixture admits a `3:3` proton-facing preparation and retained sheddic
+routing through Duon/E2 form under declared positive-surplus and TTL/seat gates.
+Batch candidate rows do not themselves certify these histories. Octaves retain
+the octal coordinate presentation with Monon/beat records; event counts remain
+separate. No physical frequency-doubling or wavelength map follows.
+The physical proton and measured scattering correspondence remain uninstantiated.
+
+`make docs-routing` builds `docs/routing-parallel.typ` from retained evidence.
+CI builds it against fresh `results.json` and `routing-parallel.png`, retaining
+the PDF, figure, JSON records and compressed trace files as workflow artifacts.
+The pinned local manuscript lint and rendered-page inspection remain separate
+from backend and routing tests.

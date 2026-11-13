@@ -1,0 +1,37 @@
+{
+  "status": "CONDITIONAL_MAP",
+  "native_scope": "synthetic:wavelength-control",
+  "map": {
+    "seconds_per_native_index": "1/5",
+    "phase_cycles_per_beat": "1",
+    "phase_speed_m_s": "12",
+    "native_scope": "synthetic:wavelength-control",
+    "provenance": "Explicit dimensional unit control; no physical proton calibration.",
+    "role": "synthetic_control"
+  },
+  "rows": [
+    {
+      "beat_index": 1,
+      "native_separation": 10,
+      "elapsed_s": "2",
+      "phase_frequency_hz": "1/2",
+      "wavelength_m": "24"
+    },
+    {
+      "beat_index": 2,
+      "native_separation": 20,
+      "elapsed_s": "4",
+      "phase_frequency_hz": "1/4",
+      "wavelength_m": "48"
+    }
+  ],
+  "law": "elapsed_s = native_separation * seconds_per_index; f = cycles_per_beat / elapsed_s; lambda = phase_speed / f",
+  "coordinate_role": "Octal support coordinates and origin-qualified beat counts remain distinct; no frequency doubling is inferred.",
+  "measured_target": null,
+  "target_residual": null,
+  "uncertainty": {
+    "status": "unknown",
+    "standard_uncertainty_m": null
+  },
+  "physical_proton_correspondence": "NOT_INSTANTIATED"
+}
