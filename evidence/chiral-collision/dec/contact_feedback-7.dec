@@ -1,0 +1,253 @@
+# Generated scalar D.E.C. completed-return replay; no native random sampling.
+# Coarse facet motion and Q4 return realizations are separately declared maps.
+# Generator source SHA-256: 32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0
+# Host model evaluator source SHA-256: a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62
+# Configuration SHA-256: 92bef637d13b5ce51f49edc6cb26d47af618c6a06defc5fdec34771170bbc0a1
+# Retained path SHA-256: 956b2f6bff9563f705211fab06628f8b4f2503fd62845577347e8fab621ec4e6
+# Declared locations/tickets SHA-256: 5b81de3fcf97b06747dce7302f4fac2e3b6901599dbd4e169887292c8438c990
+# Manual producer SHA-256: 3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf
+# Scalar output: q_a, q_b, chi_a, chi_b, phases_a, phases_b, beats_a, beats_b; then A trace, B trace, result.
+Dec population_count(facet) -> count:
+    (str facet) -> int count:
+        assert facet == "0***" or facet == "1***" or facet == "*0**" or facet == "*1**" or facet == "**0*" or facet == "**1*" or facet == "***0" or facet == "***1"
+        count = 1 if facet == "0***" else (1 if facet == "1***" else (4 if facet == "*0**" else (1 if facet == "*1**" else (1 if facet == "**0*" else (1 if facet == "**1*" else (1 if facet == "***0" else (1)))))))
+
+Dec q_local(facet) -> q:
+    (str facet) -> ratio q:
+        ratio score = ratio(population_count(facet) - 1, 3)
+        q = ratio(1, 16) + (ratio(1, 4) - ratio(1, 16)) * score
+
+Dec q_contact(base, present) -> q:
+    (ratio base, bool present) -> ratio q:
+        q = base + ratio(1, 4) * (ratio(1, 1) - base) if present else base
+
+Dec recur_plus(t) -> out:
+    (trace t) -> trace out:
+        t = step(t, q4(1), t1(1))
+        t = hinge(t)
+        t = step(t, q4(0), t1(-1))
+        out = close(t)
+
+Dec recur_minus(t) -> out:
+    (trace t) -> trace out:
+        t = step(t, q4(1), t1(-1))
+        t = hinge(t)
+        t = step(t, q4(0), t1(1))
+        out = close(t)
+
+Dec main() -> result:
+    () -> int result:
+        int chi_a = 1
+        int chi_b = -1
+        str facet_a = "0***"
+        str facet_b = "1***"
+        trace a = trace("chiral-encounter:declared-support", "carrier-A", q4(0))
+        trace b = trace("chiral-encounter:declared-support", "carrier-B", q4(0))
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        assert phases(a) == 2
+        assert beats(a) == 1
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(b) == 2
+        assert beats(b) == 1
+        ratio q_a = ratio(0, 1)
+        ratio q_b = ratio(0, 1)
+        bool present = false
+        bool flip_a = false
+        bool flip_b = false
+        # Tick 1: declared post-move facets; movement tickets (2, 0) / 8.
+        facet_a = "*0**"
+        facet_b = "1***"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(21, 64) < q_a
+        flip_b = ratio(28, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 3
+        assert phases(b) == 3
+        assert beats(a) == 2
+        assert beats(b) == 2
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 2: declared post-move facets; movement tickets (1, 7) / 8.
+        facet_a = "1***"
+        facet_b = "***1"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(37, 64) < q_a
+        flip_b = ratio(46, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 4
+        assert phases(b) == 4
+        assert beats(a) == 3
+        assert beats(b) == 3
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 3: declared post-move facets; movement tickets (7, 6) / 8.
+        facet_a = "***1"
+        facet_b = "***1"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(2, 64) < q_a
+        flip_b = ratio(10, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 5
+        assert phases(b) == 5
+        assert beats(a) == 4
+        assert beats(b) == 4
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 4: declared post-move facets; movement tickets (5, 3) / 8.
+        facet_a = "**1*"
+        facet_b = "*1**"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(41, 64) < q_a
+        flip_b = ratio(26, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 6
+        assert phases(b) == 6
+        assert beats(a) == 5
+        assert beats(b) == 5
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 5: declared post-move facets; movement tickets (1, 2) / 8.
+        facet_a = "1***"
+        facet_b = "*1**"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(40, 64) < q_a
+        flip_b = ratio(57, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 7
+        assert phases(b) == 7
+        assert beats(a) == 6
+        assert beats(b) == 6
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 6: declared post-move facets; movement tickets (7, 4) / 8.
+        facet_a = "***1"
+        facet_b = "**0*"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(4, 64) < q_a
+        flip_b = ratio(12, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 8
+        assert phases(b) == 8
+        assert beats(a) == 7
+        assert beats(b) == 7
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 7: declared post-move facets; movement tickets (7, 4) / 8.
+        facet_a = "***1"
+        facet_b = "**0*"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(39, 64) < q_a
+        flip_b = ratio(41, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 9
+        assert phases(b) == 9
+        assert beats(a) == 8
+        assert beats(b) == 8
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        # Tick 8: declared post-move facets; movement tickets (7, 6) / 8.
+        facet_a = "***1"
+        facet_b = "***0"
+        present = facet_a == facet_b
+        q_a = q_contact(q_local(facet_a), present)
+        q_b = q_contact(q_local(facet_b), present)
+        flip_a = ratio(53, 64) < q_a
+        flip_b = ratio(59, 64) < q_b
+        chi_a = -chi_a if flip_a else chi_a
+        chi_b = -chi_b if flip_b else chi_b
+        a = recur_plus(a) if chi_a == 1 else recur_minus(a)
+        b = recur_plus(b) if chi_b == 1 else recur_minus(b)
+        assert phases(a) == 10
+        assert phases(b) == 10
+        assert beats(a) == 9
+        assert beats(b) == 9
+        emit q_a
+        emit q_b
+        emit chi_a
+        emit chi_b
+        emit phases(a)
+        emit phases(b)
+        emit beats(a)
+        emit beats(b)
+        emit a
+        emit b
+        result = 0

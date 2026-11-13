@@ -100,3 +100,33 @@ quantities separate. Target values cannot change the fixture prediction.
 Source bindings, bounded review digests, tests, lint and revised PDF validation
 are retained alongside it. The reviewed Manual I candidate is identified as a
 delivered local candidate, not silently promoted to accepted remote Main.
+
+## Core-biased chiral encounter application
+
+[`chiral-collision/`](chiral-collision/) records the declared two-carrier Markov
+experiment, source bindings, exact probabilities, sampled cohort and exemplar
+histories. The `core_only` scenario has contact gain `0`; `contact_feedback`
+separately applies gain `1/4`. Probabilities conditioned on core/contact
+opportunities, flip counts and terminal sign parity are distinct observables.
+Integer/rational checks and retained histories are separate from sampling
+variation and unknown physical discrepancy.
+The probabilistic model and D.E.C. execution engine have distinct roles: the
+application supplies the law; the unchanged engine executes and validates the
+supplied program. `model_reference_comparison` compares two host evaluations
+of the declared law, not two different physical engines.
+The committed `cohort.json.gz` decompresses byte-for-byte to the recorded
+`cohort.json` hash. CI retains the uncompressed cohort; `validation.json` binds
+both representations. Full witness exemplars are stored separately.
+
+Run `make simulate-chiral` to reproduce the study and chart. Add `--native --plots`
+to `scripts/simulate_chiral_collision.py` for generated scalar D.E.C. replay
+through the reference VM, typed IR, AOT and JIT. `make docs-chiral` compiles its
+Typst companion from retained evidence; CI uses fresh results and retains the
+results, cohort, exemplars, figure, PDF, generated
+programs and complete execution stdout. Native replay computes the declared
+ticket decisions and executes both carrier histories with structural hinges;
+the host supplies sampled motion/tickets and exact distribution enumeration.
+The [source-bound review](chiral-collision/SOURCES.md) and
+[implementation review](chiral-collision/IMPLEMENTATION-REVIEW.md) cover their
+cited semantic units, not the whole AOD corpus. No calibrated physical
+proton–proton collision prediction is established.

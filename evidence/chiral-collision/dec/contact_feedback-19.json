@@ -1,0 +1,5675 @@
+{
+  "format": "aod.dec.ir",
+  "functions": [
+    {
+      "branches": [
+        {
+          "body": [
+            {
+              "kind": "assert",
+              "line": 12,
+              "value": {
+                "kind": "boolean",
+                "op": "or",
+                "type": "bool",
+                "values": [
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "0***"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "1***"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "*0**"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "*1**"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "**0*"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "**1*"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "***0"
+                    },
+                    "type": "bool"
+                  },
+                  {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "***1"
+                    },
+                    "type": "bool"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 13,
+              "name": "count",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "facet",
+                    "type": "str"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "str",
+                    "value": "0***"
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "condition": {
+                    "kind": "compare",
+                    "left": {
+                      "kind": "name",
+                      "name": "facet",
+                      "type": "str"
+                    },
+                    "op": "==",
+                    "right": {
+                      "kind": "literal",
+                      "type": "str",
+                      "value": "1***"
+                    },
+                    "type": "bool"
+                  },
+                  "kind": "conditional",
+                  "no": {
+                    "condition": {
+                      "kind": "compare",
+                      "left": {
+                        "kind": "name",
+                        "name": "facet",
+                        "type": "str"
+                      },
+                      "op": "==",
+                      "right": {
+                        "kind": "literal",
+                        "type": "str",
+                        "value": "*0**"
+                      },
+                      "type": "bool"
+                    },
+                    "kind": "conditional",
+                    "no": {
+                      "condition": {
+                        "kind": "compare",
+                        "left": {
+                          "kind": "name",
+                          "name": "facet",
+                          "type": "str"
+                        },
+                        "op": "==",
+                        "right": {
+                          "kind": "literal",
+                          "type": "str",
+                          "value": "*1**"
+                        },
+                        "type": "bool"
+                      },
+                      "kind": "conditional",
+                      "no": {
+                        "condition": {
+                          "kind": "compare",
+                          "left": {
+                            "kind": "name",
+                            "name": "facet",
+                            "type": "str"
+                          },
+                          "op": "==",
+                          "right": {
+                            "kind": "literal",
+                            "type": "str",
+                            "value": "**0*"
+                          },
+                          "type": "bool"
+                        },
+                        "kind": "conditional",
+                        "no": {
+                          "condition": {
+                            "kind": "compare",
+                            "left": {
+                              "kind": "name",
+                              "name": "facet",
+                              "type": "str"
+                            },
+                            "op": "==",
+                            "right": {
+                              "kind": "literal",
+                              "type": "str",
+                              "value": "**1*"
+                            },
+                            "type": "bool"
+                          },
+                          "kind": "conditional",
+                          "no": {
+                            "condition": {
+                              "kind": "compare",
+                              "left": {
+                                "kind": "name",
+                                "name": "facet",
+                                "type": "str"
+                              },
+                              "op": "==",
+                              "right": {
+                                "kind": "literal",
+                                "type": "str",
+                                "value": "***0"
+                              },
+                              "type": "bool"
+                            },
+                            "kind": "conditional",
+                            "no": {
+                              "kind": "literal",
+                              "type": "int",
+                              "value": 1
+                            },
+                            "type": "int",
+                            "yes": {
+                              "kind": "literal",
+                              "type": "int",
+                              "value": 1
+                            }
+                          },
+                          "type": "int",
+                          "yes": {
+                            "kind": "literal",
+                            "type": "int",
+                            "value": 1
+                          }
+                        },
+                        "type": "int",
+                        "yes": {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 1
+                        }
+                      },
+                      "type": "int",
+                      "yes": {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 1
+                      }
+                    },
+                    "type": "int",
+                    "yes": {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 4
+                    }
+                  },
+                  "type": "int",
+                  "yes": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  }
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 1
+                }
+              }
+            }
+          ],
+          "line": 11,
+          "output": "count",
+          "params": [
+            {
+              "name": "facet",
+              "type": "str"
+            }
+          ],
+          "return_type": "int"
+        }
+      ],
+      "line": 10,
+      "name": "population_count",
+      "output": "count",
+      "params": [
+        "facet"
+      ]
+    },
+    {
+      "branches": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "line": 17,
+              "name": "score",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "kind": "binary",
+                    "left": {
+                      "args": [
+                        {
+                          "kind": "name",
+                          "name": "facet",
+                          "type": "str"
+                        }
+                      ],
+                      "kind": "call",
+                      "name": "population_count",
+                      "type": "int"
+                    },
+                    "op": "-",
+                    "right": {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 1
+                    },
+                    "type": "int"
+                  },
+                  {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 3
+                  }
+                ],
+                "kind": "call",
+                "name": "ratio",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 18,
+              "name": "q",
+              "type": "ratio",
+              "value": {
+                "kind": "binary",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 1
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 16
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "+",
+                "right": {
+                  "kind": "binary",
+                  "left": {
+                    "kind": "binary",
+                    "left": {
+                      "args": [
+                        {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 1
+                        },
+                        {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 4
+                        }
+                      ],
+                      "kind": "call",
+                      "name": "ratio",
+                      "type": "ratio"
+                    },
+                    "op": "-",
+                    "right": {
+                      "args": [
+                        {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 1
+                        },
+                        {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 16
+                        }
+                      ],
+                      "kind": "call",
+                      "name": "ratio",
+                      "type": "ratio"
+                    },
+                    "type": "ratio"
+                  },
+                  "op": "*",
+                  "right": {
+                    "kind": "name",
+                    "name": "score",
+                    "type": "ratio"
+                  },
+                  "type": "ratio"
+                },
+                "type": "ratio"
+              }
+            }
+          ],
+          "line": 16,
+          "output": "q",
+          "params": [
+            {
+              "name": "facet",
+              "type": "str"
+            }
+          ],
+          "return_type": "ratio"
+        }
+      ],
+      "line": 15,
+      "name": "q_local",
+      "output": "q",
+      "params": [
+        "facet"
+      ]
+    },
+    {
+      "branches": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "line": 22,
+              "name": "q",
+              "type": "ratio",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "present",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "base",
+                  "type": "ratio"
+                },
+                "type": "ratio",
+                "yes": {
+                  "kind": "binary",
+                  "left": {
+                    "kind": "name",
+                    "name": "base",
+                    "type": "ratio"
+                  },
+                  "op": "+",
+                  "right": {
+                    "kind": "binary",
+                    "left": {
+                      "args": [
+                        {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 1
+                        },
+                        {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 4
+                        }
+                      ],
+                      "kind": "call",
+                      "name": "ratio",
+                      "type": "ratio"
+                    },
+                    "op": "*",
+                    "right": {
+                      "kind": "binary",
+                      "left": {
+                        "args": [
+                          {
+                            "kind": "literal",
+                            "type": "int",
+                            "value": 1
+                          },
+                          {
+                            "kind": "literal",
+                            "type": "int",
+                            "value": 1
+                          }
+                        ],
+                        "kind": "call",
+                        "name": "ratio",
+                        "type": "ratio"
+                      },
+                      "op": "-",
+                      "right": {
+                        "kind": "name",
+                        "name": "base",
+                        "type": "ratio"
+                      },
+                      "type": "ratio"
+                    },
+                    "type": "ratio"
+                  },
+                  "type": "ratio"
+                }
+              }
+            }
+          ],
+          "line": 21,
+          "output": "q",
+          "params": [
+            {
+              "name": "base",
+              "type": "ratio"
+            },
+            {
+              "name": "present",
+              "type": "bool"
+            }
+          ],
+          "return_type": "ratio"
+        }
+      ],
+      "line": 20,
+      "name": "q_contact",
+      "output": "q",
+      "params": [
+        "base",
+        "present"
+      ]
+    },
+    {
+      "branches": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "line": 26,
+              "name": "t",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 1
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q4",
+                    "type": "q4"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 1
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "t1",
+                    "type": "t1"
+                  }
+                ],
+                "kind": "call",
+                "name": "step",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 27,
+              "name": "t",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "hinge",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 28,
+              "name": "t",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 0
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q4",
+                    "type": "q4"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "unary",
+                        "op": "-",
+                        "type": "int",
+                        "value": {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 1
+                        }
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "t1",
+                    "type": "t1"
+                  }
+                ],
+                "kind": "call",
+                "name": "step",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 29,
+              "name": "out",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "close",
+                "type": "trace"
+              }
+            }
+          ],
+          "line": 25,
+          "output": "out",
+          "params": [
+            {
+              "name": "t",
+              "type": "trace"
+            }
+          ],
+          "return_type": "trace"
+        }
+      ],
+      "line": 24,
+      "name": "recur_plus",
+      "output": "out",
+      "params": [
+        "t"
+      ]
+    },
+    {
+      "branches": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "line": 33,
+              "name": "t",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 1
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q4",
+                    "type": "q4"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "unary",
+                        "op": "-",
+                        "type": "int",
+                        "value": {
+                          "kind": "literal",
+                          "type": "int",
+                          "value": 1
+                        }
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "t1",
+                    "type": "t1"
+                  }
+                ],
+                "kind": "call",
+                "name": "step",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 34,
+              "name": "t",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "hinge",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 35,
+              "name": "t",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 0
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q4",
+                    "type": "q4"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 1
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "t1",
+                    "type": "t1"
+                  }
+                ],
+                "kind": "call",
+                "name": "step",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 36,
+              "name": "out",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "t",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "close",
+                "type": "trace"
+              }
+            }
+          ],
+          "line": 32,
+          "output": "out",
+          "params": [
+            {
+              "name": "t",
+              "type": "trace"
+            }
+          ],
+          "return_type": "trace"
+        }
+      ],
+      "line": 31,
+      "name": "recur_minus",
+      "output": "out",
+      "params": [
+        "t"
+      ]
+    },
+    {
+      "branches": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "line": 40,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "kind": "literal",
+                "type": "int",
+                "value": 1
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 41,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "kind": "unary",
+                "op": "-",
+                "type": "int",
+                "value": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 1
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 42,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "0***"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 43,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "1***"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 44,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "literal",
+                    "type": "str",
+                    "value": "chiral-encounter:declared-support"
+                  },
+                  {
+                    "kind": "literal",
+                    "type": "str",
+                    "value": "carrier-A"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 0
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q4",
+                    "type": "q4"
+                  }
+                ],
+                "kind": "call",
+                "name": "trace",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 45,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "args": [
+                  {
+                    "kind": "literal",
+                    "type": "str",
+                    "value": "chiral-encounter:declared-support"
+                  },
+                  {
+                    "kind": "literal",
+                    "type": "str",
+                    "value": "carrier-B"
+                  },
+                  {
+                    "args": [
+                      {
+                        "kind": "literal",
+                        "type": "int",
+                        "value": 0
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q4",
+                    "type": "q4"
+                  }
+                ],
+                "kind": "call",
+                "name": "trace",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 46,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 47,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 48,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 2
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 49,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 1
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 50,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 51,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 52,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 2
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 53,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 1
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 54,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 0
+                  },
+                  {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  }
+                ],
+                "kind": "call",
+                "name": "ratio",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 55,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 0
+                  },
+                  {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  }
+                ],
+                "kind": "call",
+                "name": "ratio",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 56,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "literal",
+                "type": "bool",
+                "value": false
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 57,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "literal",
+                "type": "bool",
+                "value": false
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 58,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "literal",
+                "type": "bool",
+                "value": false
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 60,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "***0"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 61,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "**0*"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 62,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 63,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 64,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 65,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 14
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 66,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 33
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 67,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 68,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 69,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 70,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 71,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 3
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 72,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 3
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 73,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 2
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 74,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 2
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 75,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 76,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 77,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 78,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 79,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 80,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 81,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 82,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 84,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "***0"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 85,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "**0*"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 86,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 87,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 88,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 89,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 24
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 90,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 1
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 91,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 92,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 93,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 94,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 95,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 4
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 96,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 4
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 97,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 3
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 98,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 3
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 99,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 100,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 101,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 102,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 103,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 104,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 105,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 106,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 108,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "0***"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 109,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "*1**"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 110,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 111,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 112,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 113,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 20
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 114,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 33
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 115,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 116,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 117,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 118,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 119,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 5
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 120,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 5
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 121,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 4
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 122,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 4
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 123,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 124,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 125,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 126,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 127,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 128,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 129,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 130,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 132,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "***1"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 133,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "**0*"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 134,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 135,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 136,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 137,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 39
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 138,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 14
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 139,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 140,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 141,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 142,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 143,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 6
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 144,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 6
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 145,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 5
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 146,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 5
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 147,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 148,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 149,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 150,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 151,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 152,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 153,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 154,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 156,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "0***"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 157,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "1***"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 158,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 159,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 160,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 161,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 12
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 162,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 1
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 163,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 164,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 165,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 166,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 167,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 7
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 168,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 7
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 169,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 6
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 170,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 6
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 171,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 172,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 173,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 174,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 175,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 176,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 177,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 178,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 180,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "*1**"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 181,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "***0"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 182,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 183,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 184,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 185,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 28
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 186,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 20
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 187,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 188,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 189,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 190,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 191,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 8
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 192,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 8
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 193,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 7
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 194,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 7
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 195,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 196,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 197,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 198,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 199,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 200,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 201,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 202,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 204,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "**0*"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 205,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "0***"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 206,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 207,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 208,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 209,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 29
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 210,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 53
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 211,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 212,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 213,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 214,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 215,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 9
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 216,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 9
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 217,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 8
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 218,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 8
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 219,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 220,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 221,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 222,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 223,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 224,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 225,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 226,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 228,
+              "name": "facet_a",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "*1**"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 229,
+              "name": "facet_b",
+              "type": "str",
+              "value": {
+                "kind": "literal",
+                "type": "str",
+                "value": "*0**"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 230,
+              "name": "present",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "kind": "name",
+                  "name": "facet_a",
+                  "type": "str"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "name",
+                  "name": "facet_b",
+                  "type": "str"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 231,
+              "name": "q_a",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_a",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 232,
+              "name": "q_b",
+              "type": "ratio",
+              "value": {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "facet_b",
+                        "type": "str"
+                      }
+                    ],
+                    "kind": "call",
+                    "name": "q_local",
+                    "type": "ratio"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "present",
+                    "type": "bool"
+                  }
+                ],
+                "kind": "call",
+                "name": "q_contact",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 233,
+              "name": "flip_a",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 20
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_a",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 234,
+              "name": "flip_b",
+              "type": "bool",
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 6
+                    },
+                    {
+                      "kind": "literal",
+                      "type": "int",
+                      "value": 64
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "ratio",
+                  "type": "ratio"
+                },
+                "op": "<",
+                "right": {
+                  "kind": "name",
+                  "name": "q_b",
+                  "type": "ratio"
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 235,
+              "name": "chi_a",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_a",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_a",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 236,
+              "name": "chi_b",
+              "type": "int",
+              "value": {
+                "condition": {
+                  "kind": "name",
+                  "name": "flip_b",
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "kind": "name",
+                  "name": "chi_b",
+                  "type": "int"
+                },
+                "type": "int",
+                "yes": {
+                  "kind": "unary",
+                  "op": "-",
+                  "type": "int",
+                  "value": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 237,
+              "name": "a",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_a",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 238,
+              "name": "b",
+              "type": "trace",
+              "value": {
+                "condition": {
+                  "kind": "compare",
+                  "left": {
+                    "kind": "name",
+                    "name": "chi_b",
+                    "type": "int"
+                  },
+                  "op": "==",
+                  "right": {
+                    "kind": "literal",
+                    "type": "int",
+                    "value": 1
+                  },
+                  "type": "bool"
+                },
+                "kind": "conditional",
+                "no": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_minus",
+                  "type": "trace"
+                },
+                "type": "trace",
+                "yes": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "recur_plus",
+                  "type": "trace"
+                }
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 239,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 10
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 240,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "phases",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 10
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 241,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "a",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 9
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "assert",
+              "line": 242,
+              "value": {
+                "kind": "compare",
+                "left": {
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "b",
+                      "type": "trace"
+                    }
+                  ],
+                  "kind": "call",
+                  "name": "beats",
+                  "type": "int"
+                },
+                "op": "==",
+                "right": {
+                  "kind": "literal",
+                  "type": "int",
+                  "value": 9
+                },
+                "type": "bool"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 243,
+              "value": {
+                "kind": "name",
+                "name": "q_a",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 244,
+              "value": {
+                "kind": "name",
+                "name": "q_b",
+                "type": "ratio"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 245,
+              "value": {
+                "kind": "name",
+                "name": "chi_a",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 246,
+              "value": {
+                "kind": "name",
+                "name": "chi_b",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 247,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 248,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "phases",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 249,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "a",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 250,
+              "value": {
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "b",
+                    "type": "trace"
+                  }
+                ],
+                "kind": "call",
+                "name": "beats",
+                "type": "int"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 251,
+              "value": {
+                "kind": "name",
+                "name": "a",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "emit",
+              "line": 252,
+              "value": {
+                "kind": "name",
+                "name": "b",
+                "type": "trace"
+              }
+            },
+            {
+              "kind": "assign",
+              "line": 253,
+              "name": "result",
+              "type": "int",
+              "value": {
+                "kind": "literal",
+                "type": "int",
+                "value": 0
+              }
+            }
+          ],
+          "line": 39,
+          "output": "result",
+          "params": [],
+          "return_type": "int"
+        }
+      ],
+      "line": 38,
+      "name": "main",
+      "output": "result",
+      "params": []
+    }
+  ],
+  "source": "# Generated scalar D.E.C. completed-return replay; no native random sampling.\n# Coarse facet motion and Q4 return realizations are separately declared maps.\n# Generator source SHA-256: 32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0\n# Host model evaluator source SHA-256: a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62\n# Configuration SHA-256: 92bef637d13b5ce51f49edc6cb26d47af618c6a06defc5fdec34771170bbc0a1\n# Retained path SHA-256: cf725edc3561021894962bfa8bfdb40f80868b5b67023ad2d1b1de66f8956b6d\n# Declared locations/tickets SHA-256: f6a969e26fd1ff0bfdf673bc90b6b87a8f3ee5b4dc27793859f5371fd5481b0f\n# Manual producer SHA-256: 3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf\n# Scalar output: q_a, q_b, chi_a, chi_b, phases_a, phases_b, beats_a, beats_b; then A trace, B trace, result.\nDec population_count(facet) -> count:\n    (str facet) -> int count:\n        assert facet == \"0***\" or facet == \"1***\" or facet == \"*0**\" or facet == \"*1**\" or facet == \"**0*\" or facet == \"**1*\" or facet == \"***0\" or facet == \"***1\"\n        count = 1 if facet == \"0***\" else (1 if facet == \"1***\" else (4 if facet == \"*0**\" else (1 if facet == \"*1**\" else (1 if facet == \"**0*\" else (1 if facet == \"**1*\" else (1 if facet == \"***0\" else (1)))))))\n\nDec q_local(facet) -> q:\n    (str facet) -> ratio q:\n        ratio score = ratio(population_count(facet) - 1, 3)\n        q = ratio(1, 16) + (ratio(1, 4) - ratio(1, 16)) * score\n\nDec q_contact(base, present) -> q:\n    (ratio base, bool present) -> ratio q:\n        q = base + ratio(1, 4) * (ratio(1, 1) - base) if present else base\n\nDec recur_plus(t) -> out:\n    (trace t) -> trace out:\n        t = step(t, q4(1), t1(1))\n        t = hinge(t)\n        t = step(t, q4(0), t1(-1))\n        out = close(t)\n\nDec recur_minus(t) -> out:\n    (trace t) -> trace out:\n        t = step(t, q4(1), t1(-1))\n        t = hinge(t)\n        t = step(t, q4(0), t1(1))\n        out = close(t)\n\nDec main() -> result:\n    () -> int result:\n        int chi_a = 1\n        int chi_b = -1\n        str facet_a = \"0***\"\n        str facet_b = \"1***\"\n        trace a = trace(\"chiral-encounter:declared-support\", \"carrier-A\", q4(0))\n        trace b = trace(\"chiral-encounter:declared-support\", \"carrier-B\", q4(0))\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        assert phases(a) == 2\n        assert beats(a) == 1\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(b) == 2\n        assert beats(b) == 1\n        ratio q_a = ratio(0, 1)\n        ratio q_b = ratio(0, 1)\n        bool present = false\n        bool flip_a = false\n        bool flip_b = false\n        # Tick 1: declared post-move facets; movement tickets (6, 4) / 8.\n        facet_a = \"***0\"\n        facet_b = \"**0*\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(14, 64) < q_a\n        flip_b = ratio(33, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 3\n        assert phases(b) == 3\n        assert beats(a) == 2\n        assert beats(b) == 2\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 2: declared post-move facets; movement tickets (6, 4) / 8.\n        facet_a = \"***0\"\n        facet_b = \"**0*\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(24, 64) < q_a\n        flip_b = ratio(1, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 4\n        assert phases(b) == 4\n        assert beats(a) == 3\n        assert beats(b) == 3\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 3: declared post-move facets; movement tickets (0, 3) / 8.\n        facet_a = \"0***\"\n        facet_b = \"*1**\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(20, 64) < q_a\n        flip_b = ratio(33, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 5\n        assert phases(b) == 5\n        assert beats(a) == 4\n        assert beats(b) == 4\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 4: declared post-move facets; movement tickets (7, 4) / 8.\n        facet_a = \"***1\"\n        facet_b = \"**0*\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(39, 64) < q_a\n        flip_b = ratio(14, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 6\n        assert phases(b) == 6\n        assert beats(a) == 5\n        assert beats(b) == 5\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 5: declared post-move facets; movement tickets (0, 1) / 8.\n        facet_a = \"0***\"\n        facet_b = \"1***\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(12, 64) < q_a\n        flip_b = ratio(1, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 7\n        assert phases(b) == 7\n        assert beats(a) == 6\n        assert beats(b) == 6\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 6: declared post-move facets; movement tickets (3, 6) / 8.\n        facet_a = \"*1**\"\n        facet_b = \"***0\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(28, 64) < q_a\n        flip_b = ratio(20, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 8\n        assert phases(b) == 8\n        assert beats(a) == 7\n        assert beats(b) == 7\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 7: declared post-move facets; movement tickets (4, 0) / 8.\n        facet_a = \"**0*\"\n        facet_b = \"0***\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(29, 64) < q_a\n        flip_b = ratio(53, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 9\n        assert phases(b) == 9\n        assert beats(a) == 8\n        assert beats(b) == 8\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        # Tick 8: declared post-move facets; movement tickets (3, 2) / 8.\n        facet_a = \"*1**\"\n        facet_b = \"*0**\"\n        present = facet_a == facet_b\n        q_a = q_contact(q_local(facet_a), present)\n        q_b = q_contact(q_local(facet_b), present)\n        flip_a = ratio(20, 64) < q_a\n        flip_b = ratio(6, 64) < q_b\n        chi_a = -chi_a if flip_a else chi_a\n        chi_b = -chi_b if flip_b else chi_b\n        a = recur_plus(a) if chi_a == 1 else recur_minus(a)\n        b = recur_plus(b) if chi_b == 1 else recur_minus(b)\n        assert phases(a) == 10\n        assert phases(b) == 10\n        assert beats(a) == 9\n        assert beats(b) == 9\n        emit q_a\n        emit q_b\n        emit chi_a\n        emit chi_b\n        emit phases(a)\n        emit phases(b)\n        emit beats(a)\n        emit beats(b)\n        emit a\n        emit b\n        result = 0\n",
+  "source_sha256": "908ed26a980bc3f89d5654c1a3b5d3c24b58b645984bc9aa58a49c420ee7e738",
+  "version": 1
+}

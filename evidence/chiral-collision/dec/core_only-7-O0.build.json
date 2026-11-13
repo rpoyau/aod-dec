@@ -1,0 +1,43 @@
+{
+  "compile_ns": 1320270141,
+  "cache_hit": false,
+  "key": "1a3c1a1417bef3914ae56742c242aff924377c8fb6d39fe71b226d4225ab6293",
+  "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/1a3c1a1417bef3914ae56742c242aff924377c8fb6d39fe71b226d4225ab6293.o",
+  "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/1a3c1a1417bef3914ae56742c242aff924377c8fb6d39fe71b226d4225ab6293.ll",
+  "binding": {
+    "compiler": "dec-llvm-1",
+    "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "semantic_version": 1,
+    "abi": "aod-native-1",
+    "source_sha256": "d68374983626e03e762e94ed3154fa53387ef5fcdd3f7a8e3e334b03ba42acc4",
+    "ir_sha256": "fb9696025253e8101096c4ce82917c03f4cea3d402f76960c4da4db5af501e1a",
+    "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+    "llvm_version": [
+      16,
+      0,
+      6
+    ],
+    "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+    "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+    "target": "x86_64-redhat-linux-gnu",
+    "cpu": "goldmont",
+    "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+    "opt": 0
+  },
+  "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/chiral-collision-release/dec/core_only-7-O0",
+  "link_ns": 720547262,
+  "total_ns": 2096810572,
+  "command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/native/runner.cpp",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/cache/1a3c1a1417bef3914ae56742c242aff924377c8fb6d39fe71b226d4225ab6293.o",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+    "-lgmpxx",
+    "-lgmp",
+    "-lcrypto",
+    "-o",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/aod-dec/build/chiral-collision-release/dec/core_only-7-O0"
+  ]
+}

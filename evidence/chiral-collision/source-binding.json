@@ -1,0 +1,139 @@
+{
+  "format": "aod-dec.chiral-collision-source-review",
+  "version": 1,
+  "date": "2026-11-13",
+  "status": "SOURCE_BOUND_SCOPED_REVIEW",
+  "dec_base": {
+    "commit": "1d50634443ac777cee35546a62d53939de314cab",
+    "reviewed_prior_commit": "1d50634443ac777cee35546a62d53939de314cab"
+  },
+  "owner_application_choice": {
+    "input": "stochastic Markov chirality, with flips more likely in a declared field core",
+    "status": "new explicit downstream model choice, not derived proton-collision law",
+    "scope": "add computational collision-inspired application; preserve prior source and compiler scope"
+  },
+  "manual_i": {
+    "root": "/home/reginaldpoyau/projects/aod/AOD_M3_MANUALI_FEEDBACK_2026-11-11/aod",
+    "commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+    "tree": "b2b55cbcf18354828f7b34418ab3fa26d747a927",
+    "role": "delivered local candidate; accepted remote Main not inferred",
+    "files": [
+      {
+        "path": "sections/05_curl_closure_duon_current.tex",
+        "sha256": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+        "labels": {
+          "eq:field-organization": 173,
+          "eq:retained-lineage-field-separation": 183,
+          "eq:hinge-chirality-tag": 336,
+          "eq:hinge-chirality-flip": 343
+        }
+      },
+      {
+        "path": "sections/06_wave_state_relational_time.tex",
+        "sha256": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+        "labels": {
+          "eq:complete-wave-state": 13,
+          "eq:wave-update-trace": 33,
+          "eq:coupling-trace": 48,
+          "subsec:duon-continuity": 182,
+          "eq:continuation-domain-split": 195,
+          "eq:admitted-kernel": 206
+        }
+      },
+      {
+        "path": "sections/06_field.tex",
+        "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+        "labels": {
+          "eq:path-history-pressure": 83,
+          "eq:path-history-compression": 91,
+          "sec:field-dynamics": 1111,
+          "subsec:medium-declaration-field-count": 1161,
+          "subsec:interlayer-sadar-coupling": 1184,
+          "eq:ao-chiral-cycle-presentation": 1273
+        }
+      },
+      {
+        "path": "manual/sections/00_scope.tex",
+        "sha256": "7e6fda648cfc969e9b6430a2c4680e15300031f97bce7d975f4d8f7b33834431",
+        "labels": {
+          "manual:calculation-spine": 16,
+          "manual:exact-arithmetic-presentation": 108,
+          "manual:scoped-errors-data-support": 171
+        }
+      },
+      {
+        "path": "manual/sections/06_field_dynamics_applications.tex",
+        "sha256": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+        "labels": {
+          "manual:field-dynamics-applications": 3,
+          "manual:field-dynamics-data-support-classes": 29,
+          "manual:orbital-retention-field-dynamics-fixture": 539
+        }
+      }
+    ]
+  },
+  "matter_i": {
+    "root": "/home/reginaldpoyau/projects/aod/AOD_MATTERI_MASS_IMPLEMENTATION_2026-11-12/delivery-verification/reconstructed-source-verified",
+    "role": "verified detached delivery reconstruction, not a claimed new Git commit",
+    "base_commit": "904d4a9b2fc90fc96050f6c3b555d5d921c0a8d9",
+    "verification_record": "/home/reginaldpoyau/projects/aod/AOD_MATTERI_MASS_IMPLEMENTATION_2026-11-12/delivery-verification/verification.json",
+    "verification_sha256": "5b99144d89829e62096cd852ace3a582720f2690a2c996f11a5a24077a812ddd",
+    "files": [
+      {
+        "path": "manual2/sections/03-fusion-contact-ledger.tex",
+        "sha256": "9bfce3fd2f19d1c573a2c8666998196ddfc77349c31173f43939896bd75398b6",
+        "labels": {
+          "eq:matter1-fusion-closure": 9,
+          "eq:matter1-support-sum": 28
+        }
+      },
+      {
+        "path": "manual2/sections/05-fusion-handedness-relational-time.tex",
+        "sha256": "dadc77d96f57ce399799e2cf04387c19ef47d633564cc7f899f0a167c23de39c",
+        "labels": {
+          "manual2:folding-time": 1,
+          "manual2:two-face-example": 31,
+          "manual2:declared-recurrence": 64
+        }
+      },
+      {
+        "path": "manual2/sections/08-isotope-survival.tex",
+        "sha256": "ee892cb94a417cfe01607bb7d028da407296109b19fbc407b74bd093e8ba1448",
+        "labels": {
+          "manual2:paired-configurations": 425
+        }
+      },
+      {
+        "path": "manual2/sections/10-all-element-campaign.tex",
+        "sha256": "6c78aa1668a8f4ca3ded366b16c2970d78ced34955f57c255439d379f2554a42",
+        "labels": {
+          "manual2:all-element-campaign": 2,
+          "eq:manual2-campaign-orientation": 55,
+          "eq:manual2-campaign-pacing": 57,
+          "eq:manual2-campaign-response": 75
+        }
+      }
+    ]
+  },
+  "guidance": {
+    "aod_authority_sha256": "fc881342ffac7b6a5b4e13e295888c49bbd67520330752878cca5960b9b805a6",
+    "aod_manuscripts_sha256": "e8599fe258eddffd77624c49942153e693af3d1e2dff36da82c2d8400cb4e85c",
+    "local_amendment_sha256": "3160241652ba9a4a986ff4837fc4cc1c7695a619c23bd2e6a791a51fffe3ae47",
+    "af_protocol_sha256": "3f162c49b63231aaff9f60925dab7adbe4e5eeed1ff7de846ee890d60fa333b3"
+  },
+  "external_primary_scope": {
+    "url": "https://atlas.cern/Updates/Physics-Briefing/ALFA-scattering",
+    "title": "ATLAS measures quantum interference when protons bounce off each other",
+    "publication_date": "2022-07-08",
+    "checked_date": "2026-11-13",
+    "use": "establishes measured pp elastic scattering observables and collision-energy dependence; not used as native transition law or calibration",
+    "unsupported_in_application": [
+      "beam/centre-of-mass energy map",
+      "scattering kinematics",
+      "cross section",
+      "produced-particle inventory",
+      "physical chirality observable"
+    ]
+  },
+  "coverage": "Focused fidelity review of the cited definitions/models and relevant prose; no full manuscript validation; no upstream source mutation."
+}

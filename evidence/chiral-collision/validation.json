@@ -1,0 +1,109 @@
+{
+  "format": "aod-dec.chiral-application-validation",
+  "version": 1,
+  "status": "PASS",
+  "base_commit": "1d50634443ac777cee35546a62d53939de314cab",
+  "model_execution_boundary": {
+    "probabilistic_model": "Application-declared profile, movement kernel, flip law and conditional factorization.",
+    "host_evaluation": "Exact finite-law enumeration and seeded sampling of that supplied model.",
+    "DEC_engine": "Unchanged compiler/runtime executes supplied expressions and checks trace operations/witnesses; no intrinsic core-bias or collision law."
+  },
+  "python_tests": {
+    "normal": {
+      "count": 30,
+      "status": "PASS",
+      "log": "tests-normal.log"
+    },
+    "optimized": {
+      "count": 30,
+      "status": "PASS",
+      "log": "tests-optimized.log"
+    }
+  },
+  "exact_cases": 6,
+  "sampled_settings": 3,
+  "paths_per_setting": 256,
+  "retained_paths": 768,
+  "replay": {
+    "programs": 4,
+    "execution_modes_per_program": 6,
+    "status": "PASS",
+    "scope": "Dec replays supplied motion and tickets, computes q/sign decisions and executes whole returns. Python enumerates and samples the joint law."
+  },
+  "source_review": {
+    "source_binding": "source-binding.json",
+    "fidelity_review": "SOURCES.md",
+    "implementation_review": "IMPLEMENTATION-REVIEW.md",
+    "coverage": "Bound definitions and declared finite model, not full manuscripts or physical pp validity"
+  },
+  "tools": {
+    "aod_skills_revision": "630af16a7c51fb8836e603eb54c67bf8560fb463",
+    "aod_lint_revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "lint_files": [
+      "chiral-core-collision.typ",
+      "language-and-compiler.typ",
+      "tesseract-cell-jitter.typ"
+    ],
+    "lint_status": "PASS",
+    "typst": "0.13.1 (8ace67d9)"
+  },
+  "pdf": {
+    "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/output/pdf/chiral-core-collision.pdf",
+    "sha256": "efb0e733959e081159d675816a2450e0d7d331f2ee44441604abe549aa1970f0",
+    "pages": 5,
+    "source_sha256": "ed95a1dfcdb440547ad8896c35fe05e1d94360189b043e1a5ff47d394b9fe89a",
+    "visual_review": "All five final pages inspected; no clipping, overlap or missing glyphs observed.",
+    "bbox_words_inside_page": 1908
+  },
+  "cohort": {
+    "compressed": "cohort.json.gz",
+    "compressed_sha256": "5ee8c1dde797f46890ab989cb181afa2b44ef78279fad040f490b61c3d406581",
+    "decoded_file": "cohort.json",
+    "decoded_sha256": "42981b2017b77d9f4bee7cbeb6f8e8dd67dda8788230811c22633937b50481ef",
+    "decoded_bytes": 9973163,
+    "compression": "gzip with mtime=0; decoded bytes verified identical"
+  },
+  "import_provenance": {
+    "status": "PASS",
+    "archived_records": 196,
+    "unchanged_implementation_files": 32,
+    "original_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+    "scope": "Byte provenance only; execute semantic tests for current compiler correctness."
+  },
+  "development_record": {
+    "initial-lint.json": "Static premise-import diagnostic on a result sentence; wording clarified and final strict scan passed."
+  },
+  "files": {
+    "IMPLEMENTATION-REVIEW.md": "5b759da6ff33ef6665111f5d2b5f151b993c6346d6716e2feec9cde23f35654f",
+    "SOURCES.md": "0910af00e7e5d387b2ba524b351aedba41a8fd506372ffcf50697f7bba086ca7",
+    "aod-lint.json": "0cf2980ac7d6f852010d90db789cc1a3fc98cd3d059cce26fa4f7e2b18c8bb36",
+    "chiral-study.png": "b926ad19d58d3e30ec6716b954b18fbd15f656c9db66d0fb3bf2756169cbc0e2",
+    "cohort.json.gz": "5ee8c1dde797f46890ab989cb181afa2b44ef78279fad040f490b61c3d406581",
+    "dec/contact_feedback-19-O0.build.json": "d4c715c8a064283ee7cd088670e352fed8f7d2e2b331576072c519afc69ef4df",
+    "dec/contact_feedback-19-O2.build.json": "262e5a9fcbe3a6962a5fae50c6db678a058a5eaf7fd0147901c612de8da01cc3",
+    "dec/contact_feedback-19.dec": "908ed26a980bc3f89d5654c1a3b5d3c24b58b645984bc9aa58a49c420ee7e738",
+    "dec/contact_feedback-19.json": "31fef756d4f1ed98678a4ed44443df213569d8a5c47e83d50186842ce0b21de4",
+    "dec/contact_feedback-19.stdout": "9105b943dd4b9abe948a56293e49a9b53c43046143c7d8e5213264532d906763",
+    "dec/contact_feedback-7-O0.build.json": "6bd0cf2cb9ddc529f10a69ace76ba2222806852d2aa5861c49618b1af05a0a2b",
+    "dec/contact_feedback-7-O2.build.json": "e1cb0ad7e4dace7cc734b754555090a38a1e7217f49c2438a709f809f49d0d8e",
+    "dec/contact_feedback-7.dec": "b2b795a71244a19a1e1caff8c5d4e6f932603514fb37c82cf9b11b0d93ac0a6b",
+    "dec/contact_feedback-7.json": "f0985c7e8aa023f9a9929c8c678d06044394011ec52108dcb61a0d789164b78b",
+    "dec/contact_feedback-7.stdout": "5a08403d9bad04703cf8d4c528b5f59983d03d14118ad667f04c439574c0f4fa",
+    "dec/core_only-19-O0.build.json": "837649f9910384bfded92901e8743786ce1f77d7ae0a28ea92992cd127814512",
+    "dec/core_only-19-O2.build.json": "4632b43583ca89498b31df98f3de2f03c46e0722bb64590d5dff9e8b144f9ec7",
+    "dec/core_only-19.dec": "5a6d9c210d10335c1bb93b4bf57cea6d47cbac98275ccf765449bf0054f9a925",
+    "dec/core_only-19.json": "87b61c3a8cb70b835f3d7d701ec90083d3e291fce4915d67e66abe3bce767d09",
+    "dec/core_only-19.stdout": "9105b943dd4b9abe948a56293e49a9b53c43046143c7d8e5213264532d906763",
+    "dec/core_only-7-O0.build.json": "96381661e0cf1dc3a9c1f77b05d737f771f5b578091a24b3a5a451eb69a60dda",
+    "dec/core_only-7-O2.build.json": "9e00bbc39bee1091384ef617cd9888d4dec485a81f725068f81cea1b8a75d981",
+    "dec/core_only-7.dec": "d68374983626e03e762e94ed3154fa53387ef5fcdd3f7a8e3e334b03ba42acc4",
+    "dec/core_only-7.json": "fb9696025253e8101096c4ce82917c03f4cea3d402f76960c4da4db5af501e1a",
+    "dec/core_only-7.stdout": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1",
+    "exemplars.json": "dca911452abed02c82630ed53de9e5397dc38ac070155049ad1207d87e7afab0",
+    "initial-lint.json": "4187aede2481672394352b698b53e7353ff45ae6ac2fd8514adc0cc6ec44a300",
+    "results.json": "c072c224b4eddd06bb44390cb5513af55266eeaa3ed658f78dcdd0b85227a59c",
+    "source-binding.json": "54ad1b9ea5c29874348a96f8a1edf4853541924d944cf1d17a3df139476b32ad",
+    "tests-normal.log": "633a05d5d0660352c63990239abc3a9668ac6b81f0c1c33d3a995d62678ef20e",
+    "tests-optimized.log": "567154d124bada2c40d39624a658299402c88c4de00a6b69ff33fc8c44dd2747"
+  }
+}

@@ -104,3 +104,15 @@ Main. Its native fixture producer is vendored byte-for-byte with its MIT license
 for the explicitly exercised host interfaces. Only the declared normalized
 memory/kernel fixture invokes AFC; pressure-bearing AOD flux retains its own
 path operands and count domain.
+
+The chiral encounter application binds the same delivered Manual I candidate and
+the independently verified Matter I delivery reconstruction in
+`evidence/chiral-collision/source-binding.json`. The scoped source review keeps
+whole-return chirality selection, mandatory hinges, carrier identity and field
+population distinct from scalar occupancy or physical density. Core-enhanced
+flip propensity is the owner's new application choice. The primary `core_only`
+law uses contact gain `0`; gain `1/4` is a separate `contact_feedback` control.
+The full position/chirality state defines the Markov law while complete histories
+remain retained. Exact enumeration and native replay check that finite model;
+they supply no physical proton–proton preparation, SI clock, collision energy or
+empirical calibration. No Main/Manual source is changed.

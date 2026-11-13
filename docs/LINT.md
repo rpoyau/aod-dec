@@ -70,3 +70,10 @@ does not change the earlier one-file and empty-scan records.
 The Manual-alignment correction retains its new two-file scan and PDF checks in
 `evidence/manual-alignment/`. Its scientific findings come from a bounded
 source/code review and exact counterchecks, not the manuscript lint pass.
+
+`docs/chiral-core-collision.typ` adds a third applicable manuscript. Its current
+scan and application validation are recorded under `evidence/chiral-collision/`;
+read the recorded file list, diagnostics and status for actual coverage. The
+Markov kernel, exact tickets, retained return histories and native replay require
+their separate executable checks. Manuscript lint establishes no physical
+proton–proton calibration or cross-section prediction.

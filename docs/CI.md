@@ -104,3 +104,19 @@ and exact source-reported hydrogen reductions. The native transport replay is
 unchanged in scope; the host Manual interfaces are not new native Dec types.
 Historical version-1 results stay under `evidence/cell-jitter/`; the corrected
 version-2 report and source review are under `evidence/manual-alignment/`.
+
+## Chiral encounter application
+
+`python3 scripts/simulate_chiral_collision.py --native --plots` compares six
+exact finite probability laws with an independent reference, samples 256 paired
+realizations for each of three settings, and replays four retained paths through
+six execution modes. The application supplies the probability law; the unchanged
+D.E.C. engine executes the supplied expressions and validates trace operations.
+Thirty added tests cover this application and evidence-handling failure modes.
+
+`make docs-chiral` compiles the five-page Typst companion from retained evidence.
+CI compiles it from fresh results and retains the PDF, figure, full cohort,
+witness exemplars, generated sources, typed IR, AOT build manifests and stdout.
+The committed cohort uses lossless gzip; its decoded hash is recorded in
+`evidence/chiral-collision/validation.json`. No calibrated physical proton-proton
+prediction, clock, energy or cross-section map is supplied.

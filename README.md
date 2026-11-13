@@ -32,6 +32,22 @@ Run `make simulate-cells`; add `--native --plots` to
 uncalibrated transport control, with jitter on successor weights. Its aggregate
 mass discrepancy is not physical accuracy, kernel error or wave-population
 density; see the [source-bound correction review](evidence/manual-alignment/REVIEW.md).
+
+The [chiral encounter application](docs/chiral-core-collision.typ) reuses the
+tesseract support for a declared two-carrier Markov model. A fixed population
+profile raises flip propensity at tagged cores. The primary `core_only` scenario
+uses contact gain `0`; `contact_feedback` separately tests gain `1/4`.
+The probabilistic law belongs to this application model. The unchanged D.E.C.
+engine executes supplied expressions and checks operations and witnesses; it
+does not supply a collision law or a core-bias probability.
+Exact joint probabilities, sampled paths and complete step–hinge–return histories
+remain distinct records. This collision-inspired model has no calibrated physical
+proton–proton correspondence, collision-energy map or cross-section prediction.
+Run `make simulate-chiral` for the study and chart; add `--native --plots` to
+`scripts/simulate_chiral_collision.py` for native replay. Run `make docs-chiral`
+to build the Typst PDF from retained evidence. Plotting needs Matplotlib, native
+replay needs the compiler toolchain, and the PDF requires Typst.
+
 Persistent hardware selection is available through `scripts/adapt_native.py`.
 The measured seven-workload experiment established functional adaptation but no
 cost-inclusive speedup; every measured workload retained the generic variant.

@@ -4,7 +4,7 @@ TYPST ?= typst
 RUSTFLAGS := -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1
 BUILD_DIR := build
 
-.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native simulate-cells docs-cells examples clean
+.PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native simulate-cells docs-cells simulate-chiral docs-chiral examples clean
 all: $(BUILD_DIR)/aod_stage0_seed $(BUILD_DIR)/aod_self_host_compiler $(BUILD_DIR)/aod_stage2_bootstrap
 
 $(BUILD_DIR):
@@ -40,6 +40,17 @@ simulate-cells:
 docs-cells:
 	mkdir -p $(BUILD_DIR)/cell-jitter
 	$(TYPST) compile --root . --creation-timestamp 1794528000 docs/tesseract-cell-jitter.typ $(BUILD_DIR)/cell-jitter/tesseract-cell-jitter.pdf
+
+simulate-chiral:
+	$(PYTHON) scripts/simulate_chiral_collision.py --plots --output $(BUILD_DIR)/chiral-collision
+
+# The local companion uses retained evidence; CI compiles fresh study results.
+docs-chiral:
+	mkdir -p $(BUILD_DIR)/chiral-collision
+	$(TYPST) compile --root . --creation-timestamp 1794528000 \
+		--input results=../evidence/chiral-collision/results.json \
+		--input chart=../evidence/chiral-collision/chiral-study.png \
+		docs/chiral-core-collision.typ $(BUILD_DIR)/chiral-collision/chiral-core-collision.pdf
 
 $(BUILD_DIR)/bootstrap_tests: tests/bootstrap_regressions.rs $(wildcard bootstrap/*.rs) | $(BUILD_DIR)
 	$(RUSTC) --test tests/bootstrap_regressions.rs -o $@

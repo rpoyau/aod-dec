@@ -96,6 +96,31 @@ jobs:
             build/cell-jitter/dec/*.dec
           if-no-files-found: warn
           retention-days: 90
+      - name: Run chiral encounter study and native replay
+        run: python3 scripts/simulate_chiral_collision.py --native --plots --output build/chiral-collision
+      - name: Build chiral application from fresh results
+        run: |
+          build/tools/typst-x86_64-unknown-linux-musl/typst compile --root . \
+            --creation-timestamp 1794528000 \
+            --input results=../build/chiral-collision/results.json \
+            --input chart=../build/chiral-collision/chiral-study.png \
+            docs/chiral-core-collision.typ build/chiral-collision/chiral-core-collision.pdf
+      - name: Retain chiral encounter study
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: chiral-core-collision-${{ github.sha }}
+          path: |
+            build/chiral-collision/results.json
+            build/chiral-collision/cohort.json
+            build/chiral-collision/exemplars.json
+            build/chiral-collision/chiral-study.png
+            build/chiral-collision/chiral-core-collision.pdf
+            build/chiral-collision/dec/*.dec
+            build/chiral-collision/dec/*.stdout
+            build/chiral-collision/dec/*.json
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
