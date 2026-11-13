@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-13",
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "rustc": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+  "commands": {
+    "make verify": 0,
+    "python3 -O -m unittest discover -s tests -p test_*.py -v": 0
+  },
+  "counts": {
+    "python_normal": 57,
+    "python_optimized": 57,
+    "rust_debug": 9,
+    "rust_optimized": 9
+  },
+  "executed_architecture": "x86_64",
+  "aarch64": "static ELF header/relocation checks only",
+  "repeated_ir_builds": 20,
+  "distinct_ir_outputs": 1
+}

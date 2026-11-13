@@ -1,0 +1,11 @@
+# A declared exact ternary continuation kernel, no implicit sampling law.
+Dec main() -> result:
+    () -> t32 result:
+        ratio returned = probability(2, 1, 3, t1(-1))
+        ratio hinge_weight = probability(2, 1, 3, t1(0))
+        ratio outgoing = probability(2, 1, 3, t1(1))
+        assert returned + hinge_weight + outgoing == ratio(1, 1)
+        emit returned
+        emit hinge_weight
+        emit outgoing
+        result = t32(0)

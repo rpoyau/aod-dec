@@ -1,0 +1,43 @@
+# 00_primitives.dec
+# Native Balanced-Ternary Register Encodings, Exact Ratios, & Diagonal-Free Geometry
+# Anchor: a_0 = 00_8 | Zero IEEE-754 floats, zero silent coercions
+
+struct ratio {
+    num: t32,
+    den: t32
+}
+
+struct delta3 {
+    s: t1,
+    m: t32
+}
+
+Dec neg(wave) -> inverted:
+    (t1 wave) -> t1 inverted:
+        inverted = __trit_flip1(wave)
+
+    (t32 wave) -> t32 inverted:
+        b64 raw = b64(wave)
+        inverted = t32(((raw & 0x5555555555555555) << 1) | ((raw & 0xAAAAAAAAAAAAAAAA) >> 1))
+
+Dec add(a, b) -> c:
+    (t32 a, t32 b) -> t32 c:
+        c = __alu_add_t32(a, b)
+
+    (ratio a, ratio b) -> ratio c:
+        c = reduce_ratio(ratio(a.num * b.den + b.num * a.den, a.den * b.den))
+
+Dec quadrance(dx, dy) -> q:
+    (t32 dx, t32 dy) -> t32 q:
+        q = dx * dx + dy * dy
+
+Dec spread(dx, dy) -> s:
+    (t32 dx, t32 dy) -> ratio s:
+        t32 qy = dy * dy
+        s = ratio(qy, dx * dx + qy)
+
+Dec audit_trace4(h1, h2, h3, h4, beta_a) -> (q2_3d, q2_4d, phase_theta):
+    (t32 h1, t32 h2, t32 h3, t32 h4, t32 beta_a) -> (t32 q2_3d, t32 q2_4d, t32 phase_theta):
+        q2_3d = h1 * h1 + h2 * h2 + h3 * h3
+        q2_4d = q2_3d + h4 * h4
+        phase_theta = q2_3d % beta_a

@@ -1,0 +1,25 @@
+# Equal acquisition spans, two distinct return contacts, and an unwrapped lag.
+Dec recur(t) -> out:
+    (trace t) -> trace out:
+        t = step(t, q4(1), t1(1))
+        t = hinge(t)
+        t = step(t, q4(0), t1(-1))
+        out = close(t)
+
+Dec main() -> result:
+    () -> t32 result:
+        trace a = trace("B", "a", q4(0))
+        trace b = trace("B", "b", q4(0))
+        a = recur(a)
+        a = recur(a)
+        a = dwell(a)
+        b = dwell(b)
+        b = recur(b)
+        b = recur(b)
+        coupling pair = coupling(a, b, "seven-events")
+        pair = contact(pair, 3, 4)
+        pair = contact(pair, 6, 7)
+        emit cadence(pair)
+        emit lag(pair)
+        emit drift(pair)
+        result = t32(0)

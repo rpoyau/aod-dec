@@ -1,0 +1,88 @@
+# 04_harmonics_stokes_gpu_uma.dec
+# Downstream Harmonic Spectrum, Stokes Balance, Discrete GPU Lift, & Unified Memory (Disoma B_12)
+
+struct c_trit {
+    re: t32,
+    im: t32
+}
+
+struct harmonic_bin {
+    chi_id: u8,
+    v_hat_re: ratio,
+    v_hat_im: ratio,
+    power_n: ratio,
+    c_standing: ratio,
+    s_standing: ratio
+}
+
+struct stokes_audit {
+    s_int: t32,
+    s_div: t32,
+    s_bound: t32,
+    residual_e: t32,
+    valid_scope: u8
+}
+
+struct shed_route_pkg {
+    x_total: t32,
+    x_endo: t32,
+    x_exo: t32,
+    x_redir: t32,
+    x_open: t32,
+    sheddic_path: u8
+}
+
+struct disoma_uma_state {
+    a_cpu_local: t32,
+    a_gpu_local: t32,
+    c_cross_12: t32,
+    a_enclosing: t32,
+    n_fields: t9
+}
+
+Dec eval_harmonic_bin4(admitted_wave, chi_id, v_trace, chi_conj) -> bin:
+    (1, u8 chi_id, array[t32, 4] v_trace, array[c_trit, 4] chi_conj) -> harmonic_bin bin:
+        t32 sum_re = 0
+        t32 sum_im = 0
+        for g in 0..4:
+            sum_re = sum_re + v_trace[g] * chi_conj[g].re
+            sum_im = sum_im + v_trace[g] * chi_conj[g].im
+        ratio re_hat = reduce_ratio(ratio(sum_re, 4))
+        ratio im_hat = reduce_ratio(ratio(sum_im, 4))
+        ratio pwr = reduce_ratio(ratio(sum_re * sum_re + sum_im * sum_im, 4))
+        ratio c_st = reduce_ratio(ratio(2 * sum_re, 4))
+        ratio s_st = reduce_ratio(ratio(neg(2 * sum_im), 4))
+        bin = harmonic_bin(chi_id, re_hat, im_hat, pwr, c_st, s_st)
+
+Dec audit_stokes_region(phi_12, phi_21, phi_1_ext, phi_2_ext, div_1, div_2) -> rep:
+    (t32 phi_12, t32 phi_21, t32 phi_1_ext, t32 phi_2_ext, t32 div_1, div_2) -> stokes_audit rep:
+        t32 s_int = phi_12 + phi_21
+        t32 s_div = div_1 + div_2
+        t32 s_bound = phi_1_ext + phi_2_ext
+        t32 res_e = s_div - s_bound
+        u8 is_valid = u8((s_int == 0) & (res_e == 0))
+        rep = stokes_audit(s_int, s_div, s_bound, res_e, is_valid)
+
+Dec route_hardware_surplus(mem_arch, p_burden, c_close, target_enclosure) -> pkg:
+    (1, t32 p_burden, t32 c_close, u8 target_enclosure) -> shed_route_pkg pkg:
+        t32 x_shed = max_t32(0, p_burden - c_close)
+        u8 path = select_u8(x_shed > 0, target_enclosure, 0)
+        assert (x_shed == 0) | ((path >= 2) & ((path & 1) == 0))
+        pkg = shed_route_pkg(x_shed, 0, x_shed, 0, 0, path)
+
+    (2, t32 p_burden, t32 c_close, u8 target_enclosure) -> shed_route_pkg pkg:
+        t32 x_shed = max_t32(0, p_burden - c_close)
+        u8 path = select_u8(x_shed > 0, target_enclosure, 0)
+        assert (x_shed == 0) | ((path >= 2) & ((path & 1) == 0))
+        t32 x_endo = x_shed / 2
+        t32 x_redir = x_shed - x_endo
+        pkg = shed_route_pkg(x_shed, x_endo, 0, x_redir, 0, path)
+
+Dec step_uma_disoma(a_cpu, a_gpu, c_cross_12, p_shared) -> (uma, j_cpu_next, j_gpu_next, j_super_next):
+    (t32 a_cpu, t32 a_gpu, t32 c_cross_12, t32 p_shared) -> (disoma_uma_state uma, ratio j_cpu_next, ratio j_gpu_next, ratio j_super_next):
+        assert p_shared > 0
+        t32 a_super = a_cpu + a_gpu + c_cross_12
+        uma = disoma_uma_state(a_cpu, a_gpu, c_cross_12, a_super, 2)
+        j_cpu_next = reduce_ratio(ratio(a_cpu, p_shared))
+        j_gpu_next = reduce_ratio(ratio(a_gpu, p_shared))
+        j_super_next = reduce_ratio(ratio(a_super, p_shared))

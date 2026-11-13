@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-13",
+  "scope": "Repair of attached ternary Dec prototype; downstream executable specialization; no Main ontology edits",
+  "base_zip_sha256": "b0ded69f0cf117933596306227cbb14d21735be9d2ba52d259c622cf9d7532c4",
+  "sources": {
+    "aod-dec-dev.zip": "b0ded69f0cf117933596306227cbb14d21735be9d2ba52d259c622cf9d7532c4",
+    "09-source.zip": "a178a5bf06d51c8ab8852e9cabfb6c5eb61456f70739d7391582c08c524f34c7",
+    "01-afc-main.zip": "24587c1ddd7dd5b7673795adf97954a3b40e6480fef54a9d8917e6d77ac0b950",
+    "02-general-mechanics-1.0.5.0.zip": "5d9171e1b4518d975ad3486aaa6d09a781cc60877a950cc0a23da157c37c4736",
+    "11-AOD_M1_CLOSURE_WAVE_RELATIONAL_TIME_SINGLE_PLAN.md": "d3ed657888a6a3c63b13dd34b92a38557189aaccda81775144598267c053859c"
+  },
+  "authority": "Supplied AOD v40.01r10 with owner M1 closure-wave plan, scoped AF/AFC requirements; no implied current GitHub binding",
+  "implementation_choices": [
+    "Python exact reference VM and deterministic IR",
+    "32 balanced ternary digits on binary host",
+    "Finite Q4 trace and structural hinge specialization",
+    "Explicit outer closure for fusion proposals",
+    "Coupled recurrence comparisons without SI scale"
+  ]
+}

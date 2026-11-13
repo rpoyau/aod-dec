@@ -1,0 +1,19 @@
+# The inner closures propose a fold. The outer trace must itself return.
+Dec recur(t) -> out:
+    (trace t) -> trace out:
+        t = step(t, q4(1), t1(1))
+        t = hinge(t)
+        t = step(t, q4(0), t1(-1))
+        out = close(t)
+
+Dec main() -> result:
+    () -> t32 result:
+        trace a = recur(trace("inner", "a", q4(0)))
+        trace b = recur(trace("inner", "b", q4(0)))
+        fusion proposal = fold(a, b, "outer", "ab")
+        trace c = outer(proposal, q4(0))
+        c = recur(c)
+        c = fuse(proposal, c)
+        assert phases(c) == 1
+        emit c
+        result = t32(0)

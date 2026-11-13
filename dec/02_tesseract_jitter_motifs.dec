@@ -1,0 +1,56 @@
+# 02_tesseract_jitter_motifs.dec
+# Fractal Tesseract Support, E4 Tetron Jitter vs. Seated Tetrad, & Coord-0 Shell Stacks
+
+struct motif_spec {
+    p_class: t9,
+    q_units: t9,
+    l_enclosure: t32
+}
+
+struct tetron_e4 {
+    v_anchor: q4,
+    seats: array[t1, 4],
+    seat_status: u8,
+    hinge_free_seats: t9
+}
+
+struct count_compressed {
+    a_tritrio: t9,
+    b_tetratrio: t9,
+    c_dimon: t9,
+    l_outer: t32,
+    gamma_m: t32
+}
+
+Dec eval_curling_curl(spec, h_mu) -> (pi_branch, rd_total, is_yro):
+    (motif_spec spec, t32 h_mu) -> (t32 pi_branch, t32 rd_total, u8 is_yro):
+        pi_branch = pow_t32(t32(spec.q_units), t32(spec.p_class)) + t32(spec.q_units)
+        rd_total = 2 * pi_branch + h_mu
+        is_yro = u8(spec.l_enclosure & 1)
+
+Dec resolve_tetron_seating(e4_box, dwell_adm_weight, branch_sigma) -> e4_next:
+    (tetron_e4 e4_box, 0, 0) -> tetron_e4 e4_next:
+        e4_next = tetron_e4(e4_box.v_anchor, e4_box.seats, 2, e4_box.hinge_free_seats)
+
+    (tetron_e4 e4_box, 0, t1 branch_sigma) -> tetron_e4 e4_next:
+        assert (branch_sigma == -1) | (branch_sigma == +1)
+        t9 used_seats = 4 - e4_box.hinge_free_seats
+        e4_next = tetron_e4(e4_box.v_anchor, e4_box.seats, 5, used_seats)
+
+Dec build_coord0_shell(a_tri, b_tetra, c_dim, m_order) -> shell:
+    (t9 a_tri, t9 b_tetra, t9 c_dim, t9 m_order) -> count_compressed shell:
+        assert m_order >= 3
+        t32 l_even = 2 * t32(m_order)
+        t32 gamma = t32(m_order) * (t32(m_order) + 1) - 6
+        shell = count_compressed(a_tri, b_tetra, c_dim, l_even, gamma)
+
+Dec fractal_tesseract_range(sec_count, spec_a, spec_b) -> (n_support, rd_a, rd_b, t_sync):
+    (t32 sec_count, motif_spec spec_a, motif_spec spec_b) -> (t32 n_support, t32 rd_a, t32 rd_b, t32 t_sync):
+        t32 pi_a = 0
+        t32 pi_b = 0
+        u8 yro_a = 0
+        u8 yro_b = 0
+        pi_a, rd_a, yro_a = eval_curling_curl(spec_a, 1)
+        pi_b, rd_b, yro_b = eval_curling_curl(spec_b, 1)
+        n_support = sec_count * 2
+        t_sync = lcm_t32(rd_a, rd_b)

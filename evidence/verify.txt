@@ -1,0 +1,119 @@
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+test_finite_stokes_all_regions (test_core.AFCTests.test_finite_stokes_all_regions) ... ok
+test_nonnegative_normalization_and_roles (test_core.AFCTests.test_nonnegative_normalization_and_roles) ... ok
+test_region_iterator_cannot_silently_exhaust (test_core.AFCTests.test_region_iterator_cannot_silently_exhaust) ... ok
+test_alternate_closed_route_not_forced_to_retrace (test_core.ClosureTests.test_alternate_closed_route_not_forced_to_retrace) ... ok
+test_atomic_domain_and_hinge (test_core.ClosureTests.test_atomic_domain_and_hinge) ... ok
+test_boolean_aliases_cannot_forge_event_or_certificate_fields (test_core.ClosureTests.test_boolean_aliases_cannot_forge_event_or_certificate_fields) ... ok
+test_cancellation_preserves_events (test_core.ClosureTests.test_cancellation_preserves_events) ... ok
+test_distinct_returns_and_dwell (test_core.ClosureTests.test_distinct_returns_and_dwell) ... ok
+test_record_tampering_and_replay_fail (test_core.ClosureTests.test_record_tampering_and_replay_fail) ... ok
+test_return_requires_start_hinge_and_opposition (test_core.ClosureTests.test_return_requires_start_hinge_and_opposition) ... ok
+test_mutable_contact_record_is_rejected (test_core.ContactImmutabilityTests.test_mutable_contact_record_is_rejected) ... ok
+test_repeated_contacts_lag_and_rate (test_core.CouplingTests.test_repeated_contacts_lag_and_rate) ... ok
+test_scope_window_and_recurrence_requirements (test_core.CouplingTests.test_scope_window_and_recurrence_requirements) ... ok
+test_missing_or_mismatched_witness (test_core.FusionTests.test_missing_or_mismatched_witness) ... ok
+test_outer_proposal_is_not_closure (test_core.FusionTests.test_outer_proposal_is_not_closure) ... ok
+test_raw_same_scope_outer_trace_cannot_bypass_fold (test_core.FusionTests.test_raw_same_scope_outer_trace_cannot_bypass_fold) ... ok
+test_all_single_lane_encodings (test_core.TernaryTests.test_all_single_lane_encodings) ... ok
+test_exact_large_fraction_addition (test_core.TernaryTests.test_exact_large_fraction_addition) ... ok
+test_explicit_coercions_only (test_core.TernaryTests.test_explicit_coercions_only) ... ok
+test_invalid_packed_values (test_core.TernaryTests.test_invalid_packed_values) ... ok
+test_q4_domain (test_core.TernaryTests.test_q4_domain) ... ok
+test_t1_domain (test_core.TernaryTests.test_t1_domain) ... ok
+test_t32_carries_and_boundaries (test_core.TernaryTests.test_t32_carries_and_boundaries) ... ok
+test_all_worked_examples (test_integration.EndToEnd.test_all_worked_examples) ... ok
+test_body_changes_change_executed_result (test_integration.EndToEnd.test_body_changes_change_executed_result) ... ok
+test_invalid_ir_fails_without_execution (test_integration.EndToEnd.test_invalid_ir_fails_without_execution) ... ok
+test_missing_source_and_output_directory_fail (test_integration.EndToEnd.test_missing_source_and_output_directory_fail) ... ok
+test_no_arguments_is_a_normal_usage_error (test_integration.EndToEnd.test_no_arguments_is_a_normal_usage_error) ... ok
+test_repeated_compilation_is_byte_identical (test_integration.EndToEnd.test_repeated_compilation_is_byte_identical) ... ok
+test_source_and_ir_have_identical_behavior (test_integration.EndToEnd.test_source_and_ir_have_identical_behavior) ... ok
+test_unsupported_specification_is_not_certified (test_integration.EndToEnd.test_unsupported_specification_is_not_certified) ... ok
+test_boolean_short_circuit (test_language.LanguageTests.test_boolean_short_circuit) ... ok
+test_cli_compile_execute_and_errors (test_language.LanguageTests.test_cli_compile_execute_and_errors) ... ok
+test_cli_missing_input_fails_without_artifact (test_language.LanguageTests.test_cli_missing_input_fails_without_artifact) ... ok
+test_comments_preserve_hash_in_string (test_language.LanguageTests.test_comments_preserve_hash_in_string) ... ok
+test_direct_interpreter_cannot_bypass_ir_validation (test_language.LanguageTests.test_direct_interpreter_cannot_bypass_ir_validation) ... ok
+test_dispatches_exact_overload (test_language.LanguageTests.test_dispatches_exact_overload) ... ok
+test_duplicate_local_fails (test_language.LanguageTests.test_duplicate_local_fails) ... ok
+test_emit_and_conditional (test_language.LanguageTests.test_emit_and_conditional) ... ok
+test_exact_ratio_expression (test_language.LanguageTests.test_exact_ratio_expression) ... ok
+test_executes_body_and_distinguishes_literals (test_language.LanguageTests.test_executes_body_and_distinguishes_literals) ... ok
+test_explicit_return (test_language.LanguageTests.test_explicit_return) ... ok
+test_forward_calls_are_checked (test_language.LanguageTests.test_forward_calls_are_checked) ... ok
+test_ir_mutations_rejected (test_language.LanguageTests.test_ir_mutations_rejected) ... ok
+test_ir_reproducible_roundtrip (test_language.LanguageTests.test_ir_reproducible_roundtrip) ... ok
+test_missing_main_fails (test_language.LanguageTests.test_missing_main_fails) ... ok
+test_no_implicit_numeric_coercion (test_language.LanguageTests.test_no_implicit_numeric_coercion) ... ok
+test_recursion_has_execution_limit (test_language.LanguageTests.test_recursion_has_execution_limit) ... ok
+test_reserved_bindings_fail (test_language.LanguageTests.test_reserved_bindings_fail) ... ok
+test_return_type_cannot_disambiguate_inputs (test_language.LanguageTests.test_return_type_cannot_disambiguate_inputs) ... ok
+test_static_assert_false_executes_failure (test_language.LanguageTests.test_static_assert_false_executes_failure) ... ok
+test_unassigned_result_fails (test_language.LanguageTests.test_unassigned_result_fails) ... ok
+test_undefined_names_fail (test_language.LanguageTests.test_undefined_names_fail) ... ok
+test_unknown_types_fail (test_language.LanguageTests.test_unknown_types_fail) ... ok
+test_unlisted_dispatch_fails (test_language.LanguageTests.test_unlisted_dispatch_fails) ... ok
+test_unreachable_function_checked (test_language.LanguageTests.test_unreachable_function_checked) ... ok
+test_unsupported_code_never_silently_passes (test_language.LanguageTests.test_unsupported_code_never_silently_passes) ... ok
+
+----------------------------------------------------------------------
+Ran 57 tests in 2.822s
+
+OK
+./build/bootstrap_tests
+
+running 9 tests
+test arm_relocations_resolve_to_data_and_code ... ok
+test elf_deterministic_and_header ... ok
+test q4_domain_and_all_edges ... ok
+test packed_trit_validation ... ok
+test ratio_overflow_regression ... ok
+test source_overwrite_guard_and_io_failure ... ok
+test ratio_small_exact ... ok
+test emitted_program_execution ... ok
+test ternary_roundtrip_and_carry ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+./build/bootstrap_tests_opt
+
+running 9 tests
+test arm_relocations_resolve_to_data_and_code ... ok
+test elf_deterministic_and_header ... ok
+test packed_trit_validation ... ok
+test q4_domain_and_all_edges ... ok
+test ratio_overflow_regression ... ok
+test ratio_small_exact ... ok
+test source_overwrite_guard_and_io_failure ... ok
+test emitted_program_execution ... ok
+test ternary_roundtrip_and_carry ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+python3 aodc.py run examples/ternary.dec
+t32(2)
+1/2000000000
+t32(0)
+python3 aodc.py run examples/closure.dec
+{"closures":[{"begin":0,"digest":"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a","end":3},{"begin":3,"digest":"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f","end":6}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0},{"kind":"step","ordinal":4,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":5,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":6,"orientation":-1,"source":1,"target":0}],"lineage":"a","parents":[],"proposal":"","scope":"B","start":{"value":0}}
+1/3
+t32(0)
+python3 aodc.py run examples/fusion.dec
+{"closures":[{"begin":0,"digest":"5a09578bd64dff8777973961dfa6f0b02b30fd6b24e2cbcfae1f2fa7bb830377","end":3}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0}],"lineage":"ab","parents":[{"closures":[{"begin":0,"digest":"62495d0527f948d27d6cfa06d6da752f6593f71d48ee3366b39d837fca314fe0","end":3}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0}],"lineage":"a","parents":[],"proposal":"","scope":"inner","start":{"value":0}},{"closures":[{"begin":0,"digest":"672971e85ef1d8c1ea5578ca41e2354cf8bc5c90b23096aea4a8a9ac2ea3a3fe","end":3}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0}],"lineage":"b","parents":[],"proposal":"","scope":"inner","start":{"value":0}}],"proposal":"eb23daa8f032eb72c1f073ef41dffdc28568126806617d09d8f58d3242db2c62","scope":"outer","start":{"value":0}}
+t32(0)
+python3 aodc.py run examples/coupling.dec
+1/1
+-1
+0
+t32(0)
+python3 aodc.py run examples/weights.dec
+1/3
+1/6
+1/2
+t32(0)
+python3 aodc.py compile examples/closure.dec -o build/closure.dec.json
+python3 aodc.py exec build/closure.dec.json
+{"closures":[{"begin":0,"digest":"9f954a87c82157ad4a2844d9dd242df35f3a50867fd6e391658c34068a461d7a","end":3},{"begin":3,"digest":"5608a3867bae5f3705175ac68e8f0032ed593539e79a1dec07cab487e5d4f05f","end":6}],"events":[{"kind":"step","ordinal":1,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":2,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":3,"orientation":-1,"source":1,"target":0},{"kind":"step","ordinal":4,"orientation":1,"source":0,"target":1},{"kind":"hinge","ordinal":5,"orientation":0,"source":1,"target":1},{"kind":"step","ordinal":6,"orientation":-1,"source":1,"target":0}],"lineage":"a","parents":[],"proposal":"","scope":"B","start":{"value":0}}
+1/3
+t32(0)
