@@ -1,0 +1,311 @@
+{
+  "status": "PASS",
+  "scope": "Canonical generated provenance refresh; executable statements and VM output unchanged. Full CI must complete on the pushed revision.",
+  "baseline": "f1edabcaf2dcb1ffe9009a3075018155d2a5ac1b",
+  "changed_file": "examples/chiral_core_collision.dec",
+  "changed_lines": [
+    6,
+    8
+  ],
+  "before_sha256": "862cbee5e897c40f4be5a7b69cd472cb33eb27203f81326e8b7c0193ea343e6b",
+  "after_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+  "regeneration": {
+    "normal": {
+      "status": "PASS",
+      "baseline": "f1edabcaf2dcb1ffe9009a3075018155d2a5ac1b",
+      "mode": "normal",
+      "canonical_case": "core_only-7",
+      "ticket_denominator": 64,
+      "changed_lines": [
+        6,
+        8
+      ],
+      "before_sha256": "862cbee5e897c40f4be5a7b69cd472cb33eb27203f81326e8b7c0193ea343e6b",
+      "after_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+      "executable_statements_sha256": "e7efffc0e1896b5af3975dff90a0a1a69de89c31ddd2e2d91fc407f87ee47398",
+      "vm_stdout_identical": true,
+      "original_ci_failure_reproduced": "published canonical Dec example differs from generated replay",
+      "executions": [
+        {
+          "phase": "before",
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "-B",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec/aodc.py",
+            "run",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/before.dec"
+          ],
+          "exit_code": 0,
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        },
+        {
+          "phase": "after",
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "-B",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec/aodc.py",
+            "run",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/after.dec"
+          ],
+          "exit_code": 0,
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        }
+      ],
+      "native_replay_guard_and_vm_replay": {
+        "status": "PASS",
+        "native_requested": false,
+        "programs": [
+          {
+            "case": "core_only-7",
+            "program_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+            "witness_validation": {
+              "status": "PASS",
+              "numeric_lines": 64,
+              "trace_count": 2,
+              "returns_per_trace": 10,
+              "events_per_trace": 30,
+              "hinges_per_trace": 10,
+              "scope": "exact path decisions and declared core-v1 return event structure"
+            },
+            "execution_modes": 2,
+            "aot_builds": [],
+            "status": "PASS"
+          }
+        ],
+        "artifact_sha256": {
+          "dec/core_only-7.dec": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+          "dec/core_only-7.stdout": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1",
+          "dec/core_only-7.json": "e3c1daf3513276c398e4ad9dfe2b06ae7798b3a1dfb37a4a12240367e982a838"
+        },
+        "scope": "Dec replays supplied motion and tickets, computes q/sign decisions and executes whole returns. Python enumerates and samples the joint law."
+      },
+      "replay_commands": [
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "check",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-normal/dec/core_only-7.dec"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+        },
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "run",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-normal/dec/core_only-7.dec"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        },
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "compile",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-normal/dec/core_only-7.dec",
+            "-o",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-normal/dec/core_only-7.json"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "exec",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-normal/dec/core_only-7.json"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        }
+      ],
+      "driver_sha256": "a0cb3ef3525e3362bf90993715ad5e6e768517a0675f243b434aca60460e0aa9",
+      "source_sha256": {
+        "simulations/chiral_dec.py": "32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0",
+        "simulations/chiral_collision.py": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62",
+        "simulations/manual_dec_fixture.py": "2232806ca1e2f2f7f590e8d1d9d88fadedc9c07fee05e0d1e6dd678be67283b4",
+        "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+        "scripts/simulate_chiral_collision.py": "16f58d06be01424915ab2ff8153a5189a59aaa24fbafde837d1a9c8396e050a7"
+      }
+    },
+    "optimized": {
+      "status": "PASS",
+      "baseline": "f1edabcaf2dcb1ffe9009a3075018155d2a5ac1b",
+      "mode": "optimized",
+      "canonical_case": "core_only-7",
+      "ticket_denominator": 64,
+      "changed_lines": [
+        6,
+        8
+      ],
+      "before_sha256": "862cbee5e897c40f4be5a7b69cd472cb33eb27203f81326e8b7c0193ea343e6b",
+      "after_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+      "executable_statements_sha256": "e7efffc0e1896b5af3975dff90a0a1a69de89c31ddd2e2d91fc407f87ee47398",
+      "vm_stdout_identical": true,
+      "original_ci_failure_reproduced": null,
+      "executions": [
+        {
+          "phase": "before",
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "-B",
+            "-O",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec/aodc.py",
+            "run",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/before.dec"
+          ],
+          "exit_code": 0,
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        },
+        {
+          "phase": "after",
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "-B",
+            "-O",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec/aodc.py",
+            "run",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/after.dec"
+          ],
+          "exit_code": 0,
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        }
+      ],
+      "native_replay_guard_and_vm_replay": {
+        "status": "PASS",
+        "native_requested": false,
+        "programs": [
+          {
+            "case": "core_only-7",
+            "program_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+            "witness_validation": {
+              "status": "PASS",
+              "numeric_lines": 64,
+              "trace_count": 2,
+              "returns_per_trace": 10,
+              "events_per_trace": 30,
+              "hinges_per_trace": 10,
+              "scope": "exact path decisions and declared core-v1 return event structure"
+            },
+            "execution_modes": 2,
+            "aot_builds": [],
+            "status": "PASS"
+          }
+        ],
+        "artifact_sha256": {
+          "dec/core_only-7.dec": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+          "dec/core_only-7.stdout": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1",
+          "dec/core_only-7.json": "e3c1daf3513276c398e4ad9dfe2b06ae7798b3a1dfb37a4a12240367e982a838"
+        },
+        "scope": "Dec replays supplied motion and tickets, computes q/sign decisions and executes whole returns. Python enumerates and samples the joint law."
+      },
+      "replay_commands": [
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "check",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-optimized/dec/core_only-7.dec"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+        },
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "run",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-optimized/dec/core_only-7.dec"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        },
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "compile",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-optimized/dec/core_only-7.dec",
+            "-o",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-optimized/dec/core_only-7.json"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "command": [
+            "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+            "aodc.py",
+            "exec",
+            "/home/reginaldpoyau/projects/aod/AOD_DEC_CHIRAL_PROVENANCE_FIX_2026-11-15/replay-optimized/dec/core_only-7.json"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "stderr": "",
+          "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+        }
+      ],
+      "driver_sha256": "a0cb3ef3525e3362bf90993715ad5e6e768517a0675f243b434aca60460e0aa9",
+      "source_sha256": {
+        "simulations/chiral_dec.py": "32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0",
+        "simulations/chiral_collision.py": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62",
+        "simulations/manual_dec_fixture.py": "2232806ca1e2f2f7f590e8d1d9d88fadedc9c07fee05e0d1e6dd678be67283b4",
+        "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+        "scripts/simulate_chiral_collision.py": "16f58d06be01424915ab2ff8153a5189a59aaa24fbafde837d1a9c8396e050a7"
+      }
+    }
+  },
+  "focused_tests_per_mode": 12,
+  "test_commands": [
+    [
+      "python",
+      "-B",
+      "-m",
+      "unittest",
+      "-v",
+      "tests.test_chiral_dec",
+      "tests.test_chiral_study"
+    ],
+    [
+      "python",
+      "-B",
+      "-O",
+      "-m",
+      "unittest",
+      "-v",
+      "tests.test_chiral_dec",
+      "tests.test_chiral_study"
+    ]
+  ],
+  "test_executable": "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+  "test_exit_codes": {
+    "normal": 0,
+    "optimized": 0
+  },
+  "independent_review": "PASS",
+  "aod_lint": {
+    "status": "PASS",
+    "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "manuscript_file_count": 9
+  },
+  "original_ci_run": 43653776001,
+  "original_ci_failure": "published canonical Dec example differs from generated replay"
+}
