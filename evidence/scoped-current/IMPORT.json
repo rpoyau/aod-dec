@@ -1,0 +1,405 @@
+{
+  "purpose": "Byte-preserved selected pre-publication evidence; original paths and source hashes remain historical bindings, not runtime dependencies. New checkout execution is recorded separately.",
+  "files": [
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/BINDING.json",
+      "repository_path": "evidence/r04-feedback/BINDING.json",
+      "sha256": "ada60f98664a0e9560f8466b921a20d1239ff82cf99b2b4a7e54588a98af1fdc"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/VALIDATION.json",
+      "repository_path": "evidence/r04-feedback/VALIDATION.json",
+      "sha256": "b3df43c312376e5f530096bb016be5e39fba5479bc08e109e93c15dcb0fcce29"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/ENTRY_POINTS.md",
+      "repository_path": "evidence/r04-feedback/stage-a/ENTRY_POINTS.md",
+      "sha256": "9051bc16af92272951f2427437ee5ba422db6700b82812687927b46f6d3e6c49"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/HOST-PROOF.md",
+      "repository_path": "evidence/r04-feedback/stage-b/HOST-PROOF.md",
+      "sha256": "ec7764808a0e504857745232246ee93aeaacacd3283d0136ab99b34c4eb02fb7"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/OBSERVATION-BINDING.json",
+      "repository_path": "evidence/r04-feedback/stage-b/OBSERVATION-BINDING.json",
+      "sha256": "0d16a507606fc446a7d999a8358723c5b113f27263ff8b82ef7b31a246250909"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/HOST-MANIFEST.json",
+      "repository_path": "evidence/r04-feedback/stage-b/HOST-MANIFEST.json",
+      "sha256": "76f3882aa0962b611923e07927a72be5be70a5cb79b9e414385ac9aa111d1167"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/BACKEND-TESTS.json",
+      "repository_path": "evidence/r04-feedback/stage-b/BACKEND-TESTS.json",
+      "sha256": "a783fe31b76bccbfbd60562c1cdb18eb9b3a9a0f417c38a8cba48cfd7b387f8d"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/results.json",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/results.json",
+      "sha256": "1def565a4e8248b1e08dbdaeb669b37b70898843b3f169df305f49234708b20d"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/checks/strict-acceptance.json",
+      "repository_path": "evidence/r04-feedback/checks/strict-acceptance.json",
+      "sha256": "2bfdd96613ffa3976fad4e7af9ba4e578af0f6bdb9a4f5fad3ba9923d60d159b"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/checks/semantic-comparison.json",
+      "repository_path": "evidence/r04-feedback/checks/semantic-comparison.json",
+      "sha256": "8000d41981f083558507376dd101e56611da789898f90ba66bc7db74ef336d78"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/checks/FINAL-INTEGRATION.json",
+      "repository_path": "evidence/r04-feedback/checks/FINAL-INTEGRATION.json",
+      "sha256": "f59034d64d39b8c817d907d5fede25624925ec9ee937bebcc5bbbe20d8e30472"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/test-results.json",
+      "repository_path": "evidence/r04-feedback/stage-a/test-results.json",
+      "sha256": "9ab2651c082b03c1d07312730ff2adcb999b547485dc624cbfe8fff8b61b5a1f"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/adjacent-fixed-results.json",
+      "repository_path": "evidence/r04-feedback/stage-a/adjacent-fixed-results.json",
+      "sha256": "e61c3fa6cff179993747269011ac6526cd23be31f94e16cd2c8562a41a6a579e"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/anchor-migration/INDEPENDENT-SEMANTIC-REVIEW.md",
+      "repository_path": "evidence/r04-feedback/stage-a/anchor-migration/INDEPENDENT-SEMANTIC-REVIEW.md",
+      "sha256": "102e72661f8b270a73bbb5e3a2c290162e6083a14077da7a6756b637a0ca4074"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/expiry_reentry-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/expiry_reentry-witness.json.gz",
+      "sha256": "8ac6a143939a0f998c8a785e528607ece4c42b27eedfa3c1870c135754918b4e"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/both_pending_release-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/both_pending_release-witness.json.gz",
+      "sha256": "4215c9371719831069879e91fb8696798aa485121fe6a55e16eac8357623ec8a"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/partial_interfaces-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/partial_interfaces-witness.json.gz",
+      "sha256": "a034d45702755804c5150cb8a2e9bdabd5a63cb5d304979c93bd725124491a3d"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/open_boundaries-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/open_boundaries-witness.json.gz",
+      "sha256": "726f79d602d190caaa73c9a225d0ed913d2263e74ad3054b6c0dcd41e10e39c2"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retention_retained-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/retention_retained-witness.json.gz",
+      "sha256": "15ad8847a479c3f48c074b82d8eeccb74a0cea2b8b1de26f7324d53775a0eac3"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retention_removed-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/retention_removed-witness.json.gz",
+      "sha256": "81ab5d714e1463493d183e86b48a87ee4267c55ca0d3d36093f6057f8e772c7e"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retention_restored-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/retention_restored-witness.json.gz",
+      "sha256": "761a46ce3548f0612414607ce5828cb2d35881aa7fe6f6eeb97c9581319539be"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/closed_retained-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/closed_retained-witness.json.gz",
+      "sha256": "397d3ff14937e97fb8264d7f52c680f3c6d49073a362b834b958693ebaf07e08"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/closed_removed-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/closed_removed-witness.json.gz",
+      "sha256": "e2fd23d752911f06609230a981ad1034f446f8096050ebe6ce4151c028a4ee04"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/closed_restored-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/closed_restored-witness.json.gz",
+      "sha256": "4fcc0ab85cc4b1f039cdb17390af3bfd898743d04b6b3062d278728e200fff8f"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/zero_retained-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/zero_retained-witness.json.gz",
+      "sha256": "bfa4664ec0ea19ff063d421631954b1a80a6f3de4a505c574053ae7ce85c06c8"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/zero_removed-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/zero_removed-witness.json.gz",
+      "sha256": "99d852aee06841336f70d8c15a5e0bc97ce66da5f7ae751a2823999e6a2ed357"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/zero_restored-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/zero_restored-witness.json.gz",
+      "sha256": "c64766d296e6ceb99fb1be4a2c5a8d4d40bcda7be4e1c1c3013639aaa19684ee"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cancellation_retained-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/cancellation_retained-witness.json.gz",
+      "sha256": "c937331eb8602da01d55f7aaf0112eb433ffa36e8880e334660ee10fb148867c"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cancellation_removed-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/cancellation_removed-witness.json.gz",
+      "sha256": "e3b6e4d18c39db56add4db7dd9edeecb1873e2437281caf064f763c3fe264a64"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cancellation_restored-witness.json.gz",
+      "repository_path": "evidence/r04-feedback/stage-b/backend-final-delivery/cancellation_restored-witness.json.gz",
+      "sha256": "5db0c5cfc3f07c7e9db80289f8026d65a5dd5033d7a75c54e80e3bcf8879894f"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/docs/boundary-accounting.typ",
+      "repository_path": "docs/boundary-accounting.typ",
+      "sha256": "b02e92149ff618f0f5e47395aa8765cc02a0e84f194070864fd3130212005da7"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/BINDING.json",
+      "repository_path": "evidence/boundary-accounting/BINDING.json",
+      "sha256": "039c303563f7be5029a14a8269897e01b6c3257083a2e5d46a1156e4cc24e361"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/VALIDATION.json",
+      "repository_path": "evidence/boundary-accounting/VALIDATION.json",
+      "sha256": "a3554ed8bd2169b63b17cf21cc71c17adc7f127a94a34593f680495e4900aada"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-final.md",
+      "repository_path": "evidence/boundary-accounting/review/accounting-final.md",
+      "sha256": "41c4db127016d83ac90e8a5503c99a139844a23b206203398435938cbd2ab34f"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-final-hashes.json",
+      "repository_path": "evidence/boundary-accounting/review/accounting-final-hashes.json",
+      "sha256": "6866a5d03ba6fccd8dc7f246ee1d06207fe1b2620ac2643bb02fdf41325c2762"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-counterexamples.json",
+      "repository_path": "evidence/boundary-accounting/review/accounting-counterexamples.json",
+      "sha256": "788034b751204e66327081e47da6e9c6c6c8d3a561ec1940f3552d02627f8b54"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-counterexample-C4.json",
+      "repository_path": "evidence/boundary-accounting/review/accounting-counterexample-C4.json",
+      "sha256": "eac9dfe9cae9a36dc8763b9e490ff786c1494b123c9b2b5b4782cfadb261af60"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/checks/component/RESULTS.json",
+      "repository_path": "evidence/boundary-accounting/checks/component/RESULTS.json",
+      "sha256": "4ad51aed21cd92bd07d0961be6bd4c61eaf7288b5b879d41775459c58cea9283"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/BINDING.json",
+      "repository_path": "evidence/scoped-current/BINDING.json",
+      "sha256": "ece9cdb2c6f4f959834a51e40369d9d6c3ab53e0bf7903f6fdd5ce64a6ab0c25"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/VALIDATION.json",
+      "repository_path": "evidence/scoped-current/VALIDATION.json",
+      "sha256": "ebe8d13a67e5a4d38f00d7c9c53a3af8403a05f2a93ff099c54cd23f23c877f3"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/outputs/region-examples.json",
+      "repository_path": "evidence/scoped-current/outputs/region-examples.json",
+      "sha256": "32f718d8b50f1c23039c30e4d0c70409a83362b562f51c60d06539683a4ba47e"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/outputs/maser-packet-ledger.json",
+      "repository_path": "evidence/scoped-current/outputs/maser-packet-ledger.json",
+      "sha256": "f955e8452063b83e32a40f88ae1ee9b6173e837b13e2c04875c4916d5ef1f616"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/sources.md",
+      "repository_path": "evidence/scoped-current/review/sources.md",
+      "sha256": "941e7065f4cfcf685d23318345da0aa21b2ff8ce5697c3f055eb2d965b33d278"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/source-hashes.json",
+      "repository_path": "evidence/scoped-current/review/source-hashes.json",
+      "sha256": "db0616c60d6287accd1a36b70b98b1d04404f6b4f9a89bca06ef8f3cb6532984"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-review.md",
+      "repository_path": "evidence/scoped-current/review/engine-review.md",
+      "sha256": "5997303bad8cb1f07b7d52b9913b6a5f44d81221b6f3b15a1b1187f90a506f1a"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-review-hashes.json",
+      "repository_path": "evidence/scoped-current/review/engine-review-hashes.json",
+      "sha256": "5de5acec7460c045e168809b4127facf59e416aa4fedb1b5415192260587867b"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-counterexamples.json",
+      "repository_path": "evidence/scoped-current/review/engine-counterexamples.json",
+      "sha256": "6896a9ff75d6e281f18ac9be02d92df3a373843fbbd1d24e5be21d6d095bfa69"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-independent-check.json",
+      "repository_path": "evidence/scoped-current/review/engine-independent-check.json",
+      "sha256": "0f66e3c0bf5a14e56b272ed22acd65627234c1d1ded952471da2f88585b406db"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/engine/execution.json",
+      "repository_path": "evidence/scoped-current/checks/engine/execution.json",
+      "sha256": "e9b37446f5fd43e82ac2b571c7d2c22396cab49a929856e78b274f76ffa360ba"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/region-examples-execution.json",
+      "repository_path": "evidence/scoped-current/checks/region-examples-execution.json",
+      "sha256": "642e29cb32a2dd74eab140bda2ce58c49b0c0fcc6ca3386605d50fae8568a332"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/maser-packet-execution.json",
+      "repository_path": "evidence/scoped-current/checks/maser-packet-execution.json",
+      "sha256": "22598881ce38146ea9bb4935b9cb75585774a0e9861f8f6cbccc1871542d6085"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/dec-execution.json",
+      "repository_path": "evidence/scoped-current/checks/dec-execution.json",
+      "sha256": "30f8c3ac2d26d49417e0730f8e1f53e59b41bdfb560df05158216b4bb8aaf5d2"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/dec-execution-optimized.json",
+      "repository_path": "evidence/scoped-current/checks/dec-execution-optimized.json",
+      "sha256": "0fbc724a638718d58f22bbdf0511b6906d22c051a2d016dcd07127d75185389b"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/documentation.json",
+      "repository_path": "evidence/scoped-current/checks/documentation.json",
+      "sha256": "87611190f9b7fb2aa52d0a185bdc18147c51bd381f5940557a4a49f524f1a498"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/aod-lint.json",
+      "repository_path": "evidence/scoped-current/checks/aod-lint.json",
+      "sha256": "76a279294e6c87ee77d8c7d8cf14ea8cd4b315abf2e075c59cdc4225142eee0f"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/aod-digest.json",
+      "repository_path": "evidence/scoped-current/checks/aod-digest.json",
+      "sha256": "e0d3584b8834b29a4e3f0fe01aec8090c2be6134f9144253dc02399bde602ffa"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/BINDING.json",
+      "repository_path": "evidence/particle-accounting/BINDING.json",
+      "sha256": "6e01b7554a734ef8f86c0bf9ab51257274f346d8d94e72104f006903791ccf92"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/VALIDATION.json",
+      "repository_path": "evidence/particle-accounting/VALIDATION.json",
+      "sha256": "d7f0320e32b680f499702fb9348076791ee83d1a81f689a09b8536b8320b528f"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/proton-accounting.json",
+      "repository_path": "evidence/particle-accounting/outputs/proton-accounting.json",
+      "sha256": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/proton-accounting-witnesses.json.gz",
+      "repository_path": "evidence/particle-accounting/outputs/proton-accounting-witnesses.json.gz",
+      "sha256": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/electron-wire.json",
+      "repository_path": "evidence/particle-accounting/outputs/electron-wire.json",
+      "sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/sources.md",
+      "repository_path": "evidence/particle-accounting/review/sources.md",
+      "sha256": "a742c0a6a48edf67e2155bca293d967d7a3328f3c5bfa6b7de198658925a9e7a"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/source-hashes.json",
+      "repository_path": "evidence/particle-accounting/review/source-hashes.json",
+      "sha256": "16a668e4810c88555f1c6397cce4ff8b006f883926a7dd352cb502ca94f1a1fc"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/examples-check.md",
+      "repository_path": "evidence/particle-accounting/review/examples-check.md",
+      "sha256": "82be3ff5fbbddcb9d4d59ac2dd944a2cafddd61cd552f302752fc1ea12ca5bae"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/examples-check-hashes.json",
+      "repository_path": "evidence/particle-accounting/review/examples-check-hashes.json",
+      "sha256": "aa327903a4bcf46d6d061cc27ab64d486fccda422453929fbe7a1a0b9fc2bbfb"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/electron-wire-execution.md",
+      "repository_path": "evidence/particle-accounting/review/electron-wire-execution.md",
+      "sha256": "3f7427aa30107a07b665885068269f02cb28f72877263c7a5ba6e72442c98446"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/electron-output-independent-check.json",
+      "repository_path": "evidence/particle-accounting/review/electron-output-independent-check.json",
+      "sha256": "e816096d2694d777b7bcddec6292395b4e9e4b48aab3512fbfbacc2d26c41072"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/reviews/proton-saved-witness-check.json",
+      "repository_path": "evidence/particle-accounting/reviews/proton-saved-witness-check.json",
+      "sha256": "a8bff171ef5fd5540f30ca70742077cdb3fc6eb7cc82d885d788dfcd5ff60a02"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/execution.json",
+      "repository_path": "evidence/particle-accounting/checks/proton/execution.json",
+      "sha256": "669e2de39f8b2daeddaeeb53e8703cff344d9b24b026ac3e9b4cde20e186c5de"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/electron-wire-execution.json",
+      "repository_path": "evidence/particle-accounting/checks/electron-wire-execution.json",
+      "sha256": "6cded094d2aa1ea5616bedf717f7ce64b67c8ad8db1cf83001669102062c3bb1"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/document-build.json",
+      "repository_path": "evidence/particle-accounting/checks/document-build.json",
+      "sha256": "88b43bfd4532bfc05e6e8514722b19b85763c1e012955e36eeb4215dbd914fa7"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/aod-lint.json",
+      "repository_path": "evidence/particle-accounting/checks/aod-lint.json",
+      "sha256": "2a09b3b666278f4c8e49b00233f96ae416cf4b98515dd46249a3511712e3fa98"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/anchor-migration/REPORT.md",
+      "repository_path": "evidence/r04-feedback/stage-a/anchor-migration/REPORT.md",
+      "sha256": "e68df4ba14079e3dd109ac8a6c8b9f42e5596c675dbf8c17febd3ebc5932a50d"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/scripts/electron_wire_accounting.py",
+      "repository_path": "evidence/particle-accounting/scripts/electron_wire_accounting.py",
+      "sha256": "e1055b9007646cbd6229d6e70112edf7e92f3672c9e89219f1bc41acb7c464e9"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/electron-wire-sources.md",
+      "repository_path": "evidence/particle-accounting/review/electron-wire-sources.md",
+      "sha256": "f1141d54ff240bf3fa72882c58735fa1921f16d6289d95911a032a6335802e2c"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/electron-wire-manifest.json",
+      "repository_path": "evidence/particle-accounting/checks/electron-wire-manifest.json",
+      "sha256": "d7f2cb6038ad8e97ca9fb1fcb862bdbfad32ac3c5940475903bf6d7f118964e3"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/anchor-migration/semantic-comparison.json",
+      "repository_path": "evidence/r04-feedback/stage-a/anchor-migration/semantic-comparison.json",
+      "sha256": "bec09c25637bc2a6e5b3ba1c886d623e75d958a6a94e0f0079dd247b3a68014a"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/anchor-migration/final-binding.json",
+      "repository_path": "evidence/r04-feedback/stage-a/anchor-migration/final-binding.json",
+      "sha256": "1dc4b6539c04c27f9df0220ec8352f5d22697881a38e5e60e6bfb56f6ff23c2e"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/electron-wire-binding.json",
+      "repository_path": "evidence/particle-accounting/review/electron-wire-binding.json",
+      "sha256": "60db1aae747fde8ffc32fd33c48a7101058e46b2ef6035a366d817cfbfd8c9b5"
+    },
+    {
+      "original_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/electron-wire-search.json",
+      "repository_path": "evidence/particle-accounting/review/electron-wire-search.json",
+      "sha256": "cef07d5a78ebeb9e1d52dc661832c416f27ba6fecc5e0952c2877eef330a59f2"
+    }
+  ]
+}

@@ -129,3 +129,26 @@ Monon/beat records, separately from event counts. It supplies no physical
 frequency-doubling law or wavelength from topology alone.
 Source review, model falsifiers, execution coverage and physical calibration
 remain separate records under the same AOD/AF routing and current owner amendment.
+
+The subsequent R04 feedback repair, retained continuation and scoped-current
+applications consume the actual corrected local Main/Manual candidate while
+preserving its base revision and changed producer-byte hash. The shared finite
+identity checks and formation namespace repair remain operational implementation
+changes; no Main/Manual publication or new intrinsic probability law follows.
+
+The later particle preparation explicitly adopts the Manual's proton `3:3:6`
+and electron `1:2:6` associations, with actual C6 targets and earlier component
+witnesses. Earlier passages about an uninstantiated physical mapping describe
+those earlier computational preparations; they are not a claim that the Manual
+lacks species or SI maps. The current proton example retains its unresolved
+burden-to-signed-current projection and does not claim a scattering observable.
+
+The region adapter uses Main's scoped field-fluid/nested-boundary calculation
+and Manual's operational crossing-minus-sweep-plus-shedding interface. Complete
+coverage is relative to the supplied immutable occurrence family. Region union,
+shell subtraction, pending obligations and representation scales have separate
+falsifiers; a scale map does not admit a higher native closure. Maser and
+Earth-water-Moon D0 preparations reuse the interface with explicitly supplied
+channel, motion and gate inputs. Pressure current, closure burden, packet count,
+phase turns and SI values retain distinct domains and declared maps. Persistent
+review artifacts stay separate from source repair and publication execution.

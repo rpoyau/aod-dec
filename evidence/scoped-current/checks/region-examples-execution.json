@@ -1,0 +1,130 @@
+{
+  "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14",
+  "hostile_rejections_per_mode": 8,
+  "moving_identity_region_cut_comparisons": 52,
+  "native_stokes_region_cut_comparisons": 52,
+  "normal_optimized_byte_identical": true,
+  "partition_cut_rows": 20,
+  "runs": [
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "examples/run_regions.py",
+        "--example",
+        "all",
+        "--output",
+        "outputs/region-examples.json"
+      ],
+      "exec_session_id": 16137,
+      "mode": "normal",
+      "observed_exit_code": 0,
+      "sha256": "32f718d8b50f1c23039c30e4d0c70409a83362b562f51c60d06539683a4ba47e"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "examples/run_regions.py",
+        "--example",
+        "all",
+        "--output",
+        "checks/region-examples-optimized.json"
+      ],
+      "exec_session_id": 90007,
+      "mode": "optimized",
+      "observed_exit_code": 0,
+      "sha256": "32f718d8b50f1c23039c30e4d0c70409a83362b562f51c60d06539683a4ba47e"
+    }
+  ],
+  "scope": "D0 declared finite preparations. Physical current, packet and phase units remain separate; boundary motion and interaction values are explicit model inputs.",
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/application/region_engine.py": "3349131920396a45712daea57ec44438ad3d499f4aed57bae99eeb034ba17b4b",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/run_regions.py": "60c1615dc041e65f379c01f1007b01df6d200860285018e9862f670eb4e3600c"
+  },
+  "status": "PASS",
+  "summary": {
+    "earth-water-moon": {
+      "earth": [
+        "4",
+        "4",
+        "4",
+        "4"
+      ],
+      "earth-water": [
+        "14",
+        "11",
+        "2",
+        "17"
+      ],
+      "earth-water-moon": [
+        "2",
+        "-1",
+        "2",
+        "5"
+      ],
+      "exterior": [
+        "-2",
+        "1",
+        "-2",
+        "-5"
+      ],
+      "moon": [
+        "-12",
+        "-12",
+        "0",
+        "-12"
+      ],
+      "universe": [
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "water-shell": [
+        "10",
+        "7",
+        "-2",
+        "13"
+      ]
+    },
+    "maser": {
+      "apparatus_net": [
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "cavity_return_outward": [
+        "4",
+        "0",
+        "4",
+        "5"
+      ],
+      "cavity_return_window_total": "13",
+      "detected_output_outward": [
+        "4",
+        "0",
+        "4",
+        "5"
+      ],
+      "detected_output_window_total": "13",
+      "gate_off_declared_occurrences": 5,
+      "pump_inward_magnitude": [
+        "8",
+        "0",
+        "8",
+        "10"
+      ],
+      "pump_window_total": "26",
+      "retained_channel_occurrences": 20,
+      "whole_universe_net": [
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "status": "PASS",
+  "method": "Compare previously executed normal/optimized portable outputs with the original full saved outputs; only explicit top-level provenance metadata may differ",
+  "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+  "runs": [
+    {
+      "example": "proton-accounting",
+      "mode": "normal",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "simulations/proton_accounting.py",
+        "--output",
+        "../checks/particles/normal/proton-accounting.json"
+      ],
+      "observed_exit_code": 0,
+      "output_sha256": "8c0d09ef0ef85ab2366558278274a9cfcb6d20a4a5f3251a1c7bcc5deed99147"
+    },
+    {
+      "example": "proton-accounting",
+      "mode": "optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "simulations/proton_accounting.py",
+        "--output",
+        "../checks/particles/optimized/proton-accounting.json"
+      ],
+      "observed_exit_code": 0,
+      "output_sha256": "8c0d09ef0ef85ab2366558278274a9cfcb6d20a4a5f3251a1c7bcc5deed99147"
+    },
+    {
+      "example": "electron-wire",
+      "mode": "normal",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "simulations/electron_wire_accounting.py",
+        "--output",
+        "../checks/particles/normal/electron-wire.json"
+      ],
+      "observed_exit_code": 0,
+      "output_sha256": "edca2b0332c573fa5170a04a123a604e4fcb5447f650c5ffb8b4fcdb07220f16"
+    },
+    {
+      "example": "electron-wire",
+      "mode": "optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "simulations/electron_wire_accounting.py",
+        "--output",
+        "../checks/particles/optimized/electron-wire.json"
+      ],
+      "observed_exit_code": 0,
+      "output_sha256": "edca2b0332c573fa5170a04a123a604e4fcb5447f650c5ffb8b4fcdb07220f16"
+    }
+  ],
+  "comparisons": {
+    "proton-accounting": {
+      "changed_top_level_keys": [
+        "recorded_manuscript_binding",
+        "source_sha256"
+      ],
+      "all_non_provenance_values_identical": true,
+      "normal_optimized_bytes_identical": true,
+      "recorded_manuscript_hashes_preserved": true,
+      "original_sha256": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+      "published_sha256": "8c0d09ef0ef85ab2366558278274a9cfcb6d20a4a5f3251a1c7bcc5deed99147"
+    },
+    "electron-wire": {
+      "changed_top_level_keys": [
+        "recorded_manuscript_binding",
+        "runner_sha256",
+        "source_sha256"
+      ],
+      "all_non_provenance_values_identical": true,
+      "normal_optimized_bytes_identical": true,
+      "recorded_manuscript_hashes_preserved": true,
+      "original_sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774",
+      "published_sha256": "edca2b0332c573fa5170a04a123a604e4fcb5447f650c5ffb8b4fcdb07220f16"
+    }
+  },
+  "proton_full_witness_bytes_identical_to_original_and_modes": true,
+  "proton_hostile_rejections_per_mode": 8,
+  "electron_checks_per_mode": 33,
+  "electron_positive_checks_per_mode": 24,
+  "electron_hostile_rejections_per_mode": 9,
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/simulations/proton_accounting.py": "4e52294a05c64af134f7a7203cce285cb16a1074f7263c0ea55f824f59864abc",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/simulations/electron_wire_accounting.py": "67ff993ddd3e4c89da954590e277aaf8701cde74f7da4c41f590f91df8d2c8ce",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/particle-examples.typ": "0a2cb3c0ef9ccc467388449c34386ae700e178df4551f49a7c1b80fed095a437",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/PARTICLE_EXAMPLES.md": "eaaa431109c7aceb9a38ecaba260c02dbbb8a65d06cd871993f3e75116ed388f",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/particles/compare_publication.py": "994de137d28761981b67c0c359b4c1fb01d0b332b4385e1da44b89c72e943e2c"
+  },
+  "artifacts": {
+    "normal/proton-accounting.json": "8c0d09ef0ef85ab2366558278274a9cfcb6d20a4a5f3251a1c7bcc5deed99147",
+    "optimized/proton-accounting.json": "8c0d09ef0ef85ab2366558278274a9cfcb6d20a4a5f3251a1c7bcc5deed99147",
+    "normal/electron-wire.json": "edca2b0332c573fa5170a04a123a604e4fcb5447f650c5ffb8b4fcdb07220f16",
+    "optimized/electron-wire.json": "edca2b0332c573fa5170a04a123a604e4fcb5447f650c5ffb8b4fcdb07220f16",
+    "normal/proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "optimized/proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a"
+  }
+}

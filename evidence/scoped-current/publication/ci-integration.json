@@ -1,0 +1,36 @@
+{
+  "status": "PASS_LOCAL_INTEGRATION",
+  "source_sha256": {
+    "Makefile": "f515e5fd87248964edccc9d7b3ade368ec132191ea3ed78d9aaf9004ad7faea1",
+    ".github/workflows/ci.yml": "3f38f84000fbd3d78aedb59829e7a9c3745a119bba64910bc929b5762c7a5dca",
+    "scripts/check_region_current.py": "d39a465871011474450f1d96a2ec6a0dff678b37175463642988f7bfed8fe82f",
+    "docs/CI.md": "6c454ae06541357e5a9bfa73f8551e5b6c871555b87def025e677132a739fc6b",
+    "docs/LINT.md": "3bdccb3b7579c8fe584175fb2c099269e62bf41c425604d363b278017a614ade",
+    "docs/SKILLS.md": "92408a6845a6f109efcba3dbb7a6cac4a6a8572fca599e3c6e38cfaf7ae01371"
+  },
+  "scalar_execution": [
+    {
+      "mode": "normal",
+      "report": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-normal/results.json",
+      "report_sha256": "f99010f114f0de67081317fdb5784d8645f0896e70598650ff2b289abda3a2f6",
+      "positive_cases": 44,
+      "hostile_cases": 6,
+      "aot_stdout": "4/1\n-4/1\n0/1\n0/1\n7/1\n0\n",
+      "aot_exit_code": 0
+    },
+    {
+      "mode": "optimized",
+      "report": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/results.json",
+      "report_sha256": "5664f97f9bd12e4abcb19bfd92b048766ca9b68493daade450428321483d8054",
+      "positive_cases": 44,
+      "hostile_cases": 6,
+      "aot_stdout": "4/1\n-4/1\n0/1\n0/1\n7/1\n0\n",
+      "aot_exit_code": 0
+    }
+  ],
+  "make_targets": "Dry-run PASS: simulate-regions simulate-particles verify-region-current docs-scoped",
+  "diff_check": "PASS",
+  "yaml": "NOT_RUN: PyYAML unavailable",
+  "remote_workflow": "NOT_RUN_BY_THIS_AGENT",
+  "scope": "Publication wiring; native backend unchanged. Parent owns full-suite checks, final source inventory, commit/push/PR."
+}

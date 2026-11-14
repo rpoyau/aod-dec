@@ -1,0 +1,28 @@
+{
+  "sources": {
+    "upstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "base_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+      "working_diff_sha256": "a59ff25cf12d6216be6886399d041829f963b6da99c199f19d54d80f73b60975"
+    },
+    "downstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "base_commit": "8144803e7e889087dfd1e9322c778fdc276c6f32",
+      "working_diff_sha256": "f75aea56d3faaed03a5fd56d882e299528b9ebe83b67ba09f08eb6524c02e874"
+    },
+    "afc": {
+      "path": "/home/reginaldpoyau/projects/aod/afc",
+      "base_commit": "5a25e8bd5bbc3f20ec4413a6b63abc420b7a54cb",
+      "working_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "accounting_component": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py",
+    "sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+  },
+  "task": "Reusable finite region/interface current accounting with maser and Earth-water-shell-Moon applications",
+  "owner_steering": "Maser, Earth + water shell + Moon and fluid dynamics must use careful common boundary flux/current accounting; make this easy in the engine.",
+  "write_scope": "New portable application adapter, examples, tests and Typst documentation; prepare reviewable downstream patch; preserve frozen Main/Manual and prior delivery.",
+  "scientific_scope": "Main field-fluid and nested boundary definitions; Manual operational boundary-current finite preparation. No new transition probability law.",
+  "source_binding_note": "Base revisions and actual file hashes are separate; no remote accepted head is inferred."
+}

@@ -12,7 +12,7 @@ from simulations.vendor import aod_manual_native as n
 class ManualDecFixtureTests(unittest.TestCase):
     def test_source_binding_and_json_exactness(self):
         binding = source_binding()
-        self.assertEqual(binding["sha256"], "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf")
+        self.assertEqual(binding["sha256"], "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554")
         record = build_fixture()
         self.assertEqual(json.loads(json.dumps(record)), record)
         with self.assertRaises(TypeError):

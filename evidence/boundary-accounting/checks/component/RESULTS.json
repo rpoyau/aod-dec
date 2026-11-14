@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "created_utc": "2026-11-14T11:01:22.340930+00:00",
+  "test_count_per_mode": 19,
+  "runs": [
+    {
+      "mode": "normal",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14",
+      "returncode": 0,
+      "log": "checks/component/normal.log",
+      "log_sha256": "c74b3f3ac6e18f7828fcd43d1fa32fc412c4d9d6466ecb14e48fe90d2775dbe7"
+    },
+    {
+      "mode": "optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14",
+      "returncode": 0,
+      "log": "checks/component/optimized.log",
+      "log_sha256": "c74b3f3ac6e18f7828fcd43d1fa32fc412c4d9d6466ecb14e48fe90d2775dbe7"
+    }
+  ],
+  "sources_unchanged": true,
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/08_awareness_learning_mindfulness.tex": "310b4860c1710b8191725d9c40ff1fc05bd45a7ed818f0891e1fbd8fa58feae1",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/06_field_dynamics_applications.tex": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/manual_dec_fixture.py": "722bc66de13362ecf305a51a8a2cdf14a1bb18f4d5708ae7d06f6cba3d927e85",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/cell_transport.py": "b41cad788cbc7d174d984b04358706f8c0273ef4c256315488dd9b2e14ae4876",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/tests/test_boundary_accounting.py": "19e93d12596cefcbd3e0a68ee527d2fc22363eb6cbf4521905e86d061142b015"
+  },
+  "scope": "Exact boundary accounting component tests; native admission and moving-scope integration are separate."
+}

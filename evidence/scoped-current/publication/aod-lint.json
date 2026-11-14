@@ -1,0 +1,1148 @@
+{
+  "repository": "https://github.com/rpoyau/aod-lint",
+  "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+  "binary_sha256": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c",
+  "cargo_lock_sha256": "82cdf620220a0fb722ece7923e9386c0e28a8eaba9f4c5cb43f59f219c9cd0ba",
+  "target": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+  "status": "PASS",
+  "scope": "Typst/LaTeX manuscript diagnostics only",
+  "manuscript_files": [
+    "docs/boundary-accounting.typ",
+    "docs/chiral-core-collision.typ",
+    "docs/language-and-compiler.typ",
+    "docs/particle-examples.typ",
+    "docs/region-current.typ",
+    "docs/retained-continuation.typ",
+    "docs/routing-parallel.typ",
+    "docs/tesseract-cell-jitter.typ"
+  ],
+  "manuscript_file_count": 8,
+  "uncovered_source_types": [
+    "Dec",
+    "Python",
+    "C++",
+    "Rust compiler runtime code",
+    "Markdown"
+  ],
+  "interpretation": "Only the listed manuscript files were scanned. Lint diagnostics are not a proof of scientific or compiler correctness.",
+  "digest": {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+      "digest",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "{\n  \"schema_version\": \"1.0\",\n  \"root\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec\",\n  \"files\": [\n    {\n      \"path\": \"docs/boundary-accounting.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"b02e92149ff618f0f5e47395aa8765cc02a0e84f194070864fd3130212005da7\",\n      \"line_count\": 133,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Complete accounting state\",\n          \"line\": 28\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Boundary and window identities\",\n          \"line\": 52\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Exact computational examples\",\n          \"line\": 73\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Implementation contract and coverage\",\n          \"line\": 111\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"accounting-state\",\n          \"file\": \"docs/boundary-accounting.typ\",\n          \"line\": 28,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"accounting-identities\",\n          \"file\": \"docs/boundary-accounting.typ\",\n          \"line\": 52,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"accounting-examples\",\n          \"file\": \"docs/boundary-accounting.typ\",\n          \"line\": 73,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"accounting-contract\",\n          \"file\": \"docs/boundary-accounting.typ\",\n          \"line\": 111,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\"\n      ]\n    },\n    {\n      \"path\": \"docs/chiral-core-collision.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"ed95a1dfcdb440547ad8896c35fe05e1d94360189b043e1a5ff47d394b9fe89a\",\n      \"line_count\": 266,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Support, formation and state\",\n          \"line\": 45\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Update law and complete returns\",\n          \"line\": 78\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Exact consequences and controls\",\n          \"line\": 131\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Sampling and typed comparisons\",\n          \"line\": 162\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Source binding and reproduction\",\n          \"line\": 214\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"chiral-setup\",\n          \"file\": \"docs/chiral-core-collision.typ\",\n          \"line\": 45,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"chiral-kernel\",\n          \"file\": \"docs/chiral-core-collision.typ\",\n          \"line\": 78,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"chiral-results\",\n          \"file\": \"docs/chiral-core-collision.typ\",\n          \"line\": 131,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"chiral-comparison\",\n          \"file\": \"docs/chiral-core-collision.typ\",\n          \"line\": 162,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"chiral-reproduce\",\n          \"file\": \"docs/chiral-core-collision.typ\",\n          \"line\": 214,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\"\n      ]\n    },\n    {\n      \"path\": \"docs/language-and-compiler.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6\",\n      \"line_count\": 1112,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"First program\",\n          \"line\": 66\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Values and exact arithmetic\",\n          \"line\": 120\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Declarations, statements, and dispatch\",\n          \"line\": 173\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Expressions and control flow\",\n          \"line\": 228\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Computational examples and applications\",\n          \"line\": 282\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual kernel normalization and hinge slide\",\n          \"line\": 291\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual short-window residual and surplus\",\n          \"line\": 344\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Manual boundary-current substitution\",\n          \"line\": 402\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Retained closure and recurrence\",\n          \"line\": 458\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Composition with an independent outer return\",\n          \"line\": 509\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Comparing recurrent lineages\",\n          \"line\": 559\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Exact normalized continuation weights\",\n          \"line\": 608\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Extending Manual applications\",\n          \"line\": 642\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Built-in reference\",\n          \"line\": 661\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Scalar operations\",\n          \"line\": 667\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Trace operations\",\n          \"line\": 690\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Composition and comparison operations\",\n          \"line\": 708\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Output and failures\",\n          \"line\": 732\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Commands, installation, and artifacts\",\n          \"line\": 761\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Compiler architecture\",\n          \"line\": 813\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Source-bound typed IR\",\n          \"line\": 834\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Native lowering\",\n          \"line\": 848\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Native runtime and embedding\",\n          \"line\": 863\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Python JIT API\",\n          \"line\": 877\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Caches, guards, and retained selection\",\n          \"line\": 924\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Artifact reuse and entry guards\",\n          \"line\": 926\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Persistent policy\",\n          \"line\": 944\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Validation and practical limits\",\n          \"line\": 984\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Troubleshooting\",\n          \"line\": 1007\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Supported boundary\",\n          \"line\": 1027\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Source authority and reading map\",\n          \"line\": 1041\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Main and Manual destinations\",\n          \"line\": 1058\n        },\n        {\n          \"level\": 2,\n          \"title\": \"Implementation destinations\",\n          \"line\": 1089\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 34,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"start\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 66,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"installation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 106,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"values\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 120,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:balanced\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 139,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"grammar\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 173,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"expressions\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 228,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"applications\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 282,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 288,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-kernel\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 291,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-window\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 344,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual-boundary\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 402,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"closure\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 458,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"fusion\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 509,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"coupling\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 559,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"weights\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 608,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:weights\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 634,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"builtins\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 661,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"errors\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 732,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"installation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 761,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"architecture\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 813,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"embedding\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 863,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"adaptation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 924,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"validation\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 984,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/language-and-compiler.typ\",\n          \"line\": 1041,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\",\n        \"SADAR\"\n      ]\n    },\n    {\n      \"path\": \"docs/particle-examples.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"0a2cb3c0ef9ccc467388449c34386ae700e178df4551f49a7c1b80fed095a437\",\n      \"line_count\": 139,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Contact and window calculation\",\n          \"line\": 30\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Retained surplus and receipt\",\n          \"line\": 55\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Native contact and response\",\n          \"line\": 87\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Outputs and comparison maps\",\n          \"line\": 121\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"proton-window\",\n          \"file\": \"docs/particle-examples.typ\",\n          \"line\": 30,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"proton-routing\",\n          \"file\": \"docs/particle-examples.typ\",\n          \"line\": 55,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"wire-response\",\n          \"file\": \"docs/particle-examples.typ\",\n          \"line\": 87,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"particle-comparison\",\n          \"file\": \"docs/particle-examples.typ\",\n          \"line\": 121,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Duon\",\n        \"Monon\",\n        \"Stokes\"\n      ]\n    },\n    {\n      \"path\": \"docs/region-current.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"671b46351bd6f7593e7f07a15de1153d6c94a6c2e4a41830aac1b5324f7c713a\",\n      \"line_count\": 153,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"From occurrence to boundary\",\n          \"line\": 24\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Motion, history and representation\",\n          \"line\": 49\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Executable interface\",\n          \"line\": 71\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Maser apparatus\",\n          \"line\": 101\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Earth, water shell and Moon\",\n          \"line\": 126\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"region-incidence\",\n          \"file\": \"docs/region-current.typ\",\n          \"line\": 24,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"moving-region\",\n          \"file\": \"docs/region-current.typ\",\n          \"line\": 49,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"engine-interface\",\n          \"file\": \"docs/region-current.typ\",\n          \"line\": 71,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"maser\",\n          \"file\": \"docs/region-current.typ\",\n          \"line\": 101,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"earth-water-moon\",\n          \"file\": \"docs/region-current.typ\",\n          \"line\": 126,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\"\n      ]\n    },\n    {\n      \"path\": \"docs/retained-continuation.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"94b87f6975c24859de51d3708a789c8da6be3101bdae6eeb06258271a529b71e\",\n      \"line_count\": 223,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Source and preparation\",\n          \"line\": 28\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Continuation inventory\",\n          \"line\": 64\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Recursive commitment and sufficient state\",\n          \"line\": 123\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Execution and observation boundary\",\n          \"line\": 177\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"retained-setup\",\n          \"file\": \"docs/retained-continuation.typ\",\n          \"line\": 28,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"retained-inventory\",\n          \"file\": \"docs/retained-continuation.typ\",\n          \"line\": 64,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"retained-update\",\n          \"file\": \"docs/retained-continuation.typ\",\n          \"line\": 123,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"retained-execution\",\n          \"file\": \"docs/retained-continuation.typ\",\n          \"line\": 177,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\",\n        \"Monon\"\n      ]\n    },\n    {\n      \"path\": \"docs/routing-parallel.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"355b4071ec95ca715bcb3cfc989cd2375efca8bc2cc4b9c35fe3b611cc4982d1\",\n      \"line_count\": 272,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Declared model and execution boundary\",\n          \"line\": 31\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Shedding as computed surplus routing\",\n          \"line\": 71\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Octaves: retained octal coordinates\",\n          \"line\": 122\n        },\n        {\n          \"level\": 1,\n          \"title\": \"CPU and GPU execution evidence\",\n          \"line\": 170\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Wavelength map and reproduction\",\n          \"line\": 219\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"routing-setup\",\n          \"file\": \"docs/routing-parallel.typ\",\n          \"line\": 31,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"routing-surplus\",\n          \"file\": \"docs/routing-parallel.typ\",\n          \"line\": 71,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"routing-octal\",\n          \"file\": \"docs/routing-parallel.typ\",\n          \"line\": 122,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"routing-backends\",\n          \"file\": \"docs/routing-parallel.typ\",\n          \"line\": 170,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"routing-wavelength\",\n          \"file\": \"docs/routing-parallel.typ\",\n          \"line\": 219,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Dion\",\n        \"Duon\",\n        \"Monon\",\n        \"SADAR\"\n      ]\n    },\n    {\n      \"path\": \"docs/tesseract-cell-jitter.typ\",\n      \"tier\": \"Other\",\n      \"frozen\": false,\n      \"sha256\": \"85d18ef533a473858304898d1f1cd090446f25e4d20dd5db48bffc24a0d57203\",\n      \"line_count\": 478,\n      \"includes\": [],\n      \"headings\": [\n        {\n          \"level\": 1,\n          \"title\": \"Explicit cells and spatial cuts\",\n          \"line\": 44\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Auxiliary emitter and cell transport\",\n          \"line\": 71\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Jitter and numerical refinement\",\n          \"line\": 119\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Per-output numerical comparisons\",\n          \"line\": 163\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Exact D.E.C. kernels and retained histories\",\n          \"line\": 208\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Error classes and comparison records\",\n          \"line\": 270\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Observed cycles, SI units, and actual targets\",\n          \"line\": 319\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Dec execution and reproduction\",\n          \"line\": 372\n        },\n        {\n          \"level\": 1,\n          \"title\": \"Source binding and computational scope\",\n          \"line\": 428\n        }\n      ],\n      \"labels\": [\n        {\n          \"name\": \"cells\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 44,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:cell-boundary\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 61,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"transport\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 71,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:transport\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 105,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"eq:balance\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 112,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"experiment\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 119,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"eq:jitter\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 125,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"eq:tail\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 145,\n          \"kind\": \"Equation\"\n        },\n        {\n          \"name\": \"results\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 163,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"manual\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 208,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"errors\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 270,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"si\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 319,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"execution\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 372,\n          \"kind\": \"Other\"\n        },\n        {\n          \"name\": \"sources\",\n          \"file\": \"docs/tesseract-cell-jitter.typ\",\n          \"line\": 428,\n          \"kind\": \"Other\"\n        }\n      ],\n      \"references\": [],\n      \"distinctions\": [],\n      \"motifs\": [\n        \"DEC\",\n        \"Hinge\"\n      ]\n    }\n  ],\n  \"edges\": [\n    {\n      \"origin\": \"docs/boundary-accounting.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/boundary-accounting.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/chiral-core-collision.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/chiral-core-collision.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/language-and-compiler.typ\",\n      \"target\": \"motif:SADAR\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/particle-examples.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/particle-examples.typ\",\n      \"target\": \"motif:Duon\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/particle-examples.typ\",\n      \"target\": \"motif:Monon\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/particle-examples.typ\",\n      \"target\": \"motif:Stokes\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/region-current.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/retained-continuation.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/retained-continuation.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/retained-continuation.typ\",\n      \"target\": \"motif:Monon\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/routing-parallel.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/routing-parallel.typ\",\n      \"target\": \"motif:Dion\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/routing-parallel.typ\",\n      \"target\": \"motif:Duon\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/routing-parallel.typ\",\n      \"target\": \"motif:Monon\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/routing-parallel.typ\",\n      \"target\": \"motif:SADAR\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/tesseract-cell-jitter.typ\",\n      \"target\": \"motif:DEC\",\n      \"kind\": \"MotifDependency\"\n    },\n    {\n      \"origin\": \"docs/tesseract-cell-jitter.typ\",\n      \"target\": \"motif:Hinge\",\n      \"kind\": \"MotifDependency\"\n    }\n  ],\n  \"firewall_violations\": [],\n  \"include_cycles\": []\n}\n",
+    "stderr": ""
+  },
+  "manifest": {
+    "schema_version": "1.0",
+    "root": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+    "files": [
+      {
+        "path": "docs/boundary-accounting.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "b02e92149ff618f0f5e47395aa8765cc02a0e84f194070864fd3130212005da7",
+        "line_count": 133,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Complete accounting state",
+            "line": 28
+          },
+          {
+            "level": 1,
+            "title": "Boundary and window identities",
+            "line": 52
+          },
+          {
+            "level": 1,
+            "title": "Exact computational examples",
+            "line": 73
+          },
+          {
+            "level": 1,
+            "title": "Implementation contract and coverage",
+            "line": 111
+          }
+        ],
+        "labels": [
+          {
+            "name": "accounting-state",
+            "file": "docs/boundary-accounting.typ",
+            "line": 28,
+            "kind": "Other"
+          },
+          {
+            "name": "accounting-identities",
+            "file": "docs/boundary-accounting.typ",
+            "line": 52,
+            "kind": "Other"
+          },
+          {
+            "name": "accounting-examples",
+            "file": "docs/boundary-accounting.typ",
+            "line": 73,
+            "kind": "Other"
+          },
+          {
+            "name": "accounting-contract",
+            "file": "docs/boundary-accounting.typ",
+            "line": 111,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Hinge"
+        ]
+      },
+      {
+        "path": "docs/chiral-core-collision.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "ed95a1dfcdb440547ad8896c35fe05e1d94360189b043e1a5ff47d394b9fe89a",
+        "line_count": 266,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Support, formation and state",
+            "line": 45
+          },
+          {
+            "level": 1,
+            "title": "Update law and complete returns",
+            "line": 78
+          },
+          {
+            "level": 1,
+            "title": "Exact consequences and controls",
+            "line": 131
+          },
+          {
+            "level": 1,
+            "title": "Sampling and typed comparisons",
+            "line": 162
+          },
+          {
+            "level": 1,
+            "title": "Source binding and reproduction",
+            "line": 214
+          }
+        ],
+        "labels": [
+          {
+            "name": "chiral-setup",
+            "file": "docs/chiral-core-collision.typ",
+            "line": 45,
+            "kind": "Other"
+          },
+          {
+            "name": "chiral-kernel",
+            "file": "docs/chiral-core-collision.typ",
+            "line": 78,
+            "kind": "Other"
+          },
+          {
+            "name": "chiral-results",
+            "file": "docs/chiral-core-collision.typ",
+            "line": 131,
+            "kind": "Other"
+          },
+          {
+            "name": "chiral-comparison",
+            "file": "docs/chiral-core-collision.typ",
+            "line": 162,
+            "kind": "Other"
+          },
+          {
+            "name": "chiral-reproduce",
+            "file": "docs/chiral-core-collision.typ",
+            "line": 214,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Hinge"
+        ]
+      },
+      {
+        "path": "docs/language-and-compiler.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "2cbf2bc4e8b43f7af34dcf313bf6c9e2c89ee18567b9109ff670091e865a97c6",
+        "line_count": 1112,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "First program",
+            "line": 66
+          },
+          {
+            "level": 1,
+            "title": "Values and exact arithmetic",
+            "line": 120
+          },
+          {
+            "level": 1,
+            "title": "Declarations, statements, and dispatch",
+            "line": 173
+          },
+          {
+            "level": 1,
+            "title": "Expressions and control flow",
+            "line": 228
+          },
+          {
+            "level": 1,
+            "title": "Computational examples and applications",
+            "line": 282
+          },
+          {
+            "level": 2,
+            "title": "Manual kernel normalization and hinge slide",
+            "line": 291
+          },
+          {
+            "level": 2,
+            "title": "Manual short-window residual and surplus",
+            "line": 344
+          },
+          {
+            "level": 2,
+            "title": "Manual boundary-current substitution",
+            "line": 402
+          },
+          {
+            "level": 2,
+            "title": "Retained closure and recurrence",
+            "line": 458
+          },
+          {
+            "level": 2,
+            "title": "Composition with an independent outer return",
+            "line": 509
+          },
+          {
+            "level": 2,
+            "title": "Comparing recurrent lineages",
+            "line": 559
+          },
+          {
+            "level": 2,
+            "title": "Exact normalized continuation weights",
+            "line": 608
+          },
+          {
+            "level": 2,
+            "title": "Extending Manual applications",
+            "line": 642
+          },
+          {
+            "level": 1,
+            "title": "Built-in reference",
+            "line": 661
+          },
+          {
+            "level": 2,
+            "title": "Scalar operations",
+            "line": 667
+          },
+          {
+            "level": 2,
+            "title": "Trace operations",
+            "line": 690
+          },
+          {
+            "level": 2,
+            "title": "Composition and comparison operations",
+            "line": 708
+          },
+          {
+            "level": 2,
+            "title": "Output and failures",
+            "line": 732
+          },
+          {
+            "level": 1,
+            "title": "Commands, installation, and artifacts",
+            "line": 761
+          },
+          {
+            "level": 1,
+            "title": "Compiler architecture",
+            "line": 813
+          },
+          {
+            "level": 2,
+            "title": "Source-bound typed IR",
+            "line": 834
+          },
+          {
+            "level": 2,
+            "title": "Native lowering",
+            "line": 848
+          },
+          {
+            "level": 1,
+            "title": "Native runtime and embedding",
+            "line": 863
+          },
+          {
+            "level": 2,
+            "title": "Python JIT API",
+            "line": 877
+          },
+          {
+            "level": 1,
+            "title": "Caches, guards, and retained selection",
+            "line": 924
+          },
+          {
+            "level": 2,
+            "title": "Artifact reuse and entry guards",
+            "line": 926
+          },
+          {
+            "level": 2,
+            "title": "Persistent policy",
+            "line": 944
+          },
+          {
+            "level": 1,
+            "title": "Validation and practical limits",
+            "line": 984
+          },
+          {
+            "level": 2,
+            "title": "Troubleshooting",
+            "line": 1007
+          },
+          {
+            "level": 2,
+            "title": "Supported boundary",
+            "line": 1027
+          },
+          {
+            "level": 1,
+            "title": "Source authority and reading map",
+            "line": 1041
+          },
+          {
+            "level": 2,
+            "title": "Main and Manual destinations",
+            "line": 1058
+          },
+          {
+            "level": 2,
+            "title": "Implementation destinations",
+            "line": 1089
+          }
+        ],
+        "labels": [
+          {
+            "name": "sources",
+            "file": "docs/language-and-compiler.typ",
+            "line": 34,
+            "kind": "Other"
+          },
+          {
+            "name": "start",
+            "file": "docs/language-and-compiler.typ",
+            "line": 66,
+            "kind": "Other"
+          },
+          {
+            "name": "installation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 106,
+            "kind": "Other"
+          },
+          {
+            "name": "values",
+            "file": "docs/language-and-compiler.typ",
+            "line": 120,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:balanced",
+            "file": "docs/language-and-compiler.typ",
+            "line": 139,
+            "kind": "Equation"
+          },
+          {
+            "name": "grammar",
+            "file": "docs/language-and-compiler.typ",
+            "line": 173,
+            "kind": "Other"
+          },
+          {
+            "name": "expressions",
+            "file": "docs/language-and-compiler.typ",
+            "line": 228,
+            "kind": "Other"
+          },
+          {
+            "name": "applications",
+            "file": "docs/language-and-compiler.typ",
+            "line": 282,
+            "kind": "Other"
+          },
+          {
+            "name": "sources",
+            "file": "docs/language-and-compiler.typ",
+            "line": 288,
+            "kind": "Other"
+          },
+          {
+            "name": "manual-kernel",
+            "file": "docs/language-and-compiler.typ",
+            "line": 291,
+            "kind": "Other"
+          },
+          {
+            "name": "manual-window",
+            "file": "docs/language-and-compiler.typ",
+            "line": 344,
+            "kind": "Other"
+          },
+          {
+            "name": "manual-boundary",
+            "file": "docs/language-and-compiler.typ",
+            "line": 402,
+            "kind": "Other"
+          },
+          {
+            "name": "closure",
+            "file": "docs/language-and-compiler.typ",
+            "line": 458,
+            "kind": "Other"
+          },
+          {
+            "name": "fusion",
+            "file": "docs/language-and-compiler.typ",
+            "line": 509,
+            "kind": "Other"
+          },
+          {
+            "name": "coupling",
+            "file": "docs/language-and-compiler.typ",
+            "line": 559,
+            "kind": "Other"
+          },
+          {
+            "name": "weights",
+            "file": "docs/language-and-compiler.typ",
+            "line": 608,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:weights",
+            "file": "docs/language-and-compiler.typ",
+            "line": 634,
+            "kind": "Equation"
+          },
+          {
+            "name": "builtins",
+            "file": "docs/language-and-compiler.typ",
+            "line": 661,
+            "kind": "Other"
+          },
+          {
+            "name": "errors",
+            "file": "docs/language-and-compiler.typ",
+            "line": 732,
+            "kind": "Other"
+          },
+          {
+            "name": "installation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 761,
+            "kind": "Other"
+          },
+          {
+            "name": "architecture",
+            "file": "docs/language-and-compiler.typ",
+            "line": 813,
+            "kind": "Other"
+          },
+          {
+            "name": "embedding",
+            "file": "docs/language-and-compiler.typ",
+            "line": 863,
+            "kind": "Other"
+          },
+          {
+            "name": "adaptation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 924,
+            "kind": "Other"
+          },
+          {
+            "name": "validation",
+            "file": "docs/language-and-compiler.typ",
+            "line": 984,
+            "kind": "Other"
+          },
+          {
+            "name": "sources",
+            "file": "docs/language-and-compiler.typ",
+            "line": 1041,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Hinge",
+          "SADAR"
+        ]
+      },
+      {
+        "path": "docs/particle-examples.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "0a2cb3c0ef9ccc467388449c34386ae700e178df4551f49a7c1b80fed095a437",
+        "line_count": 139,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Contact and window calculation",
+            "line": 30
+          },
+          {
+            "level": 1,
+            "title": "Retained surplus and receipt",
+            "line": 55
+          },
+          {
+            "level": 1,
+            "title": "Native contact and response",
+            "line": 87
+          },
+          {
+            "level": 1,
+            "title": "Outputs and comparison maps",
+            "line": 121
+          }
+        ],
+        "labels": [
+          {
+            "name": "proton-window",
+            "file": "docs/particle-examples.typ",
+            "line": 30,
+            "kind": "Other"
+          },
+          {
+            "name": "proton-routing",
+            "file": "docs/particle-examples.typ",
+            "line": 55,
+            "kind": "Other"
+          },
+          {
+            "name": "wire-response",
+            "file": "docs/particle-examples.typ",
+            "line": 87,
+            "kind": "Other"
+          },
+          {
+            "name": "particle-comparison",
+            "file": "docs/particle-examples.typ",
+            "line": 121,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Duon",
+          "Monon",
+          "Stokes"
+        ]
+      },
+      {
+        "path": "docs/region-current.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "671b46351bd6f7593e7f07a15de1153d6c94a6c2e4a41830aac1b5324f7c713a",
+        "line_count": 153,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "From occurrence to boundary",
+            "line": 24
+          },
+          {
+            "level": 1,
+            "title": "Motion, history and representation",
+            "line": 49
+          },
+          {
+            "level": 1,
+            "title": "Executable interface",
+            "line": 71
+          },
+          {
+            "level": 1,
+            "title": "Maser apparatus",
+            "line": 101
+          },
+          {
+            "level": 1,
+            "title": "Earth, water shell and Moon",
+            "line": 126
+          }
+        ],
+        "labels": [
+          {
+            "name": "region-incidence",
+            "file": "docs/region-current.typ",
+            "line": 24,
+            "kind": "Other"
+          },
+          {
+            "name": "moving-region",
+            "file": "docs/region-current.typ",
+            "line": 49,
+            "kind": "Other"
+          },
+          {
+            "name": "engine-interface",
+            "file": "docs/region-current.typ",
+            "line": 71,
+            "kind": "Other"
+          },
+          {
+            "name": "maser",
+            "file": "docs/region-current.typ",
+            "line": 101,
+            "kind": "Other"
+          },
+          {
+            "name": "earth-water-moon",
+            "file": "docs/region-current.typ",
+            "line": 126,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC"
+        ]
+      },
+      {
+        "path": "docs/retained-continuation.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "94b87f6975c24859de51d3708a789c8da6be3101bdae6eeb06258271a529b71e",
+        "line_count": 223,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Source and preparation",
+            "line": 28
+          },
+          {
+            "level": 1,
+            "title": "Continuation inventory",
+            "line": 64
+          },
+          {
+            "level": 1,
+            "title": "Recursive commitment and sufficient state",
+            "line": 123
+          },
+          {
+            "level": 1,
+            "title": "Execution and observation boundary",
+            "line": 177
+          }
+        ],
+        "labels": [
+          {
+            "name": "retained-setup",
+            "file": "docs/retained-continuation.typ",
+            "line": 28,
+            "kind": "Other"
+          },
+          {
+            "name": "retained-inventory",
+            "file": "docs/retained-continuation.typ",
+            "line": 64,
+            "kind": "Other"
+          },
+          {
+            "name": "retained-update",
+            "file": "docs/retained-continuation.typ",
+            "line": 123,
+            "kind": "Other"
+          },
+          {
+            "name": "retained-execution",
+            "file": "docs/retained-continuation.typ",
+            "line": 177,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Hinge",
+          "Monon"
+        ]
+      },
+      {
+        "path": "docs/routing-parallel.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "355b4071ec95ca715bcb3cfc989cd2375efca8bc2cc4b9c35fe3b611cc4982d1",
+        "line_count": 272,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Declared model and execution boundary",
+            "line": 31
+          },
+          {
+            "level": 1,
+            "title": "Shedding as computed surplus routing",
+            "line": 71
+          },
+          {
+            "level": 1,
+            "title": "Octaves: retained octal coordinates",
+            "line": 122
+          },
+          {
+            "level": 1,
+            "title": "CPU and GPU execution evidence",
+            "line": 170
+          },
+          {
+            "level": 1,
+            "title": "Wavelength map and reproduction",
+            "line": 219
+          }
+        ],
+        "labels": [
+          {
+            "name": "routing-setup",
+            "file": "docs/routing-parallel.typ",
+            "line": 31,
+            "kind": "Other"
+          },
+          {
+            "name": "routing-surplus",
+            "file": "docs/routing-parallel.typ",
+            "line": 71,
+            "kind": "Other"
+          },
+          {
+            "name": "routing-octal",
+            "file": "docs/routing-parallel.typ",
+            "line": 122,
+            "kind": "Other"
+          },
+          {
+            "name": "routing-backends",
+            "file": "docs/routing-parallel.typ",
+            "line": 170,
+            "kind": "Other"
+          },
+          {
+            "name": "routing-wavelength",
+            "file": "docs/routing-parallel.typ",
+            "line": 219,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Dion",
+          "Duon",
+          "Monon",
+          "SADAR"
+        ]
+      },
+      {
+        "path": "docs/tesseract-cell-jitter.typ",
+        "tier": "Other",
+        "frozen": false,
+        "sha256": "85d18ef533a473858304898d1f1cd090446f25e4d20dd5db48bffc24a0d57203",
+        "line_count": 478,
+        "includes": [],
+        "headings": [
+          {
+            "level": 1,
+            "title": "Explicit cells and spatial cuts",
+            "line": 44
+          },
+          {
+            "level": 1,
+            "title": "Auxiliary emitter and cell transport",
+            "line": 71
+          },
+          {
+            "level": 1,
+            "title": "Jitter and numerical refinement",
+            "line": 119
+          },
+          {
+            "level": 1,
+            "title": "Per-output numerical comparisons",
+            "line": 163
+          },
+          {
+            "level": 1,
+            "title": "Exact D.E.C. kernels and retained histories",
+            "line": 208
+          },
+          {
+            "level": 1,
+            "title": "Error classes and comparison records",
+            "line": 270
+          },
+          {
+            "level": 1,
+            "title": "Observed cycles, SI units, and actual targets",
+            "line": 319
+          },
+          {
+            "level": 1,
+            "title": "Dec execution and reproduction",
+            "line": 372
+          },
+          {
+            "level": 1,
+            "title": "Source binding and computational scope",
+            "line": 428
+          }
+        ],
+        "labels": [
+          {
+            "name": "cells",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 44,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:cell-boundary",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 61,
+            "kind": "Equation"
+          },
+          {
+            "name": "transport",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 71,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:transport",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 105,
+            "kind": "Equation"
+          },
+          {
+            "name": "eq:balance",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 112,
+            "kind": "Equation"
+          },
+          {
+            "name": "experiment",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 119,
+            "kind": "Other"
+          },
+          {
+            "name": "eq:jitter",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 125,
+            "kind": "Equation"
+          },
+          {
+            "name": "eq:tail",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 145,
+            "kind": "Equation"
+          },
+          {
+            "name": "results",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 163,
+            "kind": "Other"
+          },
+          {
+            "name": "manual",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 208,
+            "kind": "Other"
+          },
+          {
+            "name": "errors",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 270,
+            "kind": "Other"
+          },
+          {
+            "name": "si",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 319,
+            "kind": "Other"
+          },
+          {
+            "name": "execution",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 372,
+            "kind": "Other"
+          },
+          {
+            "name": "sources",
+            "file": "docs/tesseract-cell-jitter.typ",
+            "line": 428,
+            "kind": "Other"
+          }
+        ],
+        "references": [],
+        "distinctions": [],
+        "motifs": [
+          "DEC",
+          "Hinge"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "origin": "docs/boundary-accounting.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/boundary-accounting.typ",
+        "target": "motif:Hinge",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/chiral-core-collision.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/chiral-core-collision.typ",
+        "target": "motif:Hinge",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/language-and-compiler.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/language-and-compiler.typ",
+        "target": "motif:Hinge",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/language-and-compiler.typ",
+        "target": "motif:SADAR",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/particle-examples.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/particle-examples.typ",
+        "target": "motif:Duon",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/particle-examples.typ",
+        "target": "motif:Monon",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/particle-examples.typ",
+        "target": "motif:Stokes",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/region-current.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/retained-continuation.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/retained-continuation.typ",
+        "target": "motif:Hinge",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/retained-continuation.typ",
+        "target": "motif:Monon",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/routing-parallel.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/routing-parallel.typ",
+        "target": "motif:Dion",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/routing-parallel.typ",
+        "target": "motif:Duon",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/routing-parallel.typ",
+        "target": "motif:Monon",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/routing-parallel.typ",
+        "target": "motif:SADAR",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/tesseract-cell-jitter.typ",
+        "target": "motif:DEC",
+        "kind": "MotifDependency"
+      },
+      {
+        "origin": "docs/tesseract-cell-jitter.typ",
+        "target": "motif:Hinge",
+        "kind": "MotifDependency"
+      }
+    ],
+    "firewall_violations": [],
+    "include_cycles": []
+  },
+  "checks": [
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/boundary-accounting.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/boundary-accounting.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/chiral-core-collision.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/chiral-core-collision.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/language-and-compiler.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/language-and-compiler.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/particle-examples.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/particle-examples.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/region-current.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/region-current.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/retained-continuation.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/retained-continuation.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/routing-parallel.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/routing-parallel.typ\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/tesseract-cell-jitter.typ",
+        "--strict",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"converged\": true,\n  \"diagnostics\": [],\n  \"hoisted_dependencies\": 0,\n  \"rubric_bits\": \"11111111\",\n  \"strict_mode\": true,\n  \"target\": \"/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/docs/tesseract-cell-jitter.typ\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

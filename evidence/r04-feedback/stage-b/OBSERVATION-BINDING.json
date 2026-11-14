@@ -1,0 +1,35 @@
+{
+  "status": "native-construction-bound; experimental/SI correspondence uninstantiated",
+  "native_preparation": "two admitted same-scope 1:2 cores with C6 witnesses; A3/B2 target closures and seed contact; fixed two-member population",
+  "native_observables": [
+    "selected H1 paths",
+    "completed motif returns",
+    "directional contact/reflection records",
+    "retained relation tokens",
+    "exact conditional kernel"
+  ],
+  "physical_preparation": null,
+  "moving_observation_boundary": null,
+  "packet_or_closure_to_observed_phase_map": null,
+  "physical_proton_correspondence": null,
+  "SI_reference_realization": null,
+  "seconds_per_native_cut": null,
+  "physical_target_data": null,
+  "physical_accuracy_residual": null,
+  "existing_separate_SI_adapter": {
+    "path": "simulations/manual_si_fixture.py",
+    "sha256": "c3553e5e78189586c787171b27408d561816027a194ce24b1c390d62135c3edf",
+    "main_manual_base_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+    "manual_anchor": "eq:manual-m3-accumulated-si",
+    "application_to_this_model": "not instantiated; phase records and physical reference realization required"
+  },
+  "error_classes": {
+    "input": "exact type and full witness admission; malformed record rejection",
+    "arithmetic": "integer/rational exact in declared model",
+    "model": "explicit recipe/token routing/window/clipping/fixed-population choices",
+    "projection": "source-bound proof for reachable witness histories; full records retained",
+    "mapping": "unknown physical preparation/observation/clock correspondence",
+    "target": "no independent collision target or uncertainty bound supplied"
+  },
+  "density": "population count only; no positive cell measure bound"
+}

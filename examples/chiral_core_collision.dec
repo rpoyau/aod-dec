@@ -3,9 +3,9 @@
 # Generator source SHA-256: 32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0
 # Host model evaluator source SHA-256: a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62
 # Configuration SHA-256: db227ffe9d6669df3c5c3c98a0ec7741f9a2d468d5b52000ea08261bf823da19
-# Retained path SHA-256: 206e9bed204d621e9d77bf8ab4ba40a0116837780d8bb91caf68c9990d66b85c
+# Retained path SHA-256: 2f0c353995061b6e35ab8165ac2c21fa44717ef69e1836e3a00047de245359e9
 # Declared locations/tickets SHA-256: f3497dd06ed0c1de2a06f490eaab06b8b2b3a19c331efd38ad3c0ef179d7ff36
-# Manual producer SHA-256: 3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf
+# Manual producer SHA-256: 562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554
 # Scalar output: q_a, q_b, chi_a, chi_b, phases_a, phases_b, beats_a, beats_b; then A trace, B trace, result.
 Dec population_count(facet) -> count:
     (str facet) -> int count:

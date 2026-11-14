@@ -1,0 +1,316 @@
+{
+  "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+  "probe_sha256": "2f95372ac8a1d0b6214e08ce8006fb0b78f0ed76b43a5a6d169d70662ef19d73",
+  "evaluator_sha256": "a9bceb3fde669486cad0e3b1345683dde8d87a7e378d5155175485abe1a5cf27",
+  "runs": [
+    {
+      "optimized": false,
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/probe_adjacent.py",
+        "--producer",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+        "--variant",
+        "r04",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/adjacent-historical-normal.json"
+      ],
+      "raw_historical_exit_code": 1,
+      "raw_report": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/adjacent-historical-normal.json",
+      "complete_case_inventory": true,
+      "outcomes": [
+        {
+          "id": "ADJ-phase_count-valid",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "ADJ-phase_count-conflict",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "conflicting coordinates for immutable retained event"
+          },
+          "passed": true
+        },
+        {
+          "id": "ADJ-field-valid",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "ADJ-field-conflict",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "conflicting coordinates for immutable retained event"
+          },
+          "passed": true
+        },
+        {
+          "id": "ADJ-fold_proposal-valid",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "ADJ-fold_proposal-conflict",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "conflicting coordinates for immutable retained event"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-bind_values-integer",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "TYPE-bind_values-boolean",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "readout commitment must be an exact integer native cut"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-bind_values-float",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "readout commitment must be an exact integer native cut"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-turnaround_committed_at-fraction",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-turnaround_committed_at-int_subclass",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-committed_at-fraction",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-committed_at-int_subclass",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        }
+      ],
+      "passed": 13,
+      "count": 13,
+      "all_passed": true,
+      "scope": "Repaired expectations applied to unchanged, source-bound independent probe observations."
+    },
+    {
+      "optimized": true,
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/probe_adjacent.py",
+        "--producer",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+        "--variant",
+        "r04",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/adjacent-historical-optimized.json"
+      ],
+      "raw_historical_exit_code": 1,
+      "raw_report": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/adjacent-historical-optimized.json",
+      "complete_case_inventory": true,
+      "outcomes": [
+        {
+          "id": "ADJ-phase_count-valid",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "ADJ-phase_count-conflict",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "conflicting coordinates for immutable retained event"
+          },
+          "passed": true
+        },
+        {
+          "id": "ADJ-field-valid",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "ADJ-field-conflict",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "conflicting coordinates for immutable retained event"
+          },
+          "passed": true
+        },
+        {
+          "id": "ADJ-fold_proposal-valid",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "ADJ-fold_proposal-conflict",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "conflicting coordinates for immutable retained event"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-bind_values-integer",
+          "expected_accepted": true,
+          "observed_accepted": true,
+          "unexpected_exception": false,
+          "error": null,
+          "passed": true
+        },
+        {
+          "id": "TYPE-bind_values-boolean",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "readout commitment must be an exact integer native cut"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-bind_values-float",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "readout commitment must be an exact integer native cut"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-turnaround_committed_at-fraction",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-turnaround_committed_at-int_subclass",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-committed_at-fraction",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        },
+        {
+          "id": "TYPE-reflection-committed_at-int_subclass",
+          "expected_accepted": false,
+          "observed_accepted": false,
+          "unexpected_exception": false,
+          "error": {
+            "type": "AdmissionError",
+            "message": "reflection commitments must be exact integer native cuts"
+          },
+          "passed": true
+        }
+      ],
+      "passed": 13,
+      "count": 13,
+      "all_passed": true,
+      "scope": "Repaired expectations applied to unchanged, source-bound independent probe observations."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "task": "Implement and verify boundary/window/scale accounting safeguards; preserve recurrence and operative carriage across decoupling, recoupling and shedding; replay source-defined awareness chain.",
+  "sources": {
+    "upstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "base_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+      "working_diff_sha256": "a59ff25cf12d6216be6886399d041829f963b6da99c199f19d54d80f73b60975"
+    },
+    "downstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "base_commit": "8144803e7e889087dfd1e9322c778fdc276c6f32",
+      "working_diff_sha256": "f75aea56d3faaed03a5fd56d882e299528b9ebe83b67ba09f08eb6524c02e874"
+    },
+    "afc": {
+      "path": "/home/reginaldpoyau/projects/aod/afc",
+      "base_commit": "5a25e8bd5bbc3f20ec4413a6b63abc420b7a54cb",
+      "working_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "write_scope": "New local application candidate, tests and review/execution evidence only; frozen prior deliveries and Main/Manual preserved.",
+  "owner_steering": [
+    "Whole moving-boundary sweep/shedding and fractal field dynamics must be accounted at each scale.",
+    "Octave span denotes the requested carried scope/depth and awareness, using retained octal addressing and the same recursive branch/crown/successor calculus.",
+    "A correctly implemented boundary-scoped window and scale must not silently leak, lose or double-count data."
+  ],
+  "prior_evidence": "../AOD_DEC_FIELD_WINDOW_2026-11-14/REPORT.md",
+  "prior_report_sha256": "dec62160fec011ca018b44454234887fbba13e8454c2627c0794b7e66d692ec5"
+}

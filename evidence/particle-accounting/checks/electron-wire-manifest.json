@@ -1,0 +1,44 @@
+{
+  "artifacts": {
+    "checks/electron-wire-execution.json": {
+      "bytes": 3250,
+      "sha256": "6cded094d2aa1ea5616bedf717f7ce64b67c8ad8db1cf83001669102062c3bb1"
+    },
+    "checks/electron-wire-optimized.json": {
+      "bytes": 638608,
+      "sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774"
+    },
+    "outputs/electron-wire.json": {
+      "bytes": 638608,
+      "sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774"
+    },
+    "review/electron-wire-binding.json": {
+      "bytes": 3511,
+      "sha256": "60db1aae747fde8ffc32fd33c48a7101058e46b2ef6035a366d817cfbfd8c9b5"
+    },
+    "review/electron-wire-execution.md": {
+      "bytes": 7708,
+      "sha256": "3f7427aa30107a07b665885068269f02cb28f72877263c7a5ba6e72442c98446"
+    },
+    "review/electron-wire-search.json": {
+      "bytes": 166822,
+      "sha256": "cef07d5a78ebeb9e1d52dc661832c416f27ba6fecc5e0952c2877eef330a59f2"
+    },
+    "review/electron-wire-sources.md": {
+      "bytes": 8422,
+      "sha256": "f1141d54ff240bf3fa72882c58735fa1921f16d6289d95911a032a6335802e2c"
+    },
+    "scripts/electron_wire_accounting.py": {
+      "bytes": 23240,
+      "sha256": "e1055b9007646cbd6229d6e70112edf7e92f3672c9e89219f1bc41acb7c464e9"
+    }
+  },
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/B_quarantined_external_comparison.tex": "2a4730702a7f1aa7889f297ef58d3f15573ade2b4ce4b89a3631720b5ee10cb1",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88"
+  }
+}

@@ -146,6 +146,45 @@ jobs:
             build/routing-parallel/*.ptx
           if-no-files-found: warn
           retention-days: 90
+      - name: Verify counted retained continuation
+        run: python3 scripts/check_retained_continuation.py --output build/retained-continuation
+      - name: Run scoped region and particle applications in both Python modes
+        run: |
+          mkdir -p build/scoped-current/normal build/scoped-current/optimized
+          python3 -B simulations/run_regions.py --example all --output build/scoped-current/normal/regions.json
+          python3 -B -O simulations/run_regions.py --example all --output build/scoped-current/optimized/regions.json
+          cmp build/scoped-current/normal/regions.json build/scoped-current/optimized/regions.json
+          python3 -B simulations/proton_accounting.py --output build/scoped-current/normal/proton-accounting.json
+          python3 -B -O simulations/proton_accounting.py --output build/scoped-current/optimized/proton-accounting.json
+          cmp build/scoped-current/normal/proton-accounting.json build/scoped-current/optimized/proton-accounting.json
+          cmp build/scoped-current/normal/proton-accounting-witnesses.json.gz build/scoped-current/optimized/proton-accounting-witnesses.json.gz
+          python3 -B simulations/electron_wire_accounting.py --output build/scoped-current/normal/electron-wire.json
+          python3 -B -O simulations/electron_wire_accounting.py --output build/scoped-current/optimized/electron-wire.json
+          cmp build/scoped-current/normal/electron-wire.json build/scoped-current/optimized/electron-wire.json
+      - name: Execute region scalar formulas through reference, ORC and AOT
+        run: |
+          python3 -B scripts/check_region_current.py --output build/scoped-current/dec-normal
+          python3 -B -O scripts/check_region_current.py --output build/scoped-current/dec-optimized
+      - name: Build retained, boundary, particle and region companions
+        run: make docs-scoped TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
+      - name: Retain scoped current studies and documentation
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: scoped-current-applications-${{ github.sha }}
+          path: |
+            build/scoped-current/normal/
+            build/scoped-current/optimized/
+            build/scoped-current/docs/
+            build/scoped-current/dec-normal/results.json
+            build/scoped-current/dec-optimized/results.json
+            build/retained-continuation/*.json
+            build/retained-continuation/*.json.gz
+            build/retained-continuation/*.dec
+            build/retained-continuation/*.stdout
+            build/retained-continuation/*.pdf
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

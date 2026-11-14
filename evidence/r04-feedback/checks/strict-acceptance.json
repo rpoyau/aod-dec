@@ -1,0 +1,56 @@
+[
+  {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/tests/check_admission.py",
+      "--producer",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+      "--expect",
+      "fixed"
+    ],
+    "exit_code": 0,
+    "log": "upstream-strict-normal.log",
+    "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+  },
+  {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-O",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/tests/check_admission.py",
+      "--producer",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+      "--expect",
+      "fixed"
+    ],
+    "exit_code": 0,
+    "log": "upstream-strict-optimized.log",
+    "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+  },
+  {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/tests/check_admission.py",
+      "--producer",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py",
+      "--expect",
+      "fixed"
+    ],
+    "exit_code": 0,
+    "log": "downstream-strict-normal.log",
+    "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+  },
+  {
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-O",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/tests/check_admission.py",
+      "--producer",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py",
+      "--expect",
+      "fixed"
+    ],
+    "exit_code": 0,
+    "log": "downstream-strict-optimized.log",
+    "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+  }
+]

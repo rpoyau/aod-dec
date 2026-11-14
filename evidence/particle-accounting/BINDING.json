@@ -1,0 +1,32 @@
+{
+  "task": "Execute concrete proton-proton and electron-above-wire accounting examples using bound particle maps, native witnesses and complete boundary/window/scale accounting.",
+  "sources": {
+    "upstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "base_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+      "working_diff_sha256": "a59ff25cf12d6216be6886399d041829f963b6da99c199f19d54d80f73b60975"
+    },
+    "downstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "base_commit": "8144803e7e889087dfd1e9322c778fdc276c6f32",
+      "working_diff_sha256": "f75aea56d3faaed03a5fd56d882e299528b9ebe83b67ba09f08eb6524c02e874"
+    },
+    "afc": {
+      "path": "/home/reginaldpoyau/projects/aod/afc",
+      "base_commit": "5a25e8bd5bbc3f20ec4413a6b63abc420b7a54cb",
+      "working_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "write_scope": "New example scripts, documentation and evidence only; preserve frozen Main/Manual/compiler/accounting delivery.",
+  "owner_steering": [
+    "Use the particle examples to show how accounting works: specifically proton-proton, or electron above a wire.",
+    "Preserve all earlier boundary/window/scale, RD/RCD, coupling, shedding, current and provenance requirements.",
+    "Probabilistic description belongs to the supplied application, not an intrinsic engine law."
+  ],
+  "prior_evidence": "../AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/REPORT.md",
+  "prior_report_sha256": "dabcc3e9e94b884ea5e90bff7b5ce3645a336cf3abd04d1a1840b789ee9f44eb",
+  "accounting_component": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py",
+    "sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+  }
+}

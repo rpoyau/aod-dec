@@ -1,0 +1,134 @@
+{
+  "scope": "Active anchor formation namespace migration; disjoint complete owning module plus exact structural semantic comparison.",
+  "command": [
+    "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+    "-B",
+    "stage-a/anchor-migration/finalize_binding.py"
+  ],
+  "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14",
+  "source_sha256": "3f343da903d1e9200f4e426c176ddc4dc39167c038528393ffcd2eb94d032edc",
+  "tests_sha256": "d1e699a30f1f3fe376f48c04cfe4078d6dea09ee55c971441062ab6b43fe8dfa",
+  "archive_sha256": "2b26210cf0f7f2fa5e510560d5156aebddaa6a7039e1eab4e9a8209500bead25",
+  "original_active_files_preserved": true,
+  "files": [
+    {
+      "path": "manual/scripts/aod_m3_anchor.py",
+      "original_sha256": "1a1b56427e3218337b559e633096816ca5f8645facb69e0303201f0da9978a3b",
+      "active_sha256": "3f343da903d1e9200f4e426c176ddc4dc39167c038528393ffcd2eb94d032edc"
+    },
+    {
+      "path": "tests/test_m3_anchor.py",
+      "original_sha256": "d0e96c2d70c0c883fd7ad74bd907aaf1ea2ce2aee7540bab4058f37cb9770b05",
+      "active_sha256": "d1e699a30f1f3fe376f48c04cfe4078d6dea09ee55c971441062ab6b43fe8dfa"
+    },
+    {
+      "path": "manual/data/m3/temporal_anchor/inputs.json",
+      "original_sha256": "0e5e27f35f2dcb5ee4e1f110314bd16983051faf2cede01c76b70dfd4543b37c",
+      "active_sha256": "34691712f9ca67111ffb1a1e769df5b49a61bd24ececc5b88525cd9515c6ea79"
+    },
+    {
+      "path": "manual/data/m3/temporal_anchor/report.json",
+      "original_sha256": "637d713cf70b401c2b2065a76d6b74b9c20ca4ae506af66905e4596c81ec7ec7",
+      "active_sha256": "8ddd628753e8942a18684eef45fa070f459e08bf9652b2ac316ea1a3f5cca098"
+    },
+    {
+      "path": "manual/data/m3/temporal_anchor/cases/baseline.json.gz",
+      "original_sha256": "5e2da43d9701dc3efafa6778aba821f35af4b6e005897f609b33e1893732028c",
+      "active_sha256": "3f3e3a10e0cc39a22b2b666a43c91783de8f43bca4287017517fd319dd06307c"
+    },
+    {
+      "path": "manual/data/m3/temporal_anchor/cases/compared_population.json.gz",
+      "original_sha256": "b9a48a53535ab749da774709f2e18c65d82b0017345b798d0170049c3b76b7c5",
+      "active_sha256": "1b575d180599703c25f4befc2df232c240de1c2886eb04fca55090edc6fe6922"
+    },
+    {
+      "path": "manual/data/m3/temporal_anchor/cases/reference_exposure.json.gz",
+      "original_sha256": "bc223717dd58e96363a58efbed8e0585f4f6ca98022cc4afbd282aabd62facef",
+      "active_sha256": "6d502b45646213a01ac999773c2fa04155c139e0ebf762f1e30df77c1b281a7a"
+    },
+    {
+      "path": "manual/data/m3/temporal_anchor/cases/second_support_pair.json.gz",
+      "original_sha256": "831a829b6b60b6147df3167e127636123b5d531d52fd2362af6ac3a9e2659084",
+      "active_sha256": "34eb4641986cceba3863c9e6c0e0edf3178d64e499900594c6a9b1461134e6db"
+    }
+  ],
+  "tests": [
+    {
+      "mode": "normal",
+      "class": "AnchorLoaderTests",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "command_file": "loader-normal-command.json",
+      "command_sha256": "0b79536a1ea9983a1b8cff81e68e6b0469be768c2c650543fb4cd3f770496ac7",
+      "log_file": "loader-normal.log",
+      "log_sha256": "ddbd5b7915642e6b9fed4f9e00cdf4bce5554ad2dc13a0d0dd25860dcdb2a3e1"
+    },
+    {
+      "mode": "normal",
+      "class": "AnchorAdmissionTests",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "command_file": "AnchorAdmissionTests-normal-command.json",
+      "command_sha256": "8fca46d2e38ca4801aa0ee0436c3a68b6f1da5490e44433e493e2d7d539737f9",
+      "log_file": "AnchorAdmissionTests-normal.log",
+      "log_sha256": "a36cedef9af394dfb1ab0d25529c4d4c4a2fb6a8e864fe7d582963593e2a9e05"
+    },
+    {
+      "mode": "normal",
+      "class": "AnchorEvidenceTests",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "command_file": "AnchorEvidenceTests-normal-command.json",
+      "command_sha256": "43ca3af4b2b29a128dc37edc055c006849d63b30820285c8e5d8b65a2bfab1c0",
+      "log_file": "AnchorEvidenceTests-normal.log",
+      "log_sha256": "2e90e0fd4e3393c8258ad58d0eef77bdbf6934c247a1781299e6ff826d33d82b"
+    },
+    {
+      "mode": "optimized",
+      "class": "AnchorLoaderTests",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "command_file": "loader-optimized-command.json",
+      "command_sha256": "123a8e1ab78414546d13e752884da4608b291e1e8b49479d3bb5c5385e3828f7",
+      "log_file": "loader-optimized.log",
+      "log_sha256": "605a36b4bc7d3360b2854404c709fc2869f82dabe06bb64ecdf6995d6bc76165"
+    },
+    {
+      "mode": "optimized",
+      "class": "AnchorAdmissionTests",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "command_file": "AnchorAdmissionTests-optimized-command.json",
+      "command_sha256": "6c424e451912edf8cd00fe9fd66462dada61a21333835c9a52eabd92f35098d4",
+      "log_file": "AnchorAdmissionTests-optimized.log",
+      "log_sha256": "a9802dbf5bbcf767685e99470a53661a5903c964e95f7cd309178177f30ae049"
+    },
+    {
+      "mode": "optimized",
+      "class": "AnchorEvidenceTests",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "command_file": "AnchorEvidenceTests-optimized-command.json",
+      "command_sha256": "6938338ce9aaec203befc95bea8d6be12e91b0411484877b2c0af4e592ada8f9",
+      "log_file": "AnchorEvidenceTests-optimized.log",
+      "log_sha256": "ba0a7ca53a09c74061f998779857bfcf54fd0863df6a9b4177ad72b0c03d1536"
+    }
+  ],
+  "passed_per_mode": 23,
+  "failed_per_mode": 0,
+  "skipped_per_mode": 0,
+  "semantic_comparison_sha256": "bec09c25637bc2a6e5b3ba1c886d623e75d958a6a94e0f0079dd247b3a68014a",
+  "checker_sha256": "e34afad1e4736f278160524d1cf5e67ffa047755921f05a63a2707af859efffd",
+  "initial_comparison_preserved_sha256": "a97ce198cf7109b4fdccb66004c0db90c8b15face1b38a9bceca8fe53b51a0d6",
+  "semantic_cases_passed": 4,
+  "semantic_auxiliary_files_passed": 2,
+  "unexpected_semantic_changes": 0,
+  "all_passed": true,
+  "coverage_limit": "No hostile counterexample was executed for the otherwise-unselected temporal population/contact union. No producer-wide hostile closure or physical accuracy claim."
+}

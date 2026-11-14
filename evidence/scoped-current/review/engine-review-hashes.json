@@ -1,0 +1,142 @@
+{
+  "status": "PASS_WITH_DECLARED_SCOPE",
+  "method": "Read-only implementation/application/compiler-evidence review plus 41 independent exact adapter falsifiers in normal and optimized Python",
+  "independent_modes": [
+    "normal",
+    "optimized"
+  ],
+  "independent_check_count_per_mode": 41,
+  "independent_output_bytes_identical": true,
+  "findings": {
+    "R1": "Fixed: pending obligations persist across later boundary changes",
+    "R2": "Fixed: exact canonical comparison rejects numeric-equality float/bool substitutions",
+    "C1": "Clarified: coverage relative to declared family; no external completeness certification",
+    "C2": "Aligned: scalar swept-current input now nonnegative like host measure"
+  },
+  "production_edits_by_reviewer": false,
+  "example_simulations_rerun_by_reviewer": false,
+  "compiler_executions_rerun_by_reviewer": false,
+  "observed_saved_compiler_checks_per_mode": {
+    "positive": 44,
+    "hostile": 6
+  },
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/verify_region_dec.py": "b4f2ad61e2c0429a8f41cc961f7c5f43ea02d56b62379b6fd35c71b4c8540982",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/region_current.dec": "dffbe018457fc797e8a746ef81d33b91efebc390186b3d8e7726d3ef351770f7",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/native/runner.cpp": "eb5e5033b0f8ed1211b1955469199d7e7fe80424d4effc83aaea533313d76daa",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/runtime/dec_core.py": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/application/region_engine.py": "3349131920396a45712daea57ec44438ad3d499f4aed57bae99eeb034ba17b4b",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/run_regions.py": "60c1615dc041e65f379c01f1007b01df6d200860285018e9862f670eb4e3600c",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_m3_metrology.py": "d2f53146257b1d29939587abc167f87e9e810f904660b3bfd81a5015ef6e9618",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_m3_temporal.py": "1cfc0ecebc1d4c5eb0b22184af171f4d60e9630a211dedbd66ae5a12df920aec",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_mapping_error.py": "77afd00aac413fbaf7b4386d40f79be318d7d813081c6db17ffce1cb6c41f480",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/03_m3_temporal.tex": "dc2dfaa86c4e7ce3d4201f618b67b7b860866988f8dfd21c6f7ff300a4d15612",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/check_maser_packets.py": "b59643d4b1f0567208aac65dbf668d5621486a0bbc368a64e12d46e7a3ed5aa2"
+  },
+  "artifacts": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/application/region_engine.py",
+      "sha256": "3349131920396a45712daea57ec44438ad3d499f4aed57bae99eeb034ba17b4b",
+      "bytes": 18406
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/tests/test_region_engine.py",
+      "sha256": "7549b7bc79510efc0776f580afb955577202fac003bd3a90e0dcbdcce2f38573",
+      "bytes": 13971
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/run_regions.py",
+      "sha256": "60c1615dc041e65f379c01f1007b01df6d200860285018e9862f670eb4e3600c",
+      "bytes": 18527
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/check_maser_packets.py",
+      "sha256": "b59643d4b1f0567208aac65dbf668d5621486a0bbc368a64e12d46e7a3ed5aa2",
+      "bytes": 3562
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/region_current.dec",
+      "sha256": "dffbe018457fc797e8a746ef81d33b91efebc390186b3d8e7726d3ef351770f7",
+      "bytes": 1792
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/verify_region_dec.py",
+      "sha256": "b4f2ad61e2c0429a8f41cc961f7c5f43ea02d56b62379b6fd35c71b4c8540982",
+      "bytes": 5760
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/dec-execution.json",
+      "sha256": "30f8c3ac2d26d49417e0730f8e1f53e59b41bdfb560df05158216b4bb8aaf5d2",
+      "bytes": 58711
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/dec-execution-optimized.json",
+      "sha256": "0fbc724a638718d58f22bbdf0511b6906d22c051a2d016dcd07127d75185389b",
+      "bytes": 58613
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/engine/execution.json",
+      "sha256": "e9b37446f5fd43e82ac2b571c7d2c22396cab49a929856e78b274f76ffa360ba",
+      "bytes": 1688
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/region-examples-execution.json",
+      "sha256": "642e29cb32a2dd74eab140bda2ce58c49b0c0fcc6ca3386605d50fae8568a332",
+      "bytes": 3112
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/maser-packet-execution.json",
+      "sha256": "22598881ce38146ea9bb4935b9cb75585774a0e9861f8f6cbccc1871542d6085",
+      "bytes": 2119
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/outputs/region-examples.json",
+      "sha256": "32f718d8b50f1c23039c30e4d0c70409a83362b562f51c60d06539683a4ba47e",
+      "bytes": 988832
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/outputs/maser-packet-ledger.json",
+      "sha256": "f955e8452063b83e32a40f88ae1ee9b6173e837b13e2c04875c4916d5ef1f616",
+      "bytes": 2597
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/check_region_engine.py",
+      "sha256": "0257255378e58ff9e070ac009208e82f2023bf1046e1542616b7d09a287f49df",
+      "bytes": 8073
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-independent-check.json",
+      "sha256": "0f66e3c0bf5a14e56b272ed22acd65627234c1d1ded952471da2f88585b406db",
+      "bytes": 5687
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-independent-normal.json",
+      "sha256": "0f66e3c0bf5a14e56b272ed22acd65627234c1d1ded952471da2f88585b406db",
+      "bytes": 5687
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-counterexamples.json",
+      "sha256": "6896a9ff75d6e281f18ac9be02d92df3a373843fbbd1d24e5be21d6d095bfa69",
+      "bytes": 2065
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/engine-review.md",
+      "sha256": "5997303bad8cb1f07b7d52b9913b6a5f44d81221b6f3b15a1b1187f90a506f1a",
+      "bytes": 8371
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/sources.md",
+      "sha256": "941e7065f4cfcf685d23318345da0aa21b2ff8ce5697c3f055eb2d965b33d278",
+      "bytes": 14805
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/review/source-hashes.json",
+      "sha256": "db0616c60d6287accd1a36b70b98b1d04404f6b4f9a89bca06ef8f3cb6532984",
+      "bytes": 8832
+    }
+  ]
+}

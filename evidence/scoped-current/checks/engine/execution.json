@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "runs": [
+    {
+      "mode": "normal",
+      "exit_code": 0,
+      "status": "PASS",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "optimized": false
+    },
+    {
+      "mode": "optimized",
+      "exit_code": 0,
+      "status": "PASS",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "optimized": true
+    }
+  ],
+  "accounting_component": {
+    "path": "../AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py",
+    "sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+  },
+  "artifacts": {
+    "application/region_engine.py": {
+      "sha256": "3349131920396a45712daea57ec44438ad3d499f4aed57bae99eeb034ba17b4b",
+      "bytes": 18406
+    },
+    "tests/test_region_engine.py": {
+      "sha256": "7549b7bc79510efc0776f580afb955577202fac003bd3a90e0dcbdcce2f38573",
+      "bytes": 13971
+    },
+    "checks/engine/normal.log": {
+      "sha256": "7f3bf50247c340cb9d1c8d9dfc73f64db5dfdeafa0e5ddaa3dde7ec1a6004382",
+      "bytes": 3667
+    },
+    "checks/engine/optimized.log": {
+      "sha256": "28ceb0d3057034eaab05dfe894cc1c2fd61ff3dc2a46fea68b6a997ace06b5ff",
+      "bytes": 3666
+    }
+  },
+  "coverage": [
+    "same-occurrence internal cancellation and shell difference",
+    "moving sweep exact field and after-membership convention",
+    "immutable history and occurrence rejection",
+    "coupling dropout retains all raw events",
+    "source snapshots reject omitted cut events",
+    "explicit rational reporting-scale maps",
+    "burden obligation carried across moving boundaries",
+    "exact cached quantities reject floats/bools",
+    "declared-family completeness scope"
+  ]
+}

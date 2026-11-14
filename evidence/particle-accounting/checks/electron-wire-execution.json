@@ -1,0 +1,96 @@
+{
+  "checks_per_mode": 33,
+  "hostile_rejections_per_mode": 9,
+  "invocation_directory": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14",
+  "mode_outputs_byte_identical": true,
+  "modes": [
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "scripts/electron_wire_accounting.py",
+        "--output",
+        "outputs/electron-wire.json"
+      ],
+      "exec_session_id": 74683,
+      "mode": "normal",
+      "observed_exit_code": 0,
+      "output_bytes": 638608,
+      "output_sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "scripts/electron_wire_accounting.py",
+        "--output",
+        "checks/electron-wire-optimized.json"
+      ],
+      "exec_session_id": 47050,
+      "mode": "optimized",
+      "observed_exit_code": 0,
+      "output_bytes": 638608,
+      "output_sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774"
+    }
+  ],
+  "positive_checks_per_mode": 24,
+  "runner_sha256": "e1055b9007646cbd6229d6e70112edf7e92f3672c9e89219f1bc41acb7c464e9",
+  "source_binding_rechecked": true,
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/B_quarantined_external_comparison.tex": "2a4730702a7f1aa7889f297ef58d3f15573ade2b4ce4b89a3631720b5ee10cb1",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88"
+  },
+  "status": "PASS",
+  "summary": {
+    "RCD_duration": 5,
+    "checks": 33,
+    "closure_surplus": [
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "contacts": [
+      36,
+      46
+    ],
+    "electron_later_current": [
+      "4",
+      "4",
+      "8",
+      "13"
+    ],
+    "electron_window_current": "-13",
+    "hostile_rejections": 9,
+    "positive_checks": 24,
+    "reflection_counts": [
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ],
+    "union_window_current": "0",
+    "wire_flux": [
+      "4",
+      "0",
+      "4",
+      "5"
+    ],
+    "wire_later_current": [
+      "-4",
+      "-4",
+      "-8",
+      "-13"
+    ],
+    "wire_window_current": "13"
+  }
+}

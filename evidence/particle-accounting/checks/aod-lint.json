@@ -1,0 +1,8 @@
+{
+  "converged": true,
+  "diagnostics": [],
+  "hoisted_dependencies": 0,
+  "rubric_bits": "11111111",
+  "strict_mode": true,
+  "target": "docs/particle-examples.typ"
+}

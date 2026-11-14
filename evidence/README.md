@@ -1,5 +1,11 @@
 # Evidence index
 
+The latest [scoped-current publication](scoped-current/README.md) adds the R04
+admission repair, retained continuation, strict boundary/region accounting and
+proton, electron-wire, maser and Earth-water-Moon preparations. Its original
+source-bound records and fresh portable-repository validation are distinguished
+from the historical releases indexed below.
+
 This repository imports the completed, detached M0–M5 implementation. The native
 compiler/runtime and learning code are unchanged from the sealed candidate;
 repository-specific additions provide CI, pinned skills/lint guidance, provenance

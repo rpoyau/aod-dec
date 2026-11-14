@@ -1,0 +1,5460 @@
+{
+  "format": "aod-dec.retained-continuation-conformance",
+  "version": 1,
+  "started_utc": "2026-11-14T07:49:17.921404+00:00",
+  "status": "PASS",
+  "scope": "Same counted scalar update from retained operands through reference/typed IR/LLVM AOT/ORC; full Manual witnesses checked by host. No performance or physical mapping claim.",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "python_executable": "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+  "commands": [
+    {
+      "name": "aot-O0",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retained-update-O0",
+        "4000000",
+        "128"
+      ],
+      "returncode": 0,
+      "elapsed_ns": 1984834017,
+      "stdout_sha256": "ae12322a506b3294aef83575a8eb8093e2e114ba17c7c20a1851cde821ffc1aa",
+      "stderr": ""
+    },
+    {
+      "name": "aot-O2",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retained-update-O2",
+        "4000000",
+        "128"
+      ],
+      "returncode": 0,
+      "elapsed_ns": 2029968375,
+      "stdout_sha256": "ae12322a506b3294aef83575a8eb8093e2e114ba17c7c20a1851cde821ffc1aa",
+      "stderr": ""
+    }
+  ],
+  "backends": [
+    {
+      "name": "reference",
+      "status": "PASS"
+    },
+    {
+      "name": "typed-ir",
+      "status": "PASS"
+    },
+    {
+      "name": "aot-O0",
+      "status": "PASS",
+      "build": {
+        "compile_ns": 2025372425,
+        "cache_hit": false,
+        "key": "2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "8bff83661b07aee1f0b07ba235a055d4a0c589994809d76124c7105d4c4c5f1a",
+          "ir_sha256": "73f8ac3d9f1f690a69ee8cda426c6f2c248caa2e12c52919aa0ffd5baae7fe0b",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retained-update-O0",
+        "link_ns": 731770423,
+        "total_ns": 3111473078,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retained-update-O0"
+        ]
+      }
+    },
+    {
+      "name": "orc-O0",
+      "status": "PASS",
+      "dynamic_steps": 48,
+      "runtime_input_feedback": true,
+      "binding": {
+        "compile_ns": 106665781,
+        "cache_hit": true,
+        "key": "2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/2538964c0b0d59ba4938a17a9052ff04406ca42bf0b111fcfae047a7be0f5546.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "8bff83661b07aee1f0b07ba235a055d4a0c589994809d76124c7105d4c4c5f1a",
+          "ir_sha256": "73f8ac3d9f1f690a69ee8cda426c6f2c248caa2e12c52919aa0ffd5baae7fe0b",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 0
+        }
+      },
+      "dynamic_state_sha256": "7590db9d822c16bfea5ae01edfd6dbfaceb02f8956a7403727b90fe07631f90b"
+    },
+    {
+      "name": "aot-O2",
+      "status": "PASS",
+      "build": {
+        "compile_ns": 5740223009,
+        "cache_hit": false,
+        "key": "70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "8bff83661b07aee1f0b07ba235a055d4a0c589994809d76124c7105d4c4c5f1a",
+          "ir_sha256": "73f8ac3d9f1f690a69ee8cda426c6f2c248caa2e12c52919aa0ffd5baae7fe0b",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        },
+        "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retained-update-O2",
+        "link_ns": 724817521,
+        "total_ns": 6816749118,
+        "command": [
+          "g++",
+          "-std=c++17",
+          "-O2",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/native/runner.cpp",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b.o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/build/native/runtime-60a0dbc95eecc1e2.o",
+          "-lgmpxx",
+          "-lgmp",
+          "-lcrypto",
+          "-o",
+          "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/retained-update-O2"
+        ]
+      }
+    },
+    {
+      "name": "orc-O2",
+      "status": "PASS",
+      "dynamic_steps": 48,
+      "runtime_input_feedback": true,
+      "binding": {
+        "compile_ns": 105540852,
+        "cache_hit": true,
+        "key": "70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b",
+        "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b.o",
+        "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-b/backend-final-delivery/cache/70fba7e6a6bab532f54e1504a4145ffb1593424295a7fa9550179dedb3f9f03b.ll",
+        "binding": {
+          "compiler": "dec-llvm-1",
+          "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+          "semantic_version": 1,
+          "abi": "aod-native-1",
+          "source_sha256": "8bff83661b07aee1f0b07ba235a055d4a0c589994809d76124c7105d4c4c5f1a",
+          "ir_sha256": "73f8ac3d9f1f690a69ee8cda426c6f2c248caa2e12c52919aa0ffd5baae7fe0b",
+          "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+          "llvm_version": [
+            16,
+            0,
+            6
+          ],
+          "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+          "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+          "target": "x86_64-redhat-linux-gnu",
+          "cpu": "goldmont",
+          "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+          "opt": 2
+        }
+      },
+      "dynamic_state_sha256": "7590db9d822c16bfea5ae01edfd6dbfaceb02f8956a7403727b90fe07631f90b"
+    }
+  ],
+  "artifacts": {
+    "retained-update.dec": "8bff83661b07aee1f0b07ba235a055d4a0c589994809d76124c7105d4c4c5f1a",
+    "retained-update.json": "73f8ac3d9f1f690a69ee8cda426c6f2c248caa2e12c52919aa0ffd5baae7fe0b",
+    "reference.stdout": "ae12322a506b3294aef83575a8eb8093e2e114ba17c7c20a1851cde821ffc1aa",
+    "retained-update-O0": "8e2831d41e0ed6edac5d8f70a189dc9cac3f8051093752fd5e08af90eceecb9b",
+    "retained-update-O0.build.json": "8f70d2dec6fcf4de114848190c1bb3ce55a24c45b49f81a0b7c123670d1c5d6e",
+    "aot-O0.stdout": "ae12322a506b3294aef83575a8eb8093e2e114ba17c7c20a1851cde821ffc1aa",
+    "retained-update-O2": "32ad059d295d704a4cef1b9eaec99dd3b4c64be5cd09368249b48d316c179c7b",
+    "retained-update-O2.build.json": "258cabf6f73c9751a29e3f1b611d21830c84b6fd6f36da05ddbae3e84150e778",
+    "aot-O2.stdout": "ae12322a506b3294aef83575a8eb8093e2e114ba17c7c20a1851cde821ffc1aa",
+    "expiry_reentry-witness.json.gz": "8ac6a143939a0f998c8a785e528607ece4c42b27eedfa3c1870c135754918b4e",
+    "both_pending_release-witness.json.gz": "4215c9371719831069879e91fb8696798aa485121fe6a55e16eac8357623ec8a",
+    "partial_interfaces-witness.json.gz": "a034d45702755804c5150cb8a2e9bdabd5a63cb5d304979c93bd725124491a3d",
+    "open_boundaries-witness.json.gz": "726f79d602d190caaa73c9a225d0ed913d2263e74ad3054b6c0dcd41e10e39c2",
+    "retention_retained-witness.json.gz": "15ad8847a479c3f48c074b82d8eeccb74a0cea2b8b1de26f7324d53775a0eac3",
+    "retention_removed-witness.json.gz": "81ab5d714e1463493d183e86b48a87ee4267c55ca0d3d36093f6057f8e772c7e",
+    "retention_restored-witness.json.gz": "761a46ce3548f0612414607ce5828cb2d35881aa7fe6f6eeb97c9581319539be",
+    "closed_retained-witness.json.gz": "397d3ff14937e97fb8264d7f52c680f3c6d49073a362b834b958693ebaf07e08",
+    "closed_removed-witness.json.gz": "e2fd23d752911f06609230a981ad1034f446f8096050ebe6ce4151c028a4ee04",
+    "closed_restored-witness.json.gz": "4fcc0ab85cc4b1f039cdb17390af3bfd898743d04b6b3062d278728e200fff8f",
+    "zero_retained-witness.json.gz": "bfa4664ec0ea19ff063d421631954b1a80a6f3de4a505c574053ae7ce85c06c8",
+    "zero_removed-witness.json.gz": "99d852aee06841336f70d8c15a5e0bc97ce66da5f7ae751a2823999e6a2ed357",
+    "zero_restored-witness.json.gz": "c64766d296e6ceb99fb1be4a2c5a8d4d40bcda7be4e1c1c3013639aaa19684ee",
+    "cancellation_retained-witness.json.gz": "c937331eb8602da01d55f7aaf0112eb433ffa36e8880e334660ee10fb148867c",
+    "cancellation_removed-witness.json.gz": "e3b6e4d18c39db56add4db7dd9edeecb1873e2437281caf064f763c3fe264a64",
+    "cancellation_restored-witness.json.gz": "5db0c5cfc3f07c7e9db80289f8026d65a5dd5033d7a75c54e80e3bcf8879894f"
+  },
+  "scenarios": [
+    {
+      "name": "expiry_reentry",
+      "steps": 6,
+      "initial_state": [
+        0,
+        2,
+        0,
+        1,
+        -1,
+        3,
+        2,
+        0,
+        0,
+        0,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          0,
+          15,
+          145368557179986631409893265473835452800,
+          0
+        ],
+        [
+          0,
+          15,
+          290737114359973262819786530947670905599,
+          145368557179986631409893265473835452800
+        ],
+        [
+          15,
+          15,
+          96912371453324420939928843649223635200,
+          193824742906648841879857687298447270400
+        ],
+        [
+          15,
+          15,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          15,
+          15,
+          290737114359973262819786530947670905599,
+          0
+        ]
+      ],
+      "initial_preparation_attempts": 0,
+      "final_state": [
+        6,
+        1,
+        2,
+        1,
+        -1,
+        7,
+        8,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        6,
+        1,
+        -5,
+        1,
+        5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            1,
+            2,
+            1,
+            -1,
+            1,
+            4,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -6,
+            1,
+            0,
+            0,
+            -6,
+            1,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            0,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -6,
+              1
+            ],
+            [
+              -6,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            2,
+            2,
+            2,
+            -1,
+            -1,
+            4,
+            4,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            -6,
+            1,
+            0,
+            0,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            0
+          ],
+          "hands": [
+            0,
+            -1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            2,
+            0,
+            -1,
+            -1,
+            4,
+            5,
+            0,
+            2,
+            2,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            10
+          ],
+          "hands": [
+            0,
+            -1
+          ],
+          "token_ranks": [
+            -1,
+            2
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            1,
+            1,
+            -1,
+            1,
+            5,
+            6,
+            0,
+            0,
+            0,
+            1,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            18,
+            12
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            2,
+            1,
+            -1,
+            1,
+            6,
+            7,
+            0,
+            0,
+            0,
+            1,
+            1,
+            6,
+            1,
+            0,
+            0,
+            5,
+            1,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            0,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              6,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            6,
+            1,
+            2,
+            1,
+            -1,
+            7,
+            8,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            6,
+            1,
+            -5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              7
+            ],
+            [
+              1,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            144,
+            126
+          ],
+          "words": [
+            23,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            6,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": null,
+      "intervention_variant": null,
+      "relation_id": null
+    },
+    {
+      "name": "both_pending_release",
+      "steps": 6,
+      "initial_state": [
+        0,
+        2,
+        0,
+        1,
+        -1,
+        3,
+        2,
+        0,
+        0,
+        0,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          0,
+          0,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          0,
+          0,
+          145368557179986631409893265473835452800,
+          0
+        ],
+        [
+          15,
+          15,
+          290737114359973262819786530947670905599,
+          145368557179986631409893265473835452800
+        ],
+        [
+          15,
+          15,
+          96912371453324420939928843649223635200,
+          193824742906648841879857687298447270400
+        ],
+        [
+          15,
+          15,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          15,
+          15,
+          290737114359973262819786530947670905599,
+          0
+        ]
+      ],
+      "initial_preparation_attempts": 0,
+      "final_state": [
+        6,
+        1,
+        2,
+        1,
+        -1,
+        7,
+        6,
+        0,
+        0,
+        0,
+        1,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        -5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            1,
+            2,
+            0,
+            1,
+            -1,
+            3,
+            2,
+            0,
+            0,
+            1,
+            3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            0
+          ],
+          "totals": [
+            0,
+            0
+          ],
+          "words": [
+            -1,
+            -1
+          ],
+          "hands": [
+            0,
+            0
+          ],
+          "token_ranks": [
+            -1,
+            -1
+          ],
+          "completed": [
+            false,
+            false
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            2,
+            2,
+            0,
+            1,
+            -1,
+            3,
+            2,
+            0,
+            0,
+            2,
+            3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            0
+          ],
+          "totals": [
+            0,
+            0
+          ],
+          "words": [
+            -1,
+            -1
+          ],
+          "hands": [
+            0,
+            0
+          ],
+          "token_ranks": [
+            -1,
+            -1
+          ],
+          "completed": [
+            false,
+            false
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            1,
+            2,
+            1,
+            1,
+            4,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            23,
+            6
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            1,
+            2,
+            -1,
+            1,
+            5,
+            4,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            0,
+            0,
+            -5,
+            1,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            18,
+            6
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            2,
+            1,
+            -1,
+            1,
+            6,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            -5,
+            1,
+            -5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              6,
+              1
+            ],
+            [
+              6,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            126,
+            126
+          ],
+          "words": [
+            0,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            6,
+            1,
+            2,
+            1,
+            -1,
+            7,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              11,
+              1
+            ],
+            [
+              11,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            23,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": null,
+      "intervention_variant": null,
+      "relation_id": null
+    },
+    {
+      "name": "partial_interfaces",
+      "steps": 6,
+      "initial_state": [
+        0,
+        2,
+        0,
+        1,
+        -1,
+        3,
+        2,
+        0,
+        0,
+        0,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          7,
+          11,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          13,
+          14,
+          145368557179986631409893265473835452800,
+          0
+        ],
+        [
+          15,
+          7,
+          290737114359973262819786530947670905599,
+          145368557179986631409893265473835452800
+        ],
+        [
+          11,
+          15,
+          96912371453324420939928843649223635200,
+          193824742906648841879857687298447270400
+        ],
+        [
+          14,
+          13,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          15,
+          15,
+          290737114359973262819786530947670905599,
+          0
+        ]
+      ],
+      "initial_preparation_attempts": 0,
+      "final_state": [
+        6,
+        1,
+        2,
+        1,
+        -1,
+        9,
+        8,
+        0,
+        0,
+        0,
+        1,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        -5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            1,
+            2,
+            0,
+            -1,
+            1,
+            4,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -6,
+            1,
+            0,
+            0,
+            -6,
+            1,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            4,
+            4
+          ],
+          "totals": [
+            8,
+            8
+          ],
+          "words": [
+            0,
+            20
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -6,
+              1
+            ],
+            [
+              -6,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            2,
+            2,
+            3,
+            -1,
+            -1,
+            5,
+            4,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -6,
+            1,
+            -5,
+            1,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            4,
+            6
+          ],
+          "totals": [
+            32,
+            48
+          ],
+          "words": [
+            19,
+            9
+          ],
+          "hands": [
+            -1,
+            -1
+          ],
+          "token_ranks": [
+            2,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            1,
+            0,
+            1,
+            -1,
+            6,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              6
+            ],
+            [
+              12,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            6
+          ],
+          "totals": [
+            234,
+            78
+          ],
+          "words": [
+            23,
+            8
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            5,
+            3
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            1,
+            1,
+            1,
+            1,
+            7,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              11
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            4,
+            18
+          ],
+          "totals": [
+            48,
+            216
+          ],
+          "words": [
+            4,
+            12
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            1,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            3,
+            0,
+            -1,
+            1,
+            8,
+            7,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            -5,
+            1,
+            -5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              6,
+              6
+            ],
+            [
+              1,
+              11
+            ]
+          ],
+          "geometry_counts": [
+            4,
+            6
+          ],
+          "totals": [
+            48,
+            72
+          ],
+          "words": [
+            15,
+            22
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            10
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            6,
+            1,
+            2,
+            1,
+            -1,
+            9,
+            8,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              11,
+              1
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            17,
+            6
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": null,
+      "intervention_variant": null,
+      "relation_id": null
+    },
+    {
+      "name": "open_boundaries",
+      "steps": 6,
+      "initial_state": [
+        0,
+        2,
+        0,
+        1,
+        -1,
+        3,
+        2,
+        0,
+        0,
+        0,
+        3,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          15,
+          15,
+          145368557179986631409893265473835452800,
+          0
+        ],
+        [
+          15,
+          15,
+          290737114359973262819786530947670905599,
+          145368557179986631409893265473835452800
+        ],
+        [
+          15,
+          15,
+          96912371453324420939928843649223635200,
+          193824742906648841879857687298447270400
+        ],
+        [
+          15,
+          15,
+          0,
+          290737114359973262819786530947670905599
+        ],
+        [
+          15,
+          15,
+          290737114359973262819786530947670905599,
+          0
+        ]
+      ],
+      "initial_preparation_attempts": 0,
+      "final_state": [
+        6,
+        1,
+        2,
+        1,
+        -1,
+        9,
+        8,
+        0,
+        0,
+        0,
+        1,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        -5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            1,
+            2,
+            1,
+            -1,
+            1,
+            4,
+            3,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -6,
+            1,
+            0,
+            0,
+            -6,
+            1,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            0,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -6,
+              1
+            ],
+            [
+              -6,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            2,
+            0,
+            2,
+            -1,
+            -1,
+            5,
+            4,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -6,
+            1,
+            -5,
+            1,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            144,
+            144
+          ],
+          "words": [
+            10,
+            0
+          ],
+          "hands": [
+            -1,
+            -1
+          ],
+          "token_ranks": [
+            2,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            1,
+            3,
+            1,
+            -1,
+            6,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              6
+            ],
+            [
+              12,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            234,
+            234
+          ],
+          "words": [
+            23,
+            9
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            5,
+            9
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            1,
+            2,
+            1,
+            1,
+            7,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              11
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            4,
+            6
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            10,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            2,
+            1,
+            -1,
+            1,
+            8,
+            7,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            -5,
+            1,
+            -5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              6,
+              6
+            ],
+            [
+              1,
+              11
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            0,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            10
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            6,
+            1,
+            2,
+            1,
+            -1,
+            9,
+            8,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              11,
+              1
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            23,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": null,
+      "intervention_variant": null,
+      "relation_id": null
+    },
+    {
+      "name": "retention_retained",
+      "steps": 2,
+      "initial_state": [
+        1,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        3,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -6,
+        1,
+        0,
+        0,
+        -6,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 1,
+      "final_state": [
+        3,
+        0,
+        1,
+        -1,
+        1,
+        6,
+        5,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        -5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            2,
+            2,
+            2,
+            -1,
+            -1,
+            5,
+            4,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -6,
+            1,
+            -5,
+            1,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            144,
+            144
+          ],
+          "words": [
+            21,
+            0
+          ],
+          "hands": [
+            -1,
+            -1
+          ],
+          "token_ranks": [
+            3,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            0,
+            1,
+            -1,
+            1,
+            6,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            -5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              6
+            ],
+            [
+              12,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            234,
+            234
+          ],
+          "words": [
+            8,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            2,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "retention",
+      "intervention_variant": "retained",
+      "relation_id": "01de0c11facbf66a38f6e53408afb0221592678b497606e658326ff0560612c6"
+    },
+    {
+      "name": "retention_removed",
+      "steps": 2,
+      "initial_state": [
+        1,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        3,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        -6,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 1,
+      "final_state": [
+        3,
+        1,
+        1,
+        1,
+        1,
+        6,
+        5,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        5,
+        1,
+        5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            2,
+            3,
+            2,
+            1,
+            -1,
+            5,
+            4,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            0,
+            0,
+            5,
+            1,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            144
+          ],
+          "words": [
+            9,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            1,
+            1,
+            1,
+            1,
+            6,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              6
+            ],
+            [
+              7,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            126,
+            234
+          ],
+          "words": [
+            2,
+            23
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            1,
+            5
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "retention",
+      "intervention_variant": "removed",
+      "relation_id": "01de0c11facbf66a38f6e53408afb0221592678b497606e658326ff0560612c6"
+    },
+    {
+      "name": "retention_restored",
+      "steps": 2,
+      "initial_state": [
+        1,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        3,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -6,
+        1,
+        0,
+        0,
+        -6,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 1,
+      "final_state": [
+        3,
+        0,
+        1,
+        -1,
+        1,
+        6,
+        5,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        -5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            2,
+            2,
+            2,
+            -1,
+            -1,
+            5,
+            4,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            -6,
+            1,
+            -5,
+            1,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            144,
+            144
+          ],
+          "words": [
+            21,
+            0
+          ],
+          "hands": [
+            -1,
+            -1
+          ],
+          "token_ranks": [
+            3,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            0,
+            1,
+            -1,
+            1,
+            6,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            -5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              6
+            ],
+            [
+              12,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            234,
+            234
+          ],
+          "words": [
+            8,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            2,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "retention",
+      "intervention_variant": "restored",
+      "relation_id": "01de0c11facbf66a38f6e53408afb0221592678b497606e658326ff0560612c6"
+    },
+    {
+      "name": "closed_retained",
+      "steps": 2,
+      "initial_state": [
+        1,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        3,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -6,
+        1,
+        0,
+        0,
+        -6,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          0,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          0,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 1,
+      "final_state": [
+        3,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        5,
+        0,
+        2,
+        2,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "rows": [
+        {
+          "next_state": [
+            2,
+            2,
+            2,
+            -1,
+            -1,
+            4,
+            4,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            -6,
+            1,
+            0,
+            0,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            0
+          ],
+          "hands": [
+            0,
+            -1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            2,
+            1,
+            -1,
+            1,
+            4,
+            5,
+            0,
+            2,
+            2,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            23
+          ],
+          "hands": [
+            0,
+            1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "closed",
+      "intervention_variant": "retained",
+      "relation_id": "01de0c11facbf66a38f6e53408afb0221592678b497606e658326ff0560612c6"
+    },
+    {
+      "name": "closed_removed",
+      "steps": 2,
+      "initial_state": [
+        1,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        3,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        -6,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          0,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          0,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 1,
+      "final_state": [
+        3,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        5,
+        0,
+        2,
+        2,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "rows": [
+        {
+          "next_state": [
+            2,
+            2,
+            2,
+            -1,
+            -1,
+            4,
+            4,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            0
+          ],
+          "hands": [
+            0,
+            -1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            2,
+            1,
+            -1,
+            1,
+            4,
+            5,
+            0,
+            2,
+            2,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            23
+          ],
+          "hands": [
+            0,
+            1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "closed",
+      "intervention_variant": "removed",
+      "relation_id": "01de0c11facbf66a38f6e53408afb0221592678b497606e658326ff0560612c6"
+    },
+    {
+      "name": "closed_restored",
+      "steps": 2,
+      "initial_state": [
+        1,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        3,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -6,
+        1,
+        0,
+        0,
+        -6,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          0,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          0,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 1,
+      "final_state": [
+        3,
+        2,
+        1,
+        -1,
+        1,
+        4,
+        5,
+        0,
+        2,
+        2,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "rows": [
+        {
+          "next_state": [
+            2,
+            2,
+            2,
+            -1,
+            -1,
+            4,
+            4,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            -6,
+            1,
+            0,
+            0,
+            -6,
+            1
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            0
+          ],
+          "hands": [
+            0,
+            -1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            3,
+            2,
+            1,
+            -1,
+            1,
+            4,
+            5,
+            0,
+            2,
+            2,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "counts": [
+            [
+              7,
+              1
+            ],
+            [
+              7,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            0,
+            18
+          ],
+          "totals": [
+            0,
+            144
+          ],
+          "words": [
+            -1,
+            23
+          ],
+          "hands": [
+            0,
+            1
+          ],
+          "token_ranks": [
+            -1,
+            0
+          ],
+          "completed": [
+            false,
+            true
+          ],
+          "contact": false,
+          "new_relations": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "closed",
+      "intervention_variant": "restored",
+      "relation_id": "01de0c11facbf66a38f6e53408afb0221592678b497606e658326ff0560612c6"
+    },
+    {
+      "name": "zero_retained",
+      "steps": 2,
+      "initial_state": [
+        2,
+        2,
+        2,
+        -1,
+        -1,
+        4,
+        4,
+        0,
+        0,
+        0,
+        1,
+        2,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 2,
+      "final_state": [
+        4,
+        3,
+        1,
+        -1,
+        1,
+        6,
+        6,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            3,
+            3,
+            2,
+            1,
+            -1,
+            5,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            9,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            3,
+            1,
+            -1,
+            1,
+            6,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            9,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "zero",
+      "intervention_variant": "retained",
+      "relation_id": "de134b861eb1f06094a562712f5774e9bd4d97abb08aa7e6838ecd6723e2b972"
+    },
+    {
+      "name": "zero_removed",
+      "steps": 2,
+      "initial_state": [
+        2,
+        2,
+        2,
+        -1,
+        -1,
+        4,
+        4,
+        0,
+        0,
+        0,
+        1,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 2,
+      "final_state": [
+        4,
+        3,
+        1,
+        -1,
+        1,
+        6,
+        6,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            3,
+            3,
+            2,
+            1,
+            -1,
+            5,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            9,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            3,
+            1,
+            -1,
+            1,
+            6,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            9,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "zero",
+      "intervention_variant": "removed",
+      "relation_id": "de134b861eb1f06094a562712f5774e9bd4d97abb08aa7e6838ecd6723e2b972"
+    },
+    {
+      "name": "zero_restored",
+      "steps": 2,
+      "initial_state": [
+        2,
+        2,
+        2,
+        -1,
+        -1,
+        4,
+        4,
+        0,
+        0,
+        0,
+        1,
+        2,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 2,
+      "final_state": [
+        4,
+        3,
+        1,
+        -1,
+        1,
+        6,
+        6,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            3,
+            3,
+            2,
+            1,
+            -1,
+            5,
+            5,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            9,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            4,
+            3,
+            1,
+            -1,
+            1,
+            6,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            36,
+            36
+          ],
+          "words": [
+            9,
+            23
+          ],
+          "hands": [
+            -1,
+            1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "zero",
+      "intervention_variant": "restored",
+      "relation_id": "de134b861eb1f06094a562712f5774e9bd4d97abb08aa7e6838ecd6723e2b972"
+    },
+    {
+      "name": "cancellation_retained",
+      "steps": 2,
+      "initial_state": [
+        3,
+        2,
+        2,
+        -1,
+        -1,
+        6,
+        5,
+        0,
+        0,
+        0,
+        1,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        -5,
+        1,
+        5,
+        1
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 3,
+      "final_state": [
+        5,
+        3,
+        1,
+        1,
+        1,
+        8,
+        7,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        5,
+        1,
+        5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            4,
+            3,
+            2,
+            1,
+            -1,
+            7,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              6,
+              6
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            9,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            3,
+            1,
+            1,
+            1,
+            8,
+            7,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              11
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            3,
+            23
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            3,
+            5
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "cancellation",
+      "intervention_variant": "retained",
+      "relation_id": "2866031fa3641367c9a63fc49d7baa95aa1001eb4e8c11545512af27669015a9"
+    },
+    {
+      "name": "cancellation_removed",
+      "steps": 2,
+      "initial_state": [
+        3,
+        2,
+        2,
+        -1,
+        -1,
+        6,
+        5,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        -5,
+        1,
+        -5,
+        1,
+        5,
+        1
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 3,
+      "final_state": [
+        5,
+        1,
+        1,
+        1,
+        1,
+        8,
+        7,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        5,
+        1,
+        -5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            4,
+            2,
+            2,
+            -1,
+            -1,
+            7,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            0,
+            0,
+            -5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              6,
+              1
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            126,
+            216
+          ],
+          "words": [
+            21,
+            0
+          ],
+          "hands": [
+            -1,
+            -1
+          ],
+          "token_ranks": [
+            4,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              -5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            1,
+            1,
+            1,
+            1,
+            8,
+            7,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              6
+            ],
+            [
+              11,
+              1
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            126,
+            216
+          ],
+          "words": [
+            2,
+            23
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            1,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "cancellation",
+      "intervention_variant": "removed",
+      "relation_id": "2866031fa3641367c9a63fc49d7baa95aa1001eb4e8c11545512af27669015a9"
+    },
+    {
+      "name": "cancellation_restored",
+      "steps": 2,
+      "initial_state": [
+        3,
+        2,
+        2,
+        -1,
+        -1,
+        6,
+        5,
+        0,
+        0,
+        0,
+        1,
+        1,
+        5,
+        1,
+        -5,
+        1,
+        -5,
+        1,
+        5,
+        1
+      ],
+      "inputs": [
+        [
+          15,
+          15,
+          218052835769979947114839898210753179200,
+          0
+        ],
+        [
+          15,
+          15,
+          72684278589993315704946632736917726400,
+          290737114359973262819786530947670905599
+        ]
+      ],
+      "initial_preparation_attempts": 3,
+      "final_state": [
+        5,
+        3,
+        1,
+        1,
+        1,
+        8,
+        7,
+        0,
+        0,
+        0,
+        1,
+        1,
+        -5,
+        1,
+        5,
+        1,
+        5,
+        1,
+        5,
+        1
+      ],
+      "rows": [
+        {
+          "next_state": [
+            4,
+            3,
+            2,
+            1,
+            -1,
+            7,
+            6,
+            0,
+            0,
+            0,
+            1,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            -5,
+            1
+          ],
+          "counts": [
+            [
+              6,
+              6
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            9,
+            0
+          ],
+          "hands": [
+            1,
+            -1
+          ],
+          "token_ranks": [
+            0,
+            0
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        },
+        {
+          "next_state": [
+            5,
+            3,
+            1,
+            1,
+            1,
+            8,
+            7,
+            0,
+            0,
+            0,
+            1,
+            1,
+            -5,
+            1,
+            5,
+            1,
+            5,
+            1,
+            5,
+            1
+          ],
+          "counts": [
+            [
+              1,
+              11
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "geometry_counts": [
+            18,
+            18
+          ],
+          "totals": [
+            216,
+            216
+          ],
+          "words": [
+            3,
+            23
+          ],
+          "hands": [
+            1,
+            1
+          ],
+          "token_ranks": [
+            3,
+            5
+          ],
+          "completed": [
+            true,
+            true
+          ],
+          "contact": true,
+          "new_relations": [
+            [
+              -5,
+              1
+            ],
+            [
+              5,
+              1
+            ]
+          ]
+        }
+      ],
+      "intervention_family": "cancellation",
+      "intervention_variant": "restored",
+      "relation_id": "2866031fa3641367c9a63fc49d7baa95aa1001eb4e8c11545512af27669015a9"
+    }
+  ],
+  "source_hashes": {
+    "simulations/retained_dec.py": "d8c8ec71400270687b8c007fde824cf9caeeb55024ff2c272c81e93a295172b7",
+    "simulations/retained_continuation.py": "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472",
+    "scripts/check_retained_continuation.py": "ec2ed15e8ac598682018e0a03c0e80312b6e2caed6dad031bf2b2d39df547094",
+    "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "runtime/dec_core.py": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "native/runner.cpp": "eb5e5033b0f8ed1211b1955469199d7e7fe80424d4effc83aaea533313d76daa",
+    "native/toolchain-lock.json": "1c04098d271ae0fcdbf10f5fd233f62e5524273943aeddb766bd35c03aa148be",
+    "simulations/vendor/aod_manual_native.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "simulations/manual_dec_fixture.py": "722bc66de13362ecf305a51a8a2cdf14a1bb18f4d5708ae7d06f6cba3d927e85"
+  },
+  "matched_controls": [
+    {
+      "family": "retention",
+      "status": "PASS",
+      "restoration_equal": true,
+      "realized_outcome_changed": true,
+      "matched_inputs": true,
+      "preserved_immutable_history": true
+    },
+    {
+      "family": "closed",
+      "status": "PASS",
+      "restoration_equal": true,
+      "realized_outcome_changed": false,
+      "matched_inputs": true,
+      "preserved_immutable_history": true
+    },
+    {
+      "family": "zero",
+      "status": "PASS",
+      "restoration_equal": true,
+      "realized_outcome_changed": false,
+      "matched_inputs": true,
+      "preserved_immutable_history": true
+    },
+    {
+      "family": "cancellation",
+      "status": "PASS",
+      "restoration_equal": true,
+      "realized_outcome_changed": true,
+      "matched_inputs": true,
+      "preserved_immutable_history": true
+    }
+  ],
+  "witness_reconstruction": {
+    "status": "PASS",
+    "scenarios": [
+      {
+        "name": "expiry_reentry",
+        "steps": 6,
+        "status": "PASS",
+        "initial_preparation_attempts": 0,
+        "total_attempts": 6,
+        "file": "expiry_reentry-witness.json.gz",
+        "sha256": "8ac6a143939a0f998c8a785e528607ece4c42b27eedfa3c1870c135754918b4e",
+        "decoded_sha256": "3d2469eff3371376c9837be85e37bf1367f20b4bd7adcb86e607f5ef48ff6235",
+        "final_state": [
+          6,
+          1,
+          2,
+          1,
+          -1,
+          7,
+          8,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          6,
+          1,
+          -5,
+          1,
+          5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          7,
+          8
+        ],
+        "relation_count": 6,
+        "contact_count": 5
+      },
+      {
+        "name": "both_pending_release",
+        "steps": 6,
+        "status": "PASS",
+        "initial_preparation_attempts": 0,
+        "total_attempts": 6,
+        "file": "both_pending_release-witness.json.gz",
+        "sha256": "4215c9371719831069879e91fb8696798aa485121fe6a55e16eac8357623ec8a",
+        "decoded_sha256": "6b6fb03c62f1593e28b73f558b2e37c431a18d2c796a0a1677fc588e27fa1dcc",
+        "final_state": [
+          6,
+          1,
+          2,
+          1,
+          -1,
+          7,
+          6,
+          0,
+          0,
+          0,
+          1,
+          1,
+          5,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          -5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          7,
+          6
+        ],
+        "relation_count": 6,
+        "contact_count": 5
+      },
+      {
+        "name": "partial_interfaces",
+        "steps": 6,
+        "status": "PASS",
+        "initial_preparation_attempts": 0,
+        "total_attempts": 6,
+        "file": "partial_interfaces-witness.json.gz",
+        "sha256": "a034d45702755804c5150cb8a2e9bdabd5a63cb5d304979c93bd725124491a3d",
+        "decoded_sha256": "45709c821bab95ff52011c9aac478cabe70fda529a36d2ce180c39dcd9506b7e",
+        "final_state": [
+          6,
+          1,
+          2,
+          1,
+          -1,
+          9,
+          8,
+          0,
+          0,
+          0,
+          1,
+          1,
+          5,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          -5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          9,
+          8
+        ],
+        "relation_count": 12,
+        "contact_count": 7
+      },
+      {
+        "name": "open_boundaries",
+        "steps": 6,
+        "status": "PASS",
+        "initial_preparation_attempts": 0,
+        "total_attempts": 6,
+        "file": "open_boundaries-witness.json.gz",
+        "sha256": "726f79d602d190caaa73c9a225d0ed913d2263e74ad3054b6c0dcd41e10e39c2",
+        "decoded_sha256": "57cc6bcd00864cb7b0b21686b3c875201f2cc85b6aef4620d0316993057543a9",
+        "final_state": [
+          6,
+          1,
+          2,
+          1,
+          -1,
+          9,
+          8,
+          0,
+          0,
+          0,
+          1,
+          1,
+          5,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          -5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          9,
+          8
+        ],
+        "relation_count": 12,
+        "contact_count": 7
+      },
+      {
+        "name": "retention_retained",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 1,
+        "total_attempts": 3,
+        "file": "retention_retained-witness.json.gz",
+        "sha256": "15ad8847a479c3f48c074b82d8eeccb74a0cea2b8b1de26f7324d53775a0eac3",
+        "decoded_sha256": "b20f44f9b2f714f82e68300b8b525d8a25e045941f0f1ab3ea2c1860de36dafa",
+        "final_state": [
+          3,
+          0,
+          1,
+          -1,
+          1,
+          6,
+          5,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          -5,
+          1,
+          -5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          6,
+          5
+        ],
+        "relation_count": 6,
+        "contact_count": 4
+      },
+      {
+        "name": "retention_removed",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 1,
+        "total_attempts": 3,
+        "file": "retention_removed-witness.json.gz",
+        "sha256": "81ab5d714e1463493d183e86b48a87ee4267c55ca0d3d36093f6057f8e772c7e",
+        "decoded_sha256": "22db0421a803ef40ba30ceb79a3e4fbe5f16e9503cc5c7d7e164c6cb1044d590",
+        "final_state": [
+          3,
+          1,
+          1,
+          1,
+          1,
+          6,
+          5,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          5,
+          1,
+          5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          6,
+          5
+        ],
+        "relation_count": 6,
+        "contact_count": 4
+      },
+      {
+        "name": "retention_restored",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 1,
+        "total_attempts": 3,
+        "file": "retention_restored-witness.json.gz",
+        "sha256": "761a46ce3548f0612414607ce5828cb2d35881aa7fe6f6eeb97c9581319539be",
+        "decoded_sha256": "f12bba6c3a91ae26516c28ddcbc6dbbbae2925d19cf8d9d6f9323ee0752205ec",
+        "final_state": [
+          3,
+          0,
+          1,
+          -1,
+          1,
+          6,
+          5,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          -5,
+          1,
+          -5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          6,
+          5
+        ],
+        "relation_count": 6,
+        "contact_count": 4
+      },
+      {
+        "name": "closed_retained",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 1,
+        "total_attempts": 3,
+        "file": "closed_retained-witness.json.gz",
+        "sha256": "397d3ff14937e97fb8264d7f52c680f3c6d49073a362b834b958693ebaf07e08",
+        "decoded_sha256": "46aa9a7aad7befad3387c1d785de914da95b594f6896cde0c2a3279b19ce42be",
+        "final_state": [
+          3,
+          2,
+          1,
+          -1,
+          1,
+          4,
+          5,
+          0,
+          2,
+          2,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          4,
+          5
+        ],
+        "relation_count": 2,
+        "contact_count": 2
+      },
+      {
+        "name": "closed_removed",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 1,
+        "total_attempts": 3,
+        "file": "closed_removed-witness.json.gz",
+        "sha256": "e2fd23d752911f06609230a981ad1034f446f8096050ebe6ce4151c028a4ee04",
+        "decoded_sha256": "0356462b57de6fb5ba6d9e2ffc84b398c415f5d3a3ac430d1547c48112324fd0",
+        "final_state": [
+          3,
+          2,
+          1,
+          -1,
+          1,
+          4,
+          5,
+          0,
+          2,
+          2,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          4,
+          5
+        ],
+        "relation_count": 2,
+        "contact_count": 2
+      },
+      {
+        "name": "closed_restored",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 1,
+        "total_attempts": 3,
+        "file": "closed_restored-witness.json.gz",
+        "sha256": "4fcc0ab85cc4b1f039cdb17390af3bfd898743d04b6b3062d278728e200fff8f",
+        "decoded_sha256": "df5a51a6c403e68f5a4eab16ba084206165921050172260f8c2bd6926a6cffbe",
+        "final_state": [
+          3,
+          2,
+          1,
+          -1,
+          1,
+          4,
+          5,
+          0,
+          2,
+          2,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          4,
+          5
+        ],
+        "relation_count": 2,
+        "contact_count": 2
+      },
+      {
+        "name": "zero_retained",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 2,
+        "total_attempts": 4,
+        "file": "zero_retained-witness.json.gz",
+        "sha256": "bfa4664ec0ea19ff063d421631954b1a80a6f3de4a505c574053ae7ce85c06c8",
+        "decoded_sha256": "4d8460d6caae3287836252d7f24b217d225816d4a9fc0f03edc47d9b81b8c8d7",
+        "final_state": [
+          4,
+          3,
+          1,
+          -1,
+          1,
+          6,
+          6,
+          0,
+          0,
+          0,
+          1,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          6,
+          6
+        ],
+        "relation_count": 6,
+        "contact_count": 4
+      },
+      {
+        "name": "zero_removed",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 2,
+        "total_attempts": 4,
+        "file": "zero_removed-witness.json.gz",
+        "sha256": "99d852aee06841336f70d8c15a5e0bc97ce66da5f7ae751a2823999e6a2ed357",
+        "decoded_sha256": "407327203329edd516e0c2ab48562dbe602b530159daa0f080e2af4718aae8eb",
+        "final_state": [
+          4,
+          3,
+          1,
+          -1,
+          1,
+          6,
+          6,
+          0,
+          0,
+          0,
+          1,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          6,
+          6
+        ],
+        "relation_count": 6,
+        "contact_count": 4
+      },
+      {
+        "name": "zero_restored",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 2,
+        "total_attempts": 4,
+        "file": "zero_restored-witness.json.gz",
+        "sha256": "c64766d296e6ceb99fb1be4a2c5a8d4d40bcda7be4e1c1c3013639aaa19684ee",
+        "decoded_sha256": "fdf1a3a3e0d83fad7c0c05c75dd053abb7d9ac8d45e6043280ccf95b84abaa81",
+        "final_state": [
+          4,
+          3,
+          1,
+          -1,
+          1,
+          6,
+          6,
+          0,
+          0,
+          0,
+          1,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          6,
+          6
+        ],
+        "relation_count": 6,
+        "contact_count": 4
+      },
+      {
+        "name": "cancellation_retained",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 3,
+        "total_attempts": 5,
+        "file": "cancellation_retained-witness.json.gz",
+        "sha256": "c937331eb8602da01d55f7aaf0112eb433ffa36e8880e334660ee10fb148867c",
+        "decoded_sha256": "279501b88fac8f66daed91a352633402d79bec55facb83e2449a2f67158411eb",
+        "final_state": [
+          5,
+          3,
+          1,
+          1,
+          1,
+          8,
+          7,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          5,
+          1,
+          5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          8,
+          7
+        ],
+        "relation_count": 10,
+        "contact_count": 6
+      },
+      {
+        "name": "cancellation_removed",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 3,
+        "total_attempts": 5,
+        "file": "cancellation_removed-witness.json.gz",
+        "sha256": "e3b6e4d18c39db56add4db7dd9edeecb1873e2437281caf064f763c3fe264a64",
+        "decoded_sha256": "598d79263244e1a10591c68133a0c07b1193caffb9196110bdce235bdbb65549",
+        "final_state": [
+          5,
+          1,
+          1,
+          1,
+          1,
+          8,
+          7,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          5,
+          1,
+          -5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          8,
+          7
+        ],
+        "relation_count": 10,
+        "contact_count": 6
+      },
+      {
+        "name": "cancellation_restored",
+        "steps": 2,
+        "status": "PASS",
+        "initial_preparation_attempts": 3,
+        "total_attempts": 5,
+        "file": "cancellation_restored-witness.json.gz",
+        "sha256": "5db0c5cfc3f07c7e9db80289f8026d65a5dd5033d7a75c54e80e3bcf8879894f",
+        "decoded_sha256": "bc40090e24994c661370440ca651e9399bd05366c58decf914ee8e6711a5d7af",
+        "final_state": [
+          5,
+          3,
+          1,
+          1,
+          1,
+          8,
+          7,
+          0,
+          0,
+          0,
+          1,
+          1,
+          -5,
+          1,
+          5,
+          1,
+          5,
+          1,
+          5,
+          1
+        ],
+        "wave_identities": [
+          "1aebab16afd00dcdb595324975e161b1bcf2a1cf2cef1fae2b0d9773aca791d3",
+          "0460e77926ee254737dd6ee654f63ad1e80312a0fb3d3d37d1667c7fe5331dc5"
+        ],
+        "closure_counts": [
+          8,
+          7
+        ],
+        "relation_count": 10,
+        "contact_count": 6
+      }
+    ],
+    "scope": "Host reconstructs complete admitted witnesses from emitted compiler selections and independently extracts updated state."
+  },
+  "sources_unchanged": true,
+  "completed_utc": "2026-11-14T07:51:22.663804+00:00"
+}

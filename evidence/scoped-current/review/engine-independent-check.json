@@ -1,0 +1,199 @@
+{
+  "status": "PASS",
+  "method": "Independent finite adapter falsifiers with exact expected values; no example simulation rerun",
+  "source_sha256": "3349131920396a45712daea57ec44438ad3d499f4aed57bae99eeb034ba17b4b",
+  "script_sha256": "0257255378e58ff9e070ac009208e82f2023bf1046e1542616b7d09a287f49df",
+  "checks": [
+    {
+      "check": "fixed_occurrence_orientation_and_independent_reverse",
+      "status": "PASS"
+    },
+    {
+      "check": "opposite_boundary_sign",
+      "status": "PASS"
+    },
+    {
+      "check": "internal_union_cancellation",
+      "status": "PASS"
+    },
+    {
+      "check": "whole_region_zero",
+      "status": "PASS"
+    },
+    {
+      "check": "empty_region_zero",
+      "status": "PASS"
+    },
+    {
+      "check": "internal_histories_retained",
+      "status": "PASS"
+    },
+    {
+      "check": "inactive_history_retained",
+      "status": "PASS"
+    },
+    {
+      "check": "shell_difference",
+      "status": "PASS"
+    },
+    {
+      "check": "disjoint_partition",
+      "status": "PASS"
+    },
+    {
+      "check": "shell_requires_containment",
+      "status": "PASS",
+      "rejection": "shell interior is not contained in outer region"
+    },
+    {
+      "check": "unknown_region_cell",
+      "status": "PASS",
+      "rejection": "region outside declared universe"
+    },
+    {
+      "check": "duplicate_region_cell",
+      "status": "PASS",
+      "rejection": "duplicate region cell"
+    },
+    {
+      "check": "float_current",
+      "status": "PASS",
+      "rejection": "exact int/Fraction required; bool/float excluded"
+    },
+    {
+      "check": "bool_current",
+      "status": "PASS",
+      "rejection": "exact int/Fraction required; bool/float excluded"
+    },
+    {
+      "check": "float_participation_window",
+      "status": "PASS",
+      "rejection": "participation window must be a nonnegative exact integer"
+    },
+    {
+      "check": "bool_commit_cut",
+      "status": "PASS",
+      "rejection": "cut must be a nonnegative exact integer"
+    },
+    {
+      "check": "integer_coupling_flag",
+      "status": "PASS",
+      "rejection": "availability must be Boolean"
+    },
+    {
+      "check": "duplicate_physical_occurrence",
+      "status": "PASS",
+      "rejection": "duplicate identity or physical occurrence in committed history"
+    },
+    {
+      "check": "unknown_channel_endpoint",
+      "status": "PASS",
+      "rejection": "channel endpoint outside declared universe"
+    },
+    {
+      "check": "stale_snapshot_after_deletion",
+      "status": "PASS",
+      "rejection": "committed source snapshot was altered or omitted"
+    },
+    {
+      "check": "empty_full_result_has_relative_coverage_only",
+      "status": "PASS"
+    },
+    {
+      "check": "rehashed_history_deletion_against_old_prefix",
+      "status": "PASS",
+      "rejection": "committed current history dropped or rewritten"
+    },
+    {
+      "check": "overlapping_partition",
+      "status": "PASS",
+      "rejection": "partition children overlap"
+    },
+    {
+      "check": "partition_changed_domain",
+      "status": "PASS",
+      "rejection": "partition views do not share exact committed occurrence family and scope"
+    },
+    {
+      "check": "partition_changed_unit",
+      "status": "PASS",
+      "rejection": "partition views do not share exact committed occurrence family and scope"
+    },
+    {
+      "check": "partition_changed_scope",
+      "status": "PASS",
+      "rejection": "partition views do not share exact committed occurrence family and scope"
+    },
+    {
+      "check": "partition_changed_window",
+      "status": "PASS",
+      "rejection": "partition views do not share exact committed occurrence family and scope"
+    },
+    {
+      "check": "shared_sweep_entering",
+      "status": "PASS"
+    },
+    {
+      "check": "shared_sweep_leaving",
+      "status": "PASS"
+    },
+    {
+      "check": "moving_partition_shared_field",
+      "status": "PASS"
+    },
+    {
+      "check": "missing_motion_sweep",
+      "status": "PASS",
+      "rejection": "sweep coverage must equal exactly the entering and leaving cells"
+    },
+    {
+      "check": "forged_motion_sweep",
+      "status": "PASS",
+      "rejection": "sweep sample differs from same-cut committed field"
+    },
+    {
+      "check": "pending_burden_retained_after_later_boundary_change",
+      "status": "PASS"
+    },
+    {
+      "check": "full_current_cannot_drop_old_pending_burden",
+      "status": "PASS",
+      "rejection": "full current has unresolved signed shedding projection"
+    },
+    {
+      "check": "cached_float_rejected",
+      "status": "PASS",
+      "rejection": "boundary audit differs from exact committed source reconstruction"
+    },
+    {
+      "check": "cached_bool_rejected",
+      "status": "PASS",
+      "rejection": "boundary audit differs from exact committed source reconstruction"
+    },
+    {
+      "check": "explicit_representation_factor",
+      "status": "PASS"
+    },
+    {
+      "check": "representation_retains_original_history",
+      "status": "PASS"
+    },
+    {
+      "check": "unadmitted_higher_native_scale",
+      "status": "PASS",
+      "rejection": "higher native scales require an explicit ancestral-support bridge"
+    },
+    {
+      "check": "representation_wrong_unit",
+      "status": "PASS",
+      "rejection": "representation source scale or quantity unit differs"
+    },
+    {
+      "check": "partition_changed_representation",
+      "status": "PASS",
+      "rejection": "partition views do not share exact committed occurrence family and scope"
+    }
+  ],
+  "check_count": 41,
+  "scope_limit": "Full means full relative to the supplied source family; a self-hash does not attest external producer completeness."
+}

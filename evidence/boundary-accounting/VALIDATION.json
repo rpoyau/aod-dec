@@ -1,0 +1,71 @@
+{
+  "status": "PASS within the documented exact accounting and finite native fixture scopes",
+  "checks": [
+    {
+      "check": "component tests",
+      "status": "PASS",
+      "tests_per_mode": 19,
+      "evidence": "checks/component/RESULTS.json"
+    },
+    {
+      "check": "awareness replay",
+      "status": "PASS",
+      "checks_per_mode": 32,
+      "byte_identical": true,
+      "evidence": "checks/awareness-execution.json"
+    },
+    {
+      "check": "moving-scope replay",
+      "status": "PASS",
+      "checks_per_mode": 28,
+      "byte_identical": true,
+      "evidence": "checks/moving-scope-execution.json"
+    },
+    {
+      "check": "native current integration",
+      "status": "PASS",
+      "cuts": 4,
+      "slice_currents": [
+        "0",
+        "4",
+        "0",
+        "-1"
+      ],
+      "later_currents": [
+        "0",
+        "4",
+        "4",
+        "3"
+      ],
+      "window_current": "3",
+      "evidence": "checks/native-execution.json"
+    },
+    {
+      "check": "independent C1-C4 repaired reruns",
+      "status": "PASS in both modes",
+      "historical_failures_preserved": true,
+      "evidence": "review/accounting-final.md"
+    },
+    {
+      "check": "bound current source and candidate files",
+      "status": "PASS",
+      "distinct_files": 33
+    },
+    {
+      "check": "Typst build, strict lint and rendered inspection",
+      "status": "PASS",
+      "pages": 2,
+      "manuscripts_linted": 1,
+      "evidence": "checks/documentation.json"
+    },
+    {
+      "check": "downstream patch application dry run and target imports",
+      "status": "PASS",
+      "frozen_source_mutated": false,
+      "evidence": "checks/patch-application.json"
+    }
+  ],
+  "local_candidate_only": true,
+  "compiled_gpu_paths_rewired": false,
+  "scope": "Generic accounting validates the declared coverage/operands; native admission remains with the producer; motion/response laws remain explicit application inputs."
+}

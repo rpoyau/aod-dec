@@ -1,0 +1,373 @@
+{
+  "review_type": "read-only source-to-example contract; no simulation or test execution",
+  "upstream_root": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+  "upstream_git_base": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+  "upstream_status": [
+    " M contracts/scientific/CANONICAL_BINDINGS.json",
+    " M contracts/scientific/ROUND_TRIP_PHASE_FACTOR_SPEC.json",
+    " M manual/data/m3/temporal.json",
+    " M manual/data/m3/temporal_anchor/cases/baseline.json.gz",
+    " M manual/data/m3/temporal_anchor/cases/compared_population.json.gz",
+    " M manual/data/m3/temporal_anchor/cases/reference_exposure.json.gz",
+    " M manual/data/m3/temporal_anchor/cases/second_support_pair.json.gz",
+    " M manual/data/m3/temporal_anchor/inputs.json",
+    " M manual/data/m3/temporal_anchor/report.json",
+    " M manual/scripts/aod_m3_anchor.py",
+    " M manual/scripts/aod_native_closure_wave.py",
+    " M scripts/audit_ontology_compaction.py",
+    " M tests/test_m3_anchor.py",
+    " M tests/test_native_closure_wave.py",
+    "?? manual/scripts/__pycache__/",
+    "?? scripts/__pycache__/",
+    "?? tests/__pycache__/"
+  ],
+  "ownership": "Main inheritance; Manual particle/wire mapping, application records, external targets and error equations; new preparations explicitly declared by downstream application",
+  "sources": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/main.tex",
+      "sha256": "a3c67a8540a5ca1d7af22192b876d42c82734700397bb15ae7966d17be17efe8",
+      "bytes": 1902,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex",
+      "sha256": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469",
+      "bytes": 19248,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex",
+      "sha256": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+      "bytes": 8500,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/03_short_window_rcd_shedding_fixtures.tex",
+      "sha256": "9d0b1ceebf6878f9b9fadd43524ab209d479241b6e67fbc4979e2805df113c17",
+      "bytes": 14061,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/09_prediction_test_fixture_registry.tex",
+      "sha256": "b9bf6ca9d7e2682aa81300cf7ac8585735cbf961c37328ac41497ab249ce7ef9",
+      "bytes": 11832,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/B_quarantined_external_comparison.tex",
+      "sha256": "2a4730702a7f1aa7889f297ef58d3f15573ade2b4ce4b89a3631720b5ee10cb1",
+      "bytes": 8388,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/A_simulation_fixtures_and_tau_prediction_context.tex",
+      "sha256": "4782340412000208e10de53f18107204d948bc243b19089a48dc5295373e7dbe",
+      "bytes": 4932,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/05_curl_closure_duon_current.tex",
+      "sha256": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+      "bytes": 15975,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex",
+      "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+      "bytes": 68277,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_wave_state_relational_time.tex",
+      "sha256": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+      "bytes": 12883,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/J_ao_field_fractal_properties.tex",
+      "sha256": "793eff4bfb043a988e69dd89b1b103661a1fbf462aae0de8350ae5d54c932648",
+      "bytes": 1321,
+      "equals_git_base": true
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+      "bytes": 51487,
+      "equals_git_base": false
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/data/m1/motif_fold_fusion.csv",
+      "sha256": "c5c77ede4d7a4178d52678e20c246a1b8cb50eeb99d4036d08375d28c2f3e3cd",
+      "bytes": 6372,
+      "equals_git_base": true
+    }
+  ],
+  "downstream_adapter": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/collision_routing.py",
+    "sha256": "a08a131c2470139ea85f5ab54730944907bdb04bfdb54588a42be50bdd33b388",
+    "bytes": 16737
+  },
+  "guidance": [
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/SKILL.md",
+      "sha256": "8c1b32c2c882cf5627c33df9779b5d62c1797059cb38796438179cb51e56d024",
+      "bytes": 4155
+    },
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/authority.md",
+      "sha256": "fc881342ffac7b6a5b4e13e295888c49bbd67520330752878cca5960b9b805a6",
+      "bytes": 2240
+    },
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/manuscripts.md",
+      "sha256": "e8599fe258eddffd77624c49942153e693af3d1e2dff36da82c2d8400cb4e85c",
+      "bytes": 3128
+    },
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/local-manuscript-amendment.md",
+      "sha256": "3160241652ba9a4a986ff4837fc4cc1c7695a619c23bd2e6a791a51fffe3ae47",
+      "bytes": 1998
+    },
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/ontology.md",
+      "sha256": "e0bbcdc8f85e7f87467987d9584f170a5bc3533ec7ed740c36a7bc2b237574b1",
+      "bytes": 4179
+    },
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/mappings-and-milestones.md",
+      "sha256": "236a967a4adccbf15cef2acb8b5625633fe61b74d3b911cab7b97d092fbccc05",
+      "bytes": 2484
+    },
+    {
+      "path": "/home/reginaldpoyau/.agents/skills/axiomatic-fundamentalism-review/SKILL.md",
+      "sha256": "09723f57c333102d5e1d4d22a0d9fad27638daacfa66608376edcc41343408c8",
+      "bytes": 7322
+    },
+    {
+      "path": "/home/reginaldpoyau/.codex/skills/axiomatic-fundamentalism/SKILL.md",
+      "sha256": "bbd2094206c0d1d7bdb6bf78c8a53e4cc9ff3411f6a39d84e2783c79658ecea3",
+      "bytes": 3281
+    },
+    {
+      "path": "/home/reginaldpoyau/.codex/skills/axiomatic-fundamentalism/references/protocol.md",
+      "sha256": "3f162c49b63231aaff9f60925dab7adbe4e5eeed1ff7de846ee890d60fa333b3",
+      "bytes": 2237
+    }
+  ],
+  "coverage": {
+    "read_relevant_passages": [
+      "manual/main.tex",
+      "manual/sections/01_rest_energy_prediction.tex",
+      "manual/sections/04_boundary_current_applications.tex",
+      "manual/sections/03_short_window_rcd_shedding_fixtures.tex",
+      "manual/sections/09_prediction_test_fixture_registry.tex",
+      "manual/appendices/B_quarantined_external_comparison.tex",
+      "sections/05_curl_closure_duon_current.tex",
+      "sections/06_field.tex",
+      "sections/06_wave_state_relational_time.tex",
+      "appendices/J_ao_field_fractal_properties.tex",
+      "manual/scripts/aod_native_closure_wave.py"
+    ],
+    "lexically_searched_tex_files": 37,
+    "searched_files": [
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/A_fractal_address_bip_biz.tex",
+        "sha256": "422d585b3f317ea52ebe8f7401119ad3e0be526dadd8d9fcd26ec72bdccce8d7",
+        "bytes": 1506
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/B_curling_curls.tex",
+        "sha256": "c47c04f45b584dc284a576301a8af43507725c207f8fd5a0bda583ab17822e04",
+        "bytes": 5550
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/C_stochastic_crowning.tex",
+        "sha256": "4fba7d700d717e096d1bbf72770841199e0958ba0d3939e89c0b82e68858043a",
+        "bytes": 4210
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/D_cycle_shedding_demonstration.tex",
+        "sha256": "f13d9d66140fb5b3e4a65dd626f9341c8be666f29fd8e26d040d19be152f314e",
+        "bytes": 1470
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/E_glossary.tex",
+        "sha256": "9fa8739bd736f0e1f45866cd2b9d61fea1866c38e6c3f74af4c750eafe7ca953",
+        "bytes": 8825
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/F_wave.tex",
+        "sha256": "0cbc2e18f2036ca05e188dff445377bba7ddc945ad54c6c40414129c5442cfe6",
+        "bytes": 1936
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/G_symbolic_cancellation_check.tex",
+        "sha256": "29c9bcb1359639548f3d25e35ca7b3e50454f5f17d37f57bfad877b26a5f5f77",
+        "bytes": 1418
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/H_combinatorics_rd_tests.tex",
+        "sha256": "4a2dc17b601c85e84fac6ea215f99f072227c7600500c0faf305bae53739e03f",
+        "bytes": 4118
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/I_path_complexity_prototype_quarantine.tex",
+        "sha256": "531e83d989969c81089a09c0f7bbab56cc02e3f35495f7b5701958160ac6a704",
+        "bytes": 1758
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/J_ao_field_fractal_properties.tex",
+        "sha256": "793eff4bfb043a988e69dd89b1b103661a1fbf462aae0de8350ae5d54c932648",
+        "bytes": 1321
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/A_simulation_fixtures_and_tau_prediction_context.tex",
+        "sha256": "4782340412000208e10de53f18107204d948bc243b19089a48dc5295373e7dbe",
+        "bytes": 4932
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/B_quarantined_external_comparison.tex",
+        "sha256": "2a4730702a7f1aa7889f297ef58d3f15573ade2b4ce4b89a3631720b5ee10cb1",
+        "bytes": 8388
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/C_3d_coordinate_phase_cycle_delta3_fixture.tex",
+        "sha256": "1d125ab97ad5e383f43467e56cd6e9e9297c95d9fe2c06bbe9b5f4c6d92c41bd",
+        "bytes": 7819
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/00_awareness_fixtures.tex",
+        "sha256": "d9713f844617347c490a1abf86e23334113e2da411237a5b06f09b80c504a710",
+        "bytes": 23264
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/00_dec_ledger.tex",
+        "sha256": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277",
+        "bytes": 14428
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/00_native_closure_wave_temporal_fixtures.tex",
+        "sha256": "ddb69be4ad9086b0c21c2d80f6c0b686e509f94bf5d4e94bd8f4fe1c4dd8a4a6",
+        "bytes": 11153
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/00_scope.tex",
+        "sha256": "7e6fda648cfc969e9b6430a2c4680e15300031f97bce7d975f4d8f7b33834431",
+        "bytes": 13397
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_m3_cells.tex",
+        "sha256": "048f343685affced30f2767f691b8b3cde60233bdf2f81332e47fdf88f3c91af",
+        "bytes": 5968
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex",
+        "sha256": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469",
+        "bytes": 19248
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/02_hydrogen_facing_shell_tests.tex",
+        "sha256": "e1fd2981fcd3030da2d64aa976339389ec890818092153ef4c3b34f5c2bd586e",
+        "bytes": 11464
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/02_m3_mapping_error.tex",
+        "sha256": "4580fd1c23a8e8b4d3c1c0b3c07fffe987927485d086c0ba35c4422fde51d627",
+        "bytes": 10975
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/03_m3_temporal.tex",
+        "sha256": "dc2dfaa86c4e7ce3d4201f618b67b7b860866988f8dfd21c6f7ff300a4d15612",
+        "bytes": 17728
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/03_short_window_rcd_shedding_fixtures.tex",
+        "sha256": "9d0b1ceebf6878f9b9fadd43524ab209d479241b6e67fbc4979e2805df113c17",
+        "bytes": 14061
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex",
+        "sha256": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+        "bytes": 8500
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/05_solar_system_field_tests.tex",
+        "sha256": "2a98a1bbc46c8721812da6a1c6e1b78fd2f961124d768e0563d8b3699e0a552b",
+        "bytes": 8140
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/06_field_dynamics_applications.tex",
+        "sha256": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04",
+        "bytes": 33461
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/07_galactic_lensing_plan.tex",
+        "sha256": "4182272f192968d934de308ff3aad7939ab0c9b479b7d2c66999687154157ee8",
+        "bytes": 8449
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/09_prediction_test_fixture_registry.tex",
+        "sha256": "b9bf6ca9d7e2682aa81300cf7ac8585735cbf961c37328ac41497ab249ce7ef9",
+        "bytes": 11832
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/00_title.tex",
+        "sha256": "c86e23a01c95c43c2cb3603afc2d3c574d36f44360da626ebe86f734ad4ce4d4",
+        "bytes": 817
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/01_abstract.tex",
+        "sha256": "a42ebe256def1106badff156f495206d39fe32a984b97e9fe2ed07ba12c1803c",
+        "bytes": 916
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/03_afc_basis.tex",
+        "sha256": "d5b648c0c74afe8c34a344d5069e78b5be5d9a98851ce1abcc6c0f9d1df8c6d3",
+        "bytes": 8603
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/04_cut_running_fractal_tesseract.tex",
+        "sha256": "d52b8b2548bd61534a2b18c664284fdb14ec7ac7fe1d8b715c47483ca8e09d11",
+        "bytes": 10813
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/05_curl_closure_duon_current.tex",
+        "sha256": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+        "bytes": 15975
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex",
+        "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+        "bytes": 68277
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_wave_state_relational_time.tex",
+        "sha256": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+        "bytes": 12883
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/07_cell_measures_mappings.tex",
+        "sha256": "759a6a8cae5f02bd1ddaf6c28057dbd7c4e87440ef49a0a5559e75f2b137c2e5",
+        "bytes": 7188
+      },
+      {
+        "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/08_awareness_learning_mindfulness.tex",
+        "sha256": "310b4860c1710b8191725d9c40ff1fc05bd45a7ed818f0891e1fbd8fa58feae1",
+        "bytes": 8941
+      }
+    ],
+    "normalized_search_method": "Remove TeX command names, then all non-lowercase-letters; directly read symbolic electron/proton/support tables separately",
+    "normalized_search_matches": {
+      "protonproton": [],
+      "electronabovewire": [],
+      "hardboundary": [],
+      "materialmapping": []
+    },
+    "limit": "No named proton-proton hard-boundary or numeric electron-above-wire preparation found in these bound files; explicit particle maps and wire equations are present. No repository-wide or project-wide absence claim."
+  },
+  "review": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/sources.md",
+    "sha256": "a742c0a6a48edf67e2155bca293d967d7a3328f3c5bfa6b7de198658925a9e7a",
+    "bytes": 11531
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "scope": "Host construction/proof/control sources and executed logs; no global state enumeration",
+  "sha256": {
+    "downstream/simulations/retained_continuation.py": "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472",
+    "downstream/tests/test_retained_continuation.py": "bae5c5e8e42635c33b89f77e635efaa3aff3307ec81245e8ba364bb702777e97",
+    "downstream/simulations/vendor/aod_manual_native.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "stage-b/SOURCE-CONSTRUCTION.md": "5f396e528ce7d5ac13691c09d863b84bf9334a38fd235c2bb4000a328fa87474",
+    "stage-b/SOURCE-HASHES.json": "6c96d6a3e1ce87015e87252f615f2815d986a3a7817e0913f6593561a6ba6fe5",
+    "stage-b/HOST-PROOF.md": "ec7764808a0e504857745232246ee93aeaacacd3283d0136ab99b34c4eb02fb7",
+    "stage-b/run_host_controls.py": "9fd44eef598c6544a99dc912207434ab7e79dfad5dc817aa4c43d669c532fe56",
+    "stage-b/host-controls.json": "f04734c53c4ecb77c8f60c0f3ada99121e5bfdfaa023af5dad1ca166b416c261",
+    "stage-b/host-tests-normal.log": "d1b6f0c22a99d80d6d027b37f58f9c4c3a9215f137b708155052b31d61b85f2e",
+    "stage-b/host-tests-optimized.log": "a0a097573f6088e630e799c782bf313bc807a8bcf6d453df80adc525e61a40c2"
+  }
+}

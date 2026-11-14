@@ -1,0 +1,49 @@
+{
+  "status": "PASS",
+  "scope": "Focused scalar generator/geometry/exact-boundary tests, normal and optimized Python. Native and full-witness results are separate in backend-frozen/results.json.",
+  "runs": [
+    {
+      "mode": "normal",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_retained_dec",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "exit_code": 0,
+      "tests_run": 7,
+      "elapsed_seconds_reported": "24.253",
+      "log": "backend-tests-frozen-normal.log",
+      "sha256": "b070b8ecd929610a75dd03222185c5cb8b6f37757c19b296a8efb8d48ac28709",
+      "status": "PASS"
+    },
+    {
+      "mode": "optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "-m",
+        "unittest",
+        "tests.test_retained_dec",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "exit_code": 0,
+      "tests_run": 7,
+      "elapsed_seconds_reported": "24.612",
+      "log": "backend-tests-frozen-optimized.log",
+      "sha256": "89ed5e43b5d7ec4b21f8cd2e2c7134e34eb8bdef29952cc8ddf7d0bc80d01e25",
+      "status": "PASS"
+    }
+  ],
+  "source_hashes": {
+    "tests/test_retained_dec.py": "b92b51de2af182834c65b38c2c9a3c963bd609eeb695d1045c585e1a6d32fd11",
+    "simulations/retained_dec.py": "9ea65affbb526806a4d502062f90475aadf67885434db2f5acf762b34e37f752",
+    "simulations/retained_continuation.py": "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472",
+    "simulations/vendor/aod_manual_native.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "cases": "Manual fixture and 8 complete chiral histories across baseline/zero/unit/contact laws",
+  "excluded_keys": [
+    "source",
+    "source_binding"
+  ],
+  "records": [
+    {
+      "name": "baseline",
+      "exit_code": 0,
+      "sha256": "4b25bddc2bdede9dc252d7d89183b5ecd46e4c77f58d153a5c364bcc42094c8d"
+    },
+    {
+      "name": "candidate",
+      "exit_code": 0,
+      "sha256": "4b25bddc2bdede9dc252d7d89183b5ecd46e4c77f58d153a5c364bcc42094c8d"
+    }
+  ]
+}

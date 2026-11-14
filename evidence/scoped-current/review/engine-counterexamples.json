@@ -1,0 +1,28 @@
+{
+  "method": "Independent direct calls to the in-progress regional adapter; production source was not edited by reviewer",
+  "historical_full_source_snapshot_retained": false,
+  "historical_binding_limit": "Findings were observed during active implementation before final source binding; exact failing operations and observed outputs are retained here, not a claimed hash of the superseded whole source.",
+  "findings": [
+    {
+      "id": "R1",
+      "status": "FIXED",
+      "claim": "An unresolved signed-current projection remains outstanding across later cuts and boundary changes",
+      "preparation": "PendingProjection p from a to b, amount 6 closure-burden, committed at cut 0 while region contains a,b; cut 1 contains no new obligations, region shrinks to a, committed sweep sample for b is exact zero",
+      "old_expression": "unresolved = tuple(o.identity for o in cut.obligations if _orientation(o, after))",
+      "observed_before_fix": {"full_audit_admitted": true, "row0_unresolved_projection_ids": [], "row1_unresolved_projection_ids": [], "row1_current": "0"},
+      "repair": "Retain the pending-obligation prefix and inspect its endpoints against every later boundary membership",
+      "final_falsifier": "review/check_region_engine.py: pending_burden_retained_after_later_boundary_change and full_current_cannot_drop_old_pending_burden"
+    },
+    {
+      "id": "R2",
+      "status": "FIXED",
+      "claim": "Cached audit validation preserves exact quantity types",
+      "preparation": "One channel a to b with Fraction(1); replace cached row current and total current with 1.0, then with True",
+      "old_expression": "require(audit == rebuilt, ...)",
+      "observed_before_fix": {"float_1_0": "ACCEPTED", "bool_true": "ACCEPTED"},
+      "reason": "Python numeric equality identifies Fraction(1), 1.0 and True",
+      "repair": "Require both reconstructed structural equality and exact canonical fingerprint equality",
+      "final_falsifier": "review/check_region_engine.py: cached_float_rejected and cached_bool_rejected"
+    }
+  ]
+}

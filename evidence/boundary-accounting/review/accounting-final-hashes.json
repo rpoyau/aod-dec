@@ -1,0 +1,72 @@
+{
+  "schema": "aod.boundary-accounting.independent-final-review.v1",
+  "date": "2026-11-14",
+  "status": "PASS bounded reviewed contract; C1-C4 resolved at bound final component",
+  "review": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-final.md",
+    "sha256": "41c4db127016d83ac90e8a5503c99a139844a23b206203398435938cbd2ab34f"
+  },
+  "files": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py",
+      "sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/scripts/native_accounting_replay.py",
+      "sha256": "fb233301281ac039d4d5507a9b234fe3e24ee4e05266007b5e06a468abd6193b"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/outputs/native-accounting.json",
+      "sha256": "732617c2074fce8942f15e7a2e57720723d2bad33ec371b7a5f4b346944872e4"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-counterexamples.md",
+      "sha256": "28cb2a5d21f28a7373623d42a6069e3474991e3bd9f2a7040968774a55dcf480"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-counterexamples.json",
+      "sha256": "788034b751204e66327081e47da6e9c6c6c8d3a561ec1940f3552d02627f8b54"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting_counterexamples.py",
+      "sha256": "a58a46af061db5f3cc436f194caf1ba551f05f47acd9710b88aa59693ea0b622"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/pre-repair-boundary_accounting.py",
+      "sha256": "9b989306c59b1d1002e45e763d2d3aae14e0ceed02b4a3d3f3261c3ac5ec3be4"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-counterexample-C4.md",
+      "sha256": "9ca1655a02002497ec758ca27d2b747a83bebca3cc729750a6411853ac7d14d3"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-counterexample-C4.json",
+      "sha256": "eac9dfe9cae9a36dc8763b9e490ff786c1494b123c9b2b5b4782cfadb261af60"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting_counterexamples_final.py",
+      "sha256": "f93667c7c68e34861a3b2fe8fb1c3f8556efa5afac49aa647e51ceaa1a91dfb9"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-repair-normal.json",
+      "sha256": "0a24bb6418dc972b4fcd394c20b458b142aeee9397ccaa456fdf6aa6ab2805e0"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting-repair-optimized.json",
+      "sha256": "36322835480ac4d1fbdd82fb77b5e96606baec21b65e498fa9d50eaecec43316"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/awareness-hashes.json",
+      "sha256": "41ec9cb3f829d85a64090b2ee46d8faa9e318aee49077b0634261d9ca971fa1b"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/manual_dec_fixture.py",
+      "sha256": "722bc66de13362ecf305a51a8a2cdf14a1bb18f4d5708ae7d06f6cba3d927e85"
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py",
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+    }
+  ],
+  "coverage": "Read-only source inspection; independent C1-C4 repaired reruns normal/-O and one valid control; stored native result arithmetic/source binding read. No native simulation replay, complete test-suite rerun or production edits by reviewer."
+}

@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "compiler": "Typst 0.13.1",
+  "compile_exit_code": 0,
+  "render_and_extract_exit_code": 0,
+  "lint_and_digest_exit_code": 0,
+  "pages": 2,
+  "visual_inspection": "PASS: both final pages",
+  "findings": "Readable text/equations/tables, no clipped or overlapping content. Earlier three-page draft superseded by final two-page document.",
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/docs/region-current.typ": "31cae29a24360890ea82209d73f6e7aeef235615125bb6227732fbaa54337449",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/outputs/region-current.pdf": "c709783d4b771fdad25810d3f9896b7b32ce773e5af163c6071f036f50640f29",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/region-final-1.png": "1c3027c176abe2acb5fda2c6c677d877614f7681162005a6e79185250c16cd40",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/checks/region-final-2.png": "7d34fe5d48d1a62195babbd91e7e0c188fe450fec90583780a57bb65f5f2c9ca",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst": "61f743dccaaf7d763072ae046ad71f2303752e78d499d319043248f894602f45",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c"
+  }
+}

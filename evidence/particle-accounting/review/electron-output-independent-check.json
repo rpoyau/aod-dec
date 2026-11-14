@@ -1,0 +1,122 @@
+{
+  "mode": "independent saved-output inspection; no example or native simulation execution",
+  "status": "PASS",
+  "input_sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774",
+  "runner_sha256": "e1055b9007646cbd6229d6e70112edf7e92f3672c9e89219f1bc41acb7c464e9",
+  "check_count": 55,
+  "checks": [
+    "source_hash",
+    "electron_C6_targets",
+    "wire_E2_targets",
+    "components_prior_a1bb6eb37c55f23a1497f7025a6899a733ee1fdfe31919110060ffc9001b1b98",
+    "components_prior_ac593fa226287ce9f55ea2d18065692589d6cfae7051f45f9c6d9e990ffe1d71",
+    "components_prior_64b061c24a213aa4e352707a8d522d7efe19fa6a1eb8ea59d4ab11800c43260d",
+    "components_prior_7c065da6dd2d13adc4ebfff98228ff02415c1d3eee5366ed99b2877966af46a6",
+    "components_prior_5982a11577a93fd0436b82583874376dbb736fc1b636f126b915445452d88548",
+    "components_prior_1d24fe4cb5be0c0721bf2cdd0362762eaa3027cfd152fc3ddfe4c72046167dd6",
+    "components_prior_8f80d20136ef9f4347c9ff5b6324e37b27c7fc400187391be63d55e72a43386d",
+    "reflection_ids_36_0",
+    "reflection_ids_36_1",
+    "reflection_counts_36",
+    "reflection_ids_46_0",
+    "reflection_ids_46_1",
+    "reflection_counts_46",
+    "rate_lag",
+    "RCD5",
+    "flux_52",
+    "burden_52",
+    "surplus_52",
+    "boundary_52wire",
+    "response_52wire",
+    "boundary_52electron",
+    "response_52electron",
+    "boundary_52union",
+    "flux_53",
+    "burden_53",
+    "surplus_53",
+    "boundary_53wire",
+    "response_53wire",
+    "boundary_53electron",
+    "response_53electron",
+    "boundary_53union",
+    "flux_54",
+    "burden_54",
+    "surplus_54",
+    "boundary_54wire",
+    "response_54wire",
+    "boundary_54electron",
+    "response_54electron",
+    "boundary_54union",
+    "flux_55",
+    "burden_55",
+    "surplus_55",
+    "boundary_55wire",
+    "response_55wire",
+    "boundary_55electron",
+    "response_55electron",
+    "boundary_55union",
+    "sum_wire",
+    "sum_electron",
+    "sum_union",
+    "off_same_history",
+    "off_no_response"
+  ],
+  "contact_reflections": [
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "RCD": 5,
+  "rate": "3/2",
+  "lag": "1",
+  "rows": [
+    {
+      "cut": 52,
+      "wire_flux": "4",
+      "burden": "12",
+      "closure_residual": "-12",
+      "accounting_residual": "0",
+      "paired_response_residual": "0"
+    },
+    {
+      "cut": 53,
+      "wire_flux": "0",
+      "burden": "0",
+      "closure_residual": "-24",
+      "accounting_residual": "0",
+      "paired_response_residual": "0"
+    },
+    {
+      "cut": 54,
+      "wire_flux": "4",
+      "burden": "12",
+      "closure_residual": "-12",
+      "accounting_residual": "0",
+      "paired_response_residual": "0"
+    },
+    {
+      "cut": 55,
+      "wire_flux": "5",
+      "burden": "15",
+      "closure_residual": "-9",
+      "accounting_residual": "0",
+      "paired_response_residual": "0"
+    }
+  ],
+  "sums": {
+    "wire": "13",
+    "electron": "-13",
+    "union": "0"
+  },
+  "component_accounting": {
+    "electron_unique_component_returns": 2,
+    "wire_unique_component_returns": 1,
+    "electron_target_traversals": 18,
+    "wire_target_traversals": 8
+  }
+}

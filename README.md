@@ -22,6 +22,16 @@ The [Typst language and compiler manual](docs/language-and-compiler.typ) contain
 the language reference, native architecture, and executable computational
 applications drawn from the bound AOD Main and Manual. Build its PDF and check
 the examples with `make docs`; see [documentation builds](docs/CI.md#documentation).
+
+The [retained continuation companion](docs/retained-continuation.typ) adds a
+separate two-field `1:2:6` application. It constructs continuation multiplicities
+from admitted formation and retained contact occurrences, then normalizes those
+counts exactly. Its finite C6 family, sign routing, windows and gate rules are
+explicit application choices. Complete motif/contact witnesses stay on the host;
+the generated D.E.C. program computes the same recursive scalar update through
+reference, typed IR, LLVM AOT and ORC. Run `make verify-retained` for the executable
+comparison and `make docs-retained` for the Typst companion. This law has no
+physical proton/SI mapping or inherited GPU performance claim.
 The [tesseract-cell jitter companion](docs/tesseract-cell-jitter.typ) adds an
 oriented cell transport control, per-output numerical comparisons, and exact
 Manual D.E.C. fixtures with recurring population, retained contacts and directed
@@ -79,6 +89,30 @@ Completed execution records and repository validation are indexed in
 [AOD skills](docs/SKILLS.md) and [AOD lint](docs/LINT.md); the latter currently
 checks the Typst manual with its supported manuscript rules.
 [CI and local validation](docs/CI.md) run the compiler's semantic conformance.
+
+
+## Region and shell current applications
+
+The shared region adapter derives oriented current from one committed occurrence
+family, with shell differences, disjoint partitions, retained histories and
+explicit moving sweep. Maser and Earth-water-Moon D0 preparations use the same
+adapter. Run `python simulations/run_regions.py --example all --output build/regions.json`.
+See [preparations and scope](docs/REGION_EXAMPLES.md) and the
+[Typst companion](docs/region-current.typ). The scalar
+`examples/region_current.dec` also executes through the reference VM, JIT and
+native compiler. Full region/history validation remains host-side.
+
+The [particle accounting examples](docs/PARTICLE_EXAMPLES.md) adopt the Manual's
+proton `3:3:6` and electron `1:2:6` associations with actual C6 returns and retained
+formation/contact witnesses. Proton alternative windows remain non-additive;
+routed burden retains its unresolved signed-current projection. The electron-wire
+timeline retains state through coupling dropout and cancels internal transfers
+at the enclosing boundary. Run `make simulate-particles` for both full reports.
+
+The [current publication evidence](evidence/scoped-current/README.md) also records
+the R04 admission repair, independent falsifiers and portable-run comparisons.
+`make docs-scoped` builds the retained, boundary, particle and region companions;
+CI retains their PDFs and fresh execution results for this commit.
 
 ## Run
 

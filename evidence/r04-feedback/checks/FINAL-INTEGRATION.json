@@ -1,0 +1,50 @@
+{
+  "scientific_audit": {
+    "status": "PASS",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "scripts/audit_scientific_sources.py"
+    ],
+    "cwd": "upstream",
+    "exit_code": 0,
+    "log": "checks/scientific-audit-final.log",
+    "log_sha256": "58466296e37e47fabb0f85daf3add831394b2da414e6a9c06dcd1f867dbae48c"
+  },
+  "downstream_manifest": {
+    "status": "PASS",
+    "command": [
+      "sha256sum",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "cwd": "downstream",
+    "exit_code": 0,
+    "entries": 435,
+    "log": "checks/manifest-final.log",
+    "log_sha256": "d8e905d18e403364dd60bd19e061607ff160c44925fff4905cfcb771c477b70e"
+  },
+  "anchor_generation": {
+    "status": "PASS",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "manual/scripts/aod_m3_anchor.py",
+      "--write-data"
+    ],
+    "cwd": "upstream",
+    "exit_code": 0,
+    "outputs": 6,
+    "log": "checks/anchor-regeneration.log",
+    "log_sha256": "fbccdd626b14d9a65a942d68ec7539e8e56409df66093bd96af2211f0cadbf1d"
+  },
+  "patch_application": {
+    "status": "PASS",
+    "evidence": "checks/PATCH-VALIDATION.json",
+    "variants": [
+      "upstream-complete",
+      "downstream-admission",
+      "downstream-complete"
+    ]
+  }
+}

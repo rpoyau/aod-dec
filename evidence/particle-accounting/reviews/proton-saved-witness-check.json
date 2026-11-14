@@ -1,0 +1,101 @@
+{
+  "alternatives": [
+    {
+      "burden": "6",
+      "crossing": "-6",
+      "cut": 177,
+      "participation": 2,
+      "surplus": "0",
+      "window": 2
+    },
+    {
+      "burden": "12",
+      "crossing": "-12",
+      "cut": 177,
+      "participation": 4,
+      "surplus": "0",
+      "window": 4
+    },
+    {
+      "burden": "18",
+      "crossing": "-18",
+      "cut": 177,
+      "participation": 6,
+      "surplus": "0",
+      "window": 6
+    },
+    {
+      "burden": "30",
+      "crossing": "-30",
+      "cut": 177,
+      "participation": 10,
+      "surplus": "6",
+      "window": 12
+    }
+  ],
+  "check_counts": {
+    "RCD": 6,
+    "carrier": 12,
+    "certificate": 77,
+    "components": 255,
+    "contact": 27,
+    "counts": 1,
+    "map": 60,
+    "motif": 90,
+    "route": 5,
+    "source": 16,
+    "target": 60,
+    "trace": 1275,
+    "window": 34
+  },
+  "contact_RD": 3,
+  "contact_reflection_counts": [
+    [
+      2,
+      2
+    ],
+    [
+      5,
+      6
+    ]
+  ],
+  "counts": [
+    {
+      "carrier": "A",
+      "component_atomic_traversals": 42,
+      "distinct_component_returns": 21,
+      "target_atomic_traversals": 42,
+      "target_returns": 7
+    },
+    {
+      "carrier": "B",
+      "component_atomic_traversals": 48,
+      "distinct_component_returns": 24,
+      "target_atomic_traversals": 48,
+      "target_returns": 8
+    }
+  ],
+  "forward_RCD": 10,
+  "forward_lag": "-1",
+  "method": "Independent saved JSON/GZIP exact arithmetic and witness reconstruction; no model imports, simulation, or test-suite execution",
+  "not_checked": [
+    "Simulation execution and saved negative-control reruns",
+    "Full generic validator completeness and source-law derivation",
+    "Physical proton collision prediction or SI calibration",
+    "Signed-current projection of routed closure burden"
+  ],
+  "reverse_RCD": 11,
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/proton-accounting.json": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/scripts/proton_accounting.py": "361ff5eb2faad23ccd77cf2b167317184a3b4a9b3083d7c1684c2377a9e632db"
+  },
+  "status": "PASS",
+  "totals": {
+    "component_atomic_traversals": 90,
+    "distinct_component_returns": 45,
+    "target_atomic_traversals": 90,
+    "target_returns": 15
+  },
+  "witness_uncompressed_sha256": "809f8d8e4c0ba1f1a9eaeb7ba217e74a82d473d3c05d5c31334185ee5b81809a"
+}

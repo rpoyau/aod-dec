@@ -1,0 +1,33 @@
+{
+  "source_path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/pre-repair-boundary_accounting.py",
+  "source_sha256": "9b989306c59b1d1002e45e763d2d3aae14e0ceed02b4a3d3f3261c3ac5ec3be4",
+  "source_unchanged": true,
+  "cases": [
+    {
+      "case": "discontinuous_boundary",
+      "outcome": "ACCEPTED",
+      "value": "{'boundary_id': 'B', 'scale': 0, 'unit': 'u', 'cuts': (1, 2), 'cross': Fraction(3, 1), 'sweep': Fraction(0, 1), 'shedding': Fraction(0, 1), 'current': Fraction(3, 1), 'contribution_ids': ('x', 'y'), 'stock_balance_status': 'NOT_ASSERTED'}"
+    },
+    {
+      "case": "inexact_forged_slice",
+      "outcome": "ACCEPTED",
+      "value": "{'boundary_id': 'B', 'scale': 0, 'unit': 'u', 'cuts': (1,), 'cross': 0.5, 'sweep': Fraction(0, 1), 'shedding': Fraction(0, 1), 'current': 0.5, 'contribution_ids': ('x',), 'stock_balance_status': 'NOT_ASSERTED'}"
+    },
+    {
+      "case": "same_physical_surplus_routed_twice",
+      "outcome": "ACCEPTED",
+      "value": "({'route_id': 'route1', 'leg_id': 'leg1', 'destination': 'D', 'amount': Fraction(5, 1), 'unit': 'u', 'committed': 2}, {'route_id': 'route2', 'leg_id': 'leg2', 'destination': 'D', 'amount': Fraction(5, 1), 'unit': 'u', 'committed': 2})"
+    }
+  ],
+  "command": [
+    "python3",
+    "-B",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/accounting_counterexamples.py",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/review/pre-repair-boundary_accounting.py"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "probe_sha256": "a58a46af061db5f3cc436f194caf1ba551f05f47acd9710b88aa59693ea0b622",
+  "review_sha256": "28cb2a5d21f28a7373623d42a6069e3474991e3bd9f2a7040968774a55dcf480",
+  "historical_status": "All three counterexamples accepted by bound pre-repair source; unresolved until independent rerun on repaired source."
+}

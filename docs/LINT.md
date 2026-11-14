@@ -83,3 +83,17 @@ coverage are retained in `evidence/routing-parallel/`. Lint does not check GPU
 availability, exact backend equivalence, worker participation, retained route
 admission, or physical proton correspondence. Those require their source-bound
 reviews and executable evidence; a missing GPU is not a successful hardware run.
+
+The retained-continuation, boundary-accounting, particle-examples and
+region-current companions add four actual Typst inputs. Current publication
+evidence records the inspected files and hashes under `evidence/r04-feedback/`,
+`evidence/particle-accounting/` and `evidence/scoped-current/`. The earlier
+four-file and smaller scans remain historical records. Use the emitted current
+file list to determine coverage rather than inferring it from the historical
+counts above.
+
+Strict manuscript checks do not validate source-family completeness, moving
+sweep coverage, exact cached current values, pending projection persistence,
+particle formation witnesses or compiler execution. Those claims use their
+separate source-bound tests and review. Typst compilation and rendered-page
+inspection likewise remain separate from lint.

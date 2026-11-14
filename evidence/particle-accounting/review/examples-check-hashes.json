@@ -1,0 +1,175 @@
+{
+  "review_status": "PASS within declared accounting scopes; proton signed shedding-current projection remains explicitly unresolved",
+  "method": "Read-only implementation/source inspection, independent saved-output exact arithmetic and witness reconstruction; no model/test/simulation execution by reviewers",
+  "production_changes": false,
+  "remote_writes": false,
+  "findings": {
+    "actual_C6_preparations": "PASS",
+    "directional_contact_witnesses": "PASS with each explicit projection convention retained",
+    "proton_alternative_window_sum": "RESOLVED: same-cut non-additive alternatives; cumulative current absent",
+    "electron_live_timeline": "PASS: actual next-cut response and accumulation13/\u221213/0",
+    "proton_full_signed_current": "PENDING_DECLARED_APPLICATION_PROJECTION: routed burden6 retained and receipted; no full current asserted",
+    "source_or_engine_probability_conflation": "No new intrinsic compiler/runtime probability law claimed",
+    "external_targets": "Actual Manual maps and targets retained; no uncomputed mass/force residual claimed"
+  },
+  "prior_observed_proton_runner": {
+    "sha256": "cf5a38d9e26a43751fb3223f4bbd2c77256b40b6608ee2e26a64f6a001da60e7",
+    "status": "Superseded during active implementation; original \u221266 alternative-window aggregate corrected before final binding",
+    "old_source_snapshot_retained_by_this_review": false
+  },
+  "normal_optimized_saved_bytes_identical": true,
+  "artifacts": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/examples-check.md",
+      "sha256": "82be3ff5fbbddcb9d4d59ac2dd944a2cafddd61cd552f302752fc1ea12ca5bae",
+      "bytes": 9597
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/sources.md",
+      "sha256": "a742c0a6a48edf67e2155bca293d967d7a3328f3c5bfa6b7de198658925a9e7a",
+      "bytes": 11531
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/source-hashes.json",
+      "sha256": "16a668e4810c88555f1c6397cce4ff8b006f883926a7dd352cb502ca94f1a1fc",
+      "bytes": 18597
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/review/electron-output-independent-check.json",
+      "sha256": "e816096d2694d777b7bcddec6292395b4e9e4b48aab3512fbfbacc2d26c41072",
+      "bytes": 3141
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/reviews/proton-saved-witness-check.json",
+      "sha256": "a8bff171ef5fd5540f30ca70742077cdb3fc6eb7cc82d885d788dfcd5ff60a02",
+      "bytes": 2680
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/scripts/proton_accounting.py",
+      "sha256": "361ff5eb2faad23ccd77cf2b167317184a3b4a9b3083d7c1684c2377a9e632db",
+      "bytes": 26711
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/scripts/electron_wire_accounting.py",
+      "sha256": "e1055b9007646cbd6229d6e70112edf7e92f3672c9e89219f1bc41acb7c464e9",
+      "bytes": 23240
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/proton-accounting.json",
+      "sha256": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+      "bytes": 215130
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/proton-accounting-witnesses.json.gz",
+      "sha256": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+      "bytes": 107440
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/electron-wire.json",
+      "sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774",
+      "bytes": 638608
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/execution.json",
+      "sha256": "669e2de39f8b2daeddaeeb53e8703cff344d9b24b026ac3e9b4cde20e186c5de",
+      "bytes": 4556
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/REPORT.md",
+      "sha256": "9092ec5ee6eec2c8ee1c7467398f8cf800630839c5ad8219b8672dc26fcae03b",
+      "bytes": 5459
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/electron-wire-execution.json",
+      "sha256": "6cded094d2aa1ea5616bedf717f7ce64b67c8ad8db1cf83001669102062c3bb1",
+      "bytes": 3250
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/electron-wire-manifest.json",
+      "sha256": "d7f2cb6038ad8e97ca9fb1fcb862bdbfad32ac3c5940475903bf6d7f118964e3",
+      "bytes": 2460
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/normal/proton-accounting.json",
+      "sha256": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+      "bytes": 215130
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/optimized/proton-accounting.json",
+      "sha256": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+      "bytes": 215130
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/normal/proton-accounting-witnesses.json.gz",
+      "sha256": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+      "bytes": 107440
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/proton/optimized/proton-accounting-witnesses.json.gz",
+      "sha256": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+      "bytes": 107440
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/electron-wire-optimized.json",
+      "sha256": "4031c8443c5ba6cbca0b418dd921df54a1a698125613cbbc7aa36769cdac6774",
+      "bytes": 638608
+    }
+  ],
+  "bound_implementation_and_manuscript_sources": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py",
+      "sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f",
+      "bytes": 22307
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/scripts/proton_accounting.py",
+      "sha256": "361ff5eb2faad23ccd77cf2b167317184a3b4a9b3083d7c1684c2377a9e632db",
+      "bytes": 26711
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/collision_routing.py",
+      "sha256": "a08a131c2470139ea85f5ab54730944907bdb04bfdb54588a42be50bdd33b388",
+      "bytes": 16737
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/retained_continuation.py",
+      "sha256": "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472",
+      "bytes": 23635
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py",
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+      "bytes": 51487
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/B_quarantined_external_comparison.tex",
+      "sha256": "2a4730702a7f1aa7889f297ef58d3f15573ade2b4ce4b89a3631720b5ee10cb1",
+      "bytes": 8388
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+      "bytes": 51487
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex",
+      "sha256": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469",
+      "bytes": 19248
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex",
+      "sha256": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+      "bytes": 8500
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex",
+      "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+      "bytes": 68277
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_wave_state_relational_time.tex",
+      "sha256": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+      "bytes": 12883
+    }
+  ]
+}

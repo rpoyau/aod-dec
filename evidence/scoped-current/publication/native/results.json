@@ -1,0 +1,217 @@
+{
+  "started_utc": "2026-11-14T12:33:43.495014+00:00",
+  "platform": "Linux-7.3.3-300.fc45.x86_64-x86_64-with-glibc2.44",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "python_executable": "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+  "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+  "scope": "Linux x86-64 native core conformance; no performance claim",
+  "checks": [
+    {
+      "name": "cxx-version",
+      "command": [
+        "g++",
+        "--version"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:33:44.471888+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 11101684,
+      "status": "PASS",
+      "log": "cxx-version.log"
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:33:44.484813+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 116436632,
+      "status": "PASS",
+      "log": "rust-version.log"
+    },
+    {
+      "name": "python-normal",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:33:44.603148+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 213563612892,
+      "status": "PASS",
+      "log": "python-normal.log"
+    },
+    {
+      "name": "python-optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-O",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:37:18.169097+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 221241346513,
+      "status": "PASS",
+      "log": "python-optimized.log"
+    },
+    {
+      "name": "legacy-rust",
+      "command": [
+        "make",
+        "verify-rust"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:40:59.412786+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 12241430327,
+      "status": "PASS",
+      "log": "legacy-rust.log"
+    },
+    {
+      "name": "runtime-debug-build",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/test_runtime.cpp",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/runtime-debug"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:41:11.657591+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 9932698962,
+      "status": "PASS",
+      "log": "runtime-debug-build.log"
+    },
+    {
+      "name": "runtime-debug",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/runtime-debug"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:41:21.593065+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 43737398,
+      "status": "PASS",
+      "log": "runtime-debug.log"
+    },
+    {
+      "name": "runtime-optimized-build",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O3",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/test_runtime.cpp",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/runtime-optimized"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:41:21.639865+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 23947483299,
+      "status": "PASS",
+      "log": "runtime-optimized-build.log"
+    },
+    {
+      "name": "runtime-optimized",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/runtime-optimized"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:41:45.590014+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 28373572,
+      "status": "PASS",
+      "log": "runtime-optimized.log"
+    },
+    {
+      "name": "runtime-differential-build",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-fPIC",
+        "-shared",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/runtime.cpp",
+        "-lgmpxx",
+        "-lgmp",
+        "-lcrypto",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/libruntime-check.so"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:41:45.621438+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 17931170044,
+      "status": "PASS",
+      "log": "runtime-differential-build.log"
+    },
+    {
+      "name": "runtime-differential",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "native/check_runtime.py",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/libruntime-check.so",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/runtime-differential.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:42:03.556169+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 883420175,
+      "status": "PASS",
+      "log": "runtime-differential.log"
+    },
+    {
+      "name": "source-conformance",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "scripts/conformance_native.py",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/checks/native/conformance"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec",
+      "started_utc": "2026-11-14T12:42:04.443462+00:00",
+      "exit_code": 0,
+      "elapsed_ns": 145889321648,
+      "status": "PASS",
+      "log": "source-conformance.log"
+    }
+  ],
+  "complete": true,
+  "backend": {
+    "version": [
+      16,
+      0,
+      6
+    ],
+    "target": "x86_64-redhat-linux-gnu",
+    "cpu": "goldmont",
+    "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+    "library_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f"
+  },
+  "status": "PASS",
+  "finished_utc": "2026-11-14T12:44:30.336546+00:00"
+}

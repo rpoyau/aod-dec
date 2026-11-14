@@ -1,0 +1,93 @@
+{
+  "python_version": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "runs": [
+    {
+      "kind": "owned",
+      "optimized": false,
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_native_closure_wave.py"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "environment_overlay": {
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "exit_code": 0,
+      "log": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/owned-normal.log"
+    },
+    {
+      "kind": "strict",
+      "optimized": false,
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/tests/check_admission.py",
+        "--producer",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+        "--expect",
+        "fixed",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/strict-normal.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "environment_overlay": {
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "exit_code": 0,
+      "log": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/strict-normal.log"
+    },
+    {
+      "kind": "owned",
+      "optimized": true,
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_native_closure_wave.py"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "environment_overlay": {
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "exit_code": 0,
+      "log": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/owned-optimized.log"
+    },
+    {
+      "kind": "strict",
+      "optimized": true,
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/tests/check_admission.py",
+        "--producer",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py",
+        "--expect",
+        "fixed",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/strict-optimized.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "environment_overlay": {
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "exit_code": 0,
+      "log": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/stage-a/strict-optimized.log"
+    }
+  ],
+  "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+  "owned_tests_sha256": "95fc4792a6784dfec1eb1536a1ce43e7df80859d79f5d339a5a059de584aa5d8",
+  "external_harness_sha256": "2b50865510c08e68d141fd89007c289ef5a15acc6266b079e798097631b59a27",
+  "all_commands_passed": true
+}

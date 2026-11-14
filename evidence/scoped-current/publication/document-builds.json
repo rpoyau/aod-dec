@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "command": "make docs-scoped TYPST=<bound Typst 0.13.1 executable>",
+  "compile_exit_code": 0,
+  "documents": {
+    "retained-continuation": {
+      "pages": 4,
+      "pdf_sha256": "1670e41f66c245e3a1bbb7ddefe9d7287006ee6889c2b0705efae05fcbbc8f07",
+      "typst_source_sha256": "94b87f6975c24859de51d3708a789c8da6be3101bdae6eeb06258271a529b71e"
+    },
+    "boundary-accounting": {
+      "pages": 2,
+      "pdf_sha256": "ee65d417a8ac7560c547c621fb62743fa6e80779a7e5a0e254949c75ba835106",
+      "typst_source_sha256": "b02e92149ff618f0f5e47395aa8765cc02a0e84f194070864fd3130212005da7"
+    },
+    "particle-examples": {
+      "pages": 2,
+      "pdf_sha256": "4fffa9e1f0d3c8ab7dfbf0438e2aea23527d14389ee725f7fbacbefb4bbb116b",
+      "typst_source_sha256": "0a2cb3c0ef9ccc467388449c34386ae700e178df4551f49a7c1b80fed095a437"
+    },
+    "region-current": {
+      "pages": 2,
+      "pdf_sha256": "724e4ff43bc5c8846dc2a077aeedb024de495a55c851d0e65be7e06417efc582",
+      "typst_source_sha256": "671b46351bd6f7593e7f07a15de1153d6c94a6c2e4a41830aac1b5324f7c713a"
+    }
+  },
+  "visual_scope": "These publication sources preserve the previously visually inspected scientific text; this check verifies fresh compilation and page counts."
+}

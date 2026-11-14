@@ -1,0 +1,63 @@
+{
+  "report_sha256": "f1141d54ff240bf3fa72882c58735fa1921f16d6289d95911a032a6335802e2c",
+  "review_date": "2026-11-14",
+  "reviewed_sources": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_EXAMPLES_2026-11-14/outputs/particles/native_support_fixtures.json": {
+      "bytes": 76225,
+      "sha256": "9feb93ac652817bd5d5d46dbf6a653434be78eff45c4913ddca498403eb4645c"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_EXAMPLES_2026-11-14/scripts/particles/reproduce.py": {
+      "bytes": 17340,
+      "sha256": "3190fc88ddd5c5790a0a9e394c76dd0954c3c580c2203995fe6480991b544302"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/B_quarantined_external_comparison.tex": {
+      "bytes": 8388,
+      "sha256": "2a4730702a7f1aa7889f297ef58d3f15573ade2b4ce4b89a3631720b5ee10cb1"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_awareness.py": {
+      "bytes": 32299,
+      "sha256": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_native_closure_wave.py": {
+      "bytes": 51487,
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex": {
+      "bytes": 19248,
+      "sha256": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex": {
+      "bytes": 8500,
+      "sha256": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex": {
+      "bytes": 68277,
+      "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/tests/test_native_closure_wave.py": {
+      "bytes": 38626,
+      "sha256": "95fc4792a6784dfec1eb1536a1ce43e7df80859d79f5d339a5a059de584aa5d8"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_MANUALII_MATTERI_FEEDBACK_2026-11-11/matter-i/manual2/data/m1/constructed_coupling/model_contract.json": {
+      "bytes": 6889,
+      "sha256": "0b96e2d03344f22920e19397e02061481275d40195d22302788f5bf2c65bcfcc"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_MANUALII_MATTERI_FEEDBACK_2026-11-11/matter-i/manual2/scripts/matter1_campaign_engine.py": {
+      "bytes": 36421,
+      "sha256": "ede36a2934a38d9e442fed1bf47b18b248d51b188bc64bdc1f6ad9b26a1f75ef"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_MANUALII_MATTERI_FEEDBACK_2026-11-11/matter-i/manual2/scripts/matter1_temporal.py": {
+      "bytes": 39252,
+      "sha256": "97ff33c8d8961b651398418fa602a049228af1c26a26f85547cd5eda2f18307f"
+    },
+    "/home/reginaldpoyau/projects/aod/AOD_MANUALII_MATTERI_FEEDBACK_2026-11-11/matter-i/manual2/sections/10-all-element-campaign.tex": {
+      "bytes": 7086,
+      "sha256": "6c78aa1668a8f4ca3ded366b16c2970d78ced34955f57c255439d379f2554a42"
+    }
+  },
+  "search_eligible_file_count": 835,
+  "search_sha256": "cef07d5a78ebeb9e1d52dc661832c416f27ba6fecc5e0952c2877eef330a59f2",
+  "source_files_changed": false,
+  "source_programs_executed": false,
+  "tests_executed": false
+}

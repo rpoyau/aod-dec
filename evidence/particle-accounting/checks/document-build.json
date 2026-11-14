@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "compiler": "Typst 0.13.1",
+  "compile_exit_code": 0,
+  "render_and_text_extract_exit_code": 0,
+  "lint_and_digest_exit_code": 0,
+  "pages": 2,
+  "visual_inspection": "PASS: both final rendered pages",
+  "inspection_findings": "Readable tables and equations, no overlap or clipped content; every final page inspected.",
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/docs/particle-examples.typ": "0a2cb3c0ef9ccc467388449c34386ae700e178df4551f49a7c1b80fed095a437",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/outputs/particle-examples.pdf": "114819c65966b722253ade97517f6526a75840ab4975f296f4b83d69e16c754a",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/particle-page-1.png": "ea327834875a1b6f2ce48e234058b04f560ee0a54cf20f020748959916024edb",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/checks/particle-page-2.png": "1a48bad62de6ff1f10ee46e47ae1858722b98c6da6fe96a2e8e7d6ffec6d908c",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst": "61f743dccaaf7d763072ae046ad71f2303752e78d499d319043248f894602f45",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/checks/lint-target/debug/aod-lint": "9ed6c151a8fefb3c8c55d4ccea5bd5e6d6a34bcbf1c5adff188280911ce3356c"
+  }
+}

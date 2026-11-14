@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "root": "docs",
+  "files": [
+    {
+      "path": "region-current.typ",
+      "tier": "Other",
+      "frozen": false,
+      "sha256": "31cae29a24360890ea82209d73f6e7aeef235615125bb6227732fbaa54337449",
+      "line_count": 153,
+      "includes": [],
+      "headings": [
+        {
+          "level": 1,
+          "title": "From occurrence to boundary",
+          "line": 24
+        },
+        {
+          "level": 1,
+          "title": "Motion, history and representation",
+          "line": 49
+        },
+        {
+          "level": 1,
+          "title": "Executable interface",
+          "line": 71
+        },
+        {
+          "level": 1,
+          "title": "Maser apparatus",
+          "line": 101
+        },
+        {
+          "level": 1,
+          "title": "Earth, water shell and Moon",
+          "line": 126
+        }
+      ],
+      "labels": [
+        {
+          "name": "region-incidence",
+          "file": "region-current.typ",
+          "line": 24,
+          "kind": "Other"
+        },
+        {
+          "name": "moving-region",
+          "file": "region-current.typ",
+          "line": 49,
+          "kind": "Other"
+        },
+        {
+          "name": "engine-interface",
+          "file": "region-current.typ",
+          "line": 71,
+          "kind": "Other"
+        },
+        {
+          "name": "maser",
+          "file": "region-current.typ",
+          "line": 101,
+          "kind": "Other"
+        },
+        {
+          "name": "earth-water-moon",
+          "file": "region-current.typ",
+          "line": 126,
+          "kind": "Other"
+        }
+      ],
+      "references": [],
+      "distinctions": [],
+      "motifs": [
+        "DEC"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "origin": "region-current.typ",
+      "target": "motif:DEC",
+      "kind": "MotifDependency"
+    }
+  ],
+  "firewall_violations": [],
+  "include_cycles": []
+}

@@ -1,0 +1,155 @@
+{
+  "status": "PASS_SCOPED_IMPLEMENTATION",
+  "source_bases": {
+    "upstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "base_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8"
+    },
+    "downstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "base_commit": "8144803e7e889087dfd1e9322c778fdc276c6f32"
+    },
+    "afc": {
+      "path": "/home/reginaldpoyau/projects/aod/afc",
+      "base_commit": "5a25e8bd5bbc3f20ec4413a6b63abc420b7a54cb"
+    }
+  },
+  "admission": {
+    "status": "PASS",
+    "owning_tests": 191,
+    "modes": [
+      "normal",
+      "optimized"
+    ],
+    "strict_cases": 19,
+    "strict_targets": [
+      "upstream",
+      "downstream"
+    ],
+    "strict_modes": [
+      "normal",
+      "optimized"
+    ],
+    "adjacent_cases": 13,
+    "evidence": [
+      "stage-a/test-results.json",
+      "checks/strict-acceptance.json",
+      "stage-a/adjacent-fixed-results.json"
+    ]
+  },
+  "upstream_integration": {
+    "status": "PASS_WITH_DECLARED_SKIP",
+    "other_relevant_tests": 209,
+    "skipped": 1,
+    "skip_reason": "separately bound Matter I integration checkout absent",
+    "modes": [
+      "normal",
+      "optimized"
+    ],
+    "logs": [
+      "checks/upstream-integration-final-normal.log",
+      "checks/upstream-integration-final-optimized.log"
+    ],
+    "initial_full_run": "4 failed,432 passed,1 skipped,4 errors; stale contract and anchor aliases preserved in checks/upstream-*.log",
+    "anchor_regeneration": "checks/anchor-regeneration.log",
+    "anchor": {
+      "status": "PASS",
+      "tests_per_mode": 23,
+      "modes": [
+        "normal",
+        "optimized"
+      ],
+      "classes": {
+        "loader": 3,
+        "live_admission": 4,
+        "stored_evidence": 16
+      },
+      "skipped": 0,
+      "report": "stage-a/anchor-migration/REPORT.md",
+      "semantic_comparison": "stage-a/anchor-migration/semantic-comparison.json",
+      "independent_checker_review": "stage-a/anchor-migration/INDEPENDENT-SEMANTIC-REVIEW.md"
+    },
+    "scientific_audit": "checks/scientific-audit-final.log",
+    "final_commands": "checks/FINAL-INTEGRATION.json"
+  },
+  "downstream_regression": {
+    "status": "PASS",
+    "tests": 78,
+    "subtests": 80,
+    "modes": [
+      "normal",
+      "optimized"
+    ],
+    "logs": [
+      "checks/downstream-normal.log",
+      "checks/downstream-optimized.log"
+    ],
+    "semantic_comparison": "checks/semantic-comparison.json",
+    "compiler_import_provenance": "checks/import-provenance.log",
+    "manifest_entries": 435
+  },
+  "frozen_law_backends": {
+    "status": "PASS",
+    "programs": 4,
+    "execution_modes": 6,
+    "evidence": "checks/frozen-chiral-replay/results.json"
+  },
+  "retained_application": {
+    "status": "PASS_SCOPED_FINITE_CONSTRUCTION",
+    "host_tests": 17,
+    "generator_tests": 7,
+    "modes": [
+      "normal",
+      "optimized"
+    ],
+    "host_proof": "stage-b/HOST-PROOF.md",
+    "host_manifest": "stage-b/HOST-MANIFEST.json",
+    "backend_tests": "stage-b/BACKEND-TESTS.json",
+    "whitespace_equivalence": "stage-b/whitespace-equivalence/results.json",
+    "backend_result": "stage-b/backend-final-delivery/results.json",
+    "compiler_routes": [
+      "reference",
+      "typed IR",
+      "LLVM AOT O0",
+      "LLVM AOT O2",
+      "ORC O0",
+      "ORC O2"
+    ],
+    "scenarios": 16,
+    "future_updates": 48,
+    "complete_worlds_admitted": 16,
+    "all_routes_executed": true,
+    "global_cartesian_enumeration": false
+  },
+  "documentation": {
+    "status": "PASS",
+    "typst_pages": 4,
+    "visual_check": "checks/pdf-validation.json",
+    "aod_lint": "checks/aod-lint.json",
+    "lint_file_count": 5,
+    "lint_scope": "Typst/LaTeX supported diagnostics only"
+  },
+  "physical_mapping": {
+    "status": "NOT_INSTANTIATED",
+    "evidence": "stage-b/OBSERVATION-BINDING.json"
+  },
+  "delivery": {
+    "status": "PATCHES_VERIFIED",
+    "mode": "local detached; no remote writes",
+    "patch_application": "checks/PATCH-VALIDATION.json",
+    "variants": [
+      "upstream-complete",
+      "downstream-admission",
+      "downstream-complete"
+    ],
+    "archive_validation_note": "External PACKAGE-VALIDATION.json beside the ZIP archives is generated after packaging; no circular archive validation record is embedded."
+  },
+  "preserved_limits": [
+    "no GPU claim for new counted law",
+    "no cost-inclusive speedup demonstrated",
+    "M6 self-hosting not implemented",
+    "AArch64 not implemented",
+    "physical proton or maser/SI correspondence not instantiated",
+    "no demonstrated joint union guard across all unselected temporal population records; bounded coverage only"
+  ]
+}

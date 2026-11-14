@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "archived_records": 196,
+  "unchanged_implementation_files": 32,
+  "original_candidate_tree_sha256": "24f8df17d234b980f47025b78733dc931aaede74a0f689de0589fa950815a07e",
+  "scope": "Byte provenance only; execute semantic tests for current compiler correctness."
+}

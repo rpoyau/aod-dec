@@ -1,0 +1,2038 @@
+{
+  "status": "PASS",
+  "positive_runtime_cases": 44,
+  "hostile_runtime_cases": 6,
+  "records": [
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "0",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 171538,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 93007,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "0",
+        "0",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 143840,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 101563,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "0",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 118152,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 97882,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "0",
+        "1",
+        "1"
+      ],
+      "expected": "-4",
+      "reference": "-4/1",
+      "jit": {
+        "stdout": "",
+        "result": "-4/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 146818,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "-4/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 125800,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "1",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 155658,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 100006,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "1",
+        "0",
+        "1"
+      ],
+      "expected": "4",
+      "reference": "4/1",
+      "jit": {
+        "stdout": "",
+        "result": "4/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 168611,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "4/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 117423,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "1",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 131965,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 126095,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "1",
+        "1",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 154988,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 131923,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "0",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 105001,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 81349,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "0",
+        "0",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 132819,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 103597,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "0",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 120418,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 97694,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "0",
+        "1",
+        "1"
+      ],
+      "expected": "5/3",
+      "reference": "5/3",
+      "jit": {
+        "stdout": "",
+        "result": "5/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 145741,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "5/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 135377,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "1",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 117121,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 95339,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "1",
+        "0",
+        "1"
+      ],
+      "expected": "-5/3",
+      "reference": "-5/3",
+      "jit": {
+        "stdout": "",
+        "result": "-5/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 141396,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "-5/3",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 121782,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "1",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 128754,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 110881,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "-5/3",
+        "1",
+        "1",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 192735,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 130533,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 106433,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 85219,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "0",
+        "0",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 163646,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 103376,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "0",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 118833,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 128988,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "0",
+        "1",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 161595,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 121439,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "1",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 116719,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 94486,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "1",
+        "0",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 143326,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 119281,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "1",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 147657,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 106699,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "0",
+        "1",
+        "1",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 155428,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 130851,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "0",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 104951,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 83350,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "0",
+        "0",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 129783,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 105438,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "0",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 122642,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 95894,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "0",
+        "1",
+        "1"
+      ],
+      "expected": "-100000000000000000000000000000000001/7",
+      "reference": "-100000000000000000000000000000000001/7",
+      "jit": {
+        "stdout": "",
+        "result": "-100000000000000000000000000000000001/7",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 170817,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "-100000000000000000000000000000000001/7",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 119443,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "1",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 115105,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 113643,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "1",
+        "0",
+        "1"
+      ],
+      "expected": "100000000000000000000000000000000001/7",
+      "reference": "100000000000000000000000000000000001/7",
+      "jit": {
+        "stdout": "",
+        "result": "100000000000000000000000000000000001/7",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 145943,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "100000000000000000000000000000000001/7",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 137225,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "1",
+        "1",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 151558,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 108210,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "100000000000000000000000000000000001/7",
+        "1",
+        "1",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 160912,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 130319,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12051901,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "swept_current",
+      "args": [
+        "3",
+        "0",
+        "0"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 119948,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 92341,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "swept_current",
+      "args": [
+        "3",
+        "0",
+        "1"
+      ],
+      "expected": "3",
+      "reference": "3/1",
+      "jit": {
+        "stdout": "",
+        "result": "3/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 145033,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "3/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 108814,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "swept_current",
+      "args": [
+        "3",
+        "1",
+        "0"
+      ],
+      "expected": "-3",
+      "reference": "-3/1",
+      "jit": {
+        "stdout": "",
+        "result": "-3/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 133256,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "-3/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 106042,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "swept_current",
+      "args": [
+        "3",
+        "1",
+        "1"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 173334,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 116798,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12168131,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "0",
+        "1",
+        "1/3"
+      ],
+      "expected": "0",
+      "reference": "0/1",
+      "jit": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 154723,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "0/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 112709,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "2",
+        "1",
+        "1/3"
+      ],
+      "expected": "2",
+      "reference": "2/1",
+      "jit": {
+        "stdout": "",
+        "result": "2/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 139032,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "2/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 112301,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "4",
+        "1",
+        "1/3"
+      ],
+      "expected": "4",
+      "reference": "4/1",
+      "jit": {
+        "stdout": "",
+        "result": "4/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 133829,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "4/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 110272,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "6",
+        "1",
+        "1/3"
+      ],
+      "expected": "5",
+      "reference": "5/1",
+      "jit": {
+        "stdout": "",
+        "result": "5/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 143397,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "5/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 113282,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "12",
+        "1",
+        "1/3"
+      ],
+      "expected": "5",
+      "reference": "5/1",
+      "jit": {
+        "stdout": "",
+        "result": "5/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 157839,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "5/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 142959,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12254060,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "moving_current",
+      "args": [
+        "8",
+        "3",
+        "2"
+      ],
+      "expected": "7",
+      "reference": "7/1",
+      "jit": {
+        "stdout": "",
+        "result": "7/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 73667,
+        "address": 140347087344080,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "7/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 29776,
+        "address": 140347087344080,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "moving_current",
+      "args": [
+        "-8",
+        "-3",
+        "-2"
+      ],
+      "expected": "-7",
+      "reference": "-7/1",
+      "jit": {
+        "stdout": "",
+        "result": "-7/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 44662,
+        "address": 140347087344080,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "-7/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 32145,
+        "address": 140347087344080,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "moving_current",
+      "args": [
+        "0",
+        "3",
+        "0"
+      ],
+      "expected": "-3",
+      "reference": "-3/1",
+      "jit": {
+        "stdout": "",
+        "result": "-3/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 56267,
+        "address": 140347087344080,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": "-3/1",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0,
+        "execute_ns": 29800,
+        "address": 140347087344080,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    }
+  ],
+  "hostile": [
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "2",
+        "0",
+        "1"
+      ],
+      "reference_error": "line 10: assertion failed",
+      "jit": {
+        "stdout": "",
+        "result": null,
+        "error": "line 10: assertion failed",
+        "error_line": 10,
+        "exit_code": 1,
+        "execute_ns": 62503,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": null,
+        "error": "line 10: assertion failed",
+        "error_line": 10,
+        "exit_code": 1,
+        "execute_ns": 55568,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "oriented_current",
+      "args": [
+        "4",
+        "1",
+        "0",
+        "-1"
+      ],
+      "reference_error": "line 12: assertion failed",
+      "jit": {
+        "stdout": "",
+        "result": null,
+        "error": "line 12: assertion failed",
+        "error_line": 12,
+        "exit_code": 1,
+        "execute_ns": 107689,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": null,
+        "error": "line 12: assertion failed",
+        "error_line": 12,
+        "exit_code": 1,
+        "execute_ns": 81074,
+        "address": 140347087343792,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "swept_current",
+      "args": [
+        "3",
+        "0",
+        "2"
+      ],
+      "reference_error": "line 19: assertion failed",
+      "jit": {
+        "stdout": "",
+        "result": null,
+        "error": "line 19: assertion failed",
+        "error_line": 19,
+        "exit_code": 1,
+        "execute_ns": 95776,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": null,
+        "error": "line 19: assertion failed",
+        "error_line": 19,
+        "exit_code": 1,
+        "execute_ns": 77041,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "swept_current",
+      "args": [
+        "-3",
+        "0",
+        "1"
+      ],
+      "reference_error": "line 17: assertion failed",
+      "jit": {
+        "stdout": "",
+        "result": null,
+        "error": "line 17: assertion failed",
+        "error_line": 17,
+        "exit_code": 1,
+        "execute_ns": 62136,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": null,
+        "error": "line 17: assertion failed",
+        "error_line": 17,
+        "exit_code": 1,
+        "execute_ns": 43479,
+        "address": 140347087343952,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "-1",
+        "1",
+        "1/3"
+      ],
+      "reference_error": "line 3: assertion failed",
+      "jit": {
+        "stdout": "",
+        "result": null,
+        "error": "line 3: assertion failed",
+        "error_line": 3,
+        "exit_code": 1,
+        "execute_ns": 71187,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": null,
+        "error": "line 3: assertion failed",
+        "error_line": 3,
+        "exit_code": 1,
+        "execute_ns": 49824,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    },
+    {
+      "function": "scoped_flux",
+      "args": [
+        "3",
+        "5",
+        "4",
+        "1",
+        "-1/3"
+      ],
+      "reference_error": "line 4: assertion failed",
+      "jit": {
+        "stdout": "",
+        "result": null,
+        "error": "line 4: assertion failed",
+        "error_line": 4,
+        "exit_code": 1,
+        "execute_ns": 98980,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "specialized"
+      },
+      "generic_fallback": {
+        "stdout": "",
+        "result": null,
+        "error": "line 4: assertion failed",
+        "error_line": 4,
+        "exit_code": 1,
+        "execute_ns": 77380,
+        "address": 140347087343616,
+        "cache_hit": false,
+        "compile_ns": 1573025305,
+        "load_ns": 12346816,
+        "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+        "dispatch": "generic"
+      }
+    }
+  ],
+  "jit_binding": {
+    "compile_ns": 1426135352,
+    "cache_hit": false,
+    "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+    "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/cache/d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225.o",
+    "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/cache/d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225.ll",
+    "binding": {
+      "compiler": "dec-llvm-1",
+      "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+      "semantic_version": 1,
+      "abi": "aod-native-1",
+      "source_sha256": "dffbe018457fc797e8a746ef81d33b91efebc390186b3d8e7726d3ef351770f7",
+      "ir_sha256": "8dc191e622888d51d78fe8e4dbd143ae698dfcf6fe236cdce12401ec9904aee3",
+      "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+      "llvm_version": [
+        16,
+        0,
+        6
+      ],
+      "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+      "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+      "target": "x86_64-redhat-linux-gnu",
+      "cpu": "goldmont",
+      "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+      "opt": 2
+    }
+  },
+  "aot_build": {
+    "compile_ns": 9336812,
+    "cache_hit": true,
+    "key": "d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225",
+    "object": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/cache/d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225.o",
+    "llvm_ir": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/cache/d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225.ll",
+    "binding": {
+      "compiler": "dec-llvm-1",
+      "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+      "semantic_version": 1,
+      "abi": "aod-native-1",
+      "source_sha256": "dffbe018457fc797e8a746ef81d33b91efebc390186b3d8e7726d3ef351770f7",
+      "ir_sha256": "8dc191e622888d51d78fe8e4dbd143ae698dfcf6fe236cdce12401ec9904aee3",
+      "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+      "llvm_version": [
+        16,
+        0,
+        6
+      ],
+      "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+      "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+      "target": "x86_64-redhat-linux-gnu",
+      "cpu": "goldmont",
+      "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+      "opt": 2
+    },
+    "output": "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/region-current",
+    "link_ns": 731507412,
+    "total_ns": 769604676,
+    "command": [
+      "g++",
+      "-std=c++17",
+      "-O2",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/runner.cpp",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/cache/d58e9f742b35ac4d79df9c21080134970e7a11d01983a4eaaf5dd29fe9315225.o",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/native/runtime-60a0dbc95eecc1e2.o",
+      "-lgmpxx",
+      "-lgmp",
+      "-lcrypto",
+      "-o",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/build/publication-region-optimized/native/region-current"
+    ]
+  },
+  "aot": {
+    "exit_code": 0,
+    "stdout": "4/1\n-4/1\n0/1\n0/1\n7/1\n0\n",
+    "stderr": "",
+    "executable_sha256": "d6c59277ce2e111e79d04d3e91f5e216b962f35e10f4f6a7819345dd0a9e1f37"
+  },
+  "scope": "Exact scalar projection/clipping/sweep/moving-current expressions through reference VM, LLVM ORC specialized and fallback, and AOT. No native collection/history/geometry admission inferred.",
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/scripts/check_region_current.py": "d39a465871011474450f1d96a2ec6a0dff678b37175463642988f7bfed8fe82f",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/examples/region_current.dec": "dffbe018457fc797e8a746ef81d33b91efebc390186b3d8e7726d3ef351770f7",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/native/runner.cpp": "eb5e5033b0f8ed1211b1955469199d7e7fe80424d4effc83aaea533313d76daa",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REVIEW_PR_2026-11-14/aod-dec/runtime/dec_core.py": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a"
+  }
+}

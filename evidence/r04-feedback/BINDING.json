@@ -1,0 +1,32 @@
+{
+  "task": "R04 feedback implementation and source-bound emergent kernel",
+  "date": "2026-11-14",
+  "delivery_mode": "detached; no remote writes",
+  "repositories": {
+    "upstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream",
+      "base_commit": "8c3149b9d3d924b80b9385b178da4ba2c39175e8"
+    },
+    "downstream": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream",
+      "base_commit": "8144803e7e889087dfd1e9322c778fdc276c6f32"
+    },
+    "afc": {
+      "path": "/home/reginaldpoyau/projects/aod/afc",
+      "base_commit": "5a25e8bd5bbc3f20ec4413a6b63abc420b7a54cb"
+    }
+  },
+  "request_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/request/EXECUTION_REQUEST.md": "dac5646351c5f9350f4fa7dbd1f33c6d478ad7b1df7b8c67f3be0f9193833578",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_FEEDBACK_REVIEW_2026-11-14/input/AOD_DEC_R04_FIX_FEEDBACK_R01/request/ACCEPTANCE.md": "ce50be2f7cb94ecb2f9f2903c6fa9cfe079dda69e6bd47e4681c8b46172dda28"
+  },
+  "stages": {
+    "A": "admission and downstream rebinding",
+    "B": "history-driven finite continuation construction and recursive update evidence"
+  },
+  "original_worktrees": "preserved; changes made only in detached local clones",
+  "request_archive": {
+    "name": "AOD_DEC_R04_FIX_FEEDBACK_R01.zip",
+    "sha256": "5026c846cebfab38380ac517c349c2dff8c820a78910e912878833d037fa305b"
+  }
+}

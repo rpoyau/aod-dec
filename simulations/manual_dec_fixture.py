@@ -19,7 +19,7 @@ F = Fraction
 SOURCE_COMMIT = "8c3149b9d3d924b80b9385b178da4ba2c39175e8"
 SOURCE_TREE = "b2b55cbcf18354828f7b34418ab3fa26d747a927"
 SOURCE_PATH = "manual/scripts/aod_native_closure_wave.py"
-SOURCE_SHA256 = "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf"
+SOURCE_SHA256 = "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
 LICENSE_SHA256 = "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7"
 SCOPE = "manual-dec:declared-field"
 
@@ -47,10 +47,12 @@ def source_binding():
     license_digest = hashlib.sha256(path.with_name("LICENSE").read_bytes()).hexdigest()
     native.require(actual == SOURCE_SHA256, "vendored producer differs from bound source")
     native.require(license_digest == LICENSE_SHA256, "vendored license differs from bound source")
-    return {"repository": "https://github.com/rpoyau/aod", "commit": SOURCE_COMMIT,
-            "tree": SOURCE_TREE, "path": SOURCE_PATH, "sha256": actual,
+    return {"repository": "https://github.com/rpoyau/aod", "base_commit": SOURCE_COMMIT,
+            "base_tree": SOURCE_TREE, "path": SOURCE_PATH, "sha256": actual,
             "license_sha256": license_digest,
-            "role": "delivered local Manual I candidate; remote acceptance not inferred"}
+            "base_source_sha256": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf",
+            "candidate": "R04 admission repair, detached from the recorded base",
+            "role": "corrected local Manual producer; remote acceptance not inferred"}
 
 
 def ledger_kernel(rows):

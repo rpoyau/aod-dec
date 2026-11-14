@@ -1,0 +1,75 @@
+{
+  "evidence_class": "declared exact packet ancestry fixture",
+  "hostile_controls": [
+    {
+      "name": "delete pending emitted packet without accounting",
+      "reason": "pending ancestry mismatch",
+      "status": "REJECTED"
+    },
+    {
+      "name": "duplicate packet ancestry",
+      "reason": "duplicate packet identity",
+      "status": "REJECTED"
+    },
+    {
+      "name": "read future arrival beyond scope",
+      "reason": "arrival precedes emission or reads future cut",
+      "status": "REJECTED"
+    },
+    {
+      "name": "erase pending endpoint count",
+      "reason": "pending ancestry mismatch",
+      "status": "REJECTED"
+    }
+  ],
+  "record": {
+    "packets": [
+      {
+        "arrived": 2,
+        "emitted": 0,
+        "id": "retained-before-window"
+      },
+      {
+        "arrived": 3,
+        "emitted": 1,
+        "id": "emission-1"
+      },
+      {
+        "arrived": null,
+        "emitted": 2,
+        "id": "emission-2"
+      },
+      {
+        "arrived": null,
+        "emitted": 4,
+        "id": "emission-3"
+      }
+    ],
+    "pending_end": 2,
+    "pending_start": 1,
+    "window": [
+      0,
+      4
+    ]
+  },
+  "residual": 0,
+  "result": {
+    "arrived": 2,
+    "emitted": 3,
+    "net": 1,
+    "pending_end": 2,
+    "pending_start": 1,
+    "scope": "committed_record_only; observer introduces no kernel update"
+  },
+  "separation": "Packet counts are neither native pressure-current nor oscillator phase turns; no conversion is asserted.",
+  "source_anchor": "manual:m3-metrology, Derivation paragraph; emitted-arrived=pending_end-pending_start",
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_m3_metrology.py": "d2f53146257b1d29939587abc167f87e9e810f904660b3bfd81a5015ef6e9618",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_m3_temporal.py": "1cfc0ecebc1d4c5eb0b22184af171f4d60e9630a211dedbd66ae5a12df920aec",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts/aod_mapping_error.py": "77afd00aac413fbaf7b4386d40f79be318d7d813081c6db17ffce1cb6c41f480",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/03_m3_temporal.tex": "dc2dfaa86c4e7ce3d4201f618b67b7b860866988f8dfd21c6f7ff300a4d15612",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_REGION_ENGINE_2026-11-14/examples/check_maser_packets.py": "b59643d4b1f0567208aac65dbf668d5621486a0bbc368a64e12d46e7a3ed5aa2"
+  },
+  "status": "PASS",
+  "unit": "packet-count"
+}

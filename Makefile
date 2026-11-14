@@ -5,7 +5,32 @@ RUSTFLAGS := -C opt-level=3 -C debuginfo=0 -C strip=symbols -C codegen-units=1
 BUILD_DIR := build
 
 .PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native simulate-cells docs-cells simulate-chiral docs-chiral simulate-routing docs-routing examples clean
+.PHONY: verify-retained docs-retained
+.PHONY: simulate-regions simulate-particles verify-region-current docs-scoped
 all: $(BUILD_DIR)/aod_stage0_seed $(BUILD_DIR)/aod_self_host_compiler $(BUILD_DIR)/aod_stage2_bootstrap
+
+verify-retained:
+	$(PYTHON) scripts/check_retained_continuation.py --output $(BUILD_DIR)/retained-continuation
+
+docs-retained:
+	mkdir -p $(BUILD_DIR)/retained-continuation
+	$(TYPST) compile --root . docs/retained-continuation.typ $(BUILD_DIR)/retained-continuation/retained-continuation.pdf
+
+simulate-regions:
+	$(PYTHON) -B simulations/run_regions.py --example all --output $(BUILD_DIR)/scoped-current/regions.json
+
+simulate-particles:
+	$(PYTHON) -B simulations/proton_accounting.py --output $(BUILD_DIR)/scoped-current/proton-accounting.json
+	$(PYTHON) -B simulations/electron_wire_accounting.py --output $(BUILD_DIR)/scoped-current/electron-wire.json
+
+verify-region-current:
+	$(PYTHON) -B scripts/check_region_current.py --output $(BUILD_DIR)/scoped-current/dec
+
+docs-scoped: docs-retained
+	mkdir -p $(BUILD_DIR)/scoped-current/docs
+	$(TYPST) compile --root . docs/boundary-accounting.typ $(BUILD_DIR)/scoped-current/docs/boundary-accounting.pdf
+	$(TYPST) compile --root . docs/particle-examples.typ $(BUILD_DIR)/scoped-current/docs/particle-examples.pdf
+	$(TYPST) compile --root . docs/region-current.typ $(BUILD_DIR)/scoped-current/docs/region-current.pdf
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

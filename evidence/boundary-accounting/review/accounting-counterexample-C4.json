@@ -1,0 +1,39 @@
+{
+  "case": "C4 cross-slice additive support alias",
+  "source_sha256": "40c949f6a451b80392fa70fb00361a3fe1f7743fb0b578acb8a31c17ed1d3e34",
+  "source_unchanged_during_probe": true,
+  "source_snapshot_preserved": false,
+  "construction": {
+    "cuts": [
+      1,
+      2
+    ],
+    "boundary": "B",
+    "regions": [
+      [
+        "A"
+      ],
+      [
+        "A"
+      ]
+    ],
+    "records": [
+      "x1",
+      "x2"
+    ],
+    "physical_ids": [
+      "claimed-new-1",
+      "claimed-new-2"
+    ],
+    "support_ids_each": [
+      "same-additive-occurrence"
+    ],
+    "values_each": "1",
+    "coverage": "explicit matching BoundaryCoverage for each singleton crossing"
+  },
+  "observed": "ACCEPTED",
+  "current": "2",
+  "sweep": "0",
+  "required": "Reject same additive accounting occurrence even if physical_id alias changes across slices. Genuine per-cut projections require distinct additive occurrence IDs.",
+  "execution": "Independent inline python3 -B direct component probe; no source edit/native simulation replay."
+}

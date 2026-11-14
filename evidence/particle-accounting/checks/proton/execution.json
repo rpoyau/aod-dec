@@ -1,0 +1,75 @@
+{
+  "artifacts": {
+    "checks/proton/normal/proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "checks/proton/normal/proton-accounting.json": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+    "checks/proton/optimized/proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "checks/proton/optimized/proton-accounting.json": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b",
+    "outputs/proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "outputs/proton-accounting.json": "300e8a5441b6fefdbabeb93cbefd20ff5ef2b356939a5a19addfe7fc35f7fa7b"
+  },
+  "canonical_output_identical": true,
+  "canonical_witness_identical": true,
+  "comparison_rows_additive": false,
+  "created_utc": "2026-11-14T11:44:05.545785+00:00",
+  "current_obligation": [
+    {
+      "amount": "6",
+      "known_unit": "closure-burden",
+      "physical_source": "46dae9435fbd82bc68043d7aacc56172e7406e75434042afee93e6e6d574923f",
+      "receipt_accounted": true,
+      "required_projection": "bound burden-route to signed-current map",
+      "route_accounted": true,
+      "status": "SIGNED_SHEDDING_CURRENT_UNRESOLVED"
+    }
+  ],
+  "negative_controls_per_mode": 8,
+  "normal_optimized_report_identical": true,
+  "normal_optimized_witness_identical": true,
+  "runner_sha256": "361ff5eb2faad23ccd77cf2b167317184a3b4a9b3083d7c1684c2377a9e632db",
+  "runner_unchanged": true,
+  "runs": [
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "scripts/proton_accounting.py",
+        "--output",
+        "checks/proton/normal/proton-accounting.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14",
+      "log": "checks/proton/normal.log",
+      "log_sha256": "719261fef6768d4f9aeef193a271ea77796a4029653775a5ac76aeb8a1099eaf",
+      "mode": "normal",
+      "output": "checks/proton/normal/proton-accounting.json",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "scripts/proton_accounting.py",
+        "--output",
+        "checks/proton/optimized/proton-accounting.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14",
+      "log": "checks/proton/optimized.log",
+      "log_sha256": "e8da20522fcb29d0450d04d248deb1159e147005257a11873b5812a7edf38d90",
+      "mode": "optimized",
+      "output": "checks/proton/optimized/proton-accounting.json",
+      "returncode": 0
+    }
+  ],
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/application/boundary_accounting.py": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_PARTICLE_EXAMPLES_2026-11-14/scripts/proton_accounting.py": "361ff5eb2faad23ccd77cf2b167317184a3b4a9b3083d7c1684c2377a9e632db",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/collision_routing.py": "a08a131c2470139ea85f5ab54730944907bdb04bfdb54588a42be50bdd33b388",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/retained_continuation.py": "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/01_rest_energy_prediction.tex": "40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/04_boundary_current_applications.tex": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b"
+  },
+  "status": "PASS"
+}

@@ -158,3 +158,45 @@ CI builds it against fresh `results.json` and `routing-parallel.png`, retaining
 the PDF, figure, JSON records and compressed trace files as workflow artifacts.
 The pinned local manuscript lint and rendered-page inspection remain separate
 from backend and routing tests.
+
+## Retained, particle and region accounting
+
+`make verify-retained` executes the counted retained-continuation application
+through reference, typed IR, AOT and ORC. The host reconstructs and validates its
+complete witnesses separately from the scalar generated update. The admission
+repair and source binding are recorded under `evidence/r04-feedback/`.
+
+`make simulate-regions` runs the maser and Earth-water-shell-Moon D0 preparations
+through one region adapter. `make simulate-particles` runs the admitted proton
+and electron-wire preparations. The workflow executes each in normal and
+optimized Python and compares their exact output files, including the proton
+witness payload. The full normal/optimized test suite also contains the strict
+accounting and region adapter tests. Input preparation, source-family coverage
+and output accounting are separate claims; no new physical transition law is
+installed by the workflow.
+
+`make verify-region-current` runs `scripts/check_region_current.py --output
+build/scoped-current/dec`. Its 44 positive runtime cases and six hostile cases
+exercise exact scalar clipping, region incidence, nonnegative swept measure and
+moving-current arithmetic through the reference VM and generated ORC specialized
+and fallback paths. An AOT executable checks the independent expected sequence
+`4, -4, 0, 0, 7`. The workflow runs this checker in both Python modes. Native
+addresses and timing fields are observations, so those compiler report files
+are not expected to be byte-identical. Full collection/history/coverage work
+remains host-side.
+
+`make docs-scoped TYPST=/path/to/typst` compiles the retained-continuation,
+boundary-accounting, particle-examples and region-current companions. CI retains
+these PDFs, the fresh exact application outputs, full proton witnesses, counted
+continuation artifacts and scalar compiler reports. Local rendered-page and
+supported AOD-lint checks are recorded separately. The source-bound reviews and
+publication evidence live under `evidence/particle-accounting/` and
+`evidence/scoped-current/`.
+
+The particle application adopts the Manual's proton `3:3:6` and electron
+`1:2:6` associations. Its proton burden-to-signed-shedding-current projection
+remains explicitly unresolved. The region adapter supports declared source-scale
+zero currents and explicit rational reporting-scale maps; higher native formation
+still requires ancestral support. The maser and Earth-water-Moon examples supply
+their motion, gates and current operands. Their exact accounting identities are
+not measured hyperfine, power, tide-height or fluid-velocity predictions.
