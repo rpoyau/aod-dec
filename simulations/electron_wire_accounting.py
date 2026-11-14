@@ -27,7 +27,7 @@ MANUSCRIPT_BINDING = {'source_base_commit': '8c3149b9d3d924b80b9385b178da4ba2c39
            'manual/sections/01_rest_energy_prediction.tex': '40e6af142bfca8d4d97f8f48c50337f7c7d0099954d4e349dea09a9a76c40469',
            'manual/sections/04_boundary_current_applications.tex': '6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6',
            'sections/06_field.tex': '74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88'}}
-NATIVE_SHA = "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+NATIVE_SHA = "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
 ACCOUNTING_SHA = "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78"
 
 SCOPE = 'declared:electron-above-wire-interface'

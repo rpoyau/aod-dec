@@ -1,0 +1,37 @@
+{
+  "finding": "R07-04",
+  "file": "simulations/vendor/aod_manual_native.py",
+  "before_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+  "after_sha256": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+  "reason": "Reject Boolean/float/subclass aliases at native Dion and pivot sign admission; preserve exact integer patterns. This is a downstream D.E.C. vendor repair, not an upstream Main/Manual edit.",
+  "upstream_repository": "https://github.com/rpoyau/aod",
+  "upstream_base": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+  "consumer_rebindings": {
+    "simulations/manual_dec_fixture.py": {
+      "before_sha256": "722bc66de13362ecf305a51a8a2cdf14a1bb18f4d5708ae7d06f6cba3d927e85",
+      "after_sha256": "2232806ca1e2f2f7f590e8d1d9d88fadedc9c07fee05e0d1e6dd678be67283b4"
+    },
+    "simulations/proton_accounting.py": {
+      "before_sha256": "02ddaf508fa2e0fab1c9816135f0e86da4688e85f3a38537c223dab03ee5fd02",
+      "after_sha256": "cb76ed2c144696fc72b00ff699ee338d7d0074b91f8473f41f462fa346229111"
+    },
+    "simulations/electron_wire_accounting.py": {
+      "before_sha256": "6df9a9d2ee2f57d98fc2f683818df72097c647e49ed15e6d7bd261da0571c015",
+      "after_sha256": "a9ba5148c7674ffd5a38c8775c3a12b0fed8a25edcd165b860d15ae5d8e14c89"
+    },
+    "simulations/run_regions.py": {
+      "before_sha256": "fc4ca49704f3bdc29f5daccea0c318bdabe16294dffbbf3acdd9b9f759703d84",
+      "after_sha256": "d0f934b5af24455b20ead5befd1cc1e5e95806b9579df3f61e62bef365d12cb0"
+    },
+    "tests/test_manual_dec_fixture.py": {
+      "before_sha256": "5ba7a8c90542a3163c9725f93bef120ab3e4b6b88551dbc16d876473772600c6",
+      "after_sha256": "012d3cc79d190f697f9e892ac6a950df6e44646eae205203dc09544999e7210d"
+    },
+    "scripts/check_admission_mutations.py": {
+      "before_sha256": "9f1b0bdc921a52d505cdbd797915af93a0be35600aee64e7c33f2213f803acca",
+      "after_sha256": "01479dbdbbab1c78f2b367dcea9649465253d5072c63f09ae445ac51348b77a8"
+    }
+  },
+  "historical_evidence_unchanged": true,
+  "mutation_harness_rebinding": "The initial attempt rejected the changed vendor hash as designed. The expected hash was explicitly rebound; all mutation definitions, required failures and19 tests remain unchanged."
+}

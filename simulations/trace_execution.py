@@ -1,15 +1,17 @@
 """Actual reference execution with passive commit recording and host profiles."""
 from contextlib import contextmanager
+from dataclasses import asdict
 from pathlib import Path
 import hashlib
 import json
 import resource
+import sqlite3
 import time
 import tracemalloc
 
 from runtime.dec_language import compile_source, Interpreter, DecError
 from runtime.dec_core import render
-from simulations.trace_store import TraceStore, run_manifest, record_commits, canonical_bytes, TraceIncomplete
+from simulations.trace_store import TraceStore, run_manifest, record_commits, canonical_bytes, TraceError, TraceIncomplete
 from simulations.trace_detectors import detect_core, replay_boundaries, _decode_ratios
 
 
@@ -64,15 +66,46 @@ def run_core(source, trace_path, *, run_id='core-example', limits=None):
         with profile.phase('total_traced_execution_and_detection'):
             with profile.phase('trace_storage_open'):
                 store = TraceStore(trace_path, manifest, limits=limits)
+            trace_errors = []
+
+            def trace_failure(stage, error):
+                trace_errors.append({'stage':stage, 'error':type(error).__name__, 'message':str(error)})
+                if store.failure is None:
+                    store._failure(error)
+
+            storage_errors = (TraceError, OSError, sqlite3.Error)
             try:
                 with profile.phase('model_with_trace_transport_storage'), record_commits(store):
                     traced = reference(source)
                 if store.failure is None:
-                    store.checkpoint({'outcome':traced,'rng':{'algorithm':'none'}})
-                store.finish()
-                with profile.phase('detector_and_archive_read'):
-                    detection = detect_core(store.iter_events())
-                status = store.status()
+                    try:
+                        store.checkpoint({'outcome':traced,'rng':{'algorithm':'none'}})
+                    except storage_errors as error:
+                        # A checkpoint is observation of an already computed
+                        # result, including any original first model error.
+                        trace_failure('checkpoint', error)
+                try:
+                    store.finish()
+                except storage_errors as error:
+                    trace_failure('finish', error)
+                try:
+                    with profile.phase('detector_and_archive_read'):
+                        detection = detect_core(store.iter_events())
+                except storage_errors as error:
+                    trace_failure('detection', error)
+                    detection = {'coverage':'partial', 'reason':'trace archive unavailable for detection'}
+                try:
+                    status = store.status()
+                except storage_errors as error:
+                    trace_failure('status', error)
+                    # Do not invent an event count, chain or disk measurement
+                    # when the durable status cannot be recovered.
+                    status = {'coverage':'partial', 'state':'unavailable', 'failure':store.failure,
+                              'events':None, 'chain':None, 'archive_bytes':None,
+                              'limits':asdict(store.limits), 'metrics':dict(store.metrics),
+                              'scope':'trace status unavailable; model outcome retained separately'}
+                if trace_errors:
+                    status = dict(status, coverage='partial', failure=store.failure, errors=trace_errors)
                 if status['coverage']!='complete':
                     detection=dict(detection,coverage='partial',archive_coverage=status['coverage'])
             finally:

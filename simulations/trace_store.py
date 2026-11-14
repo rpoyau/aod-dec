@@ -50,6 +50,13 @@ class TraceLimits:
         require(self.cache_bytes >= 4096, "SQLite cache requires at least one page")
 
 
+# Limits must be readable before a stored or caller-supplied event policy can
+# be applied. This fixed bootstrap only admits the small, flat configuration;
+# values stay within the signed SQLite integer domain used by bounded reads.
+LIMITS_METADATA_POLICY = TraceLimits(max_event_bytes=4096, max_integer_bits=63,
+                                    max_depth=2, max_nodes=32)
+
+
 def exact_json(value, limits=None):
     """Copy a bounded exact value to JSON form before serializing it.
 
@@ -231,22 +238,22 @@ class TraceStore:
                     self.db.execute("CREATE TABLE metadata(key TEXT PRIMARY KEY, value BLOB NOT NULL)")
                     self.db.execute("CREATE TABLE chunks(ordinal INTEGER PRIMARY KEY, event_id TEXT UNIQUE NOT NULL, source_key TEXT UNIQUE, body BLOB NOT NULL, body_hash TEXT NOT NULL, chain TEXT NOT NULL)")
                     for key, value in (("manifest", encoded.decode()), ("manifest_hash", sha256(encoded).hexdigest()),
-                                       ("limits", canonical_bytes(asdict(self.limits)).decode()),
+                                       ("limits", canonical_bytes(asdict(self.limits), LIMITS_METADATA_POLICY).decode()),
                                        ("count", "0"), ("chain", "0" * 64), ("state", "recording")):
                         self.db.execute("INSERT INTO metadata VALUES (?,?)", (key, value))
+            stored_limits = self._read_limits()
+            if read_only and limits is None:
+                self.limits = stored_limits
+                self.db.execute("PRAGMA cache_size=-" + str(max(1, self.limits.cache_bytes // 1024)))
+                self.metrics["cache_budget_bytes"] = self.limits.cache_bytes
+            if existed and not read_only:
+                require(asdict(stored_limits) == asdict(self.limits), "resource limits changed on restart")
             self.manifest = json.loads(self._meta("manifest"))
             require(digest(self.manifest, self.limits) == self._meta("manifest_hash"), "manifest checksum mismatch")
             self.run_id = self.manifest["run_id"]
             if manifest is not None:
                 require(canonical_bytes(manifest, self.limits) == canonical_bytes(self.manifest, self.limits),
                         "run manifest changed on restart")
-            stored_limits = json.loads(self._meta("limits"))
-            if read_only and limits is None:
-                self.limits = TraceLimits(**stored_limits)
-                self.db.execute("PRAGMA cache_size=-" + str(max(1, self.limits.cache_bytes // 1024)))
-                self.metrics["cache_budget_bytes"] = self.limits.cache_bytes
-            if existed and not read_only:
-                require(stored_limits == asdict(self.limits), "resource limits changed on restart")
             self.verify()
             if existed and not read_only:
                 self._set_state("recording")
@@ -266,12 +273,37 @@ class TraceStore:
     def open(cls, path, *, limits=None):
         return cls(path, limits=limits, read_only=True)
 
-    def _meta(self, key):
-        row = self.db.execute("SELECT substr(value,1,?),length(value) FROM metadata WHERE key=?",
-                              (self.limits.max_event_bytes + 1, key)).fetchone()
+    def _meta(self, key, *, max_bytes=None):
+        max_bytes = self.limits.max_event_bytes if max_bytes is None else max_bytes
+        # SQLite TEXT length/substr count characters. Bound the encoded bytes
+        # before decoding, including hostile multibyte or malformed metadata.
+        row = self.db.execute("SELECT substr(CAST(value AS BLOB),1,?),length(CAST(value AS BLOB)) FROM metadata WHERE key=?",
+                              (max_bytes + 1, key)).fetchone()
         require(row is not None, "trace metadata missing: " + key)
-        require(row[1] <= self.limits.max_event_bytes, "metadata exceeds read budget")
-        return row[0]
+        require(row[1] <= max_bytes, "metadata exceeds read budget")
+        require(type(row[0]) is bytes, "trace metadata must contain encoded text")
+        try:
+            return row[0].decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise TraceIntegrityError("invalid trace metadata encoding: " + key) from error
+
+    def _read_limits(self):
+        def unique_fields(pairs):
+            value = {}
+            for key, item in pairs:
+                require(key not in value, "duplicate trace limit field")
+                value[key] = item
+            return value
+
+        encoded = self._meta("limits", max_bytes=LIMITS_METADATA_POLICY.max_event_bytes)
+        try:
+            value = json.loads(encoded, object_pairs_hook=unique_fields)
+        except (ValueError, TypeError, RecursionError) as error:
+            raise TraceIntegrityError("invalid trace limits metadata: " + str(error)) from error
+        require(type(value) is dict and set(value) == {field.name for field in fields(TraceLimits)},
+                "trace limit configuration fields mismatch")
+        canonical_bytes(value, LIMITS_METADATA_POLICY)
+        return TraceLimits(**value)
 
     def _set_state(self, state):
         with self.db:

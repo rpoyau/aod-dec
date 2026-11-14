@@ -12,6 +12,7 @@ from .vendor import aod_manual_native as native
 from .trace_store import TraceError, TraceLimits, canonical_bytes
 from .trace_support import (decode_trace, decode_certificate, decode_wave,
                             decode_motif, inspect_native_return)
+from .trace_history_union import RetainedHistoryUnion
 
 
 class RelationError(ValueError):
@@ -158,7 +159,8 @@ def _json_payload(data):
 
 
 def detect_particle_relations(store, *, scope=None, max_events=10000,
-                              max_bytes=32 * 1024 * 1024, max_relations=1000):
+                              max_bytes=32 * 1024 * 1024, max_relations=1000,
+                              max_history_bindings=100000, max_history_nodes=500000):
     """Validate actual native relations and retain unknown axes as unavailable.
 
     Scope filters result rows after their retained dependencies are read. Budgets
@@ -177,6 +179,24 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
     groups, wave_errors, folds, pending = {}, {}, {}, []
     contacts_by_pair, observed_states, seen_events = {}, {}, {}
     source_events = set()
+    history = RetainedHistoryUnion(max_bindings=max_history_bindings, max_nodes=max_history_nodes)
+
+    def inconsistent_union():
+        result["history_union"] = history.status()
+        if history.failure is None:
+            return False
+        # The query has one inspected witness union. Do not publish dependent
+        # relations from a contradictory or truncated union as verified.
+        result["failures"].append({"status": "rejected", "reason": history.failure,
+                                   "scope": "inspected retained history union"})
+        for category in ("couplings", "folds", "shedding", "seating", "states"):
+            result[category] = []
+        for wave in result["waves"].values():
+            for axis in ("closure", "coupling", "shedding", "seating"):
+                wave[axis] = {"status": "unresolved", "reason": "retained history union rejected"}
+        result["archive_coverage"] = store.status()["coverage"]
+        result["coverage"] = "partial"
+        return True
     kinds = {"particle.native_return", "particle.native_contacts", "particle.native_fold",
              "particle.native_shedding", "particle.native_state"}
     serialization = TraceLimits(max_event_bytes=max_bytes, max_storage_bytes=max(65536, max_bytes * 4),
@@ -214,6 +234,7 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
             if kind == "particle.native_return":
                 try:
                     trace, cert, motif, detected = _formation(payload)
+                    history.include(trace, cert, motif)
                     require((event["scope_id"], event["lineage_id"], event["scale_index"]) ==
                             (trace.scope, trace.lineage, trace.scale), "native event envelope disagrees with witness context")
                     metadata = payload.get("wave")
@@ -237,6 +258,8 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
         result["failures"].append({"status": "incomplete", "reason": str(exc)})
 
     waves = {}
+    if inconsistent_union():
+        return result
     for identity, group in groups.items():
         try:
             require(identity not in wave_errors, wave_errors.get(identity, "rejected retained formation"))
@@ -245,6 +268,7 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
             registry = {value[1].certificate_digest: value[1] for value in values}
             wave = native.wave(tuple((v[0], v[1], registry) for v in values), tuple(v[2] for v in values))
             require(wave.identity == identity, "wave metadata identity differs from reconstructed recurrence")
+            history.include(wave)
             waves[identity] = wave
             if scope is None or wave.scope == scope:
                 result["waves"][identity] = {"scope": wave.scope, "lineage": wave.lineage,
@@ -256,6 +280,9 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             wave_errors[identity] = str(exc)
             result["failures"].append({"wave_identity": identity, "status": "unresolved", "reason": str(exc)})
+
+    if inconsistent_union():
+        return result
 
     def publish(category, row, identities=()):
         if scope is None or row.get("scope") == scope:
@@ -277,6 +304,7 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
         try:
             require(payload.get("schema") == "native-particle-fold-v1", "unknown fold schema")
             fold = _fold(payload["fold"])
+            history.include(fold["outer"][0], fold["outer"][1], *fold["inner"])
             require((payload["scope"], payload["lineage"], payload["scale"]) ==
                     (fold["outer"][0].scope, fold["outer"][0].lineage, fold["outer"][0].scale),
                     "fold snapshot context differs from its outer closure")
@@ -287,6 +315,9 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
                 "outer_return_id": identity, "inner_wave_ids": [wave.identity for wave in fold["inner"]]})
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             result["failures"].append({"event_id": event_id, "kind": kind, "status": "rejected", "reason": str(exc)})
+
+    if inconsistent_union():
+        return result
 
     for event_id, kind, payload in sorted(pending, key=lambda row: priorities.get(row[1], -1)):
         try:
@@ -299,6 +330,8 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
                 interval = _tuple(payload["comparison_interval"])
                 forward = native.compare(left, right, contacts, window=interval)
                 reverse = native.compare(left, right, contacts, window=interval, reverse=True)
+                for contact in contacts:
+                    history.include(contact.support_trace, contact.support_certificate)
                 require(payload["scope"] == left.scope, "contact snapshot scope differs")
                 require(payload["scale"] == left.scale and payload["lineage"] == left.identity + "|" + right.identity,
                         "contact snapshot lineage/scale differs")
@@ -399,6 +432,8 @@ def detect_particle_relations(store, *, scope=None, max_events=10000,
                     raise RelationError("unknown native state operation")
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             result["failures"].append({"event_id": event_id, "kind": kind, "status": "unresolved", "reason": str(exc)})
+    if inconsistent_union():
+        return result
     coverage = store.status()["coverage"]
     result["archive_coverage"] = coverage
     result["coverage"] = ("unavailable" if not source_events else "partial"

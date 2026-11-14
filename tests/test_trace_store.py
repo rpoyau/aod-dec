@@ -1,6 +1,6 @@
 """Adversarial storage and actual-runtime passive trace integration checks."""
 from contextlib import nullcontext
-from dataclasses import replace
+from dataclasses import asdict, replace
 from fractions import Fraction
 from hashlib import sha256
 import json
@@ -97,6 +97,79 @@ class TraceIdentityTests(unittest.TestCase):
 
 
 class DurableTraceTests(unittest.TestCase):
+    def test_implicit_reopen_restores_limits_before_large_manifest(self):
+        limits = TraceLimits(max_event_bytes=400000, max_storage_bytes=4 * 1024 * 1024,
+                             cache_bytes=8192, max_nodes=4096)
+        large = manifest(); large['preparation'] = {'bytes':'x' * 270000}
+        with TemporaryDirectory() as directory:
+            with TraceStore(directory, large, limits=limits) as store:
+                event = store.append('raw', {'n':1}, **event_args())
+                store.finish()
+                expected = store.verify()
+            database = Path(directory) / 'trace.sqlite3'
+            before = sha256(database.read_bytes()).hexdigest()
+            with TraceStore.open(directory) as archive:
+                self.assertEqual(archive.limits, limits)
+                self.assertEqual(archive.manifest, large)
+                self.assertEqual(archive.verify(), expected)
+                self.assertEqual(list(archive.iter_events()), [event])
+                self.assertEqual(archive.status()['metrics']['cache_budget_bytes'], limits.cache_bytes)
+            self.assertEqual(sha256(database.read_bytes()).hexdigest(), before)
+
+    def test_explicit_reader_limits_remain_authoritative(self):
+        limits = TraceLimits(max_event_bytes=400000, max_storage_bytes=4 * 1024 * 1024)
+        large = manifest(); large['preparation'] = {'bytes':'x' * 270000}
+        with TemporaryDirectory() as directory:
+            with TraceStore(directory, large, limits=limits):
+                pass
+            for cap in (2048, 262144):
+                with self.subTest(cap=cap), self.assertRaisesRegex(TraceIntegrityError, 'metadata exceeds read budget'):
+                    TraceStore.open(directory, limits=replace(limits, max_event_bytes=cap))
+            selected = replace(limits, max_event_bytes=350000, cache_bytes=4096)
+            with TraceStore.open(directory, limits=selected) as archive:
+                self.assertEqual(archive.limits, selected)
+                self.assertEqual(archive.manifest, large)
+                self.assertEqual(archive.verify()['coverage'], 'complete')
+
+    def test_limit_metadata_bootstrap_rejects_corruption_before_manifest(self):
+        valid = asdict(TraceLimits())
+        malformed = [
+            ('oversize', ' ' * 4097),
+            ('invalid_json', '{'),
+            ('sequence', '[]'),
+            ('missing_field', json.dumps({key:value for key, value in valid.items() if key != 'max_nodes'})),
+            ('unknown_field', json.dumps(valid | {'extra':1})),
+            ('boolean', json.dumps(valid | {'max_nodes':True})),
+            ('float', json.dumps(valid | {'max_nodes':32.0})),
+            ('duplicate', json.dumps(valid)[:-1] + ',"max_nodes":16}'),
+        ]
+        for name, encoded in malformed:
+            with self.subTest(name=name), TemporaryDirectory() as directory:
+                with TraceStore(directory, manifest()):
+                    pass
+                with sqlite3.connect(str(Path(directory) / 'trace.sqlite3')) as db:
+                    db.execute("UPDATE metadata SET value=? WHERE key='limits'", (encoded,))
+                    # Failure must come from limits, even under an explicit
+                    # reader policy, before this malformed manifest is read.
+                    db.execute("UPDATE metadata SET value='{' WHERE key='manifest'")
+                for selected in (None, TraceLimits(max_event_bytes=2048)):
+                    with self.subTest(explicit=selected is not None), self.assertRaises(TraceIntegrityError):
+                        TraceStore.open(directory, limits=selected)
+
+    def test_limit_metadata_bootstrap_bounds_encoded_bytes_before_decoding(self):
+        # This is only 3002 SQLite TEXT characters, but 12002 UTF-8 bytes.
+        multibyte = '"' + '\U0001f600' * 3000 + '"'
+        for encoded, message in ((multibyte, 'metadata exceeds read budget'),
+                                 (b'\xff', 'invalid trace metadata encoding: limits')):
+            with self.subTest(message=message), TemporaryDirectory() as directory:
+                with TraceStore(directory, manifest()):
+                    pass
+                with sqlite3.connect(str(Path(directory) / 'trace.sqlite3')) as db:
+                    db.execute("UPDATE metadata SET value=? WHERE key='limits'", (encoded,))
+                for selected in (None, TraceLimits(max_event_bytes=2048)):
+                    with self.subTest(explicit=selected is not None), self.assertRaisesRegex(TraceIntegrityError, message):
+                        TraceStore.open(directory, limits=selected)
+
     def test_relative_path_read_only_reopen(self):
         with TemporaryDirectory(dir=Path.cwd()) as directory:
             relative = os.path.relpath(directory, Path.cwd())

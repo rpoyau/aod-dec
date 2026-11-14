@@ -40,7 +40,7 @@ n = load("region_example_native", (HERE / "vendor/aod_manual_native.py",
     PROJECT / "AOD_DEC_R04_IMPLEMENTATION_2026-11-14/downstream/simulations/vendor/aod_manual_native.py"))
 UNIT = "native-pressure-current"
 DOMAIN = "native-return-count"
-EXPECTED_NATIVE = "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+EXPECTED_NATIVE = "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
 
 
 def encode(value):

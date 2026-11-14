@@ -1,0 +1,137 @@
+{
+  "status": "PASS",
+  "scope": "Four R07 finite implementation corrections; no new physical evolution or calibration.",
+  "reviewed_base": "9b3f5036d7d17b022558041a68332342e8f85496",
+  "input": {
+    "archive": "/home/reginaldpoyau/projects/aod/.codex-attachments/799ac796-7a1d-4bbb-b449-2d5111fad929/ea62dbde-4188-4373-aba1-05f710ec160f/AOD_DEC_PR6_REVIEW_R07.zip",
+    "sha256": "e7cb9a81f8b343624c3e5c4aad190ac20b14f33688a5191e5638142d0b114601",
+    "verified_manifest_files": 102,
+    "review_source_head": "9b3f5036d7d17b022558041a68332342e8f85496",
+    "source_worktree": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec"
+  },
+  "findings": {
+    "R07-01": "Bounded combined history admission; conflicting or truncated unions withdraw dependent verified verdicts.",
+    "R07-02": "Checkpoint and diagnostic storage failures preserve the completed result and original model error with partial trace coverage.",
+    "R07-03": "Validated persisted limits precede implicit manifest reads; bootstrap metadata is byte bounded; explicit read limits remain authoritative.",
+    "R07-04": "Exact built-in integer Dion/pivot signs required at producer and decoder; Boolean/float/subclass aliases rejected."
+  },
+  "validation": {
+    "status": "PASS",
+    "executions": [
+      {
+        "name": "unittest-normal",
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_*.py",
+          "-v"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 311.7567468690004,
+        "tests_run": 540,
+        "skipped": 2,
+        "passed": 538
+      },
+      {
+        "name": "unittest-optimized",
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+          "-B",
+          "-O",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests",
+          "-p",
+          "test_*.py",
+          "-v"
+        ],
+        "cwd": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-dec",
+        "status": "PASS",
+        "exit_code": 0,
+        "seconds": 311.69853217200034,
+        "tests_run": 540,
+        "skipped": 2,
+        "passed": 538
+      }
+    ],
+    "source_files": 617,
+    "source_changes_during_validation": [],
+    "driver_sha256": "b3c571d036e306fc869e4725b2ba0850c3c11959605099f0258b8caf4cfeade9"
+  },
+  "test_inventory_count": 540,
+  "new_regressions": 29,
+  "targeted_tests_per_mode": {
+    "history_and_signs": 61,
+    "store_and_execution": 42,
+    "signs_only_subset": 9
+  },
+  "targeted_counts_overlap_full_suite": true,
+  "admission_mutation_runs": 8,
+  "admission_cases_per_run": 19,
+  "aod_lint": {
+    "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "status": "PASS",
+    "manuscript_file_count": 9,
+    "scope": "Strict lint of existing Typst manuscripts; not Python/Markdown semantics or scientific validity."
+  },
+  "fresh_particle_run_replay": {
+    "status": "PASS",
+    "coverage": {
+      "normal": {
+        "native_support": "complete",
+        "native_relations": "complete",
+        "paths": "complete"
+      },
+      "optimized": {
+        "native_support": "complete",
+        "native_relations": "complete",
+        "paths": "complete"
+      }
+    },
+    "comparison": "Complete live/reopened support, relation and path reports agree per mode; scientific outcome and all three detector reports agree between modes. Host trace/profile metrics and external output directory are excluded."
+  },
+  "changed_tested_files": {
+    "docs/TRACE_PROFILE.md": "f4ab33426d31388652e9271006319cac342464422ae369c360ab780dbc6232b6",
+    "scripts/check_admission_mutations.py": "01479dbdbbab1c78f2b367dcea9649465253d5072c63f09ae445ac51348b77a8",
+    "simulations/electron_wire_accounting.py": "a9ba5148c7674ffd5a38c8775c3a12b0fed8a25edcd165b860d15ae5d8e14c89",
+    "simulations/manual_dec_fixture.py": "2232806ca1e2f2f7f590e8d1d9d88fadedc9c07fee05e0d1e6dd678be67283b4",
+    "simulations/proton_accounting.py": "cb76ed2c144696fc72b00ff699ee338d7d0074b91f8473f41f462fa346229111",
+    "simulations/run_regions.py": "d0f934b5af24455b20ead5befd1cc1e5e95806b9579df3f61e62bef365d12cb0",
+    "simulations/trace_execution.py": "e336d58d305986e9f6f44c79ced873aa1a086e4475f4e6ef39bde333cbbdbe72",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "simulations/trace_particle_relations.py": "fe604ebf9894f58b59e3f5ffe90cd9780266b98204c79606d6971ac80e91b190",
+    "simulations/trace_store.py": "ea31598a0cdaa3a88d44503e0aec1d2bd17dbaad02ad563e90291427c8567853",
+    "simulations/trace_support.py": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "tests/test_duon_sign_types.py": "ca0dd8ad94cdb65af250b913329d2c99e7263f1d5da09682185d164de7ad9847",
+    "tests/test_manual_dec_fixture.py": "012d3cc79d190f697f9e892ac6a950df6e44646eae205203dc09544999e7210d",
+    "tests/test_trace_execution.py": "a3ba9a626efd6f8587aaf551d017d20ba5306d33d047b8c315444e61f9c9db7c",
+    "tests/test_trace_history_union.py": "f7e3b027348f0ea70d4579b83043461da4d3283d8645d4255a38475b6b408296",
+    "tests/test_trace_store.py": "1b4566643f3f170038436abe636aa7dbc280056ba5f07ad1c0920f7ba5e46225"
+  },
+  "cross_reviews": {
+    "history": "review/history-review.json",
+    "store": "review/store-review.json",
+    "signs": "review/signs-review.json"
+  },
+  "evidence_audit": "review/final-evidence-audit.json",
+  "source_rebindings": "SOURCE_REBINDINGS.json",
+  "known_limits": [
+    "Two current-device CUDA_ERROR_NO_DEVICE skips per full-suite mode; no new GPU execution claim.",
+    "Full proton/cavity/sensor evolution and field-generated Brownian motion remain unfinished/unverified.",
+    "No cost-inclusive speedup, M6 self-hosting or AArch64 completion claim.",
+    "Finite retained-history admission does not establish a physical scattering observable. Native tracing requires no SI conversion.",
+    "No Main/Manual source changes; the vendor repair is explicitly downstream."
+  ],
+  "evidence_policy": "Earlier phases, counterexamples and excluded mixed-import harness records remain identified in their reports; only final source-bound runs support acceptance."
+}

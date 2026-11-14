@@ -91,6 +91,16 @@ The particle adapter additionally stores real chunked report and witness bytes.
 `trace_applications.retrieve_blob` reloads them under a caller-selected byte cap.
 A source hash alone is never returned as a recovered witness.
 
+Support and relation queries also admit the union of their inspected native
+histories. Scoped event coordinates, terminal returns and overlapping wave
+prefixes must agree across captured carriers, components and folded inner waves.
+Identical shared bindings and earlier lawful prefixes remain valid. A conflict or
+exhausted history budget makes coverage partial and withdraws dependent verified
+formations and relations. Python queries expose `max_history_bindings` and
+`max_history_nodes`; `history_union` reports their use and any rejection reason.
+Dion and pivot construction signs require exact integers at producer admission
+and decoding. Boolean metadata remains a separate permitted payload type.
+
 `trace_applications.replay_accounting(store)` reconstructs the actual archive,
 route partition and receipt records through the bound accounting validators.
 Its replay rejects changed amounts, same-cut or duplicate receipts, wrong
@@ -192,6 +202,14 @@ runs remain partial. Checksummed checkpoints retain model/RNG state at declared
 commit boundaries. Missing, damaged or budget-exceeding evidence reports
 unavailable/incomplete status. Finer queries reload recoverable witnesses or stop;
 they cannot turn a digest or lossy telemetry into complete evidence.
+
+After model execution, a checkpoint or diagnostic-storage failure leaves the
+computed result, emitted prefix and original model error in `run_core`'s
+`outcome`. Trace failure stages are reported separately with partial coverage;
+unrecoverable diagnostic fields are unavailable rather than reconstructed.
+Implicit read-only reopening restores validated persisted limits before reading
+the manifest. Limit metadata has a fixed 4 KiB byte bootstrap; explicit caller
+limits remain authoritative for the manifest and subsequent reads.
 
 Exact boundary cancellation preserves the current at the declared cut. Advancing
 an aggregated model requires sufficient update state. The finite scope example

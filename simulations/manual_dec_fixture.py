@@ -19,7 +19,7 @@ F = Fraction
 SOURCE_COMMIT = "8c3149b9d3d924b80b9385b178da4ba2c39175e8"
 SOURCE_TREE = "b2b55cbcf18354828f7b34418ab3fa26d747a927"
 SOURCE_PATH = "manual/scripts/aod_native_closure_wave.py"
-SOURCE_SHA256 = "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+SOURCE_SHA256 = "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
 LICENSE_SHA256 = "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7"
 SCOPE = "manual-dec:declared-field"
 
@@ -51,8 +51,11 @@ def source_binding():
             "base_tree": SOURCE_TREE, "path": SOURCE_PATH, "sha256": actual,
             "license_sha256": license_digest,
             "base_source_sha256": "3ba98c7097bc104aeb6218265b8531f94f2ca5a35239d0df097aba096675dfdf",
-            "candidate": "R04 admission repair, detached from the recorded base",
-            "role": "corrected local Manual producer; remote acceptance not inferred"}
+            "previous_candidate_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "local_repository": "https://github.com/rpoyau/aod-dec",
+            "local_path": "simulations/vendor/aod_manual_native.py",
+            "candidate": "R04 candidate with D.E.C. R07 exact Dion-sign repair",
+            "role": "locally patched D.E.C. consumer of bound Manual producer; upstream acceptance not inferred"}
 
 
 def ledger_kernel(rows):

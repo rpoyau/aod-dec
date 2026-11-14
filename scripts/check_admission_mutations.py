@@ -16,7 +16,7 @@ import subprocess
 import sys
 import unittest
 
-EXPECTED_SHA = '562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554'
+EXPECTED_SHA = '918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0'
 IDENTITY = {'R04-01-recurrence-event-conflict', 'FIX-01-contact-collection-conflict',
             'R04-02-same-contact-records-accessor'}
 REFLECTION = {'FIX-02-boolean-turnaround-cut', 'FIX-03-float-turnaround-cut',

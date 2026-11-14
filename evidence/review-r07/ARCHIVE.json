@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "path": "validation-evidence.zip",
+  "sha256": "548da99bdad85d6d8272073f22faabbc375d2ed8cc4c048df0e8b7e07e532826",
+  "bytes": 1718381,
+  "manifest_files": 205,
+  "crc_verified": true,
+  "manifest_verified": true
+}

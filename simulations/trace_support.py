@@ -14,6 +14,7 @@ import json
 from .vendor import aod_manual_native as native
 from .trace_store import canonical_bytes
 from .trace_views import Window
+from .trace_history_union import RetainedHistoryUnion
 
 
 class SupportError(ValueError):
@@ -98,6 +99,12 @@ def _shape(construction):
         return f"{p}:{q}", (p, q)
     if len(construction) == 3:
         left, pivot, right = construction
+        require(all(type(pair) is tuple and len(pair) == 2 and
+                    all(type(sign) is int and sign in (-1, 1) for sign in pair)
+                    for pair in (left, right)) and
+                type(pivot) is tuple and len(pivot) == 2 and
+                type(pivot[1]) is int and pivot[1] in (-1, 0, 1),
+                "exact integer Dion and pivot signs required")
         require(left in ((1, -1), (-1, 1)) and right in ((1, -1), (-1, 1))
                 and type(pivot) is tuple and len(pivot) == 2,
                 "unrecognized Dion-pivot-Dion construction")
@@ -105,7 +112,7 @@ def _shape(construction):
     raise SupportError("unrecognized retained construction")
 
 
-def inspect_native_return(payload, *, record_window=None, evidence=()):
+def inspect_native_return(payload, *, record_window=None, evidence=(), _history=None):
     """Inspect an actual native return snapshot without a requested motif label.
 
     ``record_window`` is an optional declared *view* in the Manual additive
@@ -173,6 +180,8 @@ def inspect_native_return(payload, *, record_window=None, evidence=()):
             require(wave_claim.get("declared_motif") == inferred,
                     "wave label differs from inferred construction")
         native.validate_motif(motif)
+        if _history is not None:
+            _history.include(trace, certificate, motif)
         hinges = len(trace.roles) - 2
         enclosure_verified = traversals == motif.enclosure and simple_cycle
         row.update(status="verified", reason="shape inferred from bound component construction; closure independently validated",
@@ -279,7 +288,8 @@ def _legacy_returns(data, input_groups):
 
 def detect_particle_support(store, *, window=None, scope=None, record_window=None,
                             max_events=10000, max_bytes=8000000, max_expanded_bytes=16000000,
-                            max_returns=10000, max_nodes=500000):
+                            max_returns=10000, max_nodes=500000,
+                            max_history_bindings=100000, max_history_nodes=500000):
     """Detect support from typed native commits, or replay their legacy archive.
 
     ``window`` selects native construction cuts, not host serialization ordinals.
@@ -305,10 +315,11 @@ def detect_particle_support(store, *, window=None, scope=None, record_window=Non
         "coverage_claim": "retained native formation witnesses only; no complete cavity evolution claim",
         "resources": {"scanned_events": 0, "scanned_bytes": 0, "expanded_bytes": 0}}
     seen, identities, event_seen, archives = {}, {}, {}, {}
+    history = RetainedHistoryUnion(max_bindings=max_history_bindings, max_nodes=max_history_nodes)
     typed = False
 
     def consume(payload, locator, envelope=None):
-        row = inspect_native_return(payload, record_window=record_window, evidence=(locator,))
+        row = inspect_native_return(payload, record_window=record_window, evidence=(locator,), _history=history)
         raw_trace = payload.get("trace", {})
         if envelope is not None and type(raw_trace) is dict:
             require((envelope["scope_id"], envelope["lineage_id"], envelope["scale_index"]) ==
@@ -399,6 +410,17 @@ def detect_particle_support(store, *, window=None, scope=None, record_window=Non
     except (ValueError, TypeError, KeyError, AttributeError, OSError, EOFError, RecursionError) as exc:
         result["coverage"] = "partial"
         result["errors"].append(str(exc))
+    result["history_union"] = history.status()
+    if history.failure is not None:
+        result["coverage"] = "partial"
+        result["errors"].append(history.failure)
+        for row in result["returns"]:
+            row.update(status="rejected", reason="retained history union: " + history.failure,
+                       signature=None, support=None, record_window_view=None, detected_support_form=None,
+                       closure={"status": "unresolved", "reason": "retained history union rejected"})
+            if "enclosure" in row:
+                row["enclosure"].update(status="unresolved", observed_simple_cycle=None,
+                                        reason="retained history union rejected")
     for row in result["returns"]:
         if row["status"] == "verified":
             result["signatures"][row["signature"]] = result["signatures"].get(row["signature"], 0) + 1
