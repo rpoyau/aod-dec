@@ -14,9 +14,10 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+from runtime.dec_core import observe_commits, _committed
 
 
-ACCOUNTING_SHA256 = "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+ACCOUNTING_SHA256 = "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78"
 _sibling = Path(__file__).with_name("boundary_accounting.py")
 _source = _sibling if _sibling.is_file() else (
     Path(__file__).resolve().parents[2] /
@@ -204,6 +205,7 @@ def commit(ledger, cut, window, channels, obligations=(), sweep_field=()):
     new = Ledger(ledger.cells, ledger.unit, ledger.scale, ledger.scope, ledger.domain,
                  ledger.commits + (row,))
     validate_successor(ledger, new)
+    _committed("region.commit", (new, row))
     return new
 
 

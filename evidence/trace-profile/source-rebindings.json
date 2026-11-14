@@ -1,0 +1,11 @@
+{
+  "base": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+  "reason": "Passive context-local commit observers; arithmetic, admission and model outputs retain their original semantics. Native runtime unchanged.",
+  "files": {
+    "runtime/dec_core.py": {
+      "before_sha256": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a",
+      "after_sha256": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+      "reason": "Observe validated core commitments without changing RNG or first-error/model behavior; observer failure retains explicit partial trace. Includes actual causal contact-pair commitments."
+    }
+  }
+}

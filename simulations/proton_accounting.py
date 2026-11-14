@@ -8,7 +8,9 @@ species association, contact-channel accounting and mass metrology stay typed.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, is_dataclass, replace
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import asdict, dataclass, is_dataclass, replace
 from fractions import Fraction as Q
 import gzip
 import hashlib
@@ -33,7 +35,7 @@ MANUSCRIPT_BINDING = {'source_base_commit': '8c3149b9d3d924b80b9385b178da4ba2c39
            'sections/06_wave_state_relational_time.tex': '2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b'}}
 NATIVE_SHA = "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
 
-ACCOUNTING_SHA = "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+ACCOUNTING_SHA = "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78"
 ENCOUNTER_SHA = "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472"
 SCOPE = "manual-proton-pair:declared-preparation"
 CURRENT_UNIT = "native-pressure-current"
@@ -42,6 +44,111 @@ WINDOWS = (2, 4, 6, 12)
 CAPACITY = Q(3)
 CLOSURE_COST = Q(24)
 C6 = (0, 1, 3, 7, 6, 4, 0)
+
+
+@dataclass
+class NativeObservation:
+    callback: object
+    failure_count: int = 0
+    last_error: str | None = None
+
+
+_native_observation = ContextVar("proton_native_observation", default=None)
+
+
+@contextmanager
+def observe_commits(callback):
+    """Passively capture admitted native witnesses with isolated observer errors.
+
+    These are retained formation snapshots, not a new physical event at capture
+    time. Native event identities and committed indices remain in every trace.
+    A callback receives a fresh serialization tree and cannot alter the model's
+    immutable witnesses or mutable preparation reports through that tree.
+    """
+    if callback is not None and not callable(callback):
+        raise TypeError("native observer must be callable or None")
+    observation = NativeObservation(callback)
+    token = _native_observation.set(observation)
+    try:
+        yield observation
+    finally:
+        _native_observation.reset(token)
+
+
+def _committed(kind, value):
+    observation = _native_observation.get()
+    if observation is not None and observation.callback is not None and not observation.failure_count:
+        try:
+            observation.callback(kind, encode(value))
+        except Exception as exc:
+            observation.failure_count += 1
+            observation.last_error = type(exc).__name__ + ": " + str(exc)[:2048]
+
+
+def _observe_native_wave(wave, family):
+    """Expose each actual return once, retaining its bound construction evidence."""
+    observation = _native_observation.get()
+    if observation is None or observation.callback is None or observation.failure_count:
+        return
+    metadata = {"identity": wave.identity, "scope": wave.scope, "scale": wave.scale,
+                "lineage": wave.lineage, "declared_motif": wave.motif}
+    for ordinal, (trace, certificate) in enumerate(zip(wave.returns, wave.certificates)):
+        motif = wave.motif_witnesses[ordinal] if wave.motif_witnesses else None
+        _committed("particle.native_return", {
+            "schema": "native-particle-return-v1", "family": family,
+            "capture": "validated-retained-snapshot", "wave": metadata,
+            "return_ordinal": ordinal, "trace": trace,
+            "certificate": certificate, "motif_witness": motif,
+            "formation": None if motif is None else {
+                "construction": motif.construction, "component_traces": motif.component_traces,
+                "component_certificates": motif.component_certificates}})
+
+
+def _encounter_history(world):
+    """Retained identities and dispositions, including inactive/pending history."""
+    return {
+        "population": tuple({"identity": wave.identity, "scope": wave.scope,
+            "lineage": wave.lineage, "scale": wave.scale, "declared_motif": wave.motif,
+            "return_ids": tuple(trace.return_id for trace in wave.returns),
+            "trace_digests": tuple(trace.trace_digest for trace in wave.returns),
+            "certificate_digests": tuple(cert.certificate_digest for cert in wave.certificates)}
+            for wave in world.waves),
+        "component_return_ids": tuple(tuple(trace.return_id for trace, cert in records)
+                                      for records in world.components),
+        "contacts": tuple({"identity": pair.identity, "tick": pair.tick,
+            "committed": pair.committed, "contact_ids": tuple(contact.identity for contact in pair.contacts),
+            "reflection_occurrences": pair.reflection_occurrences, "prefix_counts": pair.prefix_counts}
+            for pair in world.contacts),
+        "relations": tuple({"identity": relation.identity, "target": relation.target,
+            "created_tick": relation.created_tick, "input_cut": relation.input_cut,
+            "retained_at": relation.retained_at, "contact_ids": relation.contact_ids,
+            "value": relation.value, "RCD": relation.rcd,
+            "support_units": relation.support_units, "unmatched_returns": relation.unmatched_returns,
+            "token_count": len(relation.tokens), "tokens_digest": digest(relation.tokens),
+            "active": (relation.created_tick in (world.state[0]-1, world.state[0]-2)
+                       and relation.identity not in world.disabled_relations)}
+            for relation in world.relations),
+        "disabled_relations": world.disabled_relations, "interventions": world.interventions}
+
+
+def _encounter_context(schema):
+    return {"schema": schema, "capture": "validated-source-execution",
+        "scope": encounter.SCOPE, "lineage": "retained-continuation-world", "scale": 0,
+        "source_core": "1:2", "population_role": "source encounter before proton materialization",
+        "source_bindings": {"simulations/retained_continuation.py": file_sha(encounter.__file__),
+                            "simulations/vendor/aod_manual_native.py": file_sha(native.__file__)}}
+
+
+def _observe_encounter(kind, build_payload):
+    """Isolate snapshot construction as well as callback failures from the model."""
+    observation = _native_observation.get()
+    if observation is None or observation.callback is None or observation.failure_count:
+        return
+    try:
+        _committed(kind, build_payload())
+    except Exception as exc:
+        observation.failure_count += 1
+        observation.last_error = type(exc).__name__ + ": " + str(exc)[:2048]
 
 
 def require(ok, message):
@@ -98,6 +205,11 @@ def encounter_source():
                (d//3, 2*(d//3)), (0, d-1), (d-1, 0))
     world = encounter.initialize_world()
     preparation_digest = digest(world)
+    _observe_encounter("particle.encounter_init", lambda: {
+        **_encounter_context("retained-encounter-init-v1"),
+        "requested_steps": len(masks), "state_fields": encounter.STATE_FIELDS,
+        "ticket_denominator": d, "state": world.state, "world_digest": preparation_digest,
+        "history": _encounter_history(world)})
     rows = []
     for index, (mask, ticket) in enumerate(zip(masks, tickets)):
         before = world
@@ -115,8 +227,22 @@ def encounter_source():
             "pending_carriers": tuple(i for i, complete in enumerate(row.row["completed"]) if not complete),
             "retained_relation_dispositions": classifications,
             "archive_digest": digest(world)})
+        _observe_encounter("particle.encounter_update", lambda: {
+            **_encounter_context("retained-encounter-update-v1"),
+            "index": index, "masks": mask, "tickets": ticket,
+            "before_state": before.state, "after_state": world.state,
+            "before_world_digest": digest(before), "after_world_digest": rows[-1]["archive_digest"],
+            "attempt": row, "pending_carriers": rows[-1]["pending_carriers"],
+            "before_history": _encounter_history(before), "after_history": _encounter_history(world)})
     require(encounter.validate_world(world), "encounter witness replay failed")
     require(tuple(len(w.returns) for w in world.waves) == (7, 8), "fixed encounter schedule changed")
+    _observe_encounter("particle.encounter_finish", lambda: {
+        **_encounter_context("retained-encounter-finish-v1"),
+        "requested_steps": len(masks), "completed_attempts": len(world.attempts),
+        "final_state": world.state, "final_world_digest": digest(world),
+        "history": _encounter_history(world)})
+    for wave in world.waves:
+        _observe_native_wave(wave, "source-encounter")
     return world, {"scenario": "existing expiry_reentry", "masks": masks, "tickets": tickets,
         "ticket_denominator": d, "preparation_returns": (3, 2),
         "preparation_digest": preparation_digest, "rows": rows,
@@ -163,6 +289,7 @@ def materialize_carrier(source, label, prepared_count):
     require(native.validate_wave(wave), "3:3 carrier admission failed")
     require(all(m.chirality == t.roles[0] for m,t in zip(wave.motif_witnesses,wave.returns)),
             "mapped chirality differs from trace")
+    _observe_native_wave(wave, "proton-carrier")
     return wave, {"label": label, "source_identity": source.identity,
         "identity": wave.identity, "core": "3:3", "enclosure": 6,
         "species_map": "Manual p+ -> 3:3:6", "return_maps": tuple(maps),
@@ -187,6 +314,12 @@ def admitted_contacts(left, right):
     interval = (0, max(w.returns[-1].indices[-1] for w in (left, right)))
     forward = native.compare(left, right, tuple(contacts), window=interval)
     backward = native.compare(left, right, tuple(contacts), window=interval, reverse=True)
+    _committed("particle.native_contacts", {
+        "schema": "native-particle-contacts-v1", "capture": "validated-retained-snapshot",
+        "scope": left.scope, "left": left.identity, "right": right.identity,
+        "scale": left.scale, "lineage": left.identity + "|" + right.identity,
+        "contacts": tuple(contacts), "reflection_evidence": tuple(evidence),
+        "comparison_interval": interval})
     return tuple(contacts), tuple(evidence), interval, forward, backward
 
 
@@ -216,9 +349,24 @@ def run(output):
     outer = native.outer_trace(carriers, lineage="proton-pair:outer",
         scope="proton-pair:outer", scale=1, start_index=interval[1]+1)
     folded = native.fold(carriers, native.certified(outer, "outer", inner=carriers))
+    _committed("particle.native_fold", {
+        "schema": "native-particle-fold-v1", "capture": "validated-retained-snapshot",
+        "scope": outer.scope, "lineage": outer.lineage, "scale": outer.scale, "fold": folded})
     first_cut = outer.indices[-1]+1
     source_state = replace(native.initial_state(carriers[0]),
                            orientation=carriers[0].returns[-1].roles[0])
+    _committed("particle.native_state", {
+        "schema": "native-particle-state-v1", "capture": "validated-retained-snapshot",
+        "scope": carriers[0].scope, "operation": "initial_with_terminal_orientation",
+        "lineage": carriers[0].lineage, "scale": carriers[0].scale,
+        "wave_identity": carriers[0].identity, "state": source_state})
+    _observe_encounter("particle.routing_plan", lambda: {
+        "schema": "native-routing-plan-v1", "capture": "validated-routing-setup",
+        "scope": SCOPE, "lineage": "proton-routing", "scale": 0,
+        "windows": WINDOWS, "capacity": CAPACITY, "closure_cost": CLOSURE_COST,
+        "burden_unit": BURDEN_UNIT, "current_unit": CURRENT_UNIT,
+        "source_history_digest": history_digest, "outer_return_id": outer.return_id,
+        "source_bindings": before_hashes})
     slices, rows, route_witnesses, controls = [], [], [], []
     for ordinal, window in enumerate(WINDOWS):
         # Matched alternatives read the SAME physical history at the SAME cut.
@@ -244,6 +392,12 @@ def run(output):
             target_scope=SCOPE if surplus else None, target_scale=0 if surplus else None)
         require(native.validate_shedding(folded, sheddic), "computed shedding did not admit")
         require(sheddic.surplus == surplus, "native surplus differs from exact burden residual")
+        _committed("particle.native_shedding", {
+            "schema": "native-particle-shedding-v1", "capture": "validated-retained-snapshot",
+            "scope": SCOPE, "occurrence_semantics": "non-additive alternative views",
+            "lineage": carriers[0].lineage, "scale": carriers[0].scale,
+            "participation_window": window, "participation_domain": "native-return-count",
+            "record": sheddic, "model_bridge": bridge, "source_state": source_state})
         additions = []
         for label,wave in zip(("A", "B"),carriers):
             additions.append((accounting.ContentRecord("carrier:"+label, "carrier:"+wave.identity,
@@ -283,9 +437,16 @@ def run(output):
             route_form = support._route_support(carriers[0], "proton-accounting:"+str(cut), cut+1)
             route_wave = route_form["wave"]
             require(native.validate_wave(route_wave), "route support did not admit")
+            _observe_native_wave(route_wave, "routed-support")
             route_state = native.initial_state(route_wave)
             seated = native.seat_duon(route_wave, route_state, compatible=True)
             require(seated.current == route_state.current, "seating unexpectedly generated feedback")
+            _committed("particle.native_state", {
+                "schema": "native-particle-state-v1", "capture": "validated-retained-snapshot",
+                "scope": route_wave.scope, "operation": "seat_duon",
+                "lineage": route_wave.lineage, "scale": route_wave.scale,
+                "wave_identity": route_wave.identity, "compatible": True,
+                "before": route_state, "state": seated})
             destination = route_wave.identity
             leg_id, route_id = "exo-leg:"+str(cut), "exo-route:"+str(cut)
             route_record = accounting.RouteRecord(route_id, surplus_id, cut, surplus, BURDEN_UNIT,
@@ -331,6 +492,15 @@ def run(output):
             "unresolved_signed_projection":unresolved,"full_current_total":None,
             "same_channel_stokes_views":stokes,
             "pending_before_receipt":pending_before,"pending_after_receipt":pending_after,"receipt":receipt})
+        _observe_encounter("particle.routing_finish", lambda: {
+            "schema": "native-routing-finish-v1", "capture": "validated-branch-terminal",
+            "scope": SCOPE, "lineage": "proton-routing", "scale": 0,
+            "occurrence_semantics": "non-additive alternative views",
+            "alternative_count": len(WINDOWS), "alternative_index": ordinal,
+            "participation_window": window, "cut": cut,
+            "source_native_shedding_digest": sheddic.record_digest,
+            "routes": route_ledger.routes, "receipts": route_ledger.receipts,
+            "pending_routes": accounting.pending_routes(route_ledger)})
         slices.append(boundary)
         require(digest(fixed_history) == history_digest, "window projection changed retained native histories")
     controls.append(rejected("alternative windows are non-additive", lambda:

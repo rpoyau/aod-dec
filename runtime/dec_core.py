@@ -8,9 +8,48 @@ common ordinal domain used by the coupling fixture. Its count/lag accessors
 are not a general RCD constructor, SI clock or complete relational-time model.
 """
 from dataclasses import dataclass, asdict
+from contextlib import contextmanager
+from contextvars import ContextVar
 from fractions import Fraction
 from hashlib import sha256
 import json
+
+
+@dataclass
+class CommitObservation:
+    callback: object
+    failure_count: int = 0
+    last_error: str | None = None
+
+
+_commit_observation = ContextVar("dec_commit_observation", default=None)
+
+
+@contextmanager
+def observe_commits(callback):
+    """Observe successful commitments without changing model return/error state.
+
+    Observer failure is retained separately, not raised as a model error. The
+    callback owns persistence and its resource budget; no event queue is kept
+    in this runtime. It receives immutable committed values, never an RNG.
+    Validation, certificate replay and read-only accessors emit no commitments.
+    """
+    state = CommitObservation(callback)
+    token = _commit_observation.set(state)
+    try:
+        yield state
+    finally:
+        _commit_observation.reset(token)
+
+
+def _committed(kind, value):
+    observation = _commit_observation.get()
+    if observation is not None and observation.failure_count == 0:
+        try:
+            observation.callback(kind, value)
+        except Exception as exc:
+            observation.failure_count += 1
+            observation.last_error = type(exc).__name__ + ": " + str(exc)[:2048]
 
 class DecError(ValueError):
     pass
@@ -238,6 +277,7 @@ def validate_trace(t, depth=0):
 def new_trace(scope, lineage, start):
     t = Trace(label(scope), label(lineage), start)
     validate_trace(t)
+    _committed("core.start", t)
     return t
 
 
@@ -248,6 +288,7 @@ def append_event(t, kind, target=None, orientation=0):
     event = Event(len(t.events) + 1, kind, position, destination, orientation)
     out = Trace(t.scope, t.lineage, t.start, t.events + (event,), t.closures, t.parents, t.proposal)
     validate_trace(out)
+    _committed("core.transition", out)
     return out
 
 
@@ -260,6 +301,7 @@ def close_trace(t):
     certificate = Closure(begin, len(t.events), digest(trace_prefix(t, len(t.events))))
     out = Trace(t.scope, t.lineage, t.start, t.events, t.closures + (certificate,), t.parents, t.proposal)
     validate_trace(out)
+    _committed("core.closure", out)
     return out
 
 
@@ -302,6 +344,7 @@ def outer(f, start):
     validate_fusion(f)
     t = Trace(f.scope,f.lineage,start,parents=(f.left,f.right),proposal=f.digest)
     validate_trace(t)
+    _committed("core.start", t)
     return t
 
 
@@ -309,6 +352,7 @@ def fuse(f, t):
     validate_fusion(f); validate_trace(t)
     require((t.scope,t.lineage,t.parents,t.proposal) == (f.scope,f.lineage,(f.left,f.right),f.digest), "outer trace belongs to a different proposal")
     require(t.closures and t.closures[-1].end == len(t.events), "fusion requires independently witnessed outer closure")
+    _committed("core.fusion", t)
     return t
 
 
@@ -337,6 +381,7 @@ def contact(c, a, b):
     validate_coupling(c)
     out = Coupling(c.left,c.right,c.window,c.contacts+((a,b),))
     validate_coupling(out)
+    _committed("core.contact", out)
     return out
 
 

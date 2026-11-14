@@ -7,6 +7,34 @@ never makes a record active. All checks remain enabled under Python -O.
 """
 from dataclasses import dataclass
 from fractions import Fraction
+from contextlib import contextmanager
+from contextvars import ContextVar
+
+
+_commit_observer = ContextVar("aod_boundary_commit_observer", default=None)
+
+
+@contextmanager
+def observe_commits(observer):
+    """Observe validated immutable deltas without adding model operations.
+
+    The callback receives ``(kind, record)`` after validation. Storage failures
+    propagate before a successor is returned, allowing an explicit incomplete
+    run/checkpoint. Observer state is local to the active execution context.
+    """
+    if observer is not None and not callable(observer):
+        raise TypeError("commit observer must be callable or None")
+    token = _commit_observer.set(observer)
+    try:
+        yield
+    finally:
+        _commit_observer.reset(token)
+
+
+def _observe(kind, record):
+    observer = _commit_observer.get()
+    if observer is not None:
+        observer(kind, record)
 
 
 STATUSES = frozenset(("active", "inactive", "pending", "routed", "removed"))
@@ -137,6 +165,7 @@ def commit_archive(state, cut, additions=(), changes=()):
     archive_view(state)
     result = ArchiveState(state.commits + (ArchiveCommit(cut, additions, changes),))
     validate_successor(state, result)
+    _observe("accounting.commit", result.commits[-1])
     return result
 
 
@@ -432,6 +461,7 @@ def register_route(ledger, archive, route):
     _route_source(archive, route)
     result = RouteLedger(ledger.routes + (route,), ledger.receipts, ledger.source_archives + (archive,))
     validate_route_successor(ledger, result)
+    _observe("accounting.route", route)
     return result
 
 
@@ -440,6 +470,7 @@ def receive_route(ledger, route_id, leg_id, cut, destination, receipt_id, proven
     receipt = Receipt(receipt_id, route_id, leg_id, cut, destination, provenance)
     result = RouteLedger(ledger.routes, ledger.receipts + (receipt,), ledger.source_archives)
     validate_route_successor(ledger, result)
+    _observe("accounting.receipt", receipt)
     return result
 
 

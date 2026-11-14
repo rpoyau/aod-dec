@@ -1,0 +1,731 @@
+{
+  "status": "SCOPED_IMPLEMENTATION_WITH_EXPLICIT_PARTIAL_CRITERIA",
+  "base": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+  "criteria": [
+    {
+      "id": "TP-01",
+      "milestone": "T0",
+      "subject": "Source binding",
+      "required_evidence": "Actual HEAD/tree and current instructions; explicit forward rebind; preserve R06-01",
+      "hostile_control": "Changed source without rebind fails provenance",
+      "delivery_record": "source_binding.json",
+      "status": "pass",
+      "tests": [
+        "DurableTraceTests.test_manifest_rebind_required",
+        "TestAdmissionRegressions (19 stable cases)",
+        "scripts/check_admission_mutations.py",
+        "scripts/check_import_provenance.py"
+      ],
+      "evidence": [
+        "review/source_binding.json",
+        "review/accounting-rebind.json",
+        "checks/admission/portable-mutations/summary.json"
+      ],
+      "result": "Bound base HEAD/tree, actual scientific snapshots, owner amendment and producer. All19 regressions and eight mutation runs pass; read-only import check passes196 archived records,31 unchanged implementation files and explicitly rebound dec_core.",
+      "unmet_or_scoped_limit": "Final delivery target-tree hash remains a packaging step.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-02",
+      "milestone": "T1",
+      "subject": "Commit trace",
+      "required_evidence": "Stable event IDs, causal parents, kernel/preparation/source identity, exact operands",
+      "hostile_control": "Conflicting duplicate and float/Boolean ordinal rejected",
+      "delivery_record": "trace_identity_tests",
+      "status": "pass",
+      "tests": [
+        "TraceIdentityTests"
+      ],
+      "evidence": [
+        "checks/trace-storage/results.json"
+      ],
+      "result": "Exact content-bound events, strict ordinals, causal parents, scoped source identity and immutable duplicates checked.",
+      "unmet_or_scoped_limit": "Reference/runtime-host commit streams; native transport is unsupported.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-03",
+      "milestone": "T1",
+      "subject": "Passive equivalence",
+      "required_evidence": "Trace off/on same values, first error, event commitments and RNG state",
+      "hostile_control": "Instrumentation consumes a model random draw",
+      "delivery_record": "passive_differential",
+      "status": "pass",
+      "tests": [
+        "PassiveCommitTests.test_stochastic_passive_values_rng_and_first_error",
+        "PassiveCommitTests.test_storage_failure_preserves_model_value_and_first_error",
+        "TraceExecutionTests.test_passive_first_error_and_prefix",
+        "ApplicationTraceTests.test_particle_passive_equality",
+        "ApplicationTraceTests.test_region_passive_equality"
+      ],
+      "evidence": [
+        "checks/trace-storage/results.json",
+        "checks/applications/capture-refresh.json",
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log"
+      ],
+      "result": "Actual reference/host output and first-error equivalence; seeded RNG state preserved, hostile random-consuming observer distinguished.",
+      "unmet_or_scoped_limit": "Particle capture failures stop that application explicitly; source hooks differ from passive core capture-failure reporting.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-04",
+      "milestone": "T1",
+      "subject": "Replay",
+      "required_evidence": "Live and offline detector outputs agree; tampered/truncated chunks reported",
+      "hostile_control": "Lost chunk or invalid hash cannot yield complete coverage",
+      "delivery_record": "replay_tests",
+      "status": "pass",
+      "tests": [
+        "CoreDetectionTests.test_live_reference_and_offline_archive_detection_agree",
+        "DurableTraceTests.test_tampered_chunk_reported",
+        "DurableTraceTests.test_missing_tail_cannot_report_complete",
+        "TraceExecutionTests.test_live_and_offline_example_execution"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/trace-storage/results.json",
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log"
+      ],
+      "result": "Live/reference and offline detector agreement; damaged/missing/tampered chunks and partial archives cannot claim complete coverage.",
+      "unmet_or_scoped_limit": "Supported finite core event families only; application-only streams explicitly unavailable to closure detector.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-05",
+      "milestone": "T2",
+      "subject": "Automatic closure",
+      "required_evidence": "Detect valid returns from raw event stream using source predicates",
+      "hostile_control": "Endpoint-only return, missing hinge/start/parent rejected or unresolved",
+      "delivery_record": "closure_detectors",
+      "status": "pass",
+      "tests": [
+        "CoreDetectionTests.test_raw_primitives_detect_returns_without_close_labels",
+        "CoreDetectionTests.test_endpoint_only_without_hinge_rejected",
+        "CoreDetectionTests.test_missing_start_and_parent_are_unresolved"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/trace-detectors/results.json",
+        "review/integration-audit.md"
+      ],
+      "result": "Raw primitives produce structurally verified return candidates. Canonical raw-path and full-span validation confirms each actual committed closure; earlier endpoint candidates remain visible without imposing segmentation.",
+      "unmet_or_scoped_limit": "Bound finite core predicates, not discovery of arbitrary application dynamics.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-06",
+      "milestone": "T2",
+      "subject": "Counts",
+      "required_evidence": "Distinct return identities only; model-defined initial phase/reclosure beats",
+      "hostile_control": "Replay and dwell add no beat",
+      "delivery_record": "reclosure_tests",
+      "status": "pass",
+      "tests": [
+        "CoreDetectionTests.test_duplicate_ingestion_and_dwell_do_not_add_beats",
+        "CoreDetectionTests.test_raw_primitives_detect_returns_without_close_labels"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json"
+      ],
+      "result": "Confirmed initial closure counts one phase and zero reclosure beats. Replay/dwell add none. Ambiguous unconfirmed candidate spans return null phase counts; the extended-counterbranch case confirms exactly one phase at the final committed endpoint.",
+      "unmet_or_scoped_limit": "Counts are native event/closure counts, not SI or physical bip frequency.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-07",
+      "milestone": "T2",
+      "subject": "Window edges",
+      "required_evidence": "Declared half-open view; left-start retained; right-open censored",
+      "hostile_control": "Deleting left memory cannot produce verified closure",
+      "delivery_record": "window_edge_tests",
+      "status": "pass",
+      "tests": [
+        "TraceViewTests.test_half_open_empty_and_integer_endpoint_conversion",
+        "CoreDetectionTests.test_left_edge_uses_retained_start_and_right_edge_censors"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json"
+      ],
+      "result": "Half-open views preserve retained left memory and censor right-open returns; empty views and endpoint domains tested.",
+      "unmet_or_scoped_limit": "Observation intervals do not change the producer participation-domain rules.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-08",
+      "milestone": "T2",
+      "subject": "Participation",
+      "required_evidence": "Compatible duration clipped exactly; original RD and RCD unchanged",
+      "hostile_control": "Cross-domain comparison rejected",
+      "delivery_record": "participation_tests",
+      "status": "pass",
+      "tests": [
+        "TraceViewTests.test_participation_clips_only_scalar_keeps_rd_rcd",
+        "TraceViewTests.test_participation_incompatible_types_not_coerced"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json"
+      ],
+      "result": "Exact min clipping in compatible duration domain; RD/RCD remain unchanged and cross-domain coercion rejects.",
+      "unmet_or_scoped_limit": "No new duration/SI conversion introduced.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-09",
+      "milestone": "T2",
+      "subject": "Overlap",
+      "required_evidence": "Union deduplicates occurrences; alternative views not additive",
+      "hostile_control": "Overlapping alternative proton windows summed",
+      "delivery_record": "overlap_tests",
+      "status": "pass",
+      "tests": [
+        "TraceViewTests.test_overlapping_alternative_views_are_occurrence_union",
+        "TraceViewTests.test_overlap_rejects_conflicts_families_and_unbounded_query",
+        "ApplicationTraceTests.test_alternative_views_do_not_invent_causal_sequence"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/applications/capture-refresh.json"
+      ],
+      "result": "Overlap union deduplicates identities and rejects conflicts; proton window alternatives remain non-additive and do not acquire artificial causal sequence.",
+      "unmet_or_scoped_limit": "Cumulative alternative-window current remains unavailable by design.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-10",
+      "milestone": "T2",
+      "subject": "Shedding",
+      "required_evidence": "Route/crossing/recipient/pending evidence and units retained",
+      "hostile_control": "Eviction, gate-off or unprojected burden labelled signed shedding",
+      "delivery_record": "shedding_tests",
+      "status": "pass",
+      "tests": [
+        "ManualDetectionTests.test_shedding_derived_from_bound_capacity_and_route",
+        "ManualDetectionTests.test_actual_route_pending_and_receipt_timing_are_retained",
+        "ManualDetectionTests.test_signed_current_needs_bound_full_audit",
+        "ApplicationTraceTests.test_particle_obligations_and_alternative_windows_survive",
+        "ApplicationTraceTests.test_automatic_accounting_replay_validates_real_route_and_later_receipt",
+        "ApplicationTraceTests.test_replay_rejects_route_partition_causality_and_duplicate_consumption",
+        "ApplicationTraceTests.test_accounting_replay_reports_budget_and_partial_coverage"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/applications/observations-routing.json"
+      ],
+      "result": "Canonical Manual shedding inspector checks capacity/route inputs. Automatic application replay reconstructs actual archive/route/receipt events through the bound validators, retaining partitions, recipients, pending stages and units; hostile amount, destination, duplicate receipt, same-cut receipt, causal-parent and schema cases reject.",
+      "unmet_or_scoped_limit": "Supported actual retained-accounting event dialect. Unresolved burden-to-signed-current map remains unresolved; no inferred primitive physical shedding law.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-11",
+      "milestone": "T2",
+      "subject": "Fusion",
+      "required_evidence": "Inner witnesses plus executed outer closure, recoverable after spill",
+      "hostile_control": "Scale multiplier substituted for outer formation",
+      "delivery_record": "fusion_tests",
+      "status": "pass",
+      "tests": [
+        "CoreDetectionTests.test_live_fusion_detected_from_outer_primitives",
+        "CoreDetectionTests.test_fusion_requires_executed_outer_return_and_retrievable_bytes",
+        "PassiveCommitTests.test_fusion_keeps_complete_inner_witnesses_after_reopen"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/trace-storage/results.json"
+      ],
+      "result": "Actual core fusion requires retained inner witnesses plus executed outer closure, with complete inner data available after durable reopen.",
+      "unmet_or_scoped_limit": "Core finite construction only; no scalar multiplier is admitted as formation.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-12",
+      "milestone": "T2",
+      "subject": "Octaves and span",
+      "required_evidence": "Source-bound family/range, coordinate and span separate from windows",
+      "hostile_control": "Invented power-of-two mapping or conflated index domains",
+      "delivery_record": "scale_tests",
+      "status": "partial",
+      "tests": [
+        "TraceViewTests.test_octal_coordinate_is_not_numeric_scale",
+        "TraceViewTests.test_declared_formation_family_requires_ancestry",
+        "TraceViewTests.test_span_is_separate_support_extent",
+        "ScopedReductionTests.test_reducer_state_cannot_change_after_admission"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "review/source_binding.json",
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log"
+      ],
+      "result": "Typed octal coordinates, declared source family/range and ancestry references, support span separate from temporal windows.",
+      "unmet_or_scoped_limit": "Execution/reduction supports level0 only. Higher-octave native dynamics, active range execution and general ancestral update bridge are not implemented; declarations alone never admit formation.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-13",
+      "milestone": "T3",
+      "subject": "Boundary identity",
+      "required_evidence": "Exact Stokes, empty/full region, shells and disjoint partitions",
+      "hostile_control": "Omitted crossing or double-counted internal edge",
+      "delivery_record": "boundary_tests",
+      "status": "pass",
+      "tests": [
+        "ScopedReductionTests.test_TP13_all_regions_partition_and_shell",
+        "BoundaryDetectionTests.test_boundary_replay_derives_internal_cancellation_and_motion"
+      ],
+      "evidence": [
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log",
+        "checks/trace-detectors/results.json"
+      ],
+      "result": "Exact finite Stokes over all regions of fixture, including empty/full, shells and partitions; canonical region crossing checks preserve constituents.",
+      "unmet_or_scoped_limit": "Normalized AFC and pressure-current scopes remain separate.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-14",
+      "milestone": "T3",
+      "subject": "Moving boundary",
+      "required_evidence": "Same committed swept field; reproduce 8-3+2=7",
+      "hostile_control": "Cell count substituted for swept current",
+      "delivery_record": "moving_tests",
+      "status": "pass",
+      "tests": [
+        "BoundaryDetectionTests.test_boundary_replay_derives_internal_cancellation_and_motion",
+        "ApplicationTraceTests.test_existing_moving_boundary_and_gate_results"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/applications/capture-refresh.json"
+      ],
+      "result": "Same committed swept field yields8-3+2=7, validates memberships and rejects changed or absent sweep.",
+      "unmet_or_scoped_limit": "Declared D0 moving-boundary inputs; no force-derived sweep or tide prediction.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-15",
+      "milestone": "T3",
+      "subject": "Future evolution",
+      "required_evidence": "Reduced update state preserves requested future observables",
+      "hostile_control": "Same present boundary with different future response",
+      "delivery_record": "reduction_tests",
+      "status": "pass",
+      "tests": [
+        "ScopedReductionTests.test_TP15_all_basis_memories_seven_future_steps",
+        "ScopedReductionTests.test_TP15_equal_present_boundary_different_future"
+      ],
+      "evidence": [
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log"
+      ],
+      "result": "Complete finite blockwise transition-sum equality admits quotient, with basis-memory future tests and a concrete same-present/different-future non-lumpable counterexample.",
+      "unmet_or_scoped_limit": "Exact fixed finite Markov model and declared observables only; history-dependent AOD reduction needs its own sufficient state.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-16",
+      "milestone": "T3",
+      "subject": "Recurrence and reuse",
+      "required_evidence": "Derived reuse validity; boundary/kernel/window change invalidates",
+      "hostile_control": "Named-body heuristic or stale phase/coupling reused",
+      "delivery_record": "reuse_tests",
+      "status": "pass",
+      "tests": [
+        "ScopedReductionTests.test_TP16_recurrence_is_computed",
+        "ScopedReductionTests.test_TP16_invalidate_every_dependency",
+        "tests/test_recurrence_cache.py (9 cases)"
+      ],
+      "evidence": [
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log",
+        "checks/recurrence-cache/results.json"
+      ],
+      "result": "Exact fixed-point, period-two and transient-cycle reuse execute under full dependency guards. Search/resource exhaustion is explicit; no body-name heuristic.",
+      "unmet_or_scoped_limit": "Finite declared reducer only. No higher-native-octave evolution is inferred; TP-12 retains that limitation.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-17",
+      "milestone": "T3",
+      "subject": "Memory budget",
+      "required_evidence": "Measured graph/cache/index/detector/queue/byte high-water vs configured cap",
+      "hostile_control": "Unbounded hidden event set or bigint allocation",
+      "delivery_record": "memory_campaign",
+      "status": "partial",
+      "tests": [
+        "ScopedReductionTests.test_TP17_kernel_and_bigint_caps",
+        "DurableTraceTests.test_bigint_and_event_allocation_are_bounded",
+        "DurableTraceTests.test_nested_container_and_checkpoint_budgets",
+        "CoreDetectionTests.test_detector_limits_are_explicit_incomplete_not_memory_loss"
+      ],
+      "evidence": [
+        "checks/trace-storage/results.json",
+        "checks/trace-detectors/results.json",
+        "checks/campaign-release/results.json",
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log",
+        "checks/resource-campaign/results.json",
+        "checks/campaign-release/results.json"
+      ],
+      "result": "Finite graph/kernel bounds, explicit integer/event/checkpoint caps, durable indexing and measured Python/RSS high water; finite detector event/serialized-byte/lineage caps return incomplete. The no-summary driver stops before transition caps16/64/256 and recovers the full checkpoint, without deleting required witnesses.",
+      "unmet_or_scoped_limit": "SQLite page cache is a configured target, not a hard RSS cap. No whole-program caller-graph/root/code-profile-cache bound. Detector byte accounting excludes allocator overhead. No admitted higher-octave memory campaign or universal constant-memory claim.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-18",
+      "milestone": "T3",
+      "subject": "Storage failure",
+      "required_evidence": "Backpressure/checkpoint/incomplete behavior; deterministic restart",
+      "hostile_control": "Disk full or partial chunk silently dropped",
+      "delivery_record": "storage_tests",
+      "status": "pass",
+      "tests": [
+        "DurableTraceTests.test_disk_cap_stops_without_dropping_prefix",
+        "DurableTraceTests.test_interrupted_transaction_rolls_back_no_phantom_event",
+        "DurableTraceTests.test_restarted_and_uninterrupted_scientific_digest_equal",
+        "AccountingObserverTests.test_failed_region_capture_reports_typed_incomplete",
+        "AccountingObserverTests.test_region_io_observer_failure_remains_incomplete"
+      ],
+      "evidence": [
+        "checks/trace-storage/results.json",
+        "checks/applications/capture-refresh.json"
+      ],
+      "result": "Disk pressure, interrupted transaction, checkpoint/restart, incomplete prefix and typed region/particle capture failures checked. I-06 missing-parent TypeError repaired and targeted16-test refresh passes both modes.",
+      "unmet_or_scoped_limit": "No recovery is claimed when required durable bytes are unavailable; general model checkpoint sufficiency remains the model owner contract.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-19",
+      "milestone": "T3",
+      "subject": "Evidence retrieval",
+      "required_evidence": "Finer query recovers witnesses or reports unavailable evidence",
+      "hostile_control": "Digest without bytes declared a complete witness",
+      "delivery_record": "retrieval_tests",
+      "status": "pass",
+      "tests": [
+        "DurableTraceTests.test_digest_is_not_retrievable_witness",
+        "ApplicationTraceTests.test_witness_retrieval_after_reopen",
+        "ApplicationTraceTests.test_fine_query_budget_never_returns_digest_as_witness",
+        "ApplicationTraceTests.test_malformed_retrieval_locator_is_rejected"
+      ],
+      "evidence": [
+        "checks/trace-storage/results.json",
+        "checks/applications/capture-refresh.json"
+      ],
+      "result": "Actual witness bytes retrieved after reopen; missing/budget-exceeding/malformed locators return unavailable/error instead of digest-as-witness.",
+      "unmet_or_scoped_limit": "Bound finite query caps; no unbounded materialization guarantee.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-20",
+      "milestone": "T3",
+      "subject": "Cancellation",
+      "required_evidence": "Opposite contributions retain lineage and pending obligations",
+      "hostile_control": "Net zero erases contributing events",
+      "delivery_record": "cancellation_tests",
+      "status": "pass",
+      "tests": [
+        "BoundaryDetectionTests.test_pending_burden_cannot_be_contact_only_complete_current",
+        "ApplicationTraceTests.test_existing_moving_boundary_and_gate_results",
+        "ApplicationTraceTests.test_particle_obligations_and_alternative_windows_survive"
+      ],
+      "evidence": [
+        "checks/trace-detectors/results.json",
+        "checks/applications/capture-refresh.json"
+      ],
+      "result": "Opposite/internal/gate-off contributions and unresolved pending obligations survive zero net current and later views.",
+      "unmet_or_scoped_limit": "Source-family completeness is relative to supplied admitted occurrence family.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-21",
+      "milestone": "T4",
+      "subject": "M3 outputs",
+      "required_evidence": "Input/output units, anchors and error components with dependency/covariance",
+      "hostile_control": "Unknown uncertainty coerced to zero; host timer used as anchor",
+      "delivery_record": "observation_tests",
+      "status": "pass",
+      "tests": [
+        "TraceObservationTests.test_TP21_shared_input_cancels_without_independence",
+        "TraceObservationTests.test_TP21_unknown_and_units",
+        "TraceObservationTests.test_TP21_complete_error_accounting_and_no_host_anchor",
+        "ApplicationTraceTests.test_actual_observables_bind_scope_and_all_error_classes",
+        "ApplicationTraceTests.test_proton_observables_do_not_complete_or_add_alternative_currents"
+      ],
+      "evidence": [
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log",
+        "checks/applications/observations-routing.json"
+      ],
+      "result": "Observable/error records enforce all seven error classes, unit consistency, explicit anchor provenance, covariance PSD and dependency-preserving intervals. Fresh applications include14 region and11 particle source-bound observable records with units, window/scale, actual report evidence and unchanged legacy scientific numbers.",
+      "unmet_or_scoped_limit": "The declared native-unit views preserve unknown physical discrepancy and unresolved proton full current. No absent SI calibration or empirical prediction bound is invented; host time never supplies the anchor.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-22",
+      "milestone": "T4",
+      "subject": "Geometry",
+      "required_evidence": "Exact symbolic or bounded approximate diagonals/angles; tau convention",
+      "hostile_control": "Unbounded float treated as exact construction",
+      "delivery_record": "geometry_tests",
+      "status": "pass",
+      "tests": [
+        "TraceObservationTests.test_TP22_symbolic_norm_proved_interval_tau"
+      ],
+      "evidence": [
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log"
+      ],
+      "result": "Exact symbolic sqrt/rational interval enclosure and tau full-turn convention; unbounded/inexact float inputs rejected.",
+      "unmet_or_scoped_limit": "Declared downstream Euclidean representation, not derived native geometry.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-23",
+      "milestone": "T4",
+      "subject": "Backend conformance",
+      "required_evidence": "Actual reference/AOT/JIT execution for claimed supported operations",
+      "hostile_control": "Silent interpreter fallback reported as JIT/full adapter",
+      "delivery_record": "backend_tests",
+      "status": "pass",
+      "tests": [
+        "scripts/check_trace_backends.py:closure/fusion/coupling"
+      ],
+      "evidence": [
+        "checks/backends-finalized/results.json"
+      ],
+      "result": "Actual reference, AOT executable, ORC specialized and forced-generic execution give equal canonical core output; each recorded native address is actual generated code.",
+      "unmet_or_scoped_limit": "Native commit hooks are unsupported; host reference tracing is separate. No full native region/particle adapter or GPU execution claimed.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-24",
+      "milestone": "T4",
+      "subject": "Profile evidence",
+      "required_evidence": "Paired repeated raw timings/memory; all cost phases; unavailable counters typed",
+      "hostile_control": "Speedup excludes compilation/tracing/storage costs",
+      "delivery_record": "profile_campaign",
+      "status": "partial",
+      "tests": [
+        "scripts/trace_simulation.py campaign",
+        "scripts/check_trace_backends.py"
+      ],
+      "evidence": [
+        "checks/campaign-release/results.json",
+        "checks/backends-finalized/results.json",
+        "checks/resource-campaign/results.json",
+        "checks/environment.json"
+      ],
+      "result": "75 paired raw finite-workload profiles, actual core AOT/ORC training/heldout dispatch, and three no-summary resource runs executed. Inclusive times retain tracing/storage/setup/teardown. No cost-inclusive speedup established.",
+      "unmet_or_scoped_limit": "Only admitted computational level0 executes; no higher-octave workload campaign or comprehensive repeated refinement/detector campaign. Shared-host contention is recorded; SQLite cache target is not a hard process-memory guarantee.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-25",
+      "milestone": "T4",
+      "subject": "Adaptation",
+      "required_evidence": "Passive vs later adaptive choice, valid guards, equal semantic results",
+      "hostile_control": "Profile state alters kernel or replays a committed event",
+      "delivery_record": "adaptation_tests",
+      "status": "pass",
+      "tests": [
+        "scripts/check_trace_backends.py:guarded RetainedPolicy training/heldout",
+        "tests/test_learning.py"
+      ],
+      "evidence": [
+        "checks/backends-finalized/results.json"
+      ],
+      "result": "Training and held-out runs are separate. Each later guarded dispatch uses prior observations and matches the reference; full-cost benefit is not established and final policies retain or restore generic dispatch.",
+      "unmet_or_scoped_limit": "Existing compiler dispatch policy only; it changes neither the scientific kernel nor committed history.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-26",
+      "milestone": "T5",
+      "subject": "Existing applications",
+      "required_evidence": "Preserve source-bound region/particle results and unresolved obligations",
+      "hostile_control": "Proton burden guessed as signed current",
+      "delivery_record": "existing_application_results",
+      "status": "pass",
+      "tests": [
+        "ApplicationTraceTests",
+        "simulations/electron_wire_accounting.py"
+      ],
+      "evidence": [
+        "checks/applications/summary.json",
+        "checks/applications/observations-routing.json",
+        "checks/applications/normal-observations-routing/comparison.json",
+        "checks/applications/optimized-observations-routing/comparison.json"
+      ],
+      "result": "Region/particle scientific outputs preserved. BoundPython3.12 proton gzip witness bytes matchPR5 exactly; normal/optimized files equal. Original electron33checks/9hostile per mode pass. Later21-test refresh passes actual observable and automatic route replay additions while preserving all priorpositive tests.",
+      "unmet_or_scoped_limit": "Historical source fingerprints preserved, live consumer fingerprints rebound explicitly; unprojected proton shedding remains unresolved.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-27",
+      "milestone": "T5",
+      "subject": "Tau live example",
+      "required_evidence": "Bound producer; closures/shedding/sensor receipts over multiple views",
+      "hostile_control": "CSV replay or hardcoded 31/50 claimed as new simulation",
+      "delivery_record": "tau_execution",
+      "status": "partial",
+      "tests": [
+        "ApplicationTraceTests.test_live_tau_and_orbit_claims_require_their_producers",
+        "source search and source-bound review"
+      ],
+      "evidence": [
+        "review/sources.md",
+        "review/source_binding.json",
+        "review/tau-content-search.txt"
+      ],
+      "result": "Bound candidate/source gap identified; no CSV/hardcoded31/50 represented as live execution.",
+      "unmet_or_scoped_limit": "No liveTau producer: missing formation/update recipe, route/propagation law, sensor observation map and compact/depth-indexed adapter. TP27 live-run obligation not satisfied.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-28",
+      "milestone": "T5",
+      "subject": "Orbital scope example",
+      "required_evidence": "Finite fine/reduced comparison; actual orbit only with full binding",
+      "hostile_control": "O0 comparison relabelled a computed trajectory",
+      "delivery_record": "orbital_scope_execution",
+      "status": "pass",
+      "tests": [
+        "ScopedReductionTests.test_TP28_interior_refinement_preserves_scope",
+        "ScopedReductionTests.test_TP15_all_basis_memories_seven_future_steps"
+      ],
+      "evidence": [
+        "review/acceptance-normal.log",
+        "review/acceptance-optimized.log",
+        "review/sources.md"
+      ],
+      "result": "Runnable nested finite fine/reduced demonstration with interior refinement and update-sufficiency; physical-orbit field explicitly unavailable.",
+      "unmet_or_scoped_limit": "This criterion passes only the requested finite mechanism tier. Actual Sun/Mercury preparations, initial state, coupling/evolution and observation bindings remain unavailable; O0 table is not relabelled a trajectory.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-29",
+      "milestone": "T5",
+      "subject": "Delivery",
+      "required_evidence": "Detached patch/replay, actual tests/builds and hashes, Manual III outline",
+      "hostile_control": "Reference contract tests declared full DEC acceptance",
+      "delivery_record": "delivery_validation",
+      "status": "pass",
+      "tests": [
+        "Typstcompile/renderinspection",
+        "scripts/check_aod_lint.py",
+        "scripts/verify_native.py"
+      ],
+      "evidence": [
+        "SOURCE_BINDING.json",
+        "checks/native-delivery/results.json",
+        "checks/document-final.json",
+        "checks/aod-lint-final.json",
+        "checks/delivery-validation.json"
+      ],
+      "result": "Source patch replay reproduced the staged source tree; final package repeats exact-target-tree replay and checks every archive member. Actual native suites, CLI, documentation and source provenance pass.",
+      "unmet_or_scoped_limit": "Final package SOURCE_BINDING.json contains its exact target/replayed tree. No remote changes or Main/Manual publication.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    },
+    {
+      "id": "TP-30",
+      "milestone": "T1-T5",
+      "subject": "Coverage accounting",
+      "required_evidence": "Required cases individually executed; failures/censored/unsupported recorded",
+      "hostile_control": "Missing or skipped mandatory cases hidden in PASS totals",
+      "delivery_record": "acceptance_results",
+      "status": "pass",
+      "tests": [
+        "this acceptance draft",
+        "per-component results"
+      ],
+      "evidence": [
+        "ACCEPTANCE.json",
+        "checks/delivery-validation.json"
+      ],
+      "result": "All30 criteria have separate dispositions and actual evidence; scoped passes, partial breadth, negative timings, GPU skips, source gaps and repaired counterexamples remain explicit.",
+      "unmet_or_scoped_limit": "Partial criteria are not counted as completed request acceptance.",
+      "evidence_class": "finite executable / source-bound review / measured host evidence as specified",
+      "draft": false
+    }
+  ],
+  "counts": {
+    "pass": 26,
+    "partial": 4
+  },
+  "source_sha256_at_review": {
+    "simulations/scoped_reduction.py": "2db625f18b34d110180389f14735ed8fc4daffd202be798d187b9e9f6cd2402d",
+    "simulations/trace_observation.py": "d9caae92ae60aa703b02d255cdf3f2528c540a641b7cc63c21e172a4e2ee801d",
+    "simulations/trace_campaign.py": "857a593440f62d220459b39b22beebe27bf311132a7bbcb2252d4681091c4656",
+    "simulations/trace_execution.py": "55689bd9a79dcb5f2107e409fd28a46a4f4a9dfecf30c71879e2ce1d97f9f183",
+    "simulations/trace_applications.py": "cb633804d38d753ea5102751a01461df6ff370641e5211676d8ff7f2ac99ed63",
+    "simulations/trace_store.py": "2a4a7e1b78f0848b58e81bbab8fdf6eba1d9aa75c31a198d8cfb95cf7f78f488",
+    "simulations/trace_views.py": "d44c6d675d103b212e202855e37faafbc649ba42b5f35cda3521629f5f21cfdb",
+    "simulations/trace_detectors.py": "211585981f915123fd932b705b12195f4fe620dd29d6399236bd41e382d45951",
+    "scripts/check_trace_backends.py": "d13fe0a1d42d886c0d2446e04c0bd4fcd62926567537b66218bc709cb7c6ffb5"
+  },
+  "important_limits": [
+    "No native commit transport; actual AOT/ORC core outputs are checked separately from host tracing.",
+    "TP-12: higher-octave execution/ancestral update bridge remains unimplemented; source-bound typed views preserve that distinction.",
+    "TP-17: finite-driver/store/detector caps are measured; arbitrary caller graph, full process RSS and all code caches are not globally constrained.",
+    "TP-24: expanded higher-octave and comprehensive refinement/detector profiling remain unexecuted.",
+    "TP-27: live Tau producer and associated source recipe are unavailable; no CSV replay is claimed as fresh dynamics.",
+    "Finite orbital scope is executed; no computed Sun\u2013Mercury physical trajectory is claimed."
+  ],
+  "source_integrity_check": {
+    "command": "python3 -B scripts/check_import_provenance.py",
+    "observed_exit_code": 0,
+    "archived_records": 196,
+    "unchanged_implementation_files": 31,
+    "explicitly_rebound": [
+      "runtime/dec_core.py"
+    ]
+  },
+  "additional_checks": {
+    "normal": {
+      "tests": 16,
+      "status": "PASS",
+      "log": "review/acceptance-normal.log"
+    },
+    "optimized": {
+      "tests": 16,
+      "status": "PASS",
+      "log": "review/acceptance-optimized.log"
+    },
+    "application_refresh": {
+      "tests_per_mode": 21,
+      "status": "PASS",
+      "evidence": "checks/applications/observations-routing.json"
+    }
+  }
+}

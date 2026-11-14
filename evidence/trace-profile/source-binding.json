@@ -1,0 +1,192 @@
+{
+  "date": "2026-11-14",
+  "requested_bundle_sha256": "5d1f143e283555c46a2b4d294aac32f1e5d3020d3474f4403deada4e92ca2a82",
+  "dec_head": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+  "dec_base_tree": "6625e0b6aee656cf3d15feeb9edbeb11705bf935",
+  "later_scientific_source_base": "8c3149b9d3d924b80b9385b178da4ba2c39175e8",
+  "later_source_status": "Recorded local Main/Manual candidate with dirty implementation files; no claim of new remote acceptance",
+  "ownership": "AOD Main definitions; Manual computational applications; new code and documentation owned by D.E.C.; no upstream changes",
+  "files": [
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/main.tex",
+      "relative_path": "main.tex",
+      "sha256": "d23cacbd896b246661f7a0a78da295ae352b6e9787275cc0518720570ccb3beb"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/manual/main.tex",
+      "relative_path": "manual/main.tex",
+      "sha256": "ad9aff61940de45cd117a70ee39cb78d41e6e2411080f156ffd7e77f6748f33b"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/sections/03_afc_basis.tex",
+      "relative_path": "sections/03_afc_basis.tex",
+      "sha256": "cfa6bbf67a847d07d2e2e9ee31b76c0072e274c1b265a94fce896282893242be"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/sections/06_field.tex",
+      "relative_path": "sections/06_field.tex",
+      "sha256": "65e5889526b48a87f18fa6e1d9d5e696f4451735d9fe3763825ce060453e7cc1"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/appendices/A_fractal_address_bip_biz.tex",
+      "relative_path": "appendices/A_fractal_address_bip_biz.tex",
+      "sha256": "516d86f1bb0ec01364f6038856fd8ee1fe8c0dea1ef021b498ca69796dd07817"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/manual/sections/00_dec_ledger.tex",
+      "relative_path": "manual/sections/00_dec_ledger.tex",
+      "sha256": "8cede50c74dccb7ab694b3cbfaa90eb44b866cf8514feba25aba3f24682bec66"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/manual/sections/06_field_dynamics_applications.tex",
+      "relative_path": "manual/sections/06_field_dynamics_applications.tex",
+      "sha256": "eb83dc3d4d65ebdbd3ac87c6c909c5cc267f7bc8a72c2fd18e320ff6041e697a"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/manual/sections/05_solar_system_field_tests.tex",
+      "relative_path": "manual/sections/05_solar_system_field_tests.tex",
+      "sha256": "ba6ed4cde285040917bec773e9b66ba06476a292894335b5cfa3866d9572f290"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/manual/appendices/A_simulation_fixtures_and_tau_prediction_context.tex",
+      "relative_path": "manual/appendices/A_simulation_fixtures_and_tau_prediction_context.tex",
+      "sha256": "5401954618df9ad843661615b07054cf21ad6f60a56624a6fb90d5960c9f1a1f"
+    },
+    {
+      "role": "supplied_v40_01r10",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/scripts/generate_manual_figures.py",
+      "relative_path": "scripts/generate_manual_figures.py",
+      "sha256": "9e0f18a75f4e95849bb86373b55b5ad1d9f1ef9f5b019ff88baf9e58dbf2ce63"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/main.tex",
+      "relative_path": "main.tex",
+      "sha256": "1648c6a5d8afebf4a94e8761b2e4faa6efb2632f9e719dd5c407409f3751d93a"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/main.tex",
+      "relative_path": "manual/main.tex",
+      "sha256": "a3c67a8540a5ca1d7af22192b876d42c82734700397bb15ae7966d17be17efe8"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/03_afc_basis.tex",
+      "relative_path": "sections/03_afc_basis.tex",
+      "sha256": "d5b648c0c74afe8c34a344d5069e78b5be5d9a98851ce1abcc6c0f9d1df8c6d3"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/sections/06_field.tex",
+      "relative_path": "sections/06_field.tex",
+      "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/appendices/A_fractal_address_bip_biz.tex",
+      "relative_path": "appendices/A_fractal_address_bip_biz.tex",
+      "sha256": "422d585b3f317ea52ebe8f7401119ad3e0be526dadd8d9fcd26ec72bdccce8d7"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/00_dec_ledger.tex",
+      "relative_path": "manual/sections/00_dec_ledger.tex",
+      "sha256": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/06_field_dynamics_applications.tex",
+      "relative_path": "manual/sections/06_field_dynamics_applications.tex",
+      "sha256": "45b7316cb3e49a14f4dc62ac664a82114c2273438ffafd27aa3c5b302d6acb04"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/sections/05_solar_system_field_tests.tex",
+      "relative_path": "manual/sections/05_solar_system_field_tests.tex",
+      "sha256": "2a98a1bbc46c8721812da6a1c6e1b78fd2f961124d768e0563d8b3699e0a552b"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/appendices/A_simulation_fixtures_and_tau_prediction_context.tex",
+      "relative_path": "manual/appendices/A_simulation_fixtures_and_tau_prediction_context.tex",
+      "sha256": "4782340412000208e10de53f18107204d948bc243b19089a48dc5295373e7dbe"
+    },
+    {
+      "role": "recorded_R04_candidate",
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/scripts/generate_manual_figures.py",
+      "relative_path": "scripts/generate_manual_figures.py",
+      "sha256": "9e0f18a75f4e95849bb86373b55b5ad1d9f1ef9f5b019ff88baf9e58dbf2ce63"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "runtime/dec_core.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "simulations/vendor/aod_manual_native.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "simulations/boundary_accounting.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "simulations/region_engine.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "3349131920396a45712daea57ec44438ad3d499f4aed57bae99eeb034ba17b4b"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "simulations/run_regions.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "60c1615dc041e65f379c01f1007b01df6d200860285018e9862f670eb4e3600c"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "simulations/proton_accounting.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "4e52294a05c64af134f7a7203cce285cb16a1074f7263c0ea55f824f59864abc"
+    },
+    {
+      "role": "DEC_base",
+      "relative_path": "simulations/electron_wire_accounting.py",
+      "git_revision": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+      "sha256": "67ff993ddd3e4c89da954590e277aaf8701cde74f7da4c41f590f91df8d2c8ce"
+    }
+  ],
+  "tau_live_status": "missing_premise",
+  "tau_gap": "Candidate source explicitly retains frozen CSV scores; originating calculation recipe and compact/depth-indexed fraction adapter not supplied. No live Tau producer found in scoped sources.",
+  "octave_binding": "Octal finite retained-address words plus independently witnessed fusion-rung lineage; no inferred binary frequency ratio",
+  "source_search_coverage": {
+    "roots": [
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/scripts",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/sources/AOD_supplied_source/manual/scripts",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_R04_IMPLEMENTATION_2026-11-14/upstream/manual/scripts",
+      "/home/reginaldpoyau/projects/aod/aod/scripts",
+      "/home/reginaldpoyau/projects/aod/aod/manual/scripts",
+      "/home/reginaldpoyau/projects/aod/AOD_DEC_TRACE_PROFILE_IMPLEMENTATION_2026-11-14/aod-dec/simulations"
+    ],
+    "file_types": [
+      ".py",
+      ".ipynb"
+    ],
+    "result": "figure scripts reference Tau; no live Tau dynamics producer found",
+    "scope_limit": "Not an exhaustive claim about all repositories"
+  }
+}

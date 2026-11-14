@@ -1,0 +1,1017 @@
+{
+  "status": "PASS_ENGINEERING_WITH_PARTIAL_REQUEST_SCOPE",
+  "base": "5a9368f6de286cde822963bac5f8de2620f08d5f",
+  "native": "checks/native-delivery/results.json",
+  "python": {
+    "python-normal": {
+      "tests": 416,
+      "skipped": 2
+    },
+    "python-optimized": {
+      "tests": 417,
+      "skipped": 2
+    }
+  },
+  "final_targeted_checkpoint_regression": {
+    "normal": "checks/root-final/execution-normal.log",
+    "optimized": "checks/root-final/execution-optimized.log",
+    "cases_per_mode": 4
+  },
+  "source_conformance_cases": 100,
+  "backend_examples": 3,
+  "core_native_commit_hooks": false,
+  "profiling_rows": 75,
+  "resource_stop_cases": 3,
+  "performance_claim": "no demonstrated cost-inclusive speedup",
+  "acceptance_counts": {
+    "pass": 26,
+    "partial": 4
+  },
+  "partial_ids": [
+    "TP-12",
+    "TP-17",
+    "TP-24",
+    "TP-27"
+  ],
+  "document_pages": 2,
+  "manuscripts_linted": 9,
+  "prepackage_replay_tree": "362a2800e83d35cd88268b3a563164fd48c8b740",
+  "source_sha256": {
+    "docs/TRACE_PROFILE.md": "dcbde9ebea8921402e54b017f0ac14e2dd524e50e7253b1f7d63c7a0463e44d5",
+    "docs/trace-profile.typ": "7434bccdf4e816908a9ede674c62ee96201da55ff220772d54391dc63ab5b7f6",
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+    "scripts/check_import_provenance.py": "e7ed10f33daac39fd09c7bfa6eff4eac89c9bb3ad2f7c5772ccccc40cc2b7c60",
+    "scripts/check_trace_backends.py": "d13fe0a1d42d886c0d2446e04c0bd4fcd62926567537b66218bc709cb7c6ffb5",
+    "scripts/check_trace_resources.py": "1e4dcacf6b6f4d225628559ebdc9ee73473250c6149e487d515c776d7c9a5b18",
+    "scripts/trace_simulation.py": "8e3c94b6dddd3daa08b776cfb13f913c53f57b981124cc740ee6bf5ee09a2d19",
+    "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+    "simulations/electron_wire_accounting.py": "6df9a9d2ee2f57d98fc2f683818df72097c647e49ed15e6d7bd261da0571c015",
+    "simulations/proton_accounting.py": "104f2d8bf16b4f8977a3bc959b50817fcf1ba9a19d5af15c28f17fec22bdaf8a",
+    "simulations/recurrence_cache.py": "ae0105142d7c51ebabb38f8d5759949228d4bd63558144b96c536306308806aa",
+    "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "simulations/scoped_reduction.py": "2db625f18b34d110180389f14735ed8fc4daffd202be798d187b9e9f6cd2402d",
+    "simulations/trace_applications.py": "cb633804d38d753ea5102751a01461df6ff370641e5211676d8ff7f2ac99ed63",
+    "simulations/trace_campaign.py": "857a593440f62d220459b39b22beebe27bf311132a7bbcb2252d4681091c4656",
+    "simulations/trace_detectors.py": "211585981f915123fd932b705b12195f4fe620dd29d6399236bd41e382d45951",
+    "simulations/trace_execution.py": "55689bd9a79dcb5f2107e409fd28a46a4f4a9dfecf30c71879e2ce1d97f9f183",
+    "simulations/trace_observation.py": "d9caae92ae60aa703b02d255cdf3f2528c540a641b7cc63c21e172a4e2ee801d",
+    "simulations/trace_store.py": "2a4a7e1b78f0848b58e81bbab8fdf6eba1d9aa75c31a198d8cfb95cf7f78f488",
+    "simulations/trace_views.py": "d44c6d675d103b212e202855e37faafbc649ba42b5f35cda3521629f5f21cfdb",
+    "tests/admission_feedback_cases.py": "2ba184b4772b121b38e103b8fa6c7263bd29db9927e0af2318ad5bd0f099871b",
+    "tests/test_admission_regressions.py": "eb62d32ccdcaf925ed6e441c41f99887ee4f7c76f41a7b8babc4d0610a118cf0",
+    "tests/test_recurrence_cache.py": "d83170d9ffc20a62b560b842269d96459009cf236480cb1c549fc754f54edfe9",
+    "tests/test_scoped_reduction.py": "b3c0812639f7ea82905008cd76ebfc875cef32a38b423efed3aa7eb9097195b6",
+    "tests/test_trace_applications.py": "515e7c62eaf7c4f1210190e5b45bd05665456c7b0b5dbfeb20d1bee189548bb9",
+    "tests/test_trace_detectors.py": "82c3e47c5fe05bc6bf6284e3ec1af3ce772491545baba1ee284a513b36662ce2",
+    "tests/test_trace_execution.py": "a7680fbc30da6251a5e977e3e578f5b87867b29b01e79dd42da9d2685a1bfebe",
+    "tests/test_trace_observation.py": "e9859b1c60857cfb5ceb71eb69ffc74b3d84138691da5c686cf5325389c1e357",
+    "tests/test_trace_store.py": "e54d44af83489fb8ed5e044e53c58dd785994f7e5ab2f91c1b102a9899729b53",
+    "tests/test_trace_views.py": "7e8ed007604b76a9bea0480d952a6b860d172ed347fb7bb23d0b9e972ab0855d"
+  },
+  "component_evidence": {
+    "checks/trace-storage/results.json": {
+      "sha256": "174400dcfcc0115143b5d6f6f6129274000b1a42884054cd912e16c34f33b44f",
+      "record": {
+        "status": "PASS",
+        "runs": [
+          {
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_trace_store.py",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 30,
+            "log": "test_trace_store-normal-final.log"
+          },
+          {
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_core.py",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 23,
+            "log": "test_core-normal-final.log"
+          },
+          {
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_region_engine.py",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 28,
+            "log": "test_region_engine-normal-final.log"
+          },
+          {
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-O",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_trace_store.py",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 30,
+            "log": "test_trace_store-optimized-final.log"
+          },
+          {
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-O",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_core.py",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 23,
+            "log": "test_core-optimized-final.log"
+          },
+          {
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-O",
+              "-m",
+              "unittest",
+              "discover",
+              "-s",
+              "tests",
+              "-p",
+              "test_region_engine.py",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 28,
+            "log": "test_region_engine-optimized-final.log"
+          }
+        ],
+        "source_sha256": {
+          "simulations/trace_store.py": "2a4a7e1b78f0848b58e81bbab8fdf6eba1d9aa75c31a198d8cfb95cf7f78f488",
+          "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+          "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+          "tests/test_trace_store.py": "e54d44af83489fb8ed5e044e53c58dd785994f7e5ab2f91c1b102a9899729b53"
+        },
+        "scope": "Exact store and reference-core/host-region hooks, including causal contact pairs. Native trace transport and whole-model resident caps not claimed. SQLite cache is a configured target, not a process RSS cap."
+      }
+    },
+    "checks/trace-detectors/results.json": {
+      "sha256": "d08c6ded870fced8fedd242967ac984ed13a66a4e1e00a7e9c30ec984900cb90",
+      "record": {
+        "status": "PASS",
+        "checks": [
+          {
+            "mode": "normal",
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-m",
+              "unittest",
+              "tests.test_trace_views",
+              "tests.test_trace_detectors",
+              "-v"
+            ],
+            "exit_code": 0,
+            "elapsed_seconds": 2.690595405991189,
+            "tests": 37,
+            "log": "normal.log"
+          },
+          {
+            "mode": "optimized",
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-O",
+              "-m",
+              "unittest",
+              "tests.test_trace_views",
+              "tests.test_trace_detectors",
+              "-v"
+            ],
+            "exit_code": 0,
+            "elapsed_seconds": 2.6428883749758825,
+            "tests": 37,
+            "log": "optimized.log"
+          }
+        ],
+        "source_sha256": {
+          "simulations/trace_views.py": "d44c6d675d103b212e202855e37faafbc649ba42b5f35cda3521629f5f21cfdb",
+          "simulations/trace_detectors.py": "211585981f915123fd932b705b12195f4fe620dd29d6399236bd41e382d45951",
+          "tests/test_trace_views.py": "7e8ed007604b76a9bea0480d952a6b860d172ed347fb7bb23d0b9e972ab0855d",
+          "tests/test_trace_detectors.py": "82c3e47c5fe05bc6bf6284e3ec1af3ce772491545baba1ee284a513b36662ce2",
+          "docs/TRACE_PROFILE.md": "92346e4103aa4f6a932f71f0ac787fab4a976fdbe2d4f55ceaf6bf16d22280df",
+          "docs/trace-profile.typ": "8458ee8949d8cae4eaa86bafd4f2080bb0f2b105d860f9aa6c73146a87703aff"
+        },
+        "coverage": {
+          "TP-04": "Live reference/offline store replay agree for core closure; archive integrity tested separately by storage suite",
+          "TP-05": "Raw path candidates validated with canonical H1/hinge/counterbranch law; multiple candidate parses retained. A model-committed closure span is counted only after complete raw path and digest validation. Intermediate return crossing does not force closure.",
+          "TP-06": "Committed initial phase/reclosure convention; duplicate/dwell invariant. Label-free ambiguous spans yield candidate records and null phase count, not invented certification.",
+          "TP-07": "Retained left edge and censored open right edge; empty observation",
+          "TP-08": "Exact compatible scalar clipping; original RD/RCD untouched",
+          "TP-09": "Same-run overlap union, conflict/cap rejection",
+          "TP-10": "Canonical Manual capacity/route checks, receipt causal timing, missing signed projection; not arbitrary kernel rule discovery",
+          "TP-11": "Retained inner traces and canonical independent outer closure; round-trip witness reconstruction",
+          "TP-12": "Typed octal coordinates, source-bound family declarations, ancestry references, distinct support span; declarations alone do not admit formations",
+          "TP-13/14": "Canonical region crossing/internal and whole-region cancellation, exact committed sweep and8-3+2=7",
+          "TP-17": "Explicit finite detector event/serialized-byte/lineage caps, incomplete rather than silent deletion; allocator RSS not claimed by serialized cap",
+          "TP-19/20": "Retained reconstruction and pending burden survive; scope coverage declared",
+          "TP-26": "Source-bound wrappers; full existingapplication execution evidence belongs to application suite",
+          "core_contacts": "Actual coupling.dec traced contact pairs validate via core Coupling. Cadence1, signed a|b lag-1, drift0; exact causal parents and retained certificate bindings; missing/single/repeated/out-of-order hostile controls."
+        },
+        "limitations": [
+          "Closure detector covers current finite D.E.C. core law only; generic detection of all possible model laws is not implemented.",
+          "Complete signed-current query requires all relevant burden projections; unavailable channels are retained separately.",
+          "ScaleFamily references are declared query domains, not automatic formation verification. inspect_fusion validates actual supplied closure evidence.",
+          "Detector exact history is finite and stops incomplete at its caps; durable store provides finer retrieval/replay.",
+          "Non-core-only archives return unavailable/null closure counts, not zero physical closures.",
+          "Raw structural return candidates are distinct from model-committed phases; bounded alternative parsing stops incomplete at max_parses_per_lineage."
+        ],
+        "semantics_correction": {
+          "counterexample": "0 -> 1 (+), hinge, 1 -> 0 (-), 0 -> 2 (-), 2 -> 0 (-), close(begin0,end5)",
+          "before": "Automatic first-return segmentation inferred end3 closure and rejected lawful extended counterbranch.",
+          "after": "Candidates end3 and end5 retained; actual raw-validated committed span end5 yields one phase,zero reclosurebeats; end3 candidate not_selected. Without commitment evidence,phase count is unresolved.",
+          "regression": "test_earlier_return_does_not_split_lawful_extended_counterbranch",
+          "independent_recheck": "../../review/integration-extended-counterbranch-recheck.json"
+        }
+      }
+    },
+    "checks/recurrence-cache/results.json": {
+      "sha256": "0fc167c40358580bb9fcc8cdcf4b51a39c10504d9ace9c412a3b66a7fecf7744",
+      "record": {
+        "status": "PASS",
+        "criterion": "TP-16 finite recurrence and reuse",
+        "checks": [
+          {
+            "mode": "normal",
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-m",
+              "unittest",
+              "tests.test_recurrence_cache",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 9,
+            "elapsed_seconds": 0.5894001859705895
+          },
+          {
+            "mode": "optimized",
+            "command": [
+              "/usr/bin/python3",
+              "-B",
+              "-O",
+              "-m",
+              "unittest",
+              "tests.test_recurrence_cache",
+              "-v"
+            ],
+            "exit_code": 0,
+            "tests": 9,
+            "elapsed_seconds": 0.5963077660417184
+          }
+        ],
+        "source_sha256": {
+          "simulations/recurrence_cache.py": "ae0105142d7c51ebabb38f8d5759949228d4bd63558144b96c536306308806aa",
+          "tests/test_recurrence_cache.py": "d83170d9ffc20a62b560b842269d96459009cf236480cb1c549fc754f54edfe9",
+          "docs/TRACE_PROFILE.md": "dcbde9ebea8921402e54b017f0ac14e2dd524e50e7253b1f7d63c7a0463e44d5"
+        },
+        "actual_period_two": {
+          "status": "verified_cycle",
+          "transient": 0,
+          "period": 2,
+          "checked_steps": 2,
+          "validation_steps": 2,
+          "retained_states": 2,
+          "accounted_high_water_bytes": 6086,
+          "budget_bytes": 1048576,
+          "step_999": [
+            "0",
+            "1"
+          ]
+        },
+        "scope": "Exact finite quotient state under unchanged kernel/partition/UpdateDomain at declared level0. Captures transient andonecycle; no named-body heuristic or nativehigher-octave law. Owned-object accounting withworkspace reserve is separate from processRSS.",
+        "not_established": "No repeatedcomplete state within max_steps/validwindow is unknown,notproof ofaperiodicity.",
+        "incomplete": "Explicit insufficient state/index bytes or bigintcap; no cache returned."
+      }
+    },
+    "checks/applications/observations-routing.json": {
+      "sha256": "31a558e166834c635ccbcd435595b6cd13b24e3dde281a886d9c166fd10adbc3",
+      "record": {
+        "status": "PASS",
+        "python": "bound Python 3.12.14",
+        "checks_per_mode": 21,
+        "normal_log": "checks/applications/unit-normal-observations-routing-final.log",
+        "optimized_log": "checks/applications/unit-optimized-observations-routing-final.log",
+        "normal_elapsed_seconds": "37.537",
+        "optimized_elapsed_seconds": "37.590",
+        "normal_optimized_file_bytes_equal": {
+          "regions.json": true,
+          "particles.json": true,
+          "particles/proton-accounting.json": true,
+          "particles/proton-accounting-witnesses.json.gz": true,
+          "particles/electron-wire.json": true,
+          "accounting-replay.json": true
+        },
+        "fresh_pr5_comparisons": {
+          "normal": {
+            "status": "PASS",
+            "optimized": false,
+            "checks": {
+              "region_results_exactly_equal": true,
+              "proton_non_provenance_exactly_equal": true,
+              "proton_witness_bytes_equal": true,
+              "electron_baseline_equal": true,
+              "electron_gateoff_equal": true,
+              "retrieval_equals_actual_bytes": true,
+              "complete_trace": true,
+              "actual_route_replay": true,
+              "region_observations_complete": true,
+              "particle_observations_complete": true
+            },
+            "trace_status": {
+              "coverage": "complete",
+              "state": "complete",
+              "failure": null,
+              "events": 164,
+              "chain": "a0080fbf3e96f9d6e333344a63dbc15db58c3a78569d1773a02ead540fed08c7",
+              "archive_bytes": 1781760,
+              "limits": {
+                "max_event_bytes": 262144,
+                "max_storage_bytes": 67108864,
+                "cache_bytes": 1048576,
+                "max_integer_bits": 8192,
+                "max_depth": 64,
+                "max_nodes": 32768
+              },
+              "metrics": {
+                "append_count": 164,
+                "io_ns": 3076921623,
+                "replay_ns": 367228129,
+                "event_bytes_high_water": 22494,
+                "checkpoint_bytes_high_water": 0,
+                "archive_bytes_high_water": 1781760,
+                "queue_high_water": 0,
+                "resident_identity_entries": 0,
+                "cache_budget_bytes": 1048576
+              },
+              "scope": "store allocation caps; caller model, detector and OS RSS are measured separately"
+            },
+            "witness_sha256": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+            "application_gaps": {
+              "tau": {
+                "status": "missing_producer",
+                "live_run": false,
+                "source": "manual/sections/06_field_dynamics_applications.tex:manual:tau-ring-diagnostic",
+                "reason": "Bound candidate preserves frozen CSV diagnostics; originating update recipe and compact/depth-indexed adapter are not supplied.",
+                "missing": [
+                  "candidate formation/update producer",
+                  "route and propagation law",
+                  "sensor observation map"
+                ],
+                "historical_missing_burden": {
+                  "numerator": 31,
+                  "denominator": 50,
+                  "role": "historical comparator, not generated output"
+                }
+              },
+              "sun_mercury": {
+                "status": "finite_scope_example_only",
+                "physical_trajectory": false,
+                "source": "manual/sections/05_solar_system_field_tests.tex:manual:solar:observable-export-bridge",
+                "missing": [
+                  "executable solar and Mercury recurrence preparations",
+                  "initial state and coupling evolution",
+                  "boundary-current update and observation maps"
+                ]
+              }
+            },
+            "metadata_change": "Boundary-accounting observer source and explicit consumer fingerprints; native witnesses/numeric outputs unchanged"
+          },
+          "optimized": {
+            "status": "PASS",
+            "optimized": true,
+            "checks": {
+              "region_results_exactly_equal": true,
+              "proton_non_provenance_exactly_equal": true,
+              "proton_witness_bytes_equal": true,
+              "electron_baseline_equal": true,
+              "electron_gateoff_equal": true,
+              "retrieval_equals_actual_bytes": true,
+              "complete_trace": true,
+              "actual_route_replay": true,
+              "region_observations_complete": true,
+              "particle_observations_complete": true
+            },
+            "trace_status": {
+              "coverage": "complete",
+              "state": "complete",
+              "failure": null,
+              "events": 164,
+              "chain": "a0080fbf3e96f9d6e333344a63dbc15db58c3a78569d1773a02ead540fed08c7",
+              "archive_bytes": 1781760,
+              "limits": {
+                "max_event_bytes": 262144,
+                "max_storage_bytes": 67108864,
+                "cache_bytes": 1048576,
+                "max_integer_bits": 8192,
+                "max_depth": 64,
+                "max_nodes": 32768
+              },
+              "metrics": {
+                "append_count": 164,
+                "io_ns": 3099634053,
+                "replay_ns": 380641283,
+                "event_bytes_high_water": 22494,
+                "checkpoint_bytes_high_water": 0,
+                "archive_bytes_high_water": 1781760,
+                "queue_high_water": 0,
+                "resident_identity_entries": 0,
+                "cache_budget_bytes": 1048576
+              },
+              "scope": "store allocation caps; caller model, detector and OS RSS are measured separately"
+            },
+            "witness_sha256": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+            "application_gaps": {
+              "tau": {
+                "status": "missing_producer",
+                "live_run": false,
+                "source": "manual/sections/06_field_dynamics_applications.tex:manual:tau-ring-diagnostic",
+                "reason": "Bound candidate preserves frozen CSV diagnostics; originating update recipe and compact/depth-indexed adapter are not supplied.",
+                "missing": [
+                  "candidate formation/update producer",
+                  "route and propagation law",
+                  "sensor observation map"
+                ],
+                "historical_missing_burden": {
+                  "numerator": 31,
+                  "denominator": 50,
+                  "role": "historical comparator, not generated output"
+                }
+              },
+              "sun_mercury": {
+                "status": "finite_scope_example_only",
+                "physical_trajectory": false,
+                "source": "manual/sections/05_solar_system_field_tests.tex:manual:solar:observable-export-bridge",
+                "missing": [
+                  "executable solar and Mercury recurrence preparations",
+                  "initial state and coupling evolution",
+                  "boundary-current update and observation maps"
+                ]
+              }
+            },
+            "metadata_change": "Boundary-accounting observer source and explicit consumer fingerprints; native witnesses/numeric outputs unchanged"
+          }
+        },
+        "source_sha256": {
+          "simulations/trace_applications.py": "cb633804d38d753ea5102751a01461df6ff370641e5211676d8ff7f2ac99ed63",
+          "tests/test_trace_applications.py": "515e7c62eaf7c4f1210190e5b45bd05665456c7b0b5dbfeb20d1bee189548bb9",
+          "simulations/trace_observation.py": "d9caae92ae60aa703b02d255cdf3f2528c540a641b7cc63c21e172a4e2ee801d",
+          "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+          "simulations/trace_store.py": "2a4a7e1b78f0848b58e81bbab8fdf6eba1d9aa75c31a198d8cfb95cf7f78f488"
+        },
+        "observations": {
+          "regions": 14,
+          "particles": 11,
+          "errors": 7,
+          "units": "native-pressure-current",
+          "physical_model_discrepancy": "unknown; not zero",
+          "proton_full_current": "unresolved"
+        },
+        "replay": {
+          "actual_events": 10,
+          "actual_route_transitions": 2,
+          "route_partition_receipt_validators": "simulations/boundary_accounting.py",
+          "alternative_windows": "separate non-additive branches",
+          "budget_scope": "serialized inputs, not whole-process memory"
+        },
+        "earlier_test_failure": {
+          "normal": "checks/applications/unit-normal-observations-routing.log",
+          "optimized": "checks/applications/unit-optimized-observations-routing.log",
+          "cause": "New test incorrectly assumed largest participation window 10; bound producer declares (2,4,6,12). Test corrected to actual source, production values unchanged."
+        }
+      }
+    },
+    "checks/admission/portable-mutations/summary.json": {
+      "sha256": "2965e681d7b83cffc7cea881dbd242f7a7e8d860f2dd0d66ef45c39eaeb45f0a",
+      "record": {
+        "all_passed": true,
+        "run_count": 8,
+        "records": [
+          {
+            "mutation": "baseline",
+            "optimized": false,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": true,
+            "failure_ids": [],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "identity",
+            "optimized": false,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": false,
+            "failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "reflection",
+            "optimized": false,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": false,
+            "failure_ids": [
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut"
+            ],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut"
+            ],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "combined",
+            "optimized": false,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": false,
+            "failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "baseline",
+            "optimized": true,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": true,
+            "failure_ids": [],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "identity",
+            "optimized": true,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": false,
+            "failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "reflection",
+            "optimized": true,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": false,
+            "failure_ids": [
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut"
+            ],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut"
+            ],
+            "acceptance_passed": true
+          },
+          {
+            "mutation": "combined",
+            "optimized": true,
+            "producer_sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+            "source_bytes_unchanged": true,
+            "same_producer_instance": true,
+            "tests_run": 19,
+            "suite_passed": false,
+            "failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "error_ids": [],
+            "skips": 0,
+            "expected_failure_ids": [
+              "FIX-01-contact-collection-conflict",
+              "FIX-02-boolean-turnaround-cut",
+              "FIX-03-float-turnaround-cut",
+              "FIX-04-boolean-terminal-cut",
+              "FIX-05-float-terminal-cut",
+              "R04-01-recurrence-event-conflict",
+              "R04-02-same-contact-records-accessor"
+            ],
+            "acceptance_passed": true
+          }
+        ],
+        "scope": "Admission regression sensitivity; no compiler or physical accuracy claim"
+      }
+    },
+    "checks/resource-campaign/results.json": {
+      "sha256": "347240092f1f57dbb00a80aed2679397036b04282b0c245bb5b1e0df0d7d1918",
+      "record": {
+        "status": "PASS",
+        "cases": [
+          {
+            "cap": 16,
+            "requested_events": 10000,
+            "executed_events": 16,
+            "canonical_trace_events": 17,
+            "not_executed": 9984,
+            "retained_graph_nodes": 17,
+            "graph_node_definition": "one retained start plus capped transition records",
+            "node_cap_including_start": 17,
+            "graph_edges": 16,
+            "unique_q4_vertices": 2,
+            "allocator_high_water_bytes": 109506,
+            "rss_process_high_water_bytes": 25702400,
+            "total_ns": 896933186,
+            "store": {
+              "coverage": "partial",
+              "state": "incomplete",
+              "failure": "active retained-history node budget reached before next allocation",
+              "events": 17,
+              "chain": "a18c202f0f433c5414dc25e9e392e14aec89d81d36f2d36ba37df4fa1eed34e1",
+              "archive_bytes": 40960,
+              "limits": {
+                "max_event_bytes": 262144,
+                "max_storage_bytes": 8388608,
+                "cache_bytes": 65536,
+                "max_integer_bits": 8192,
+                "max_depth": 64,
+                "max_nodes": 32768
+              },
+              "metrics": {
+                "append_count": 17,
+                "io_ns": 267830050,
+                "replay_ns": 181993879,
+                "event_bytes_high_water": 516,
+                "checkpoint_bytes_high_water": 1405,
+                "archive_bytes_high_water": 40960,
+                "queue_high_water": 0,
+                "resident_identity_entries": 0,
+                "cache_budget_bytes": 65536
+              },
+              "scope": "store allocation caps; caller model, detector and OS RSS are measured separately"
+            },
+            "detector": {
+              "detector": "dec-core-return-v1",
+              "coverage": "partial",
+              "incomplete_reason": "detector history budget exhausted; replay with sufficient state/budget",
+              "window": null,
+              "requested_scope": null,
+              "returns": [],
+              "open_candidates": [
+                {
+                  "status": "candidate",
+                  "coverage": "censored",
+                  "scope_id": "open",
+                  "lineage_id": "A",
+                  "start_event_id": "34067e6191eecdadda795f816a75ad7283a9464eb7f4ed72632a66a3dafc401b",
+                  "last_event_id": "d66ed9a9b5949826ecc8e4ed839a06c611a4af5f93ac7ddcef626d80c1fc4d95",
+                  "reason": "right-edge return remains open"
+                }
+              ],
+              "return_candidates": [],
+              "couplings": [],
+              "candidate_returns": 0,
+              "observed_committed_phases": 0,
+              "phases": null,
+              "reclosure_beats": null,
+              "count_scope": "Model-committed spans validated from raw history; unconfirmed candidates do not create phases or beats",
+              "event_ordinal_rate": null,
+              "rate_unit": "detected-return/serialized-event (not physical bip rate)",
+              "directional_rcd": {
+                "status": "unavailable",
+                "reason": "core stream alone has no Manual repeated-contact RCD"
+              },
+              "resources": {
+                "retained_events": 8,
+                "retained_input_bytes": 3988,
+                "retained_lineages": 1,
+                "max_events": 8,
+                "max_bytes": 131072,
+                "max_lineages": 1,
+                "max_parses_per_lineage": 64,
+                "candidate_parses": 1,
+                "retained_couplings": 0,
+                "candidate_parses_high_water": 1
+              }
+            },
+            "recovered_checkpoint_event_count": 16,
+            "result": "explicit_incomplete_no_admissible_summary",
+            "discarded_required_witnesses": 0
+          },
+          {
+            "cap": 64,
+            "requested_events": 10000,
+            "executed_events": 64,
+            "canonical_trace_events": 65,
+            "not_executed": 9936,
+            "retained_graph_nodes": 65,
+            "graph_node_definition": "one retained start plus capped transition records",
+            "node_cap_including_start": 65,
+            "graph_edges": 64,
+            "unique_q4_vertices": 2,
+            "allocator_high_water_bytes": 213439,
+            "rss_process_high_water_bytes": 25702400,
+            "total_ns": 3345626563,
+            "store": {
+              "coverage": "partial",
+              "state": "incomplete",
+              "failure": "active retained-history node budget reached before next allocation",
+              "events": 65,
+              "chain": "c394c110e9a3b2fa9ae77a787e511df2d43ab8a9370f1059a41fdbce049123a3",
+              "archive_bytes": 90112,
+              "limits": {
+                "max_event_bytes": 262144,
+                "max_storage_bytes": 8388608,
+                "cache_bytes": 65536,
+                "max_integer_bits": 8192,
+                "max_depth": 64,
+                "max_nodes": 32768
+              },
+              "metrics": {
+                "append_count": 65,
+                "io_ns": 1096597772,
+                "replay_ns": 707488491,
+                "event_bytes_high_water": 516,
+                "checkpoint_bytes_high_water": 4669,
+                "archive_bytes_high_water": 90112,
+                "queue_high_water": 0,
+                "resident_identity_entries": 0,
+                "cache_budget_bytes": 65536
+              },
+              "scope": "store allocation caps; caller model, detector and OS RSS are measured separately"
+            },
+            "detector": {
+              "detector": "dec-core-return-v1",
+              "coverage": "partial",
+              "incomplete_reason": "detector history budget exhausted; replay with sufficient state/budget",
+              "window": null,
+              "requested_scope": null,
+              "returns": [],
+              "open_candidates": [
+                {
+                  "status": "candidate",
+                  "coverage": "censored",
+                  "scope_id": "open",
+                  "lineage_id": "A",
+                  "start_event_id": "9ff992b01e5e8adeea94839d271a47bd16e449463eb0cb653a662e0bedfeee29",
+                  "last_event_id": "a32e6f9d485c864e2cf16cb4282d754123692dd1a3d7cf5b46967d3a69561acc",
+                  "reason": "right-edge return remains open"
+                }
+              ],
+              "return_candidates": [],
+              "couplings": [],
+              "candidate_returns": 0,
+              "observed_committed_phases": 0,
+              "phases": null,
+              "reclosure_beats": null,
+              "count_scope": "Model-committed spans validated from raw history; unconfirmed candidates do not create phases or beats",
+              "event_ordinal_rate": null,
+              "rate_unit": "detected-return/serialized-event (not physical bip rate)",
+              "directional_rcd": {
+                "status": "unavailable",
+                "reason": "core stream alone has no Manual repeated-contact RCD"
+              },
+              "resources": {
+                "retained_events": 32,
+                "retained_input_bytes": 16368,
+                "retained_lineages": 1,
+                "max_events": 32,
+                "max_bytes": 131072,
+                "max_lineages": 1,
+                "max_parses_per_lineage": 64,
+                "candidate_parses": 1,
+                "retained_couplings": 0,
+                "candidate_parses_high_water": 1
+              }
+            },
+            "recovered_checkpoint_event_count": 64,
+            "result": "explicit_incomplete_no_admissible_summary",
+            "discarded_required_witnesses": 0
+          },
+          {
+            "cap": 256,
+            "requested_events": 10000,
+            "executed_events": 256,
+            "canonical_trace_events": 257,
+            "not_executed": 9744,
+            "retained_graph_nodes": 257,
+            "graph_node_definition": "one retained start plus capped transition records",
+            "node_cap_including_start": 257,
+            "graph_edges": 256,
+            "unique_q4_vertices": 2,
+            "allocator_high_water_bytes": 585420,
+            "rss_process_high_water_bytes": 25866240,
+            "total_ns": 14038964199,
+            "store": {
+              "coverage": "partial",
+              "state": "incomplete",
+              "failure": "active retained-history node budget reached before next allocation",
+              "events": 257,
+              "chain": "62533a4f0c5dd7c37de1dbee3fdf2cb9c074d12290b34911b603c8ab52fb4e18",
+              "archive_bytes": 282624,
+              "limits": {
+                "max_event_bytes": 262144,
+                "max_storage_bytes": 8388608,
+                "cache_bytes": 65536,
+                "max_integer_bits": 8192,
+                "max_depth": 64,
+                "max_nodes": 32768
+              },
+              "metrics": {
+                "append_count": 257,
+                "io_ns": 4670962869,
+                "replay_ns": 2827292395,
+                "event_bytes_high_water": 519,
+                "checkpoint_bytes_high_water": 17884,
+                "archive_bytes_high_water": 282624,
+                "queue_high_water": 0,
+                "resident_identity_entries": 0,
+                "cache_budget_bytes": 65536
+              },
+              "scope": "store allocation caps; caller model, detector and OS RSS are measured separately"
+            },
+            "detector": {
+              "detector": "dec-core-return-v1",
+              "coverage": "partial",
+              "incomplete_reason": "detector history budget exhausted; replay with sufficient state/budget",
+              "window": null,
+              "requested_scope": null,
+              "returns": [],
+              "open_candidates": [
+                {
+                  "status": "candidate",
+                  "coverage": "censored",
+                  "scope_id": "open",
+                  "lineage_id": "A",
+                  "start_event_id": "395b14424303950af6faa43f370f3a18ca98e391b1cfeb67abf52257106f81df",
+                  "last_event_id": "288f0b681d3d0650399d99d2a2368b7fdbedb15974a62335d283974f6745b079",
+                  "reason": "right-edge return remains open"
+                }
+              ],
+              "return_candidates": [],
+              "couplings": [],
+              "candidate_returns": 0,
+              "observed_committed_phases": 0,
+              "phases": null,
+              "reclosure_beats": null,
+              "count_scope": "Model-committed spans validated from raw history; unconfirmed candidates do not create phases or beats",
+              "event_ordinal_rate": null,
+              "rate_unit": "detected-return/serialized-event (not physical bip rate)",
+              "directional_rcd": {
+                "status": "unavailable",
+                "reason": "core stream alone has no Manual repeated-contact RCD"
+              },
+              "resources": {
+                "retained_events": 128,
+                "retained_input_bytes": 66088,
+                "retained_lineages": 1,
+                "max_events": 128,
+                "max_bytes": 131072,
+                "max_lineages": 1,
+                "max_parses_per_lineage": 64,
+                "candidate_parses": 1,
+                "retained_couplings": 0,
+                "candidate_parses_high_water": 1
+              }
+            },
+            "recovered_checkpoint_event_count": 256,
+            "result": "explicit_incomplete_no_admissible_summary",
+            "discarded_required_witnesses": 0
+          }
+        ],
+        "scope": "bounded open-history driver with no admissible summary; arbitrary caller graph and hard process RSS remain outside this driver guarantee",
+        "source_sha256": {
+          "scripts/check_trace_resources.py": "1e4dcacf6b6f4d225628559ebdc9ee73473250c6149e487d515c776d7c9a5b18",
+          "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+          "simulations/trace_store.py": "2a4a7e1b78f0848b58e81bbab8fdf6eba1d9aa75c31a198d8cfb95cf7f78f488",
+          "simulations/trace_detectors.py": "211585981f915123fd932b705b12195f4fe620dd29d6399236bd41e382d45951"
+        }
+      }
+    },
+    "checks/provenance-hostile.json": {
+      "sha256": "d496f8774bd655bb88926bb14e35e85d260c5dd3f864482a9fb27ae83d39dc83",
+      "record": {
+        "mutation": "changed current core bytes without source rebind",
+        "rejected": true,
+        "reason": "Implementation differs from imported execution: runtime/dec_core.py",
+        "source_unchanged": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f"
+      }
+    }
+  },
+  "remote_writes": false,
+  "main_manual_changes": false,
+  "interpretation": "Source-bound finite engineering evidence. Passing contract fixtures or counts do not establish a general AOD engine, live Tau or empirical physical prediction."
+}

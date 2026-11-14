@@ -1,0 +1,267 @@
+{
+  "status": "PASS",
+  "date": "2026-11-14",
+  "scope": "Replay every executed finite source encounter update and join the recorded shedding route to native recipient evidence.",
+  "previous_correction_tree": "a3dff149b92bba118a3b07b75e6a73e2a3232c80",
+  "source_sha256": {
+    "simulations/proton_accounting.py": "02ddaf508fa2e0fab1c9816135f0e86da4688e85f3a38537c223dab03ee5fd02",
+    "simulations/retained_continuation.py": "5f4ec3ea81a0fc0b7b5f36dcc27bb3faf60a5894ef12eb74cc0a929c75364472",
+    "simulations/vendor/aod_manual_native.py": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554",
+    "simulations/trace_applications.py": "c36d4a922b32974be2401e3f4f99d3be43f8f52a5eac29111895f397933b1fe5",
+    "simulations/trace_encounter.py": "48caa68b950d025906cdab2e0359c6bd6b9de1bbf95cdafc2d613fb123294cc4",
+    "simulations/trace_paths.py": "e29a5ffb8750613d62bcc95dd0ccc82d22d8e79c92c0c64c60eb0f73a556cafa",
+    "simulations/trace_execution.py": "ffd9cf5ee07f7dc83999f2ddfac82ddb716714dbd9662edf0dd586a483c5c077",
+    "simulations/trace_particle_relations.py": "a451ed09703548520a09bb4a913314bf36641b046d2d7764a8b72483885d8aab",
+    "simulations/trace_support.py": "b5c825f3fb90e1c94a99d38320f7ef03f44434d62c885dffae9498f802685538",
+    "simulations/trace_store.py": "2a4a7e1b78f0848b58e81bbab8fdf6eba1d9aa75c31a198d8cfb95cf7f78f488",
+    "scripts/trace_simulation.py": "5fd836d938747dddec23468b9bfdf0921c988caf17be9ee6540880cb3aa582ee",
+    "tests/test_trace_encounter.py": "54d32b9113e04e2fca884717f5ff3dd177b75f71cedeead3530c04a69a9f76fe",
+    "tests/test_trace_encounter_capture.py": "80b9e9fbfffbbb6ce463fb4f930b78bd0fd403fbf6b4361b849a904b11aadcb5",
+    "tests/test_trace_paths.py": "6582d59167f089e7d273e773cb5f1867ff409f60b484fc8af849e718c9db50eb",
+    "docs/TRACE_PROFILE.md": "dc8900f921862832a45de1f6b3cc1e01e827b2c175f2781e7e62d3be5ea01cc9",
+    "docs/trace-profile.typ": "d42613d75ab1c78b9c0306dd08db701d13ab974e69c2afda80a589a17dbd89dd"
+  },
+  "unit_checks": [
+    {
+      "suite": "regression",
+      "mode": "normal",
+      "tests": 46,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/regression-normal.log",
+      "log_sha256": "00a9f5afe186a582a8eacaf3a28925cbb759df0e700d21237e924918c12e5877"
+    },
+    {
+      "suite": "encounter-replay",
+      "mode": "normal",
+      "tests": 10,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/encounter-replay-normal.log",
+      "log_sha256": "2208f0f91cb1e93a812c6b20110d28a5cfe8bc2543607201922b03546028f83e"
+    },
+    {
+      "suite": "encounter-capture",
+      "mode": "normal",
+      "tests": 12,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/encounter-capture-normal.log",
+      "log_sha256": "1501780ddf28896b2344f5960106e549a0a973e59ebcc3333ace247fc4c404e5"
+    },
+    {
+      "suite": "paths",
+      "mode": "normal",
+      "tests": 23,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/paths-normal-final.log",
+      "log_sha256": "77f1b879679fa307567b884d670130ca95f0c14ec7d690cbd6866ca8637452ba"
+    },
+    {
+      "suite": "regression",
+      "mode": "optimized",
+      "tests": 46,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/regression-optimized.log",
+      "log_sha256": "8921545b9660ba34035cd51191631ca83c1c1424c581fa6353e829d6b2f5ba00"
+    },
+    {
+      "suite": "encounter-replay",
+      "mode": "optimized",
+      "tests": 10,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/encounter-replay-optimized.log",
+      "log_sha256": "f72348e461ab532b6b0433ffc5f222595b8c82a8feab468f7430031dea3f4f5c"
+    },
+    {
+      "suite": "encounter-capture",
+      "mode": "optimized",
+      "tests": 12,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/encounter-capture-optimized.log",
+      "log_sha256": "8c23d11af6d6869bcde2cd2f8e0d0af4cb8f93cd2b06825e0be0e02c86d10c76"
+    },
+    {
+      "suite": "paths",
+      "mode": "optimized",
+      "tests": 23,
+      "status": "PASS",
+      "log": "checks/trace-end-to-end/paths-optimized-final.log",
+      "log_sha256": "18e443569c7bbe6f968d5eaaaa5dbd1107360b689fa485edc1711004598fe273"
+    }
+  ],
+  "root_execution_metadata": {
+    "path": "checks/trace-end-to-end/root-executions.json",
+    "binding_scope": "Commands and successful exit codes are from actual orchestration records. Named launch fingerprints were retained before execution; the full listed source hashes were collected at collation after the frozen-source runs. This is not a complete automatic start/end filesystem snapshot. Capture, path-unit and independent-probe reports separately retain automatic before/after bindings."
+  },
+  "tests_per_mode": {
+    "normal": 91,
+    "optimized": 91
+  },
+  "archive": {
+    "coverage": "complete",
+    "events": 153,
+    "chain": "525fb5eec6f6d3af2ad2672b5e75d1a30c9de5b1adb98351c4b7c7bdde7e9c5c"
+  },
+  "steps": [
+    {
+      "index": 0,
+      "pending_carriers": [],
+      "new_returns": [
+        1,
+        1
+      ],
+      "contact": true,
+      "active_relations": 2,
+      "retained_relations": 2
+    },
+    {
+      "index": 1,
+      "pending_carriers": [
+        0
+      ],
+      "new_returns": [
+        0,
+        1
+      ],
+      "contact": false,
+      "active_relations": 2,
+      "retained_relations": 2
+    },
+    {
+      "index": 2,
+      "pending_carriers": [
+        0
+      ],
+      "new_returns": [
+        0,
+        1
+      ],
+      "contact": false,
+      "active_relations": 0,
+      "retained_relations": 2
+    },
+    {
+      "index": 3,
+      "pending_carriers": [],
+      "new_returns": [
+        1,
+        1
+      ],
+      "contact": true,
+      "active_relations": 0,
+      "retained_relations": 2
+    },
+    {
+      "index": 4,
+      "pending_carriers": [],
+      "new_returns": [
+        1,
+        1
+      ],
+      "contact": true,
+      "active_relations": 2,
+      "retained_relations": 4
+    },
+    {
+      "index": 5,
+      "pending_carriers": [],
+      "new_returns": [
+        1,
+        1
+      ],
+      "contact": true,
+      "active_relations": 4,
+      "retained_relations": 6
+    }
+  ],
+  "final_return_counts": [
+    7,
+    8
+  ],
+  "final_world_digest": "3d2469eff3371376c9837be85e37bf1367f20b4bd7adcb86e607f5ef48ff6235",
+  "path": {
+    "path_id": "6fe149e8def5ea36fc3f29309782614d307bd00fbb36a5d79cd8600aadb7ff9d",
+    "status": "received",
+    "amount": "6",
+    "unit": "closure-burden",
+    "route_id": "exo-route:177",
+    "leg_id": "exo-leg:177",
+    "causal_cuts": {
+      "shed": 177,
+      "route": 177,
+      "support_completed": 183,
+      "seated": 183,
+      "receipt": 184
+    }
+  },
+  "terminal_routing": {
+    "status": "verified",
+    "alternatives": [
+      {
+        "event_id": "1224b2eb176946018eeb64bb4ba8533e8be360a7ca54fbc8e228dea2434f69f3",
+        "branch_commit": "ee952545605a24bce70efc216fc237b2e62fce24ba04fa0dd89698beeb43be04",
+        "native_shedding_digest": "11cabdaddbc1dedbc6bfb33e8eb3dfc5ca084d2995ab1ee5e6af22c94d0e1649",
+        "alternative_index": 0,
+        "routes": 0,
+        "receipts": 0,
+        "pending": 0
+      },
+      {
+        "event_id": "b81c1c8a136ad7f47d613154f0c9efecc3d8a19ed1834c4555dc08eba3bc298a",
+        "branch_commit": "2b248ac07e8f9df1e95a4634bb3297b09b2e7399d4ea26672f5b54a290322454",
+        "native_shedding_digest": "4b1490e612ef56652d493b27b39e287bc3e7a424955615fa87479a6f24230160",
+        "alternative_index": 1,
+        "routes": 0,
+        "receipts": 0,
+        "pending": 0
+      },
+      {
+        "event_id": "bafe074d43c333388941794c9bfe3a71925d244c809ae0dcff35b2a0f643f87b",
+        "branch_commit": "c0de5d648f93e6a1c07dda2f3d2b083fa1d9972f80317c420c685216b387ffb3",
+        "native_shedding_digest": "b7db9983beed02bbdaf977ff9f1aedf1d1e599c75c911931fce5eb9f81475099",
+        "alternative_index": 2,
+        "routes": 0,
+        "receipts": 0,
+        "pending": 0
+      },
+      {
+        "event_id": "4854dd0e6ee0f00e5ad45ac84cfed3eb5f705cca0ca31a0e1f29dd431365b445",
+        "branch_commit": "2bb4eee2c86bf5fa952fe2f72ffc94ef6a83cfc8739b8e5ec7f3cfc093e410e8",
+        "native_shedding_digest": "46dae9435fbd82bc68043d7aacc56172e7406e75434042afee93e6e6d574923f",
+        "alternative_index": 3,
+        "routes": 1,
+        "receipts": 1,
+        "pending": 0
+      }
+    ],
+    "scope": "actual producer terminal routing snapshots; no statement about later unobserved evolution"
+  },
+  "formation_signatures": {
+    "1:2": 15,
+    "3:3": 15,
+    "Duon": 2
+  },
+  "normal_optimized_path_replay_equal": true,
+  "integrated_standalone_replay_equal": true,
+  "preserved_application_bytes": {
+    "proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "electron-wire.json": "a934a584499e3e87d522087f2795a4b23c1e4baef7f988cf446c303553187594"
+  },
+  "proton_report_change": "producer source hash only; scientific outputs unchanged",
+  "documentation": {
+    "pages": 3,
+    "lint_manuscripts": 9,
+    "pdf_sha256": "f71720b00e1e9ce3e816fee2507e55e5ccbe1119e760f29bfa16aaf0d1b6bfea"
+  },
+  "independent_review": {
+    "path": "review/trace-end-to-end/independent-review.json",
+    "sha256": "40c28c561d10711588323589d5a4298baee510f0ddda21f1cce77f39bff4a332"
+  },
+  "falsification_repaired": "Deleting the complete positive branch and relabelling the remaining terminal count could falsely report complete empty paths. The routing plan now binds the actual declared alternatives, and every alternative verifies source ancestry.",
+  "remaining": [
+    "The driver evolves a 1:2 source encounter, then materializes separately admitted 3:3 C6 carriers from that history. Prepared proton inputs are legitimate; evolving those proton inputs with a populated cavity and sensor remains unimplemented.",
+    "The joined receipt and Duad seating witness do not establish sensor-induced dynamics.",
+    "Closure-burden has no bound signed-current projection in this fixture.",
+    "R01 TP-12, TP-17, TP-24 and TP-27 remain partial; this trace repair does not complete full higher-octave dynamics, all resource bounds or expanded profiling."
+  ],
+  "remote_writes": false,
+  "commit_created": false
+}

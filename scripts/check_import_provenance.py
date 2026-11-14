@@ -26,10 +26,23 @@ def verify():
     original_digest=hashlib.sha256(json.dumps(source['files'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
     if original_digest!=source['tree_sha256'] or original_digest!=imported['original_candidate_tree_sha256']:
         raise ValueError('Original source-tree binding mismatch')
+    # Historical import records remain immutable. Later deliberate implementation
+    # changes bind both the original bytes and the new candidate explicitly.
+    rebindings_path=ROOT/'evidence/trace-profile/source-rebindings.json'
+    rebindings=json.loads(rebindings_path.read_text())['files'] if rebindings_path.exists() else {}
+    if not set(rebindings) <= set(imported['unchanged_implementation_files']):
+        raise ValueError('Rebinding names a file outside the original implementation seal')
     for name in imported['unchanged_implementation_files']:
-        if hashlib.sha256(checked_path(name).read_bytes()).hexdigest()!=source['files'][name]:
+        expected=source['files'][name]
+        if name in rebindings:
+            record=rebindings[name]
+            if record.get('before_sha256')!=expected or not record.get('reason'):
+                raise ValueError('Rebinding does not preserve original source identity: '+name)
+            expected=record['after_sha256']
+        if hashlib.sha256(checked_path(name).read_bytes()).hexdigest()!=expected:
             raise ValueError('Implementation differs from imported execution: '+name)
-    return {'status':'PASS','archived_records':count,'unchanged_implementation_files':len(imported['unchanged_implementation_files']),
+    return {'status':'PASS','archived_records':count,'unchanged_implementation_files':len(imported['unchanged_implementation_files'])-len(rebindings),
+            'explicitly_rebound_implementation_files':list(rebindings),
             'original_candidate_tree_sha256':original_digest,
             'scope':'Byte provenance only; execute semantic tests for current compiler correctness.'}
 

@@ -7,6 +7,17 @@ BUILD_DIR := build
 .PHONY: all verify verify-python verify-python-optimized verify-rust verify-native verify-ci docs docs-native simulate-cells docs-cells simulate-chiral docs-chiral simulate-routing docs-routing examples clean
 .PHONY: verify-retained docs-retained
 .PHONY: simulate-regions simulate-particles verify-region-current docs-scoped
+.PHONY: docs-trace trace-example
+
+docs-trace:
+	mkdir -p $(BUILD_DIR)/trace-profile
+	$(TYPST) compile --root . docs/trace-profile.typ $(BUILD_DIR)/trace-profile/trace-profile.pdf
+
+trace-example:
+	$(PYTHON) -B scripts/trace_simulation.py run --example closure --trace $(BUILD_DIR)/trace-profile/closure --output $(BUILD_DIR)/trace-profile/closure.json
+	$(PYTHON) -B scripts/trace_simulation.py replay $(BUILD_DIR)/trace-profile/closure --output $(BUILD_DIR)/trace-profile/replay.json
+	$(PYTHON) -B scripts/trace_simulation.py finite-scope --detail 8 --output $(BUILD_DIR)/trace-profile/finite-scope.json
+
 all: $(BUILD_DIR)/aod_stage0_seed $(BUILD_DIR)/aod_self_host_compiler $(BUILD_DIR)/aod_stage2_bootstrap
 
 verify-retained:

@@ -1,0 +1,124 @@
+{
+  "status": "PASS",
+  "date": "2026-11-14",
+  "scope": "Generic retained construction recognition and independent recorded coupling, shedding and seating validation",
+  "owner_amendment": "Collision/cavity/sensor setup is input; general 1:2:x, 3:j:k, Duon/Duad and relation states are detected outputs, not required Tau recipes.",
+  "supersedes": "R01 TP-27 missing-recipe explanation; original archive and its validation remain historical.",
+  "source_sha256": {
+    "simulations/proton_accounting.py": "a1a17ad77cbd490bc08c771600461494c2baf04fbed3b81905cf150a2b119435",
+    "simulations/trace_applications.py": "66bf175b0a65aed03153c1d10ae8b4c39d391c0305b8427f4ce4d239b48ae46e",
+    "simulations/trace_support.py": "b5c825f3fb90e1c94a99d38320f7ef03f44434d62c885dffae9498f802685538",
+    "simulations/trace_particle_relations.py": "a451ed09703548520a09bb4a913314bf36641b046d2d7764a8b72483885d8aab",
+    "simulations/trace_execution.py": "b28faa2036c69a6ed88816149a0e3eeb96544629f4d68de89c7aeca678d7b1b5",
+    "scripts/trace_simulation.py": "d5be64605239ec6b8a6709a347200e04ff3274502ea6526cd51770d13e1ee9a9",
+    "tests/test_trace_support.py": "55ac0522515a44e3dcfbc45da0f29bf85be905d726d18fa7fa1596b10d0c418d",
+    "tests/test_trace_particle_capture.py": "d11056b83dfd7de0d9911d03a0c68cf848b94ef46f8ee8c2aed65bd4b52176ac",
+    "tests/test_trace_particle_relations.py": "622925f5b8681f82af277eaa6400e6219bf74fb702df2eaebaa225b41dee5257",
+    "tests/test_trace_applications.py": "bd135a53ec27040f67532588b8146627847be6121b25971db9f4948b258ccabb",
+    "tests/test_trace_execution.py": "a7680fbc30da6251a5e977e3e578f5b87867b29b01e79dd42da9d2685a1bfebe",
+    "docs/TRACE_PROFILE.md": "4df6181a91b8281e59e69995cb29b39e62d3011e1cd17f566a0a46669ae71de2",
+    "docs/trace-profile.typ": "59f440a916aeba29b567e1deab72686e2b62896b0e90417b1aa86e269d23eb95"
+  },
+  "unit_checks": [
+    {
+      "suite": "applications",
+      "mode": "normal",
+      "tests": 23,
+      "status": "PASS",
+      "log": "checks/tau-emergence/applications-normal-source-frozen.log"
+    },
+    {
+      "suite": "execution",
+      "mode": "normal",
+      "tests": 4,
+      "status": "PASS",
+      "log": "checks/tau-emergence/execution-normal-source-frozen.log"
+    },
+    {
+      "suite": "applications",
+      "mode": "optimized",
+      "tests": 23,
+      "status": "PASS",
+      "log": "checks/tau-emergence/applications-optimized-source-frozen.log"
+    },
+    {
+      "suite": "execution",
+      "mode": "optimized",
+      "tests": 4,
+      "status": "PASS",
+      "log": "checks/tau-emergence/execution-optimized-source-frozen.log"
+    },
+    {
+      "suite": "support",
+      "mode": "normal",
+      "tests": 28,
+      "status": "PASS",
+      "log": "checks/tau-emergence/support-normal-final.log"
+    },
+    {
+      "suite": "support",
+      "mode": "optimized",
+      "tests": 28,
+      "status": "PASS",
+      "log": "checks/tau-emergence/support-optimized-final.log"
+    },
+    {
+      "suite": "capture-and-relations",
+      "mode": "normal",
+      "tests": 19,
+      "status": "PASS",
+      "log": "checks/tau-emergence/particle-native-normal.log"
+    },
+    {
+      "suite": "capture-and-relations",
+      "mode": "optimized",
+      "tests": 19,
+      "status": "PASS",
+      "log": "checks/tau-emergence/particle-native-optimized.log"
+    }
+  ],
+  "tests_per_mode": {
+    "normal": 74,
+    "optimized": 74
+  },
+  "detected_formations": {
+    "1:2": 15,
+    "3:3": 15,
+    "Duon": 2
+  },
+  "relation_counts": {
+    "waves": 5,
+    "couplings": 1,
+    "folds": 1,
+    "shedding": 4,
+    "seating": 1,
+    "states": 1
+  },
+  "normal_optimized_replay_equal": true,
+  "replay_equality_scope": "all reported content except independently measured archive.metrics.replay_ns",
+  "host_replay_nanoseconds": {
+    "normal": 1271347893,
+    "optimized": 1280271248
+  },
+  "legacy_routed_evidence_recovered": true,
+  "preserved_application_bytes": {
+    "proton-accounting-witnesses.json.gz": "a7b3e7546042844b49cc54577165412ba226f0878f5fb4daf0cf111536b5854a",
+    "electron-wire.json": "a934a584499e3e87d522087f2795a4b23c1e4baef7f988cf446c303553187594"
+  },
+  "proton_report_change": "producer source hash only; scientific outputs unchanged",
+  "source_review": "review/tau-emergence-source/independent-review.json",
+  "remaining": [
+    "The producer still prepares fixed cores; configurable collision/cavity evolution and collision-driven changes of formation are not implemented.",
+    "Snapshots certify inspected retained constructions and relations, not all open paths or full cavity/sensor detection coverage.",
+    "Native path enclosure, scalar RD/RCD and declared record-window views remain separate domains.",
+    "R01 TP-12, TP-17, TP-24 and TP-27 remain partial; this correction does not complete higher-octave dynamics, comprehensive resource bounds or expanded profiling."
+  ],
+  "intermediate_failures": [
+    "oversized fold capture",
+    "CLI typed RCD serialization",
+    "relation envelope scope",
+    "duplicate JSON keys",
+    "zero rational denominator"
+  ],
+  "remote_writes": false
+}

@@ -167,6 +167,10 @@ jobs:
           python3 -B -O scripts/check_region_current.py --output build/scoped-current/dec-optimized
       - name: Build retained, boundary, particle and region companions
         run: make docs-scoped TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
+      - name: Execute trace replay and finite boundary reduction
+        run: make trace-example
+      - name: Compile trace and profile companion
+        run: make docs-trace TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
       - name: Retain scoped current studies and documentation
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -178,6 +182,7 @@ jobs:
             build/scoped-current/docs/
             build/scoped-current/dec-normal/results.json
             build/scoped-current/dec-optimized/results.json
+            build/trace-profile/
             build/retained-continuation/*.json
             build/retained-continuation/*.json.gz
             build/retained-continuation/*.dec

@@ -1,0 +1,12 @@
+{
+  "source": "simulations/boundary_accounting.py",
+  "prior_sha256": "7bdf7a33664bf275debecf51a53c8768d18915102739d9715a6e4e6db4def88f",
+  "candidate_sha256": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+  "change": "Optional context-local observer invoked after validated archive, route and receipt commits; no default execution behavior change. Storage exceptions are explicit incomplete execution.",
+  "rebound_consumers": [
+    "simulations/region_engine.py",
+    "simulations/proton_accounting.py",
+    "simulations/electron_wire_accounting.py"
+  ],
+  "historical_evidence": "Unmodified; old fingerprints describe prior bytes."
+}

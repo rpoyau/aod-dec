@@ -207,3 +207,20 @@ from the x86-64 execution performed here.
 See `docs/SPECIFICATION.md` for the language/model contract,
 `docs/FIRST_PRINCIPLES_DERIVATION.md` for scoped derivations, and
 `docs/REPAIR_NOTES.md` for the original review findings and their dispositions.
+# Trace and scoped execution
+
+The host trace interface records actual validated commitments, supports checksummed
+replay and recoverable witnesses, and reports detector/resource coverage. See
+[tracing and profiling](docs/TRACE_PROFILE.md), the
+[Typst companion](docs/trace-profile.typ), and the proposed
+[Manual III outline](docs/MANUAL_III_OUTLINE.md).
+
+`python3 scripts/trace_simulation.py --help` lists execution, replay, inspection,
+finite-scope and profiling commands. `make trace-example docs-trace` executes a
+closure/replay and finite reduction example and compiles the companion (Typst
+required). Native AOT/ORC core output checks are separate from host commit tracing.
+The finite reducer currently admits computational level 0; it does not manufacture
+higher-scale formation witnesses. Particle support inspection infers construction
+from retained paths and component witnesses. Collision, cavity and sensor setup
+are inputs; a Tau label is a potential detected output. Configurable collision
+cavity evolution and a celestial trajectory remain unimplemented.
