@@ -1,0 +1,9 @@
+Direct region execution now resolves repository imports before loading region_engine. The documented direct command and module invocation produce identical numerical, boundary and history results in normal and optimized Python. Relative to the preceding result, only the runner source hash changes.
+
+Validation: 511 unique test IDs per interpreter mode, 509 passed and two CUDA_ERROR_NO_DEVICE skips. Normal coverage combines the preserved completed portion of an interrupted standard run, an isolated successful reprobe, and a standard unittest continuation. A discarded custom continuation harness is recorded but contributes no coverage. Optimized standard discovery executes the full inventory. Raw logs, commands, outcomes, interruption records and source hashes are retained here. See REPORT.md and results.json for exact coverage.
+
+Pinned aod-lint passes all nine Typst manuscripts. This is manuscript lint, separate from the executable tests. Review found no remaining issue in the four-line launcher repair. No model law, native observation unit or accounting output changes.
+
+The tests bind the source state at baseline commit 1a7023fdde76b7f58ea88c3055fc1451d5c2a95b plus the launcher patch. Evidence files and SHA256SUMS were added/refreshed after validation; executable bytes remain those tested. This record does not claim GPU execution, new field evolution or a performance speedup. Prior failed example executions remain in the separate sealed Manual test evidence, rather than being rewritten as passes.
+
+Raw logs, all four byte-identical region outputs, per-test inventories, source snapshots, interruption records and execution drivers are retained byte-for-byte in `validation-logs.zip`. `ARCHIVE.json` binds its bytes and each input artifact. Only the final standard-suite coverage is accepted; the aborted custom harness is retained as excluded evidence.

@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "comparisons": [
+    {
+      "mode": "normal",
+      "direct_module_identical": true,
+      "changed_paths": [
+        {
+          "path": [
+            "source_sha256",
+            "runner"
+          ],
+          "old": "60c1615dc041e65f379c01f1007b01df6d200860285018e9862f670eb4e3600c",
+          "new": "fc4ca49704f3bdc29f5daccea0c318bdabe16294dffbbf3acdd9b9f759703d84"
+        }
+      ],
+      "original_equal_except_runner_sha256": true
+    },
+    {
+      "mode": "optimized",
+      "direct_module_identical": true,
+      "changed_paths": [
+        {
+          "path": [
+            "source_sha256",
+            "runner"
+          ],
+          "old": "60c1615dc041e65f379c01f1007b01df6d200860285018e9862f670eb4e3600c",
+          "new": "fc4ca49704f3bdc29f5daccea0c318bdabe16294dffbbf3acdd9b9f759703d84"
+        }
+      ],
+      "original_equal_except_runner_sha256": true
+    }
+  ],
+  "method": "Recursive value comparison of every leaf. Only $.source_sha256.runner may differ from pre-repair output."
+}

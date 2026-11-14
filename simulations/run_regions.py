@@ -19,6 +19,10 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 PROJECT = ROOT.parent
 
+# Direct script execution must expose the repository package imports.
+if __name__ == "__main__" and __package__ in (None, ""):
+    sys.path.insert(0, str(ROOT))
+
 
 def load(name, candidates):
     path = next((p for p in candidates if p.is_file()), None)
