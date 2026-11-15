@@ -1,0 +1,142 @@
+[
+  {
+    "mode": "normal",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.test_gpu_compiler",
+      "tests.test_boundary_accelerator",
+      "-v"
+    ],
+    "exit_code": 0,
+    "seconds": 12.309550846999628,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/0.log"
+  },
+  {
+    "mode": "normal",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "scripts/check_parallel_tracing.py",
+      "--workers",
+      "4",
+      "--gpu",
+      "required",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/tracing"
+    ],
+    "exit_code": 0,
+    "seconds": 22.421807259997877,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/1.log"
+  },
+  {
+    "mode": "normal",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "scripts/check_compiled_boundaries.py",
+      "--trace",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/tracing/trace",
+      "--workers",
+      "4",
+      "--gpu",
+      "required",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/compiled"
+    ],
+    "exit_code": 0,
+    "seconds": 23.76615151099395,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/2.log"
+  },
+  {
+    "mode": "normal",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "scripts/check_awareness_jit.py",
+      "--workers",
+      "2",
+      "--gpu",
+      "required",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/awareness"
+    ],
+    "exit_code": 0,
+    "seconds": 53.79812806099653,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/normal/3.log"
+  },
+  {
+    "mode": "optimized",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "-O",
+      "-m",
+      "unittest",
+      "tests.test_gpu_compiler",
+      "tests.test_boundary_accelerator",
+      "-v"
+    ],
+    "exit_code": 0,
+    "seconds": 14.918848606997926,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/0.log"
+  },
+  {
+    "mode": "optimized",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "-O",
+      "scripts/check_parallel_tracing.py",
+      "--workers",
+      "4",
+      "--gpu",
+      "required",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/tracing"
+    ],
+    "exit_code": 0,
+    "seconds": 33.06821556099749,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/1.log"
+  },
+  {
+    "mode": "optimized",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "-O",
+      "scripts/check_compiled_boundaries.py",
+      "--trace",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/tracing/trace",
+      "--workers",
+      "4",
+      "--gpu",
+      "required",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/compiled"
+    ],
+    "exit_code": 0,
+    "seconds": 38.25039805100096,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/2.log"
+  },
+  {
+    "mode": "optimized",
+    "command": [
+      "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+      "-B",
+      "-O",
+      "scripts/check_awareness_jit.py",
+      "--workers",
+      "2",
+      "--gpu",
+      "required",
+      "--output",
+      "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/awareness"
+    ],
+    "exit_code": 0,
+    "seconds": 61.26935371499712,
+    "log": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/compiler-device-final/optimized/3.log"
+  }
+]

@@ -1,0 +1,184 @@
+{
+  "archive_after": {
+    "archive_bytes": 921600,
+    "chain": "ebc93671b60c466f35a75f4cf5ecf5424b1f8b07f482581672905f6dc0666ae1",
+    "coverage": "complete",
+    "events": 145,
+    "failure": null,
+    "limits": {
+      "cache_bytes": 1048576,
+      "max_depth": 64,
+      "max_event_bytes": 262144,
+      "max_integer_bits": 8192,
+      "max_nodes": 32768,
+      "max_storage_bytes": 67108864
+    },
+    "metrics": {
+      "append_count": 0,
+      "archive_bytes_high_water": 921600,
+      "cache_budget_bytes": 1048576,
+      "checkpoint_bytes_high_water": 0,
+      "event_bytes_high_water": 0,
+      "io_ns": 0,
+      "queue_high_water": 0,
+      "replay_ns": 633972235,
+      "resident_identity_entries": 0
+    },
+    "scope": "store allocation caps; caller model, detector and OS RSS are measured separately",
+    "state": "complete"
+  },
+  "archive_before": {
+    "archive_bytes": 921600,
+    "chain": "ebc93671b60c466f35a75f4cf5ecf5424b1f8b07f482581672905f6dc0666ae1",
+    "coverage": "complete",
+    "events": 145,
+    "failure": null,
+    "limits": {
+      "cache_bytes": 1048576,
+      "max_depth": 64,
+      "max_event_bytes": 262144,
+      "max_integer_bits": 8192,
+      "max_nodes": 32768,
+      "max_storage_bytes": 67108864
+    },
+    "metrics": {
+      "append_count": 145,
+      "archive_bytes_high_water": 921600,
+      "cache_budget_bytes": 1048576,
+      "checkpoint_bytes_high_water": 0,
+      "event_bytes_high_water": 164620,
+      "io_ns": 2013213656,
+      "queue_high_water": 0,
+      "replay_ns": 362037647,
+      "resident_identity_entries": 0
+    },
+    "scope": "store allocation caps; caller model, detector and OS RSS are measured separately",
+    "state": "complete"
+  },
+  "boundary_groups": 16,
+  "coverage_scope": "declared-current",
+  "full_current_coverage": "partial",
+  "full_current_unresolved_groups": 2,
+  "gpu": {
+    "device": {
+      "compute_capability": [
+        8,
+        6
+      ],
+      "index": 0,
+      "name": "NVIDIA RTX A1000 6GB Laptop GPU"
+    },
+    "executed_jobs": 16,
+    "gpu_executed": true,
+    "launch_count": 16,
+    "scope": "device boundary classification with exact host assembly and validation",
+    "status": "PASS"
+  },
+  "multicore_participating_pids": [
+    129952,
+    129955,
+    129956,
+    129957
+  ],
+  "multicore_participating_processes": 4,
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "scope": "Actual retained boundary trace replay. Hardware execution does not add a physical clock, a flip probability or an orbital observable map. Timings include the measured pipeline; no speedup threshold or whole-engine acceleration claim.",
+  "serial_multicore_complete_equality": true,
+  "solar_detection": {
+    "chiral_flips": [
+      {
+        "after": -1,
+        "before": 1,
+        "committed": 14
+      },
+      {
+        "after": 1,
+        "before": -1,
+        "committed": 20
+      }
+    ],
+    "coverage": "complete",
+    "current_unit": "native-pressure-current",
+    "declared_routed_current": "2",
+    "failures": [],
+    "full_current": "unresolved surplus-to-current map",
+    "history_union": {
+      "bindings": 110,
+      "max_bindings": 100000,
+      "max_nodes": 500000,
+      "nodes": 1536,
+      "reason": null,
+      "status": "consistent"
+    },
+    "inspected_bytes": 714027,
+    "inspected_events": 145,
+    "physical_trajectory": false,
+    "route": {
+      "core": "Duon",
+      "form": "E2",
+      "receiver": "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9",
+      "record_digest": "62fb61454caa823d6711e2080e6b6fa41e6364ae2cdf18b4256f4c2fdaa48ce2",
+      "source": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+      "status": "verified",
+      "surplus": "3",
+      "surplus_unit": "native-closure-burden",
+      "target": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6"
+    },
+    "scope": "declared fixture route/current witness",
+    "source_waves": 4,
+    "status": "verified",
+    "verified_route_current_occurrences": 1
+  },
+  "solar_summary": {
+    "complement": [
+      "-4",
+      "3",
+      "0",
+      "-7",
+      "-6"
+    ],
+    "selected": [
+      "4",
+      "-3",
+      "0",
+      "7",
+      "6"
+    ],
+    "whole": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ]
+  },
+  "source_sha256": {
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+    "scripts/check_parallel_tracing.py": "6c77ae703b1f811bce0523843c389106ad6fc78504d846671efe2b297468eaf0",
+    "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+    "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+    "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618",
+    "simulations/kernels/boundary_incidence.cu": "1e15bcade556cf8805a7a8ced2dd9699e7ae3d87100b9a4ea386ce54b46119cc",
+    "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "simulations/run_regions.py": "d0f934b5af24455b20ead5befd1cc1e5e95806b9579df3f61e62bef365d12cb0",
+    "simulations/solar_boundary_fixture.py": "4edf64f0598db272a081c354e8b5442bac7a0e84996265d8c519439b1897ab62",
+    "simulations/trace_applications.py": "0d4014b8d718e60703da6105fa992b23f4bd5b53b1234e9bc884c03fc2e1f94f",
+    "simulations/trace_detectors.py": "ece0b8dc762f47fcc6c6ed5559b3d854149f357c6393f645dadcb1887bf73f99",
+    "simulations/trace_execution.py": "0c7038ce2059ecedb952f240095a52df6e4c68da87670429c902e8b35d154a14",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "simulations/trace_parallel.py": "31577ad9d1358d5fa9adf202826378e8f0c3a2add05016162eb9152df4c48627",
+    "simulations/trace_particle_relations.py": "fe604ebf9894f58b59e3f5ffe90cd9780266b98204c79606d6971ac80e91b190",
+    "simulations/trace_paths.py": "e29a5ffb8750613d62bcc95dd0ccc82d22d8e79c92c0c64c60eb0f73a556cafa",
+    "simulations/trace_store.py": "ea31598a0cdaa3a88d44503e0aec1d2bd17dbaad02ad563e90291427c8567853",
+    "simulations/trace_support.py": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
+  },
+  "status": "PASS",
+  "timing_seconds": {
+    "formation_and_trace_and_native_detection": 8.511207112002012,
+    "gpu_attempt": 10.972039646003395,
+    "multicore": 4.6378043520016945,
+    "scalar": 1.1530361919940333
+  },
+  "workers": 4
+}

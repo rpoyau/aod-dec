@@ -1,0 +1,33 @@
+{
+  "evidence_class": "exact arithmetic on carried O0 tokens, not native prediction",
+  "formula": "residual=value-target; relative_fraction=abs(residual)/abs(target); percent=100*relative_fraction",
+  "records": [
+    {
+      "name": "Mercury",
+      "value": "429799/10000",
+      "target": "2149/50",
+      "residual": "-1/10000",
+      "relative_fraction": "1/429800",
+      "percent_exact": "1/4298",
+      "percent_display": "0.00023266635644485808"
+    },
+    {
+      "name": "bending",
+      "value": "175001/100000",
+      "target": "7/4",
+      "residual": "1/100000",
+      "relative_fraction": "1/175000",
+      "percent_exact": "1/1750",
+      "percent_display": "0.0005714285714285715"
+    },
+    {
+      "name": "redshift",
+      "value": "52999/25000000000",
+      "target": "53/25000000",
+      "residual": "-1/25000000000",
+      "relative_fraction": "1/53000",
+      "percent_exact": "1/530",
+      "percent_display": "0.0018867924528301887"
+    }
+  ]
+}

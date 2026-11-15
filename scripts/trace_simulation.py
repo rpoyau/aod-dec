@@ -3,6 +3,7 @@
 from pathlib import Path
 from dataclasses import asdict, is_dataclass
 import argparse
+import hashlib
 import json
 import sys
 ROOT=Path(__file__).resolve().parents[1]
@@ -17,6 +18,7 @@ from simulations.trace_support import detect_particle_support
 from simulations.trace_particle_relations import detect_particle_relations
 from simulations.trace_encounter import replay_encounter
 from simulations.trace_paths import detect_sheddic_paths
+from simulations.chiral_gpu import GPUUnavailable
 
 
 def write(value, output=None):
@@ -31,7 +33,7 @@ def write(value, output=None):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('run');run.add_argument('--example',choices=['closure','fusion','coupling','regions','particles'],required=True)
+    run=sub.add_parser('run');run.add_argument('--example',choices=['closure','fusion','coupling','regions','particles','solar-boundaries'],required=True)
     run.add_argument('--trace',type=Path,required=True);run.add_argument('--output',type=Path);run.add_argument('--profile',type=Path)
     replay_parser=sub.add_parser('replay');replay_parser.add_argument('trace',type=Path);replay_parser.add_argument('--output',type=Path)
     support=sub.add_parser('support',help='infer native constructions from retained particle trace evidence')
@@ -46,6 +48,9 @@ def main():
     paths=sub.add_parser('paths',help='join source, shedding, route, support, seating and receipt evidence')
     paths.add_argument('trace',type=Path);paths.add_argument('--scope');paths.add_argument('--output',type=Path)
     boundaries=sub.add_parser('boundaries');boundaries.add_argument('trace',type=Path);boundaries.add_argument('--scope');boundaries.add_argument('--name');boundaries.add_argument('--output',type=Path)
+    boundaries.add_argument('--workers',type=int,default=1,help='CPU processes for scalar replay, or native threads for compiled-cpu')
+    boundaries.add_argument('--backend',choices=['scalar','multicore','gpu','compiled-cpu','compiled-gpu'],default='scalar',help='GPU is required when selected; no automatic fallback')
+    boundaries.add_argument('--coverage-scope',choices=['full','declared-current'],default='full',help='full also requires every crossing burden to have a signed-current map')
     inspect=sub.add_parser('inspect');inspect.add_argument('trace',type=Path);inspect.add_argument('--start',type=int,required=True)
     inspect.add_argument('--stop',type=int,required=True);inspect.add_argument('--scope');inspect.add_argument('--output',type=Path)
     finite=sub.add_parser('finite-scope');finite.add_argument('--detail',type=int,default=2);finite.add_argument('--steps',type=int,default=7);finite.add_argument('--output',type=Path)
@@ -56,6 +61,27 @@ def main():
         if args.command=='run':
             if args.example in ('closure','fusion','coupling'):
                 result=run_core((ROOT/'examples'/f'{args.example}.dec').read_text(),args.trace,run_id=args.example)
+            elif args.example=='solar-boundaries':
+                from simulations import solar_boundary_fixture as solar
+                modules=(solar,solar.n,solar.r,solar.r.accounting)
+                source={str(Path(module.__file__).relative_to(ROOT)):
+                    hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest() for module in modules}
+                manifest=run_manifest(args.example,source=source,
+                    kernel='existing-native-duon-and-declared-boundary-current',
+                    preparation='solar-boundary-fixture',backend='host-native-accounting')
+                with TraceStore(args.trace,manifest) as store:
+                    outcome=solar.run(store)
+                    store.finish()
+                    result={'outcome':outcome,'trace':store.status(),'backend':'host-native-accounting',
+                            'native_support':detect_particle_support(store),
+                            'native_relations':detect_particle_relations(store),
+                            'solar_trace':solar.inspect_trace(store),
+                            'profile':{'trace_storage':store.metrics,
+                                'scope':'native fixture formation, declared-current commitments and recoverable witnesses'}}
+                result['declared_boundaries']=boundary_views(args.trace,coverage_scope='declared-current')
+                result['full_boundaries']=boundary_views(args.trace,coverage_scope='full')
+                if any(hashlib.sha256((ROOT/path).read_bytes()).hexdigest()!=digest for path,digest in source.items()):
+                    raise ValueError('solar fixture sources changed during execution')
             else:
                 manifest=run_manifest(args.example,source={'base':'5a9368f6de286cde822963bac5f8de2620f08d5f'},
                     kernel='existing-source-bound-application',preparation=args.example,backend='host-accounting')
@@ -90,7 +116,8 @@ def main():
         elif args.command=='paths':
             with TraceStore.open(args.trace) as store:
                 write(detect_sheddic_paths(store,scope=args.scope),args.output)
-        elif args.command=='boundaries':write(boundary_views(args.trace,scope=args.scope,name=args.name),args.output)
+        elif args.command=='boundaries':write(boundary_views(args.trace,scope=args.scope,name=args.name,
+            workers=args.workers,backend=args.backend,coverage_scope=args.coverage_scope),args.output)
         elif args.command=='inspect':
             window=Window(args.start,args.stop)
             result=replay(args.trace,window=window,scope=args.scope)
@@ -111,6 +138,9 @@ def main():
             print(json.dumps({'rows':len(report['rows']),'results':str(args.output/'results.json')}))
         else:write(application_gaps(),args.output)
         return 0
+    except GPUUnavailable as exc:
+        print(json.dumps(exc.report),file=sys.stderr)
+        return 3
     except (ValueError,OSError) as exc:
         print(json.dumps({'status':'incomplete','error':str(exc)}),file=sys.stderr)
         return 2

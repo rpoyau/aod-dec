@@ -1,0 +1,98 @@
+[
+  {
+    "id": "SOL-01",
+    "status": "supported",
+    "claim": "Native scoped current uses committed RD/RCD, duration participation, channel pressure and oriented attention; nested boundaries preserve crossing/sweep/shedding.",
+    "anchors": [
+      "sections/06_field.tex:77-121",
+      "sections/06_field.tex:170-237",
+      "sections/06_field.tex:1183-1237",
+      "sections/06_field.tex:1320-1346"
+    ]
+  },
+  {
+    "id": "SOL-02",
+    "status": "supported",
+    "claim": "A chiral flip exchanges handed branch order through a retained hinge; neither Main equation supplies an intrinsic transition probability.",
+    "anchors": [
+      "sections/05_curl_closure_duon_current.tex:327-343",
+      "manual/sections/06_field_dynamics_applications.tex:543-568"
+    ]
+  },
+  {
+    "id": "SOL-03",
+    "status": "supported",
+    "claim": "The declared inverse-pressure response exists; its application inputs are committed before next response. Missing solar preparation is not a missing AOD update law.",
+    "anchors": [
+      "sections/06_field.tex:329-355",
+      "sections/06_field.tex:446-458"
+    ]
+  },
+  {
+    "id": "SOL-04",
+    "status": "conditional",
+    "claim": "Solar scopes and observable signatures are supplied; physical perihelion prediction depends on an evaluated native solar input preparation and numeric G_peri not supplied by this O0 record. This does not block a declared finite native solar-role boundary trace.",
+    "anchors": [
+      "manual/sections/05_solar_system_field_tests.tex:17-28",
+      "manual/sections/05_solar_system_field_tests.tex:62-98",
+      "manual/sections/05_solar_system_field_tests.tex:132-153"
+    ]
+  },
+  {
+    "id": "SOL-05",
+    "status": "supported",
+    "claim": "Exact Manual operands rho5/window4/C3=3/A=1/3 give pressure12/current4. Closure27-24 gives unsignedsurplus3 with separate route and retained-form obligations.",
+    "anchors": [
+      "manual/sections/04_boundary_current_applications.tex:85-142",
+      "manual/sections/00_dec_ledger.tex:337-353"
+    ]
+  },
+  {
+    "id": "SOL-06",
+    "status": "conditional",
+    "claim": "Implemented deterministic finite native fixture has real Duon returns, bound contact witnesses, whole-return flips, an admitted retained-pivot E2 route and complementary moving boundaries. Signs/motion/attention are declared input; no inferred orbit, decay or probability law.",
+    "anchors": [
+      "simulations/solar_boundary_fixture.py:run",
+      "tests/test_solar_boundary_fixture.py"
+    ]
+  },
+  {
+    "id": "SOL-07",
+    "status": "supported",
+    "claim": "Unsigned surplus3 and independently computed routed current2 are distinct quantities; a PendingProjection retains the unestablished conversion and prevents full selected/complement current claims.",
+    "anchors": [
+      "simulations/solar_boundary_fixture.py:run",
+      "simulations/solar_boundary_fixture.py:inspect_trace"
+    ]
+  },
+  {
+    "id": "SOL-08",
+    "status": "supported",
+    "claim": "Reopened source-bound adapter verifies the actual route/current/chiral witnesses using one shared bounded retained-history union; contradictory or missing evidence rejects all dependent output.",
+    "anchors": [
+      "simulations/solar_boundary_fixture.py:inspect_trace",
+      "tests/test_solar_boundary_fixture.py:test_reopened_route_detector_rejects_semantic_tampering"
+    ]
+  },
+  {
+    "id": "SOL-09",
+    "status": "not_checked",
+    "claim": "This child review did not measure CPU/GPU execution or acceleration of the new fixture. Root/backend agents own that evidence. Existing collision GPU executes supplied candidate tables while native admission remains on host.",
+    "anchors": [
+      "scripts/simulate_routing_parallel.py:133-164",
+      "scripts/simulate_routing_parallel.py:264",
+      "simulations/chiral_batch.py:compile_model_tables"
+    ]
+  },
+  {
+    "id": "SOL-10",
+    "status": "supported",
+    "claim": "SI is optional setup/observation mapping. The native fixture needs none. Native return counts do not independently determine physical cycles or a seconds-per-cut scale.",
+    "anchors": [
+      "sections/07_cell_measures_mappings.tex:79-105",
+      "sections/07_cell_measures_mappings.tex:140-156",
+      "manual/appendices/C_3d_coordinate_phase_cycle_delta3_fixture.tex:23-47",
+      "simulations/manual_si_fixture.py:conditional_prediction"
+    ]
+  }
+]

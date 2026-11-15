@@ -1,0 +1,21 @@
+{
+  "source": "tests/test_batch_cli.py",
+  "sha256": "f80b4182876147581fbcd8af3fce6b40ce547cb7ea90f7d4ab08bb4af2ac97f2",
+  "normal": {
+    "tests": 4,
+    "status": "PASS",
+    "seconds": 12.776
+  },
+  "optimized": {
+    "tests": 4,
+    "status": "PASS"
+  },
+  "production_edits": false,
+  "scope": [
+    "actual two-native-thread CLI execution",
+    "ordered mixed assertion results and process failure status",
+    "explicit int/bool overload selection",
+    "strict bool/int and input-shape rejection",
+    "zero-fuel JSON row errors"
+  ]
+}

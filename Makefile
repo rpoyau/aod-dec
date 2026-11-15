@@ -141,3 +141,27 @@ docs-field-frontiers:
 	mkdir -p $(BUILD_DIR)/field-frontiers
 	$(TYPST) compile --root . --creation-timestamp 1794700800 \
 		docs/field-frontiers.typ $(BUILD_DIR)/field-frontiers/field-frontiers.pdf
+
+.PHONY: check-parallel-tracing docs-parallel-tracing
+check-parallel-tracing:
+	$(PYTHON) -B scripts/check_parallel_tracing.py --workers 2 --gpu auto --output $(BUILD_DIR)/parallel-tracing/normal
+	$(PYTHON) -B -O scripts/check_parallel_tracing.py --workers 2 --gpu auto --output $(BUILD_DIR)/parallel-tracing/optimized
+
+docs-parallel-tracing:
+	mkdir -p $(BUILD_DIR)/parallel-tracing
+	$(TYPST) compile --root . --creation-timestamp 1794700800 \
+		docs/parallel-boundary-tracing.typ $(BUILD_DIR)/parallel-tracing/parallel-boundary-tracing.pdf
+
+.PHONY: check-compiled-boundaries check-awareness-jit docs-parallel-compiler
+check-compiled-boundaries:
+	$(PYTHON) -B scripts/check_compiled_boundaries.py --trace $(BUILD_DIR)/parallel-tracing/normal/trace --workers 2 --gpu auto --output $(BUILD_DIR)/compiled-boundaries/normal
+	$(PYTHON) -B -O scripts/check_compiled_boundaries.py --trace $(BUILD_DIR)/parallel-tracing/optimized/trace --workers 2 --gpu auto --output $(BUILD_DIR)/compiled-boundaries/optimized
+
+check-awareness-jit:
+	$(PYTHON) -B scripts/check_awareness_jit.py --gpu auto --output $(BUILD_DIR)/awareness-jit/normal
+	$(PYTHON) -B -O scripts/check_awareness_jit.py --gpu auto --output $(BUILD_DIR)/awareness-jit/optimized
+
+docs-parallel-compiler:
+	mkdir -p $(BUILD_DIR)/compiled-boundaries
+	$(TYPST) compile --root . --creation-timestamp 1794700800 \
+		docs/parallel-compiler.typ $(BUILD_DIR)/compiled-boundaries/parallel-compiler.pdf

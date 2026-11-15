@@ -1,0 +1,1460 @@
+{
+  "paths": {
+    "accounting_coverage": "unavailable",
+    "alternative_windows_additive": false,
+    "alternatives": [],
+    "counts": {
+      "partial": 0,
+      "paths": 0,
+      "pending_or_unobserved": 0,
+      "pending_receipt": 0,
+      "received": 0,
+      "unobserved_open_loss": 0
+    },
+    "coverage": "unavailable",
+    "coverage_claim": "recorded native shedding through checked accounting and recipient witnesses",
+    "detector": "native-sheddic-evidence-paths-v1",
+    "encounter": {
+      "coverage": "unavailable",
+      "reason": "legacy retained snapshots contain no initialization/update/finish stream"
+    },
+    "encounter_ancestry": {
+      "reason": "legacy retained snapshots contain no initialization/update/finish stream",
+      "status": "unavailable"
+    },
+    "failures": [],
+    "native_relation_coverage": "complete",
+    "paths": [],
+    "population_to_path_coverage": "unavailable",
+    "resources": {
+      "events": 145,
+      "expanded_bytes": 0,
+      "serialized_bytes": 714027
+    },
+    "routing_plan": {
+      "reason": "no source-bound routing setup commitment",
+      "status": "unavailable"
+    },
+    "sensor_interaction": {
+      "reason": "receipt and seating do not establish sensor collision dynamics",
+      "status": "unavailable"
+    },
+    "terminal_routing": {
+      "reason": "no independent terminal routing snapshot",
+      "status": "unavailable"
+    }
+  },
+  "relations": {
+    "absence_semantics": "missing relation evidence is unavailable, never false",
+    "alternative_windows_additive": false,
+    "archive_coverage": "complete",
+    "couplings": [
+      {
+        "comparison_interval": [
+          0,
+          20
+        ],
+        "contacts": [
+          "solar-full-contact:9fed7163ec8cf7d5fe6077e0e4933f6f2cd5eb71a377a6ae09f2f6ba793c5753",
+          "solar-full-contact:5364a1fc943417857313eb1538d51da61a31e9ed113570ca2d6cf52294cf8397",
+          "solar-full-contact:5bee1c9810703c459a80aaa5b6d9c17de49dcc9841d103c1f9a6c02a8b888192",
+          "solar-full-contact:bf91d6cdc657df70a7708175e79b6529cc5acc0c9eb46ff6730f75654bd2c706",
+          "solar-full-contact:986844338bb6531180bd812ecb505222390e774120885d1dce4a2abd955e697e"
+        ],
+        "event_id": "f179eb3325768011ac0d8a9d2367b16950522d1ae85f426c94d3ac44e761c0eb",
+        "forward": {
+          "bias": "0",
+          "drift": "0",
+          "duration": 9,
+          "lag": "0",
+          "ratio": "1",
+          "rcd": {
+            "contact_ids": [
+              "solar-full-contact:9fed7163ec8cf7d5fe6077e0e4933f6f2cd5eb71a377a6ae09f2f6ba793c5753",
+              "solar-full-contact:5364a1fc943417857313eb1538d51da61a31e9ed113570ca2d6cf52294cf8397",
+              "solar-full-contact:5bee1c9810703c459a80aaa5b6d9c17de49dcc9841d103c1f9a6c02a8b888192",
+              "solar-full-contact:bf91d6cdc657df70a7708175e79b6529cc5acc0c9eb46ff6730f75654bd2c706",
+              "solar-full-contact:986844338bb6531180bd812ecb505222390e774120885d1dce4a2abd955e697e"
+            ],
+            "domain": "native-return-count",
+            "left": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+            "reflection_counts": [
+              2,
+              1,
+              1,
+              1,
+              1
+            ],
+            "right": "a5a47b6d3e1d55391752d1e7803bf0bbe84960ea9cd72ddaf3618096c17d7754",
+            "scope": "declared:solar-boundary-duon-fixture",
+            "support": 3
+          }
+        },
+        "left": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+        "reverse": {
+          "bias": "0",
+          "drift": "0",
+          "duration": 9,
+          "lag": "0",
+          "ratio": "1",
+          "rcd": {
+            "contact_ids": [
+              "solar-full-contact:9fed7163ec8cf7d5fe6077e0e4933f6f2cd5eb71a377a6ae09f2f6ba793c5753",
+              "solar-full-contact:5364a1fc943417857313eb1538d51da61a31e9ed113570ca2d6cf52294cf8397",
+              "solar-full-contact:5bee1c9810703c459a80aaa5b6d9c17de49dcc9841d103c1f9a6c02a8b888192",
+              "solar-full-contact:bf91d6cdc657df70a7708175e79b6529cc5acc0c9eb46ff6730f75654bd2c706",
+              "solar-full-contact:986844338bb6531180bd812ecb505222390e774120885d1dce4a2abd955e697e"
+            ],
+            "domain": "native-return-count",
+            "left": "a5a47b6d3e1d55391752d1e7803bf0bbe84960ea9cd72ddaf3618096c17d7754",
+            "reflection_counts": [
+              2,
+              1,
+              1,
+              1,
+              1
+            ],
+            "right": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+            "scope": "declared:solar-boundary-duon-fixture",
+            "support": 3
+          }
+        },
+        "right": "a5a47b6d3e1d55391752d1e7803bf0bbe84960ea9cd72ddaf3618096c17d7754",
+        "scope": "declared:solar-boundary-duon-fixture",
+        "status": "verified"
+      },
+      {
+        "comparison_interval": [
+          0,
+          33
+        ],
+        "contacts": [
+          "solar-full-contact:f00b823d9adc36af3978beac709a671c456e4c621a711d013f7d165f49444236",
+          "solar-full-contact:c0c4088190970c5e3bd240461e9a48c5150e9cf3c2ffee8f081f60ec25258593"
+        ],
+        "event_id": "72e3448ccfb8b25d60fe9c56235cb5ca1e7ffc1a048ad20903e6c2c521a2b267",
+        "forward": {
+          "bias": "0",
+          "drift": "0",
+          "duration": 6,
+          "lag": "0",
+          "ratio": "1",
+          "rcd": {
+            "contact_ids": [
+              "solar-full-contact:f00b823d9adc36af3978beac709a671c456e4c621a711d013f7d165f49444236",
+              "solar-full-contact:c0c4088190970c5e3bd240461e9a48c5150e9cf3c2ffee8f081f60ec25258593"
+            ],
+            "domain": "native-return-count",
+            "left": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6",
+            "reflection_counts": [
+              2,
+              1
+            ],
+            "right": "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9",
+            "scope": "declared:solar-boundary-duon-fixture",
+            "support": 3
+          }
+        },
+        "left": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6",
+        "reverse": {
+          "bias": "0",
+          "drift": "0",
+          "duration": 6,
+          "lag": "0",
+          "ratio": "1",
+          "rcd": {
+            "contact_ids": [
+              "solar-full-contact:f00b823d9adc36af3978beac709a671c456e4c621a711d013f7d165f49444236",
+              "solar-full-contact:c0c4088190970c5e3bd240461e9a48c5150e9cf3c2ffee8f081f60ec25258593"
+            ],
+            "domain": "native-return-count",
+            "left": "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9",
+            "reflection_counts": [
+              2,
+              1
+            ],
+            "right": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6",
+            "scope": "declared:solar-boundary-duon-fixture",
+            "support": 3
+          }
+        },
+        "right": "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9",
+        "scope": "declared:solar-boundary-duon-fixture",
+        "status": "verified"
+      }
+    ],
+    "coverage": "complete",
+    "coverage_claim": "recorded native relations and retained formation witnesses; no cavity evolution completeness claim",
+    "detector": "native-particle-relations-v1",
+    "failures": [],
+    "folds": [
+      {
+        "event_id": "447120704a5abb9a15ae6a5048939359c21f7d9c3102707c982cc210972e213e",
+        "inner_wave_ids": [
+          "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+          "a5a47b6d3e1d55391752d1e7803bf0bbe84960ea9cd72ddaf3618096c17d7754"
+        ],
+        "outer_return_id": "29c6b518463688f0fcd02b5b20e632a9d78967d7d45d8febd387c9af79ab1236",
+        "scope": "declared:solar-boundary-duon-fixture:outer",
+        "status": "verified"
+      }
+    ],
+    "history_union": {
+      "bindings": 138,
+      "max_bindings": 100000,
+      "max_nodes": 500000,
+      "nodes": 1050,
+      "reason": null,
+      "status": "consistent"
+    },
+    "inspected_events": 145,
+    "retained_bytes": 714027,
+    "seating": [],
+    "shedding": [],
+    "states": [],
+    "waves": {
+      "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6": {
+        "closure": {
+          "beats": 2,
+          "phases": 3,
+          "status": "verified"
+        },
+        "core": "Duon",
+        "coupling": {
+          "records": [
+            "72e3448ccfb8b25d60fe9c56235cb5ca1e7ffc1a048ad20903e6c2c521a2b267"
+          ],
+          "status": "verified"
+        },
+        "lineage": "solar-role:sun",
+        "return_ids": [
+          "3fa9f01799ff6ff52f58ebca04759c182f7928f0543f242a1ea3d8ecbd101c36",
+          "345b23c13df1cad4856b6ead3ed2519bd9a8466f380206f652b5536fdc2a2b50",
+          "aa147e6000604461cacf03edd52ce4e71da6c54d790f159fc38402dbd9097cbb"
+        ],
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "records": [],
+          "status": "unavailable"
+        },
+        "shedding": {
+          "records": [],
+          "status": "unavailable"
+        }
+      },
+      "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8": {
+        "closure": {
+          "beats": 5,
+          "phases": 6,
+          "status": "verified"
+        },
+        "core": "Duon",
+        "coupling": {
+          "records": [
+            "f179eb3325768011ac0d8a9d2367b16950522d1ae85f426c94d3ac44e761c0eb"
+          ],
+          "status": "verified"
+        },
+        "lineage": "solar-role:sun",
+        "return_ids": [
+          "2dd3a2620d0d8ce7a87a9739353c7dd3c201e6c0e11566d27dbd1e93dbcfdb2b",
+          "e906160d580e9f655da4e0f0b8cffc0e5d8ba1065adefc93df1c9b5e5a8b7709",
+          "8083faa68b4626b0f587bff3ea32030cd241002b6709b3c762f84eaad20f693f",
+          "59029fc1217b69a194d29a3840878495067c22c5f585bac9577cdde018bc3cee",
+          "79fdc226ac4e251a8d1ae016f712ca81e342da74fe72e63e51e55675005aa0a5",
+          "dce0fd243d5e3d58340659ccc4c8c60f9be4913e2184dd0c79177ba44d9f3453"
+        ],
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "records": [],
+          "status": "unavailable"
+        },
+        "shedding": {
+          "records": [],
+          "status": "unavailable"
+        }
+      },
+      "a5a47b6d3e1d55391752d1e7803bf0bbe84960ea9cd72ddaf3618096c17d7754": {
+        "closure": {
+          "beats": 5,
+          "phases": 6,
+          "status": "verified"
+        },
+        "core": "Duon",
+        "coupling": {
+          "records": [
+            "f179eb3325768011ac0d8a9d2367b16950522d1ae85f426c94d3ac44e761c0eb"
+          ],
+          "status": "verified"
+        },
+        "lineage": "solar-role:mercury",
+        "return_ids": [
+          "2e93bd2eb4ce74b2801c6fdcfe1e88e223da6d2e4008b35c60ce487fa2dbeb0e",
+          "49562a278d90ffcf9771058f175381b35800b6a661fae78cebf431277561f78f",
+          "7b556abe96ac2b8c38a45156f867ff68a66a3eadee742b85552c9c49cbeed32d",
+          "e233f33f1255ce51be5585891e3989b525fd0c074cc0f5b766f6d45f0eec678c",
+          "ef1660bc8e89c3b31ec1151a06993c08c988fc0b8740cb7ca2421bcb8ea09d21",
+          "b51889133d24a76af23f252aedfec245911050dc5beba76f8e25e639e0848f06"
+        ],
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "records": [],
+          "status": "unavailable"
+        },
+        "shedding": {
+          "records": [],
+          "status": "unavailable"
+        }
+      },
+      "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9": {
+        "closure": {
+          "beats": 2,
+          "phases": 3,
+          "status": "verified"
+        },
+        "core": "Duon",
+        "coupling": {
+          "records": [
+            "72e3448ccfb8b25d60fe9c56235cb5ca1e7ffc1a048ad20903e6c2c521a2b267"
+          ],
+          "status": "verified"
+        },
+        "lineage": "solar-role:route-receiver",
+        "return_ids": [
+          "53d716112bc8f3f6e65791fbd32b489a3b42ffe919b8f7fbb242770cc54676af",
+          "5571291e8e04f42a98b60205a0ba67aec19c9277d19014f025fe3759d9269f9a",
+          "1994ed04b27156ad66827a68ae78e3e99f2ab37b8a7fc8648d90d8012203766a"
+        ],
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "records": [],
+          "status": "unavailable"
+        },
+        "shedding": {
+          "records": [],
+          "status": "unavailable"
+        }
+      }
+    }
+  },
+  "support": {
+    "application_classification": {
+      "reason": "structural detection alone does not classify an application or species",
+      "status": "unavailable",
+      "value": null
+    },
+    "censored": [],
+    "coverage": "complete",
+    "coverage_claim": "retained native formation witnesses only; no complete cavity evolution claim",
+    "detector": "native-support-from-construction-v1",
+    "errors": [],
+    "event_identity_rule": "native retained return identity; view parameters never create a new occurrence",
+    "history_union": {
+      "bindings": 84,
+      "max_bindings": 100000,
+      "max_nodes": 500000,
+      "nodes": 288,
+      "reason": null,
+      "status": "consistent"
+    },
+    "input_capture": {
+      "mode": "typed-native-return-snapshots",
+      "scope": "retained committed return evidence; no claim to observe all open collision paths",
+      "status": "available"
+    },
+    "input_groups": {
+      "mercury-role": {
+        "capture_records": 6,
+        "status": "present"
+      },
+      "route-receiver-role": {
+        "capture_records": 3,
+        "status": "present"
+      },
+      "sheddic-E2-role": {
+        "capture_records": 3,
+        "status": "present"
+      },
+      "solar-role": {
+        "capture_records": 6,
+        "status": "present"
+      }
+    },
+    "observed_formations": 18,
+    "record_window": null,
+    "resources": {
+      "expanded_bytes": 0,
+      "scanned_bytes": 714027,
+      "scanned_events": 145
+    },
+    "returns": [
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "bad7938a734c37336675eb6db2cfe016c98deacffbdcb91f15f29b0817e29b98",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "bad7938a734c37336675eb6db2cfe016c98deacffbdcb91f15f29b0817e29b98",
+          "return_id": "2dd3a2620d0d8ce7a87a9739353c7dd3c201e6c0e11566d27dbd1e93dbcfdb2b",
+          "status": "verified"
+        },
+        "committed_cut": 5,
+        "component_return_ids": [
+          "7cd465bc76c79b17df0ed1101c4f30878269fcc7c66c7cc8dd024060e6b06051"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "bd9ad2b52090d0395e50a54c4b3de24b6d3a93ae4352c28bb0030f2f6aeb2151"
+        ],
+        "family": "solar-role",
+        "first_cut": 3,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:1:e0",
+          "solar-role:sun:1:e1",
+          "solar-role:sun:1:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "2dd3a2620d0d8ce7a87a9739353c7dd3c201e6c0e11566d27dbd1e93dbcfdb2b",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "5a2ff374892a647e714f96fe5702cf64fdda76f52189505c6baa0ae56ff7f294",
+        "witness_digest": "eea2897c8b0e248ad58f3d29741a1bca291b758f6ecd25f660276f99b015e451"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "bfdd5111d2c6ec56f6d63c842ee9dba854c5767d002b466f7f79fedad098700e",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "bfdd5111d2c6ec56f6d63c842ee9dba854c5767d002b466f7f79fedad098700e",
+          "return_id": "e906160d580e9f655da4e0f0b8cffc0e5d8ba1065adefc93df1c9b5e5a8b7709",
+          "status": "verified"
+        },
+        "committed_cut": 8,
+        "component_return_ids": [
+          "7cd465bc76c79b17df0ed1101c4f30878269fcc7c66c7cc8dd024060e6b06051"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "26326100c974ba84877d505dbf55d0ffbabca49fed32aa87d29947427f76ce78"
+        ],
+        "family": "solar-role",
+        "first_cut": 6,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:2:e0",
+          "solar-role:sun:2:e1",
+          "solar-role:sun:2:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "e906160d580e9f655da4e0f0b8cffc0e5d8ba1065adefc93df1c9b5e5a8b7709",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "469aed1f5df014dfa0c8a0da74e6d4b6256df0356d0fad40eeab52d95ae703d9",
+        "witness_digest": "7fa001b6b87b3592062ce869e6e645b267b40629c62a99aa019ecd47a7ae27bb"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "49b1ff674f6424a143462714140a45e562802015368792933c22d9fa5bdf95c6",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "49b1ff674f6424a143462714140a45e562802015368792933c22d9fa5bdf95c6",
+          "return_id": "8083faa68b4626b0f587bff3ea32030cd241002b6709b3c762f84eaad20f693f",
+          "status": "verified"
+        },
+        "committed_cut": 11,
+        "component_return_ids": [
+          "7cd465bc76c79b17df0ed1101c4f30878269fcc7c66c7cc8dd024060e6b06051"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "c26a1e7fbd357e5fa8c410c7590ce1efbe256a806ad71fe6a46725e1eec1339a"
+        ],
+        "family": "solar-role",
+        "first_cut": 9,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:3:e0",
+          "solar-role:sun:3:e1",
+          "solar-role:sun:3:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "8083faa68b4626b0f587bff3ea32030cd241002b6709b3c762f84eaad20f693f",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "241654e4838e3159334c66efe99744ea19f91649ed967e6d5fb0e0dbe944faa5",
+        "witness_digest": "ac26d0fc04e62494025fdcc5413043b69b17482d5a8b21bc279ab8c98dc233b7"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "a29d8281936b00ad908a567f7ca489f7645b64c456c8008e8b0b318837063e03",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "a29d8281936b00ad908a567f7ca489f7645b64c456c8008e8b0b318837063e03",
+          "return_id": "59029fc1217b69a194d29a3840878495067c22c5f585bac9577cdde018bc3cee",
+          "status": "verified"
+        },
+        "committed_cut": 14,
+        "component_return_ids": [
+          "7cd465bc76c79b17df0ed1101c4f30878269fcc7c66c7cc8dd024060e6b06051"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "6855648268c51f7d8f51c0ab5019d33f5000e2e33773fb0fe2f116ea7e73fa3e"
+        ],
+        "family": "solar-role",
+        "first_cut": 12,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:4:e0",
+          "solar-role:sun:4:e1",
+          "solar-role:sun:4:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "59029fc1217b69a194d29a3840878495067c22c5f585bac9577cdde018bc3cee",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "751dde329987aec12f80772e527d11f52adfa513c70bac562c52ca9560c543b8",
+        "witness_digest": "3f49ec5adc04981433e023fcad70f5329ce474bfac022d3714cc9bd77252cb9b"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "b94f70076f2d5fa4222f3ba18955a8288647d771b5086bffcd0b926e1fef43cf",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "b94f70076f2d5fa4222f3ba18955a8288647d771b5086bffcd0b926e1fef43cf",
+          "return_id": "79fdc226ac4e251a8d1ae016f712ca81e342da74fe72e63e51e55675005aa0a5",
+          "status": "verified"
+        },
+        "committed_cut": 17,
+        "component_return_ids": [
+          "7cd465bc76c79b17df0ed1101c4f30878269fcc7c66c7cc8dd024060e6b06051"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "0d64f829a45d15d9f17404341814bef96ce3e90732f6bb4e5dde0661d09e41bc"
+        ],
+        "family": "solar-role",
+        "first_cut": 15,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:5:e0",
+          "solar-role:sun:5:e1",
+          "solar-role:sun:5:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "79fdc226ac4e251a8d1ae016f712ca81e342da74fe72e63e51e55675005aa0a5",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "e4ca8f964655e3adec7a0a79ad80a69180be7137fc2a1e3f180a123828d5bba5",
+        "witness_digest": "d2d34de54c2578b9ec1d8c6a37ec4d64ae1b4151265afcd659a83e33fb31cbf9"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "011d0b69b4ce1fbb6ad7068790cb9e31c3c1091ce0ff3b1a703f13c369b21603",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "011d0b69b4ce1fbb6ad7068790cb9e31c3c1091ce0ff3b1a703f13c369b21603",
+          "return_id": "dce0fd243d5e3d58340659ccc4c8c60f9be4913e2184dd0c79177ba44d9f3453",
+          "status": "verified"
+        },
+        "committed_cut": 20,
+        "component_return_ids": [
+          "7cd465bc76c79b17df0ed1101c4f30878269fcc7c66c7cc8dd024060e6b06051"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "182867887ae4193f8e88d32a86484bc7b2735f1ecac74af1814d23a22f8ab1f3"
+        ],
+        "family": "solar-role",
+        "first_cut": 18,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:6:e0",
+          "solar-role:sun:6:e1",
+          "solar-role:sun:6:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "dce0fd243d5e3d58340659ccc4c8c60f9be4913e2184dd0c79177ba44d9f3453",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "f6edeb480f93ef5a56935b32570bddd036db4a5de4fca2bd8d9c7c63e0f55ed1",
+        "witness_digest": "3faf5c7210cfb27bd77c0abf84ecff6df94b941a852bdaa7e1ebc29102739912"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "478a42334a3682e65db7699544288f718c3150afd0c2c2118df89c744d50ddcf",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "478a42334a3682e65db7699544288f718c3150afd0c2c2118df89c744d50ddcf",
+          "return_id": "2e93bd2eb4ce74b2801c6fdcfe1e88e223da6d2e4008b35c60ce487fa2dbeb0e",
+          "status": "verified"
+        },
+        "committed_cut": 5,
+        "component_return_ids": [
+          "ac10da0a96d6ee2dc8767e7fdf43a5d1320ec3e7a03efa99c5049c95a1c8dbc9"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "6e476b3b2d649400c0592682221ba66ed2d666a4655b52ca6332febcafd94140"
+        ],
+        "family": "mercury-role",
+        "first_cut": 3,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:mercury",
+        "native_event_ids": [
+          "solar-role:mercury:1:e0",
+          "solar-role:mercury:1:e1",
+          "solar-role:mercury:1:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "2e93bd2eb4ce74b2801c6fdcfe1e88e223da6d2e4008b35c60ce487fa2dbeb0e",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "dde98a315449c88c232bc9b3745effeac8a88ba629c35a7a0b2f0ebc7beaace0",
+        "witness_digest": "8beceef56cb13549f4dba2fa3f7d1979dbb304706a18f78a5097d212522d9f64"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "cdd2ab024aa858397ed0388b1c9084bd83d5cf92db777560241e617226c2593d",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "cdd2ab024aa858397ed0388b1c9084bd83d5cf92db777560241e617226c2593d",
+          "return_id": "49562a278d90ffcf9771058f175381b35800b6a661fae78cebf431277561f78f",
+          "status": "verified"
+        },
+        "committed_cut": 8,
+        "component_return_ids": [
+          "ac10da0a96d6ee2dc8767e7fdf43a5d1320ec3e7a03efa99c5049c95a1c8dbc9"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "87f1ffe8175e4e61ca9a5b098d6a6a92cdf97a6c3f33b6db9f9180f1a482679c"
+        ],
+        "family": "mercury-role",
+        "first_cut": 6,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:mercury",
+        "native_event_ids": [
+          "solar-role:mercury:2:e0",
+          "solar-role:mercury:2:e1",
+          "solar-role:mercury:2:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "49562a278d90ffcf9771058f175381b35800b6a661fae78cebf431277561f78f",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "8cc7c41735a6258255a141e8990b0617dcc683dc0215ddc9ccf042387584e68c",
+        "witness_digest": "129acf4478bc761cfb53f977f0d844978add2c36bccd3e514e3a33c630008930"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "320bf714c729cac9e35f5d515bfa91a709fa12a7953cb3c9065eb183301bb4ee",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "320bf714c729cac9e35f5d515bfa91a709fa12a7953cb3c9065eb183301bb4ee",
+          "return_id": "7b556abe96ac2b8c38a45156f867ff68a66a3eadee742b85552c9c49cbeed32d",
+          "status": "verified"
+        },
+        "committed_cut": 11,
+        "component_return_ids": [
+          "ac10da0a96d6ee2dc8767e7fdf43a5d1320ec3e7a03efa99c5049c95a1c8dbc9"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "c2b2e8d18f5bc7516caff2446ef95da8dba4f7a976d6edb0c9b5db18db9c9d1d"
+        ],
+        "family": "mercury-role",
+        "first_cut": 9,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:mercury",
+        "native_event_ids": [
+          "solar-role:mercury:3:e0",
+          "solar-role:mercury:3:e1",
+          "solar-role:mercury:3:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "7b556abe96ac2b8c38a45156f867ff68a66a3eadee742b85552c9c49cbeed32d",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "ea667f054b1e8a08c00ec9a55fc9eacf151a78707d4e9c10f017ce635e117ae2",
+        "witness_digest": "53967fe6203729ce7913fa63488c65e3af7cd06ff7264aeb0d8c564fc0fc526a"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "eaf41f9669ef79d560b6611210f0ef7e026d26efc8cef19cd223211fde3fb760",
+        "chirality": -1,
+        "closure": {
+          "certificate_digest": "eaf41f9669ef79d560b6611210f0ef7e026d26efc8cef19cd223211fde3fb760",
+          "return_id": "e233f33f1255ce51be5585891e3989b525fd0c074cc0f5b766f6d45f0eec678c",
+          "status": "verified"
+        },
+        "committed_cut": 14,
+        "component_return_ids": [
+          "ac10da0a96d6ee2dc8767e7fdf43a5d1320ec3e7a03efa99c5049c95a1c8dbc9"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "2c05e37a6ab7a55087e2896834446476ffe3328bd9b4090e9999e4aee226882a"
+        ],
+        "family": "mercury-role",
+        "first_cut": 12,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:mercury",
+        "native_event_ids": [
+          "solar-role:mercury:4:e0",
+          "solar-role:mercury:4:e1",
+          "solar-role:mercury:4:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "e233f33f1255ce51be5585891e3989b525fd0c074cc0f5b766f6d45f0eec678c",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "48d14d7094c5cdae4bf6bd9fca5272e2e7a8870cf81918e9f703f6cfe66b5629",
+        "witness_digest": "f9d9eb0167f8662df5103126bd7e8621d61ca734b403d057cb91fe366cd7a66f"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "d4bf64e3ec08f347cf7ff847443a195b8ea142094644d69494a58c8cbb109de1",
+        "chirality": -1,
+        "closure": {
+          "certificate_digest": "d4bf64e3ec08f347cf7ff847443a195b8ea142094644d69494a58c8cbb109de1",
+          "return_id": "ef1660bc8e89c3b31ec1151a06993c08c988fc0b8740cb7ca2421bcb8ea09d21",
+          "status": "verified"
+        },
+        "committed_cut": 17,
+        "component_return_ids": [
+          "ac10da0a96d6ee2dc8767e7fdf43a5d1320ec3e7a03efa99c5049c95a1c8dbc9"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "1e3b3f9519069587c38a18ceeb655bfaf56fd93f9ecf39d9b3eec7f80683428d"
+        ],
+        "family": "mercury-role",
+        "first_cut": 15,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:mercury",
+        "native_event_ids": [
+          "solar-role:mercury:5:e0",
+          "solar-role:mercury:5:e1",
+          "solar-role:mercury:5:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "ef1660bc8e89c3b31ec1151a06993c08c988fc0b8740cb7ca2421bcb8ea09d21",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "b4d2809960fc7628c0214e388b1b75e5feedc83bae437de4ad9272470d895ebe",
+        "witness_digest": "b34e91b8927de6e4d256f8a326a6fbce7d3fbb5479d9a8e561160b96618cc33e"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "4381d075bd40622efb8b91722dd21ad484bac0617ff8590314acb615bdff67bd",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "4381d075bd40622efb8b91722dd21ad484bac0617ff8590314acb615bdff67bd",
+          "return_id": "b51889133d24a76af23f252aedfec245911050dc5beba76f8e25e639e0848f06",
+          "status": "verified"
+        },
+        "committed_cut": 20,
+        "component_return_ids": [
+          "ac10da0a96d6ee2dc8767e7fdf43a5d1320ec3e7a03efa99c5049c95a1c8dbc9"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "96ec686c0dd67c7b6ca75f35544f1a03b429603ccaa17e997687154121149234"
+        ],
+        "family": "mercury-role",
+        "first_cut": 18,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:mercury",
+        "native_event_ids": [
+          "solar-role:mercury:6:e0",
+          "solar-role:mercury:6:e1",
+          "solar-role:mercury:6:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "b51889133d24a76af23f252aedfec245911050dc5beba76f8e25e639e0848f06",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "72779dc8b366d2b8fa207569fffb152b252c7c258c36f3e247d9881df3ae5f16",
+        "witness_digest": "76bdb1e9b051a914a84df95469c769859fd82c0078a2c89fd2fbe1d33acfa9e9"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "d7bdbae030a04ea9dd0d5b98311d94e8e389beb1f93a5fb74c194e13692899f0",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "d7bdbae030a04ea9dd0d5b98311d94e8e389beb1f93a5fb74c194e13692899f0",
+          "return_id": "3fa9f01799ff6ff52f58ebca04759c182f7928f0543f242a1ea3d8ecbd101c36",
+          "status": "verified"
+        },
+        "committed_cut": 27,
+        "component_return_ids": [
+          "dce0fd243d5e3d58340659ccc4c8c60f9be4913e2184dd0c79177ba44d9f3453"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "54b534c8503f88b05ea32b359c7ed7c9869fcec99b3a0dabc51ad0e37b263eae"
+        ],
+        "family": "sheddic-E2-role",
+        "first_cut": 25,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:100:e0",
+          "solar-role:sun:100:e1",
+          "solar-role:sun:100:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "3fa9f01799ff6ff52f58ebca04759c182f7928f0543f242a1ea3d8ecbd101c36",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "3f192a976f97c5823053f8e78cb1f58f6994ae972c773442f1494bfcd1820a5f",
+        "witness_digest": "bdd378d5ba4c4f7ba324329e476370a22e498bdd2aee71b78526d2b34cd50bb1"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "2e31aa4d1458be19041f2f52848e5e3d85a5834d7c2faa78bba61f6d44c803d1",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "2e31aa4d1458be19041f2f52848e5e3d85a5834d7c2faa78bba61f6d44c803d1",
+          "return_id": "345b23c13df1cad4856b6ead3ed2519bd9a8466f380206f652b5536fdc2a2b50",
+          "status": "verified"
+        },
+        "committed_cut": 30,
+        "component_return_ids": [
+          "dce0fd243d5e3d58340659ccc4c8c60f9be4913e2184dd0c79177ba44d9f3453"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "a00d8294d376c28872ea532cd55e7beb533b0b37ec73499b52ff8b476fc3bcef"
+        ],
+        "family": "sheddic-E2-role",
+        "first_cut": 28,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:101:e0",
+          "solar-role:sun:101:e1",
+          "solar-role:sun:101:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "345b23c13df1cad4856b6ead3ed2519bd9a8466f380206f652b5536fdc2a2b50",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "86a7163f38c3b3dd3ec3ddde78e65b25f27d1fa9eecf7417ebe91484fe655611",
+        "witness_digest": "387e0a756398d148dd79a582236d906d2a78ec4cb49a52aa8dad1ead4f2bf99e"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "fc067a89ed740e01c2c7cd103698311a4f595f0b7fb647965e785c7e5858db59",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "fc067a89ed740e01c2c7cd103698311a4f595f0b7fb647965e785c7e5858db59",
+          "return_id": "aa147e6000604461cacf03edd52ce4e71da6c54d790f159fc38402dbd9097cbb",
+          "status": "verified"
+        },
+        "committed_cut": 33,
+        "component_return_ids": [
+          "dce0fd243d5e3d58340659ccc4c8c60f9be4913e2184dd0c79177ba44d9f3453"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "657e217a7736238c5de3c76671b9cee0aba4779c475253c6a47214b305f4b2de"
+        ],
+        "family": "sheddic-E2-role",
+        "first_cut": 31,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:sun",
+        "native_event_ids": [
+          "solar-role:sun:102:e0",
+          "solar-role:sun:102:e1",
+          "solar-role:sun:102:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "aa147e6000604461cacf03edd52ce4e71da6c54d790f159fc38402dbd9097cbb",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "97e3e6af919cf4f9b4067839fce418ab2a06c0d04d3b3f4565e0739358375bd1",
+        "witness_digest": "aae3596f930f17e7f85934298279e9426ab7c05bb0e17af78faecdae3c8fc835"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "c4ea19d758fba577f949a9d09b5795ed1c6b6a6a1ad78a6d22d186c834ce3725",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "c4ea19d758fba577f949a9d09b5795ed1c6b6a6a1ad78a6d22d186c834ce3725",
+          "return_id": "53d716112bc8f3f6e65791fbd32b489a3b42ffe919b8f7fbb242770cc54676af",
+          "status": "verified"
+        },
+        "committed_cut": 27,
+        "component_return_ids": [
+          "a2f0f5c1d92ba6e397b2645416d1a944182f9a3a5f10d9277359656a4c3c0f29"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "5f823395af7df7b2c6a10701816710c337d8f97ea31306d41b095d8053a9b78a"
+        ],
+        "family": "route-receiver-role",
+        "first_cut": 25,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:route-receiver",
+        "native_event_ids": [
+          "solar-role:route-receiver:1:e0",
+          "solar-role:route-receiver:1:e1",
+          "solar-role:route-receiver:1:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "53d716112bc8f3f6e65791fbd32b489a3b42ffe919b8f7fbb242770cc54676af",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "a2981a19d916893d85826780a69bcd5588b4c3a10ae008868790c6b0fae10c5d",
+        "witness_digest": "ac95b3bb7447297119ec9a032bbe407a1a6384c8695b86c2c9029018692f5dd0"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "f379bfd0cdddf722c3fb79e9e8bcbd43d6dae714d7fd31822ba4b01845fa2b83",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "f379bfd0cdddf722c3fb79e9e8bcbd43d6dae714d7fd31822ba4b01845fa2b83",
+          "return_id": "5571291e8e04f42a98b60205a0ba67aec19c9277d19014f025fe3759d9269f9a",
+          "status": "verified"
+        },
+        "committed_cut": 30,
+        "component_return_ids": [
+          "a2f0f5c1d92ba6e397b2645416d1a944182f9a3a5f10d9277359656a4c3c0f29"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "8df5e2b98459ff9a61e32e6d6cd9e812621aac6af30cc973d353c2e20894c7df"
+        ],
+        "family": "route-receiver-role",
+        "first_cut": 28,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:route-receiver",
+        "native_event_ids": [
+          "solar-role:route-receiver:2:e0",
+          "solar-role:route-receiver:2:e1",
+          "solar-role:route-receiver:2:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "5571291e8e04f42a98b60205a0ba67aec19c9277d19014f025fe3759d9269f9a",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "0e9cd68c490a98c2573155c03e029f4b9984ef359979d1ddfb18a1c2ce2d82f3",
+        "witness_digest": "4eac4d367c1167f581752c4db80520cfe8a5c68edac3fb097a9d376c531f1d0d"
+      },
+      {
+        "atomic_traversals": 2,
+        "capture": "validated-retained-snapshot",
+        "certificate_digest": "0f908dee7b731237e59cfb33a220e440d5e9a03afda14f92fd6a7a6cf0019786",
+        "chirality": 1,
+        "closure": {
+          "certificate_digest": "0f908dee7b731237e59cfb33a220e440d5e9a03afda14f92fd6a7a6cf0019786",
+          "return_id": "1994ed04b27156ad66827a68ae78e3e99f2ab37b8a7fc8648d90d8012203766a",
+          "status": "verified"
+        },
+        "committed_cut": 33,
+        "component_return_ids": [
+          "a2f0f5c1d92ba6e397b2645416d1a944182f9a3a5f10d9277359656a4c3c0f29"
+        ],
+        "construction_origin": "raw formation operands",
+        "coupling": {
+          "reason": "requires bound repeated contact evidence",
+          "status": "unavailable"
+        },
+        "detected_support_form": null,
+        "enclosure": {
+          "declared": 6,
+          "grammar_validation_parameter": 6,
+          "observed_simple_cycle": null,
+          "status": "unresolved"
+        },
+        "evidence": [
+          "a75cab02db55f0e0e1c48197b334b539d017794246da2c9ee16c40be38ce6fd9"
+        ],
+        "family": "route-receiver-role",
+        "first_cut": 31,
+        "hinge_roles": 1,
+        "inferred_core": "Duon",
+        "lineage": "solar-role:route-receiver",
+        "native_event_ids": [
+          "solar-role:route-receiver:3:e0",
+          "solar-role:route-receiver:3:e1",
+          "solar-role:route-receiver:3:e2"
+        ],
+        "physical_species": null,
+        "reason": "shape inferred from bound component construction; closure independently validated",
+        "record_window_view": null,
+        "return_id": "1994ed04b27156ad66827a68ae78e3e99f2ab37b8a7fc8648d90d8012203766a",
+        "scale": 0,
+        "scope": "declared:solar-boundary-duon-fixture",
+        "seating": {
+          "reason": "Duad state requires bound Duon seating evidence",
+          "status": "unavailable"
+        },
+        "shedding": {
+          "reason": "requires bound burden/route evidence",
+          "status": "unavailable"
+        },
+        "signature": "Duon",
+        "status": "verified",
+        "support": null,
+        "trace_digest": "a25a1ef438b5c016f86f8032511498685afd090f995cbe35334848e15ce0caeb",
+        "witness_digest": "9a6104f20a99331ea5475c3ef5b38dadf720220660a9e03d1246315ba6ceeacb"
+      }
+    ],
+    "scope": null,
+    "signatures": {
+      "Duon": 18
+    },
+    "window": null
+  }
+}

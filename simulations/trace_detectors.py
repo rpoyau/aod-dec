@@ -403,7 +403,8 @@ def _decode_ratios(value):
     return value
 
 
-def replay_boundaries(events, *, name, cells, frames=None, scope=None, max_events=10000, max_bytes=8000000):
+def replay_boundaries(events, *, name, cells, frames=None, scope=None, max_events=10000, max_bytes=8000000,
+                      auditor=None, coverage_scope="full"):
     """Reconstruct region commits and derive crossings from endpoint membership.
 
     Motion frames are independent query operands; their sweep must match the
@@ -412,6 +413,7 @@ def replay_boundaries(events, *, name, cells, frames=None, scope=None, max_event
     from . import region_engine as region
     require(type(max_events) is int and max_events > 0 and type(max_bytes) is int and max_bytes > 0,
             "positive replay budgets required")
+    require(coverage_scope in ("full", "declared-current"), "explicit current coverage scope required")
     commits, locators, retained_bytes, context = [], [], 0, None
     seen = {}
     try:
@@ -445,7 +447,13 @@ def replay_boundaries(events, *, name, cells, frames=None, scope=None, max_event
         if frames is None:
             selected = region.Region(name, tuple(cells))
             frames = tuple(region.Frame(selected, selected, "stationary") for _ in commits)
-        audit = region.audit_boundary(ledger, name, tuple(frames), scope="full")
+        requested = region.fingerprint((ledger, name, tuple(frames), coverage_scope, None))
+        audit = (region.audit_boundary if auditor is None else auditor)(ledger, name, tuple(frames), scope=coverage_scope)
+        require(type(audit) is region.BoundaryAudit and
+                (audit.ledger, audit.name, audit.frames, audit.scope, audit.representation) ==
+                (ledger, name, tuple(frames), coverage_scope, None) and
+                region.fingerprint((audit.ledger, audit.name, audit.frames, audit.scope, audit.representation)) == requested,
+                "boundary auditor returned another requested source/context")
         region.validate_audit(audit)
         return {"status": "verified", "coverage": "complete", "value": str(audit.total["current"]),
                 "unit": ledger.unit, "rows": region.serial(audit.rows), "total": region.serial(audit.total),

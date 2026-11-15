@@ -1,11 +1,16 @@
 {
   "base": "5a9368f6de286cde822963bac5f8de2620f08d5f",
-  "reason": "Passive context-local commit observers; arithmetic, admission and model outputs retain their original semantics. Native runtime unchanged.",
+  "reason": "Explicit source rebindings preserve imported historical evidence; source changes are checked by their current regression and conformance tests.",
   "files": {
     "runtime/dec_core.py": {
       "before_sha256": "7af9cf5ca99ec6b0aff6074b9d606e1339761715d3608d504fa0a742e2bafa3a",
       "after_sha256": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
       "reason": "Observe validated core commitments without changing RNG or first-error/model behavior; observer failure retains explicit partial trace. Includes actual causal contact-pair commitments."
+    },
+    "aodc.py": {
+      "before_sha256": "1bb7c56d119a424b2fb3637b7755ca4aee5d5a69be79accc1648973f9fd4d31d",
+      "after_sha256": "6fa664dfa48def096b9ca7edd6b0ae6a3709dc1f7e723f5d18be9d66182567b4",
+      "reason": "Add explicit compiler-owned pure entry batch command for generated LLVM native threads and source-derived CUDA; existing scalar source/runtime semantics unchanged."
     }
   }
 }

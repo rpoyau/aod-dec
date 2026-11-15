@@ -196,3 +196,13 @@ and shared-boundary helper measurements. Here `n` counts active fields, with at
 most one pending event each. Recoverable interiors stay outside active updates.
 The helper's measured saving has its own scope; it does not change the historical
 adaptive compiler result or establish a whole-engine speedup.
+
+## Parallel boundary tracing
+
+[`parallel-tracing/`](parallel-tracing/README.md) records complete boundary
+replay on multiple CPU processes and actual CUDA incidence execution, with
+exact joined output comparisons. The declared solar fixture retains admitted
+Duons, whole-return flips, the fold and later E2 route. Unsigned closure burden,
+independently prepared signed current and the unresolved map remain separate.
+Source review, hostile archive checks, direct-device evidence and CI coverage
+have distinct records.

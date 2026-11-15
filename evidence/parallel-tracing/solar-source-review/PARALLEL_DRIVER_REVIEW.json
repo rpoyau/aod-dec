@@ -1,0 +1,46 @@
+{
+  "scope": "Read-only source/numeric/coverage review of the parallel check driver and Typst companion; GPU execution reviewed elsewhere.",
+  "files": {
+    "scripts/check_parallel_tracing.py": "3d3c1a953c5e4c060490483bb95f3c0a1da5f0e8a1772ac4576e09774206f705",
+    "docs/parallel-boundary-tracing.typ": "42d269a73dc3cc4960fdce632594c5f2647b9deebeb1a1223eed071edbe90722",
+    "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+    "simulations/trace_execution.py": "0c7038ce2059ecedb952f240095a52df6e4c68da87670429c902e8b35d154a14",
+    "simulations/trace_parallel.py": "5e8d50fb557b596958a0b0357588e183a6b9c206cc051b9662e33ccdb1e3bac4"
+  },
+  "findings": [
+    {
+      "id": "DRV-01",
+      "priority": "P2",
+      "anchor": "scripts/check_parallel_tracing.py:54,79-87,125",
+      "finding": "workers1 is accepted, making both compared runs scalar while output still claims serial-multicore equality.",
+      "recommendation": "Require at least2 workers and require actual multicore backend/participating process evidence for that claim."
+    },
+    {
+      "id": "DRV-02",
+      "priority": "P2",
+      "anchor": "docs/parallel-boundary-tracing.typ:66-67",
+      "finding": "Separate compilation/transfer/kernel timing is claimed, but device classification timing aggregates these operations.",
+      "recommendation": "Name the measured groups: validation/packing, aggregate classification, host Fraction assembly and provenance/result hashes; enclosing replay includes later validation. Compilation provenance and transfer bytes are separately recorded."
+    },
+    {
+      "id": "DRV-03",
+      "priority": "P2",
+      "anchor": "scripts/check_parallel_tracing.py:42-43,85-91,123",
+      "finding": "Semantic equality omits coverage_scope; full coverage check does not require the same boundary key set or exactly the intended unresolved solar selected/complement groups.",
+      "recommendation": "Include coverage_scope; derive expected boundary keys from the produced fixture audits, require identical keys in all backends/full replay, and require exact known unresolved group set and partial full coverage."
+    }
+  ],
+  "supported": [
+    "Solar standalone reopened inspector status verified and coverage complete are explicitly asserted at lines73-77.",
+    "Pressure12, main current\u00b14, selected sequence(4,-3,0,7,6), independent routedcurrent2 and unsignedsurplus3 match actual fixture.",
+    "Document avoids physical perihelion and percentage error claims; carried O0/theory benchmark are separate from native inputs.",
+    "Current named group inventory is6 maser+7 Earth/water/Moon+3 solar=16.",
+    "CPU complete-schedule jobs and GPU signed incidence/host exact Fraction assembly descriptions match implementation.",
+    "Archive event/chain immutability and source hashes are checked."
+  ],
+  "not_checked": [
+    "Actual new NVIDIA execution and timing; root/backend owners handle those.",
+    "Visual PDF appearance; root already compiled/inspected."
+  ],
+  "edits": "None to reviewed files; source-bound review artifacts only."
+}

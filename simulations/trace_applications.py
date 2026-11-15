@@ -500,6 +500,12 @@ def application_gaps():
             "detector": "retained native construction and path inference; no expected Tau label",
             "historical_score_provenance": "The original diagnostic calculation and compact/depth-indexed adapter are unavailable; this does not gate fresh collision execution.",
             "historical_missing_burden": {"numerator": 31, "denominator": 50, "role": "historical comparator, not generated output"}},
-        "sun_mercury": {"status": "finite_scope_example_only", "physical_trajectory": False,
+        "sun_mercury": {"status": "native_boundary_fixture", "physical_trajectory": False,
             "source": "manual/sections/05_solar_system_field_tests.tex:manual:solar:observable-export-bridge",
-            "missing": ["executable solar and Mercury recurrence preparations", "initial state and coupling evolution", "boundary-current update and observation maps"]}}
+            "implementation": "simulations/solar_boundary_fixture.py",
+            "cli": "scripts/trace_simulation.py run --example solar-boundaries --trace TRACE",
+            "implemented": ["declared native Duon recurrence and whole-return chirality histories",
+                "retained E2 route, independently prepared signed current and unresolved closure burden",
+                "moving-boundary tracing and reopened source-witness inspection"],
+            "missing": ["physical solar/orbit preparation and evolution inputs",
+                        "evaluated physical observation map", "closure-burden-to-signed-current map"]}}

@@ -1,0 +1,6 @@
+{
+  "execution": "parent actual-host GPU test run",
+  "path": "parallel-tracing/gpu-compiler-device-normal.log",
+  "result": "15 tests pass, no skips",
+  "sha256": "430f8ff7d390f07f3fbac245045aaf7ddbe95a5861bad1ce6090a4e0683e7873"
+}

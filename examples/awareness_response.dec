@@ -1,0 +1,18 @@
+# Manual unit-pressure/unit-gain response; host binds retained native evidence.
+Dec response(current, attention, query, retained) -> next:
+    (int current, int attention, int query, int retained) -> int next:
+        next = current + attention + query + retained
+
+# Select between the Manual's two already admitted H1 continuations.
+Dec continuation(next) -> axis:
+    (int next) -> int axis:
+        axis = 1 if next > 0 else 2
+
+# Explicit later interrogation from a previously committed current observation.
+Dec reflexive_query(current) -> query:
+    (int current) -> int query:
+        query = -current
+
+Dec main() -> result:
+    () -> int result:
+        result = 0

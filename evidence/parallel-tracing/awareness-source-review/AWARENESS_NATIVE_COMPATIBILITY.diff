@@ -1,0 +1,26 @@
+--- Manual ab835920 native
++++ DEC existing native producer
+@@ -344,7 +344,8 @@
+     """
+     validate_record_collection(((t,certify(t),registry),)+
+                                tuple((component,c,registry) for component,c in component_records))
+-    require(enclosure>=6 and enclosure%2==0 and chirality in (-1,1),'invalid enclosure/chirality')
++    require(enclosure>=6 and enclosure%2==0 and type(chirality) is int and
++            chirality in (-1,1),'invalid enclosure/chirality')
+     require(bool(component_records),'bound component traces required')
+     components=tuple(c for component,c in component_records)
+     for component,c in component_records:
+@@ -355,7 +356,13 @@
+     if core=='Duon':
+         require(len(construction)==3,'Duon requires Dion-pivot-Dion')
+         left,pivot,right=construction
++        require(all(type(pattern) in (tuple,list) and len(pattern)==2 and
++                    all(type(sign) is int for sign in pattern) for pattern in (left,right)),
++                'Dion signs must be exact integers')
+         require(tuple(left) in ((1,-1),(-1,1)) and tuple(right) in ((1,-1),(-1,1)), 'invalid Dion pattern')
++        require(type(pivot) in (tuple,list) and len(pivot)==2 and
++                type(pivot[1]) is int and pivot[1] in (-1,0,1),
++                'pivot sign must be an exact ternary integer')
+         require(len(components)==1 and components[0].motif=='Monon','carried monon pivot required')
+         require(tuple(pivot)==(components[0].certificate_digest,chirality if chirality else 0) or
+                 (len(pivot)==2 and pivot[0]==components[0].certificate_digest and pivot[1] in (-1,0,1)),

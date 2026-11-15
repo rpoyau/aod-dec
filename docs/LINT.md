@@ -119,3 +119,13 @@ witness admission, the SQLite history-union index, recoverable archives,
 response-only domain restrictions, queue complexity, boundary-view equivalence
 or measured performance. Those claims require their separate source-bound
 tests and execution records; a successful Typst build is also a separate check.
+
+`docs/parallel-boundary-tracing.typ` adds CPU/CUDA boundary replay and the
+declared solar native fixture. Its current scan is retained under
+`evidence/parallel-tracing/`. Exact trace joins, native route detection,
+hardware execution, full versus declared-current coverage and cost measurements
+are independently tested; manuscript lint does not establish those outcomes.
+The parallel compiler companion, `docs/parallel-compiler.typ`, is also scanned.
+Its generated-source, native-thread, device and awareness checks are executable
+validation outside manuscript lint. The inherited Manual fixture is bound to its
+exact source and license; no upstream manuscript changes are included.

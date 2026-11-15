@@ -1,0 +1,27 @@
+{
+  "CPU_rows": 416,
+  "generated_device_host_rows": 416,
+  "sources": {
+    "branch": {
+      "source": "Dec chosen(x, gate) -> result:\n    (int x, bool gate) -> int result:\n        int a = -x if gate else x + 2\n        assert a >= -9\n        result = a * 3 - 2\nDec main() -> result:\n    () -> int result:\n        result = 0\n",
+      "sha256": "91c1041fe2730e106b18aee73495228e129f7f0406801c7d189936a9b9226c5e",
+      "generated_sha256": "14b3f083934e0a960122d4ebc0d5ee11e7dbed4f6ab892547e9465d2dc9cfccd"
+    },
+    "lazy": {
+      "source": "Dec chosen(x, gate) -> result:\n    (int x, bool gate) -> bool result:\n        bool a = gate or x * x > 100\n        result = a and (gate or x + 1 < 20)\nDec main() -> result:\n    () -> int result:\n        result = 0\n",
+      "sha256": "00ac3e9703eebfadb33f77a2465482f0008238491573818d6bb2cf837e5076c5",
+      "generated_sha256": "a98bb59b8a68c72bb98bc8e6ce914a0a4e7b4b7de02ff658aafb4ab29cc69e1e"
+    }
+  },
+  "GPU_executed": false,
+  "status": "PASS",
+  "scope": "Independent Interpreter oracle, actual LLVM CPU batch, compiled generated device functions on host; no CUDA device execution in this probe.",
+  "source_sha256": {
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1"
+  }
+}

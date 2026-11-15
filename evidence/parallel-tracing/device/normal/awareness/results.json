@@ -1,0 +1,666 @@
+{
+  "status": "PASS",
+  "source_sha256": {
+    "examples/awareness_response.dec": "62b117a1f6d7e58dcf175d4dc3c20d76ade511baae9f597255b8dec93ec47500",
+    "scripts/check_awareness_jit.py": "c7c6e317218254ee1978047e08f468f5ade58e6f757458cc58e605c52c593d88",
+    "simulations/awareness_jit_fixture.py": "32ea1da83266d7ad5be4a975ed6ecdc5bcd65005eda7eca847f5ca5d570179bb",
+    "simulations/vendor/aod_awareness.py": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f"
+  },
+  "source_binding": {
+    "manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+    "awareness_sha256": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b",
+    "native_sha256": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "pressure": 1,
+    "gain": 1,
+    "outcome": "later current, actual H1 edge and new closure count; excludes retention and labels"
+  },
+  "intervention_cut": 33,
+  "later_currents": {
+    "retained": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "removed": [
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "restored": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ]
+  },
+  "later_edges": {
+    "retained": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ]
+    ],
+    "removed": [
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "restored": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ]
+    ]
+  },
+  "query_currents": {
+    "retained": [
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    "removed": [
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "restored": [
+      "1",
+      "1",
+      "1",
+      "1"
+    ]
+  },
+  "existing_learning": {
+    "training_backend": "compiled-cpu",
+    "intervention_cut": 37,
+    "currents": {
+      "retained": [
+        "5",
+        "6",
+        "7"
+      ],
+      "removed": [
+        "4",
+        "4",
+        "4"
+      ],
+      "restored": [
+        "5",
+        "6",
+        "7"
+      ]
+    },
+    "relation_persists": true,
+    "restoration_equal": true
+  },
+  "existing_mindfulness": {
+    "initial_current": 3,
+    "currents": {
+      "retained": [
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1"
+      ],
+      "removed": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "restored": [
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1"
+      ]
+    },
+    "observation_cuts": [
+      33,
+      34,
+      35,
+      36,
+      37,
+      38
+    ]
+  },
+  "existing_delay_control": {
+    "declared_initial_history": [
+      32,
+      "0"
+    ],
+    "currents": {
+      "retained": [
+        "4",
+        "2",
+        "-1",
+        "-2",
+        "0",
+        "3"
+      ],
+      "removed": [
+        "3",
+        "0",
+        "-3",
+        "-3",
+        "0",
+        "3"
+      ],
+      "restored": [
+        "4",
+        "2",
+        "-1",
+        "-2",
+        "0",
+        "3"
+      ]
+    },
+    "observation_cuts": [
+      32,
+      33,
+      34,
+      35,
+      36,
+      37
+    ]
+  },
+  "pressure_controls": {
+    "execution": "unchanged Manual host reference only; outside declared p=1 integer batch",
+    "compiled": false,
+    "gpu_executed": false,
+    "cases": {
+      "half": {
+        "pressure": "1/2",
+        "execution": {
+          "events": [
+            {
+              "at": 34,
+              "current": "-1",
+              "edge": [
+                0,
+                2
+              ],
+              "attention": "0",
+              "query": "-3",
+              "query_observed_at": 33,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(0, 1, 1, 0)": "1/2",
+                  "(0, 2, 1, 0)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 34
+            },
+            {
+              "at": 35,
+              "current": "3",
+              "edge": [
+                2,
+                3
+              ],
+              "attention": "0",
+              "query": "1",
+              "query_observed_at": 34,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(2, 3, 0, 1)": "1/2",
+                  "(2, 0, 0, -1)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 35
+            },
+            {
+              "at": 36,
+              "current": "-1",
+              "edge": [
+                3,
+                1
+              ],
+              "attention": "0",
+              "query": "-3",
+              "query_observed_at": 35,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(3, 2, 1, 0)": "1/2",
+                  "(3, 1, 1, 0)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 36
+            },
+            {
+              "at": 37,
+              "current": "3",
+              "edge": [
+                1,
+                0
+              ],
+              "attention": "0",
+              "query": "1",
+              "query_observed_at": 36,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(1, 0, 0, 1)": "1/2",
+                  "(1, 3, 0, -1)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 37
+            },
+            {
+              "at": 38,
+              "current": "-1",
+              "edge": [
+                0,
+                2
+              ],
+              "attention": "0",
+              "query": "-3",
+              "query_observed_at": 37,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(0, 1, 1, 0)": "1/2",
+                  "(0, 2, 1, 0)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 38
+            },
+            {
+              "at": 39,
+              "current": "3",
+              "edge": [
+                2,
+                3
+              ],
+              "attention": "0",
+              "query": "1",
+              "query_observed_at": 38,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(2, 3, 0, 1)": "1/2",
+                  "(2, 0, 0, -1)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 39
+            }
+          ],
+          "observations": [
+            [
+              33,
+              "3"
+            ],
+            [
+              34,
+              "-1"
+            ],
+            [
+              35,
+              "3"
+            ],
+            [
+              36,
+              "-1"
+            ],
+            [
+              37,
+              "3"
+            ],
+            [
+              38,
+              "-1"
+            ]
+          ],
+          "constant_forcing": "1",
+          "declared_delay_initial_history": null,
+          "stability_hypothesis": false,
+          "operational_only": true
+        }
+      },
+      "two": {
+        "pressure": "2",
+        "execution": {
+          "events": [
+            {
+              "at": 34,
+              "current": "2",
+              "edge": [
+                0,
+                1
+              ],
+              "attention": "0",
+              "query": "-3",
+              "query_observed_at": 33,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(0, 1, 1, 0)": "1/2",
+                  "(0, 2, 1, 0)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 34
+            },
+            {
+              "at": 35,
+              "current": "3/2",
+              "edge": [
+                1,
+                0
+              ],
+              "attention": "0",
+              "query": "-2",
+              "query_observed_at": 34,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(1, 0, 0, 1)": "1/2",
+                  "(1, 3, 0, -1)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 35
+            },
+            {
+              "at": 36,
+              "current": "5/4",
+              "edge": [
+                0,
+                1
+              ],
+              "attention": "0",
+              "query": "-3/2",
+              "query_observed_at": 35,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(0, 1, 1, 0)": "1/2",
+                  "(0, 2, 1, 0)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 36
+            },
+            {
+              "at": 37,
+              "current": "9/8",
+              "edge": [
+                1,
+                0
+              ],
+              "attention": "0",
+              "query": "-5/4",
+              "query_observed_at": 36,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(1, 0, 0, 1)": "1/2",
+                  "(1, 3, 0, -1)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 37
+            },
+            {
+              "at": 38,
+              "current": "17/16",
+              "edge": [
+                0,
+                1
+              ],
+              "attention": "0",
+              "query": "-9/8",
+              "query_observed_at": 37,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(0, 1, 1, 0)": "1/2",
+                  "(0, 2, 1, 0)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 38
+            },
+            {
+              "at": 39,
+              "current": "33/32",
+              "edge": [
+                1,
+                0
+              ],
+              "attention": "0",
+              "query": "-17/16",
+              "query_observed_at": 38,
+              "retained_terms": [
+                [
+                  "c85f5ec59c67d763b535279c5b70dc38aee7f1661e15f05ce8f48a8a41ca2c06",
+                  "1"
+                ]
+              ],
+              "support": {
+                "status": "NORMALIZED",
+                "probabilities": {
+                  "(1, 0, 0, 1)": "1/2",
+                  "(1, 3, 0, -1)": "1/2"
+                }
+              },
+              "new_phase": 0,
+              "native_update_at": 39
+            }
+          ],
+          "observations": [
+            [
+              33,
+              "3"
+            ],
+            [
+              34,
+              "2"
+            ],
+            [
+              35,
+              "3/2"
+            ],
+            [
+              36,
+              "5/4"
+            ],
+            [
+              37,
+              "9/8"
+            ],
+            [
+              38,
+              "17/16"
+            ]
+          ],
+          "constant_forcing": "1",
+          "declared_delay_initial_history": null,
+          "stability_hypothesis": true,
+          "operational_only": true
+        }
+      }
+    }
+  },
+  "retention_effect": true,
+  "restoration_equal": true,
+  "passive_equal": true,
+  "new_closure_cycles": 0,
+  "compiled_cpu_worker_ids": [
+    129114,
+    129115,
+    129117,
+    129118,
+    129119,
+    129120,
+    129121,
+    129122,
+    129123,
+    129124,
+    129125,
+    129126,
+    129127,
+    129128,
+    129129,
+    129130
+  ],
+  "gpu": {
+    "status": "PASS",
+    "gpu_executed": true,
+    "launches": 62,
+    "verified_families": [
+      "ordinary",
+      "query",
+      "learning",
+      "mindfulness",
+      "delayed"
+    ],
+    "device": {
+      "index": 0,
+      "name": "NVIDIA RTX A1000 6GB Laptop GPU",
+      "compute_capability": [
+        8,
+        6
+      ]
+    }
+  },
+  "execution_and_checks_ns": 51642100456,
+  "compiler_selection": {
+    "variant": "generic",
+    "opt": 0,
+    "reason": "No retained performance evidence was supplied; no cost-control policy change inferred."
+  },
+  "scope": "Existing Manual p=g=1 operative-retention and later-query model; native admission on host; response/query/selector executed as compiled Dec. No physical awareness, new probability law, or speedup claim."
+}

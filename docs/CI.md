@@ -260,3 +260,41 @@ The separate local approximately 1.55× timing result applies only to a matched
 four-view boundary helper, including its context creation and full audits.
 It does not establish a FieldFrontier, SPARC, or whole-engine speedup. The CI
 fixture's timing records likewise remain observations on the actual host.
+
+## Parallel boundary replay
+
+`make check-parallel-tracing` captures real maser, Earth-water-Moon and declared
+solar boundary fixtures, then reopens their shared archive. Both Python modes
+compare complete serial and two-process boundary outputs. The driver verifies
+solar route/current/flip evidence, exact declared-current coverage, and retained
+partial full-current coverage for the unprojected solar burden. It checks that
+the source archive chain and event count remain unchanged.
+
+The CUDA backend classifies channel incidence, unavailable/internal/exterior
+occurrences, signed shedding and swept membership. The host consumes the
+integer coefficients with exact rational operands, revalidates the complete
+audit and verifies the joined rows. Hardware absence is `UNAVAILABLE`; it is
+neither a GPU pass nor implicit scalar execution. The normal CI runner needs no
+GPU libraries. Direct-device evidence and costs remain separate from this
+hosted availability result.
+
+`make docs-parallel-tracing` builds the two-page companion. CI retains the full
+`build/parallel-tracing/` directory with the source-bound reports, archived
+events, supplied preparations and PDF. No timing threshold or orbital
+prediction follows from these checks. Use a fresh output directory for each
+invocation; source trace histories are not overwritten.
+# Compiler-owned batch checks
+
+After `check-parallel-tracing` prepares the immutable application archives,
+`make check-compiled-boundaries check-awareness-jit` runs the source-compiled
+CPU/CUDA coefficient and awareness examples in both Python modes. CPU checks
+require actual native threads and generated entry calls. GPU auto mode records
+unavailability on runners without CUDA; it cannot count that as device execution.
+`scripts/check_compiler_device.py --output DIR` requires actual NVIDIA execution
+in both modes, retains generated CUDA/PTX, and fails if any required stage fails.
+`make docs-parallel-compiler` builds the application and target reference.
+
+CI retains `build/compiled-boundaries` and `build/awareness-jit` separately from
+the application trace. Native conformance continues to exercise scalar reference,
+LLVM JIT and standalone executable outcomes. The batch extension does not change
+the native scalar ABI or claim standalone GPU AOT.

@@ -29,3 +29,9 @@ evidence/sparc-reduced/*.json linguist-generated=true
 evidence/sparc-reduced/*.json.gz linguist-generated=true
 evidence/sparc-reduced/*.csv linguist-generated=true
 evidence/sparc-reduced/*.log linguist-generated=true
+# Preserve the executed NVRTC artifact byte-for-byte, including its whitespace.
+evidence/parallel-tracing/device/*.ptx -text -whitespace linguist-generated=true
+evidence/parallel-tracing/**/*.json linguist-generated=true
+evidence/parallel-tracing/**/*.json.gz linguist-generated=true
+evidence/parallel-tracing/**/*.log linguist-generated=true
+evidence/parallel-tracing/device/*.cu linguist-generated=true

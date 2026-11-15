@@ -1,0 +1,145 @@
+{
+  "scope": "Reused existing Manual examples; not new models and not compiled execution of the full existing suite",
+  "source_sha256": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b",
+  "learning": {
+    "retained": [
+      "5",
+      "6",
+      "7"
+    ],
+    "removed": [
+      "4",
+      "4",
+      "4"
+    ],
+    "restored_equal": true,
+    "relation_persists": true
+  },
+  "mindfulness": {
+    "initial_current": 3,
+    "currents": [
+      "1",
+      "1",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    "observations": [
+      [
+        33,
+        "3"
+      ],
+      [
+        34,
+        "1"
+      ],
+      [
+        35,
+        "1"
+      ],
+      [
+        36,
+        "1"
+      ],
+      [
+        37,
+        "1"
+      ],
+      [
+        38,
+        "1"
+      ]
+    ]
+  },
+  "delay_control": {
+    "currents": [
+      "4",
+      "2",
+      "-1",
+      "-2",
+      "0",
+      "3"
+    ],
+    "stability_hypothesis": false
+  },
+  "prior_artifact_hash_checks": {
+    "checks/awareness-execution.json": true,
+    "checks/awareness-optimized.json": true,
+    "outputs/awareness.json": true,
+    "review/fixture-coverage.md": true,
+    "review/fixture-source-binding.json": true,
+    "scripts/awareness_replay.py": true
+  },
+  "prior_execution": {
+    "byte_identical": true,
+    "check_count_per_mode": 32,
+    "invocation_directory": "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14",
+    "modes": [
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+          "-B",
+          "scripts/awareness_replay.py",
+          "--output",
+          "outputs/awareness.json"
+        ],
+        "mode": "normal",
+        "observed_exec_session_id": 32231,
+        "observed_exit_code": 0,
+        "output_sha256": "5367a2e0b90ea33853e28f779124f8dad8d85025f25060180385366c57106218"
+      },
+      {
+        "command": [
+          "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+          "-B",
+          "-O",
+          "scripts/awareness_replay.py",
+          "--output",
+          "checks/awareness-optimized.json"
+        ],
+        "mode": "optimized",
+        "observed_exec_session_id": 91796,
+        "observed_exit_code": 0,
+        "output_sha256": "5367a2e0b90ea33853e28f779124f8dad8d85025f25060180385366c57106218"
+      }
+    ],
+    "output_sha256": "5367a2e0b90ea33853e28f779124f8dad8d85025f25060180385366c57106218",
+    "positive_checks_per_mode": 26,
+    "required_hostile_rejections_per_mode": 6,
+    "source_binding_rechecked": true,
+    "status": "PASS",
+    "summary": {
+      "chain_scopes": [
+        "B0",
+        "B1",
+        "B2"
+      ],
+      "check_count": 32,
+      "dropout_currents": [
+        "1",
+        "3",
+        "6",
+        "6",
+        "9"
+      ],
+      "hostile_rejections": 6,
+      "matched_absent_currents": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "operative_counts": [
+        1,
+        2,
+        3,
+        0,
+        3
+      ],
+      "shedding_residual": "1",
+      "shedding_route": "exoshedding"
+    }
+  }
+}

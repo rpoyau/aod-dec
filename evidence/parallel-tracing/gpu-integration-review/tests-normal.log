@@ -1,0 +1,10 @@
+test_changed_source_cannot_reuse_named_classifier (tests.test_compiled_boundaries.CompiledBoundaryTests.test_changed_source_cannot_reuse_named_classifier) ... ok
+test_compiled_current_preserves_exact_solar_rows (tests.test_compiled_boundaries.CompiledBoundaryTests.test_compiled_current_preserves_exact_solar_rows) ... ok
+test_failed_compiled_lane_cannot_publish_current (tests.test_compiled_boundaries.CompiledBoundaryTests.test_failed_compiled_lane_cannot_publish_current) ... ok
+test_source_read_must_match_bound_file (tests.test_compiled_boundaries.CompiledBoundaryTests.test_source_read_must_match_bound_file) ... ok
+test_source_truth_table (tests.test_compiled_boundaries.CompiledBoundaryTests.test_source_truth_table) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.979s
+
+OK

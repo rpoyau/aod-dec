@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "source_sha256": {
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "tests/test_cpu_batch.py": "cb3f7799081d32455d188074b93340616e78f8df4b748b5ab274a23891f07532"
+  },
+  "tests": {
+    "normal": {
+      "passed": 14,
+      "seconds": 3.259
+    },
+    "optimized": {
+      "passed": 14,
+      "seconds": 2.229
+    }
+  },
+  "interface": "run_cpu_batch(program,function,rows,*,workers=1,fuel=100000,max_depth=128,opt=0,param_types=None)",
+  "execution": "One native C++ dispatch invokes bounded threads entering actual guarded LLVM entry code. Per-lane runtime contexts; ordered copied outputs; no Python interpreter execution.",
+  "resource_scope": "Exact-input and source-work caps plus conservative GMP intermediate bit-growth/work admission; no claimed process RSS or physical-interaction complexity bound.",
+  "limitations": [
+    "Pure nonrecursive int/bool selected entry only; calls and emit rejected.",
+    "CPU exact GMP values; GPU width checks are separate.",
+    "No speedup claimed by focused correctness tests.",
+    "Scalar runtime and existing trace semantics unchanged."
+  ]
+}

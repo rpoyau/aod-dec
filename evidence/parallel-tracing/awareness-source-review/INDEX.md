@@ -1,0 +1,13 @@
+# Compiler batch semantic review
+
+Status: bounded review complete. Source repair stayed with the CPU/GPU owners. No open blocker found in the inspected selected-entry domain. INDEX.json retains the initial and final source bindings.
+
+The independent executable probe compares the existing Interpreter oracle with actual LLVM CPU batches and generated device bodies compiled as host C++ with -ftrapv. It covers two branch/lazy programs, four input rows, fuel 0–25 and depth 0/1: 416 CPU and 416 generated-device-host rows agree, both normally and under Python -O. This is not CUDA device execution. Source and result evidence is in probe-semantics-{normal,optimized}.json; probe_semantics.py is executable independently of the implementation tests.
+
+Static review checked selected typed-branch admission; exact bool/int separation; entry/statement/expression fuel ordering; entry fuel before depth; branch laziness and assertion line; per-lane context/arena/output ownership; joined native worker lifetime under the JIT session lock; source/IR/object bindings; checked signed-64 CUDA arithmetic and safe MIN literal; host result/error validation; and bounded admission. GPU overflow is a distinct target-domain error because ordinary CPU integers remain GMP-backed. Calls, emits, ratios and arbitrary Dec expressions remain outside this initial GPU/CPU batch contract.
+
+One concrete resource concern was raised: repeated squaring can consume unbounded GMP work despite small inputs/output and finite source fuel. The owner repaired shared admission with conservative input-dependent intermediate-width and aggregate bit-work bounds and made worker failure reporting noexcept. The final shared implementation was re-read; no claim of a strict OS memory bound follows from these estimates.
+
+The supplied awareness example has its separate source-bound operational review in AWARENESS_MODEL.md. It executes its actual response, continuation and later query through the new compiler batches, keeps cost policy distinct, and preserves canonical native witness admission on the host. Six focused tests pass normally and under -O. Actual NVIDIA checks and compiler CLI/tracing integration are the parent driver's separately recorded coverage.
+
+The final extension reuses existing learning() after the actual fourth compiled update, and the existing six-step current-three mindfulness() and delayed-query controls. Exact rational pressure controls stay on the host. See EXISTING_AWARENESS_EXAMPLES.md/json for source lineage and prior replay evidence. Final focused logs: awareness-expanded-normal.log and awareness-expanded-optimized.log (six passes each).

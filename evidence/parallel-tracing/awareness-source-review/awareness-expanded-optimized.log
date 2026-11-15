@@ -1,0 +1,11 @@
+test_changed_source_changes_machine_result_and_fails_model_binding (tests.test_awareness_jit.AwarenessJitTests.test_changed_source_changes_machine_result_and_fails_model_binding) ... ok
+test_compiled_return_drives_later_native_state_and_passive_observation (tests.test_awareness_jit.AwarenessJitTests.test_compiled_return_drives_later_native_state_and_passive_observation) ... ok
+test_exact_manual_source_and_isolated_dependency_binding (tests.test_awareness_jit.AwarenessJitTests.test_exact_manual_source_and_isolated_dependency_binding) ... ok
+test_forged_retention_future_query_and_same_cut_cannot_enter (tests.test_awareness_jit.AwarenessJitTests.test_forged_retention_future_query_and_same_cut_cannot_enter) ... ok
+test_learning_requires_actual_training_and_integer_target_does_not_truncate (tests.test_awareness_jit.AwarenessJitTests.test_learning_requires_actual_training_and_integer_target_does_not_truncate) ... ok
+test_retention_is_the_only_changed_coordinate (tests.test_awareness_jit.AwarenessJitTests.test_retention_is_the_only_changed_coordinate) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 31.829s
+
+OK

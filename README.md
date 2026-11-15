@@ -23,6 +23,18 @@ the language reference, native architecture, and executable computational
 applications drawn from the bound AOD Main and Manual. Build its PDF and check
 the examples with `make docs`; see [documentation builds](docs/CI.md#documentation).
 
+The [parallel compiler companion](docs/parallel-compiler.typ) adds compiler-owned
+batch execution. `aodc batch` runs a selected pure integer/Boolean Dec entry on
+native CPU threads or compiles its expressions into CUDA for a required GPU.
+Each lane retains its own fuel and error; outputs remain in input order.
+CPU integers use GMP; the GPU target checks its signed 64-bit domain. This is
+a bounded JIT target, not general GPU execution of all Dec types or GPU AOT.
+The moving-boundary tracer consumes these compiled coefficients through
+`--backend compiled-cpu --workers 4` or `--backend compiled-gpu`, followed by
+exact host current assembly and joined history validation. The awareness example
+uses the Manual's retained/removed/restored operands to check a later native
+response. Run `make check-parallel-tracing check-compiled-boundaries check-awareness-jit`.
+
 The [retained continuation companion](docs/retained-continuation.typ) adds a
 separate two-field `1:2:6` application. It constructs continuation multiplicities
 from admitted formation and retained contact occurrences, then normalizes those
@@ -159,6 +171,23 @@ Results and timing observations are written under `build/field-frontiers/` and
 retained by CI. The checks impose no timing threshold or whole-engine speedup
 claim. Shared boundary contexts separately reuse one validated response and
 swept field across multiple passive region views.
+
+Boundary replay also supports spawned CPU workers and CUDA incidence
+classification. Run `python3 scripts/trace_simulation.py boundaries TRACE
+--workers 4` or use `--backend gpu` for device execution. Each worker retains
+one complete boundary schedule; the coordinator checks source bindings and
+every returned occurrence before merging. CUDA produces integer crossing and
+sweep signs, consumed by exact host current assembly and canonical validation.
+The trace archive remains unchanged.
+
+The [parallel tracing companion](docs/parallel-boundary-tracing.typ) includes a
+declared Sun–Mercury boundary fixture with real Duon returns, whole-return
+chirality changes and a later E2 route. Reopened evidence verifies the route
+and flip markers. Unsigned surplus 3 and independently prepared signed route
+current 2 remain separate; full current coverage retains the missing map.
+Use `make check-parallel-tracing docs-parallel-tracing` for both Python modes
+and the Typst PDF. `--gpu required` on `scripts/check_parallel_tracing.py`
+requires actual device execution; `auto` reports unavailable hardware explicitly.
 
 ## Run
 

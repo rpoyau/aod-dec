@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "document": "docs/parallel-compiler.typ",
+  "document_sha256": "a4344e790ab9b23dc7ae92350ef43ff5b038e17e99e67b0237d74b83ecc42b18",
+  "pdf_sha256": "35e035a86f4c361f0cd016cb363f9754c96352e2738934b88210143edf3bd5f0",
+  "pages": 2,
+  "visual_review": "Page2 rendered and inspected; no clipped text or overflow.",
+  "changes": [
+    "Explicitly credits existing Manual awareness runner and earlier request/replay lineage.",
+    "Reports compiled response/sign-selector/query, real matched currents, later learning boundary and mindfulness/delay controls.",
+    "Separates host rational pressure controls from integer JIT target; no new closure cycles or cost-driven selection claimed.",
+    "Replaces unrelated action-return source anchors with exact implemented learning/query anchors."
+  ],
+  "license": "Vendor MIT notice and source bytes exactly match upstream; original/native dependency hashes verified; existing R07 validation-only compatibility diff retained."
+}

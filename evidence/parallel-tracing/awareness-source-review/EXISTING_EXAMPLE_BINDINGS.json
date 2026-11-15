@@ -1,0 +1,12 @@
+{
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_EXECUTION_2026-11-13/AOD_DEC_EXECUTION_REQUEST_R01/source/dec/03_hardware_tiers_frg_awareness.dec": "fb0c8c77ae4cd3183eda6e30c0ae53ce4411a976991d3ec119bb71f25b485e2b",
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/scripts/awareness_replay.py": "ba652b4fbdc6ea922afeeecf2a09edcbca545454a55ea2ea00adf106e6053acf",
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/checks/awareness-manifest.json": "e2760eab4db5fb5176f74fce91e35495ada960f456ef50a4b879907dbc9a15e8",
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/checks/awareness-execution.json": "ee26e9badf4a579b2423e7366495efe8afa3a1cae4e8952f097d3662560aa327",
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_BOUNDARY_ACCOUNTING_2026-11-14/outputs/awareness.json": "5367a2e0b90ea33853e28f779124f8dad8d85025f25060180385366c57106218",
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/data/m2/awareness_cases.jsonl": "f85fbdca3b1c11adba54ef5e7205a8aee5e31db2fb55b2f425e85354c04da693",
+  "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/LICENSE": "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7",
+  "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/vendor/LICENSE": "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7",
+  "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/vendor/AWARENESS_SOURCE.md": "663eae188e98ec13e7923cd609d2a80b964b286c0ae74400136ef431448853c4",
+  "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/docs/parallel-compiler.typ": "a4344e790ab9b23dc7ae92350ef43ff5b038e17e99e67b0237d74b83ecc42b18"
+}

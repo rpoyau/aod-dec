@@ -1,0 +1,45 @@
+{
+  "chiral_flips": [
+    {
+      "after": -1,
+      "before": 1,
+      "committed": 14
+    },
+    {
+      "after": 1,
+      "before": -1,
+      "committed": 20
+    }
+  ],
+  "coverage": "complete",
+  "current_unit": "native-pressure-current",
+  "declared_routed_current": "2",
+  "failures": [],
+  "full_current": "unresolved surplus-to-current map",
+  "history_union": {
+    "bindings": 110,
+    "max_bindings": 100000,
+    "max_nodes": 500000,
+    "nodes": 1536,
+    "reason": null,
+    "status": "consistent"
+  },
+  "inspected_bytes": 714027,
+  "inspected_events": 145,
+  "physical_trajectory": false,
+  "route": {
+    "core": "Duon",
+    "form": "E2",
+    "receiver": "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9",
+    "record_digest": "62fb61454caa823d6711e2080e6b6fa41e6364ae2cdf18b4256f4c2fdaa48ce2",
+    "source": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+    "status": "verified",
+    "surplus": "3",
+    "surplus_unit": "native-closure-burden",
+    "target": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6"
+  },
+  "scope": "declared fixture route/current witness",
+  "source_waves": 4,
+  "status": "verified",
+  "verified_route_current_occurrences": 1
+}

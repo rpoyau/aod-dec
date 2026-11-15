@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "canonical_events_equal": true,
+  "events": 145,
+  "chain": [
+    "ebc93671b60c466f35a75f4cf5ecf5424b1f8b07f482581672905f6dc0666ae1",
+    "ebc93671b60c466f35a75f4cf5ecf5424b1f8b07f482581672905f6dc0666ae1"
+  ],
+  "semantic_trace_views_equal": {
+    "tracing/scalar": true,
+    "tracing/multicore": true,
+    "tracing/gpu": true,
+    "tracing/full-current": true,
+    "compiled/scalar": true,
+    "compiled/compiled-cpu": true,
+    "compiled/compiled-gpu": true,
+    "compiled/full-current": true
+  }
+}

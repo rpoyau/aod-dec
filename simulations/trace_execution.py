@@ -155,33 +155,12 @@ def replay(path, *, window=None, scope=None, record_window=None):
                 'paths':paths}
 
 
-def boundary_views(path, *, scope=None, name=None):
+def boundary_views(path, *, scope=None, name=None, workers=1, backend='scalar', coverage_scope='full'):
     """Reload committed geometry operands and re-execute each full boundary audit.
 
     These are named native-cut views, separate from the trace-ordinal timeline.
     A stored aggregate number is never accepted as its own replay proof.
     """
-    from simulations.region_engine import Region, Frame, SweepSample
-    with TraceStore.open(path) as store:
-        groups={}; used=0;count=0
-        for event in store.iter_events():
-            if event['kind']!='detector.boundary_view' or (scope is not None and event['scope_id']!=scope):continue
-            row=_decode_ratios(event['payload'])
-            if name is not None and row['boundary']!=name:continue
-            used+=len(canonical_bytes(event));count+=1
-            if used>8000000 or count>10000:raise TraceIncomplete('boundary view operand budget exceeded')
-            f=row['frame']
-            frame=Frame(Region(f['before']['name'],tuple(f['before']['cells'])),
-                        Region(f['after']['name'],tuple(f['after']['cells'])),f['kind'],
-                        tuple(SweepSample(**s) for s in f['sweep']))
-            groups.setdefault((event['scope_id'],row['boundary']),[]).append(frame)
-        results={}
-        for (scope_id,boundary_name),frames in groups.items():
-            results[scope_id+'/'+boundary_name]=replay_boundaries(store.iter_events(),name=boundary_name,
-                cells=frames[0].before.cells,frames=tuple(frames),scope=scope_id)
-        status=store.status()
-        return {'boundaries':results,'archive_coverage':status['coverage'],
-                'coverage':'complete' if results and status['coverage']=='complete' and all(r['coverage']=='complete' for r in results.values())
-                           else 'partial' if results else 'unavailable',
-                'domain':'native region cuts; not a trace-ordinal participation window',
-                'retained_query_bytes':used}
+    from simulations.trace_parallel import boundary_views as parallel_views
+    return parallel_views(path, scope=scope, name=name, workers=workers, backend=backend,
+                          coverage_scope=coverage_scope)

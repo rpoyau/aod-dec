@@ -1,0 +1,40 @@
+{
+  "status": "complete_bounded_review",
+  "scope": "Independent read-only semantics/falsification review of compiler-owned CPU and GPU batch execution; no edits to implementation owners files.",
+  "repo": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+  "base_commit": "afa16a4b8dd8b6683dbf56fe7dc27f26f2f46235",
+  "source_sha256": {
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+    "tests/test_native_backend.py": "7656174bf87e47cf713b147f224ad9ee9a434ec24564b8e28c925bdf10ac9050"
+  },
+  "artifact_scope": "Compiler JIT batch and explicitly restricted IR-derived CUDA backend; not standalone GPU AOT or full Dec GPU.",
+  "final_source_sha256": {
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f"
+  },
+  "checks": {
+    "independent_semantic_probe_normal": "PASS: 416 actual CPU rows and 416 compiled generated-device-body host rows",
+    "independent_semantic_probe_optimized": "PASS: same 416+416 rows",
+    "actual_gpu_execution_in_this_review": false,
+    "awareness_tests_normal": 6,
+    "awareness_tests_optimized": 6,
+    "awareness_extension": "Existing learning(), mindfulness(), delayed history, and separate exact host pressure controls reused; actual compiled training state consumed."
+  },
+  "finding": {
+    "id": "resource-growth",
+    "status": "closed_by_owner",
+    "problem": "Small admitted integer inputs and output can conceal exponentially growing GMP intermediates through repeated squaring; source fuel alone does not bound this work.",
+    "resolution": "Shared admission propagates conservative integer widths across both branches, capped at 262144 intermediate bits and 64 Mi estimated aggregate bit-work; not an OS RSS bound."
+  }
+}

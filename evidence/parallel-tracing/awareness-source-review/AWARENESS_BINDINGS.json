@@ -1,0 +1,82 @@
+{
+  "manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "bindings": {
+    "main_awareness": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/08_awareness_learning_mindfulness.tex",
+      "sha256": "310b4860c1710b8191725d9c40ff1fc05bd45a7ed818f0891e1fbd8fa58feae1"
+    },
+    "manual_awareness": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/00_awareness_fixtures.tex",
+      "sha256": "d9713f844617347c490a1abf86e23334113e2da411237a5b06f09b80c504a710"
+    },
+    "upstream_awareness": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/scripts/aod_awareness.py",
+      "sha256": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b"
+    },
+    "upstream_native": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/scripts/aod_native_closure_wave.py",
+      "sha256": "562b3eb53ad6dd13c0801c43bd6e918110083ab4d12592c024b3007b634e2554"
+    },
+    "aod_skill": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/SKILL.md",
+      "sha256": "8c1b32c2c882cf5627c33df9779b5d62c1797059cb38796438179cb51e56d024"
+    },
+    "aod_authority": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/authority.md",
+      "sha256": "fc881342ffac7b6a5b4e13e295888c49bbd67520330752878cca5960b9b805a6"
+    },
+    "aod_manuscripts": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/manuscripts.md",
+      "sha256": "e8599fe258eddffd77624c49942153e693af3d1e2dff36da82c2d8400cb4e85c"
+    },
+    "owner_amendment": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/local-manuscript-amendment.md",
+      "sha256": "3160241652ba9a4a986ff4837fc4cc1c7695a619c23bd2e6a791a51fffe3ae47"
+    },
+    "af_review": {
+      "path": "/home/reginaldpoyau/.agents/skills/axiomatic-fundamentalism-review/SKILL.md",
+      "sha256": "09723f57c333102d5e1d4d22a0d9fad27638daacfa66608376edcc41343408c8"
+    },
+    "af_inference": {
+      "path": "/home/reginaldpoyau/.codex/skills/axiomatic-fundamentalism/SKILL.md",
+      "sha256": "bbd2094206c0d1d7bdb6bf78c8a53e4cc9ff3411f6a39d84e2783c79658ecea3"
+    },
+    "simulations/vendor/aod_awareness.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/vendor/aod_awareness.py",
+      "sha256": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b"
+    },
+    "simulations/vendor/aod_manual_native.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/vendor/aod_manual_native.py",
+      "sha256": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
+    },
+    "simulations/vendor/AWARENESS_SOURCE.md": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/vendor/AWARENESS_SOURCE.md",
+      "sha256": "663eae188e98ec13e7923cd609d2a80b964b286c0ae74400136ef431448853c4"
+    },
+    "simulations/awareness_jit_fixture.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/awareness_jit_fixture.py",
+      "sha256": "32ea1da83266d7ad5be4a975ed6ecdc5bcd65005eda7eca847f5ca5d570179bb"
+    },
+    "examples/awareness_response.dec": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/examples/awareness_response.dec",
+      "sha256": "62b117a1f6d7e58dcf175d4dc3c20d76ade511baae9f597255b8dec93ec47500"
+    },
+    "scripts/check_awareness_jit.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/check_awareness_jit.py",
+      "sha256": "c7c6e317218254ee1978047e08f468f5ade58e6f757458cc58e605c52c593d88"
+    },
+    "tests/test_awareness_jit.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/tests/test_awareness_jit.py",
+      "sha256": "e7fb3637942bf1dbe5d8ce8a5d8e3b11b4ff4ba8750c5dffcafcbd17e7d31081"
+    },
+    "scripts/adapt_native.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/adapt_native.py",
+      "sha256": "15368632b28460573c2f2bba6d5834731b0abbb0a0c86ba6114c209e8c313955"
+    },
+    "native/learning.py": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/native/learning.py",
+      "sha256": "30a670694925e92f3434c8fa6bef5b461cdd845aefc8d5556a7b14922c89e3b1"
+    }
+  },
+  "scope": "Existing Manual operational fixture, no Main or Manual source modifications"
+}

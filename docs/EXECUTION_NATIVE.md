@@ -70,3 +70,21 @@ or uncertainty invalidate benefit. Concurrent conformance/compilation work durin
 measurement is recorded as an experimental limitation; paired randomized runs
 reduce order effects but do not remove resource competition. No CPU model or
 nanosecond timing is interpreted as an AOD physical law or relational-time anchor.
+# Compiler-owned parallel batches
+
+`python aodc.py batch SOURCE --function ENTRY --inputs rows.json --backend cpu
+--workers 4` compiles the selected entry and invokes generated LLVM code from
+native C++ threads. `--backend gpu` generates CUDA from the verified source and
+requires an available device. Input is a JSON array of argument arrays; exact
+integer and Boolean types must match the selected signature. Overloaded entries
+require `--param-types` in parameter order. Every lane owns its fuel/error state;
+the JSON report preserves input order and records actual worker/device use.
+
+The first target accepts pure int/bool entries without calls or emitted effects.
+It supports assignments, assertions, return, comparisons, lazy Boolean and
+conditional expressions, unary operations, addition, subtraction and multiplication.
+CPU values use exact GMP arithmetic; GPU input and executed intermediates must
+fit its checked signed 64-bit domain. A target-domain failure is explicit and
+does not silently fall back. The source language and scalar AOT ABI are unchanged.
+See [parallel compiled execution](parallel-compiler.typ) for boundary and awareness
+applications, target limits and evidence interpretation.

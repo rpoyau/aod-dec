@@ -1,0 +1,13 @@
+# Compiler boundary integration review
+
+Reviewed aodc.py, compiled_boundaries.py, trace_parallel.py, the compiler-boundary check driver and its focused tests. Review is independent of source repair; no production files were edited by this reviewer.
+
+The CPU path consumes returned integers from the actual generated LLVM entry and combines them with exact retained currents. An injected reversal of compiled incidence changes the directly assembled current from 3 to -3; joined replay rejects that altered audit and publishes partial coverage with no verified numeric claim. Thus output is consumed, and canonical validation remains an explicit downstream stage. Its location is now accurately stated in the execution profile.
+
+A source linkage concern was repaired by the owner: the exact Dec text read for compilation and the returned compiler entry digest must match the bound file digest. The alternate-read probe now rejects before execution, and a forged returned entry digest is rejected during replay. Compiler execution evidence records actual native thread IDs, entry counts and a single native dispatch; the integration driver now requires observed multicore activity. GPU-required unavailability propagates as an error and never becomes scalar success. This review does not claim actual GPU device execution; the owner performs that check separately.
+
+Five focused repository tests pass in normal and optimized Python. Independent probes pass (seven normal; eight optimized, with the additional returned-entry digest probe): source linkage, source-bound thread evidence, full retained occurrence equality, unchanged archive bytes, compiled-value corruption, failed/missing lanes, ordered CLI success/failure with nonzero process status, exact-type CLI rejection and required-GPU unavailability. The initial direct source-compiled audit is an assembly product, not independent certification; replay performs the canonical reconstruction check before marking coverage complete.
+
+No remaining execution blocker was found in this declared scope. The final driver also snapshots source bindings before reading the truth-table smoke source and requires that text digest to equal the bound Dec file digest before compilation. This closes the earlier gap between smoke and replay source versions; the small final ordering change was inspected without rerunning the completed tests.
+
+Source hashes are in SOURCE_BINDINGS.json and individual probe reports. The check driver itself was inspected, not rerun end to end by this reviewer. No physical prediction, full native-history GPU execution or speedup is inferred.

@@ -1,0 +1,192 @@
+{
+  "archive_after": {
+    "archive_bytes": 921600,
+    "chain": "ebc93671b60c466f35a75f4cf5ecf5424b1f8b07f482581672905f6dc0666ae1",
+    "coverage": "complete",
+    "events": 145,
+    "failure": null,
+    "limits": {
+      "cache_bytes": 1048576,
+      "max_depth": 64,
+      "max_event_bytes": 262144,
+      "max_integer_bits": 8192,
+      "max_nodes": 32768,
+      "max_storage_bytes": 67108864
+    },
+    "metrics": {
+      "append_count": 0,
+      "archive_bytes_high_water": 921600,
+      "cache_budget_bytes": 1048576,
+      "checkpoint_bytes_high_water": 0,
+      "event_bytes_high_water": 0,
+      "io_ns": 0,
+      "queue_high_water": 0,
+      "replay_ns": 602422051,
+      "resident_identity_entries": 0
+    },
+    "scope": "store allocation caps; caller model, detector and OS RSS are measured separately",
+    "state": "complete"
+  },
+  "archive_before": {
+    "archive_bytes": 921600,
+    "chain": "ebc93671b60c466f35a75f4cf5ecf5424b1f8b07f482581672905f6dc0666ae1",
+    "coverage": "complete",
+    "events": 145,
+    "failure": null,
+    "limits": {
+      "cache_bytes": 1048576,
+      "max_depth": 64,
+      "max_event_bytes": 262144,
+      "max_integer_bits": 8192,
+      "max_nodes": 32768,
+      "max_storage_bytes": 67108864
+    },
+    "metrics": {
+      "append_count": 0,
+      "archive_bytes_high_water": 921600,
+      "cache_budget_bytes": 1048576,
+      "checkpoint_bytes_high_water": 0,
+      "event_bytes_high_water": 0,
+      "io_ns": 0,
+      "queue_high_water": 0,
+      "replay_ns": 584528307,
+      "resident_identity_entries": 0
+    },
+    "scope": "store allocation caps; caller model, detector and OS RSS are measured separately",
+    "state": "complete"
+  },
+  "boundary_groups": 16,
+  "cpu_batch_rows": 1536,
+  "cpu_execution": {
+    "backend": "compiled-cpu",
+    "compiled_entries_entered": 1536,
+    "dispatches": {
+      "generic": 0,
+      "not_entered": 0,
+      "specialized": 1536
+    },
+    "entry_address": 140676671574016,
+    "fuel_per_lane": 100000,
+    "max_depth_per_lane": 128,
+    "native_dispatch_calls": 1,
+    "native_dispatch_ns": 110335478,
+    "status": "EXECUTED",
+    "timing_scope": "eligibility, packing, compile/cache/load, native-thread dispatch, exact runtime, collection and source checks",
+    "total_ns": 1324461082,
+    "worker_ids": [
+      130532,
+      130533,
+      130534,
+      130535
+    ],
+    "workers_requested": 4,
+    "workers_used": 4
+  },
+  "full_current_unresolved_groups": [
+    "declared:solar-boundary-duon-fixture/complement",
+    "declared:solar-boundary-duon-fixture/selected"
+  ],
+  "gpu": {
+    "execution": {
+      "backend": "cuda-generated",
+      "block": [
+        128,
+        1,
+        1
+      ],
+      "cleanup_ns": 128308746,
+      "compilation": {
+        "architecture": "compute_86",
+        "compiler_log": "",
+        "compiler_options": [
+          "--std=c++11",
+          "--gpu-architecture=compute_86",
+          "--device-debug"
+        ],
+        "generated_cuda_sha256": "f915440fa77d49fa284b9e3a3a330336f80cd0368f3a86e67ec1126813b3b4f2",
+        "gpu_executed": false,
+        "nvrtc_version": [
+          12,
+          9
+        ],
+        "ptx_sha256": "443be3dbe88df3fd22e7a7d39926bad00cbba73f9eca531db8a682c684af4563",
+        "requested_opt": 0,
+        "status": "COMPILED",
+        "target": "dec-cuda-int64-bool-v1"
+      },
+      "compile_ns": 155594058,
+      "device": {
+        "compute_capability": [
+          8,
+          6
+        ],
+        "index": 0,
+        "name": "NVIDIA RTX A1000 6GB Laptop GPU"
+      },
+      "device_to_host_bytes": 1152,
+      "driver_version": 13050,
+      "gpu_executed": true,
+      "grid": [
+        1,
+        1,
+        1
+      ],
+      "host_assembly_ns": 17913890,
+      "host_to_device_bytes": 1920,
+      "launch_count": 1,
+      "launch_synchronize_ns": 499503,
+      "load_allocate_ns": 245870682,
+      "preparation_ns": 48962534,
+      "probe_ns": 89211301,
+      "requested_opt": 0,
+      "rows": 48,
+      "status": "EXECUTED",
+      "target": "dec-cuda-int64-bool-v1",
+      "timing_scope": "Input/source validation, CUDA lowering, device probe, NVRTC compilation, module/context/allocation, transfers, launch, synchronization, cleanup, exact result materialization and source/result bindings; excludes final report serialization.",
+      "total_ns": 708299934,
+      "transfer_from_device_ns": 210485,
+      "transfer_to_device_ns": 78331
+    },
+    "gpu_executed": true,
+    "status": "PASS"
+  },
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "scope": "Compiler-owned generated LLVM/native-thread and generated CUDA coefficient execution; exact host current assembly and joined trace validation. JIT batch targets; no GPU AOT, generic GPU Dec/GMP, empirical prediction or speedup assertion.",
+  "source_dec_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+  "source_sha256": {
+    "compiled-cpu": {
+      "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+      "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+      "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+      "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+      "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+      "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+      "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+      "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+      "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+      "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+      "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+      "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+      "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc"
+    },
+    "compiled-gpu": {
+      "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+      "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+      "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+      "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+      "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+      "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+      "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+      "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618",
+      "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+      "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc"
+    }
+  },
+  "status": "PASS",
+  "timing_seconds": {
+    "compiled-cpu": 8.958349460001045,
+    "compiled-gpu-attempt": 13.192989041999681,
+    "scalar": 3.300646360999963
+  },
+  "truth_table_rows": 48
+}

@@ -1,0 +1,524 @@
+{
+  "execution": {
+    "backend": "cuda-generated",
+    "block": [
+      128,
+      1,
+      1
+    ],
+    "cleanup_ns": 126880774,
+    "compilation": {
+      "architecture": "compute_86",
+      "compiler_log": "",
+      "compiler_options": [
+        "--std=c++11",
+        "--gpu-architecture=compute_86",
+        "--device-debug"
+      ],
+      "generated_cuda_sha256": "f915440fa77d49fa284b9e3a3a330336f80cd0368f3a86e67ec1126813b3b4f2",
+      "gpu_executed": false,
+      "nvrtc_version": [
+        12,
+        9
+      ],
+      "ptx_sha256": "443be3dbe88df3fd22e7a7d39926bad00cbba73f9eca531db8a682c684af4563",
+      "requested_opt": 0,
+      "status": "COMPILED",
+      "target": "dec-cuda-int64-bool-v1"
+    },
+    "compile_ns": 99646379,
+    "device": {
+      "compute_capability": [
+        8,
+        6
+      ],
+      "index": 0,
+      "name": "NVIDIA RTX A1000 6GB Laptop GPU"
+    },
+    "device_to_host_bytes": 1152,
+    "driver_version": 13050,
+    "gpu_executed": true,
+    "grid": [
+      1,
+      1,
+      1
+    ],
+    "host_assembly_ns": 15149412,
+    "host_to_device_bytes": 1920,
+    "launch_count": 1,
+    "launch_synchronize_ns": 523878,
+    "load_allocate_ns": 892819271,
+    "preparation_ns": 15966439,
+    "probe_ns": 41875382,
+    "requested_opt": 0,
+    "rows": 48,
+    "status": "EXECUTED",
+    "target": "dec-cuda-int64-bool-v1",
+    "timing_scope": "Input/source validation, CUDA lowering, device probe, NVRTC compilation, module/context/allocation, transfers, launch, synchronization, cleanup, exact result materialization and source/result bindings; excludes final report serialization.",
+    "total_ns": 1203355986,
+    "transfer_from_device_ns": 257169,
+    "transfer_to_device_ns": 83808
+  },
+  "rows": [
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99905,
+      "result": "37",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99905,
+      "result": "37",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99905,
+      "result": "37",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99899,
+      "result": "13",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99899,
+      "result": "13",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99899,
+      "result": "13",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99902,
+      "result": "24",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99902,
+      "result": "24",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99902,
+      "result": "24",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99894,
+      "result": "51",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99894,
+      "result": "99",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99894,
+      "result": "147",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99902,
+      "result": "26",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99902,
+      "result": "26",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99902,
+      "result": "26",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99894,
+      "result": "53",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99894,
+      "result": "101",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99894,
+      "result": "149",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99899,
+      "result": "31",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99899,
+      "result": "31",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99899,
+      "result": "31",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99893,
+      "result": "7",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99893,
+      "result": "7",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99893,
+      "result": "7",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99924,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99924,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99924,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99918,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99918,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99918,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99921,
+      "result": "-1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99921,
+      "result": "-1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99921,
+      "result": "-1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99913,
+      "result": "-1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99913,
+      "result": "-1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99913,
+      "result": "-1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99921,
+      "result": "1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99921,
+      "result": "1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99921,
+      "result": "1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99913,
+      "result": "1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99913,
+      "result": "1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99913,
+      "result": "1",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99918,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99918,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99918,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99912,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99912,
+      "result": "0",
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "failure_kind": null,
+      "remaining_fuel": 99912,
+      "result": "0",
+      "stdout": ""
+    }
+  ],
+  "source_binding": {
+    "domain": "pure nonrecursive int/bool entry; independent per-lane source fuel/depth",
+    "entry_sha256": "0e354b9014189eca665411e76d59a4add3f9901ee70b74aec6f796770833563b",
+    "function": "coefficient",
+    "generated_cuda_sha256": "f915440fa77d49fa284b9e3a3a330336f80cd0368f3a86e67ec1126813b3b4f2",
+    "implementation_sha256": {
+      "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+      "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+      "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+      "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+      "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618"
+    },
+    "input_sha256": "fb6d4d9a2827bf1211aee5cfafd30380419bc33184db58ff1eb4e2ec86ce4ada",
+    "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+    "max_steps_per_lane": 115,
+    "param_types": [
+      "int",
+      "int",
+      "int",
+      "int",
+      "int"
+    ],
+    "ptx_sha256": "443be3dbe88df3fd22e7a7d39926bad00cbba73f9eca531db8a682c684af4563",
+    "result_sha256": "6fc9283f6e0c9e88c9def327819b434eb0a7350a4ef4486763d9b99ddc357ea9",
+    "result_type": "int",
+    "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+    "target": "dec-cuda-int64-bool-v1"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "status": "complete",
+  "scope": "Read-only source review of Sun\u2013Mercury native boundary, Duon/sheddic route and chiral operands for CPU/GPU trace execution; no manuscript or implementation repairs.",
+  "sources": {
+    "manual": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual",
+      "commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4"
+    },
+    "dec": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "commit": "afa16a4b8dd8b6683dbf56fe7dc27f26f2f46235"
+    }
+  },
+  "artifacts": [
+    "SUN_MERCURY_NATIVE_TRACE.md",
+    "SOURCE_BINDING.json",
+    "CLAIMS.json",
+    "CHECKS.json",
+    "O0_ARITHMETIC.json"
+  ],
+  "implementation": {
+    "authorized_files": [
+      "simulations/solar_boundary_fixture.py",
+      "tests/test_solar_boundary_fixture.py"
+    ],
+    "public_api": [
+      "run(store=None)",
+      "inspect_trace(store, max_events=10000, max_bytes=16777216, ...)"
+    ],
+    "source_repair": false,
+    "remote_writes": false
+  }
+}

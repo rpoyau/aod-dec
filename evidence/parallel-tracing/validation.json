@@ -1,0 +1,60 @@
+{
+  "status": "PASS_SCOPED_CHECKS",
+  "recorded_utc": "2026-11-15T13:44:13.825565+00:00",
+  "source_sha256": {
+    "aodc.py": "6fa664dfa48def096b9ca7edd6b0ae6a3709dc1f7e723f5d18be9d66182567b4",
+    "scripts/check_compiler_device.py": "9e1cc1008801bcb36a06f1f6cf41d059c4c9d8c804bb285461082e3702ff7e05",
+    "scripts/check_compiled_boundaries.py": "fbb3330a68b1b9957ab2416576b201558262cb99ee7bf8cba06be85b25625392",
+    "scripts/check_parallel_tracing.py": "6c77ae703b1f811bce0523843c389106ad6fc78504d846671efe2b297468eaf0",
+    "scripts/check_awareness_jit.py": "c7c6e317218254ee1978047e08f468f5ade58e6f757458cc58e605c52c593d88",
+    "scripts/trace_simulation.py": "be604db4d661b9f79da3a72c58af005a0f18aa4b4ffb77e5d3de0adb11775142",
+    "native/check_runtime.py": "0dc00cfae8c2ccce68fadf3d722fd5379817cbdf9189943e72219e81a3e90cf4",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/learning.py": "30a670694925e92f3434c8fa6bef5b461cdd845aefc8d5556a7b14922c89e3b1",
+    "native/runner.cpp": "eb5e5033b0f8ed1211b1955469199d7e7fe80424d4effc83aaea533313d76daa",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "native/test_runtime.cpp": "3cd4c773817f371dc52d5fe060c213e2764b625d0bb24054bbbe189a6977874c",
+    "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+    "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+    "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+    "simulations/trace_parallel.py": "31577ad9d1358d5fa9adf202826378e8f0c3a2add05016162eb9152df4c48627",
+    "simulations/trace_execution.py": "0c7038ce2059ecedb952f240095a52df6e4c68da87670429c902e8b35d154a14",
+    "simulations/trace_detectors.py": "ece0b8dc762f47fcc6c6ed5559b3d854149f357c6393f645dadcb1887bf73f99",
+    "simulations/solar_boundary_fixture.py": "4edf64f0598db272a081c354e8b5442bac7a0e84996265d8c519439b1897ab62",
+    "simulations/awareness_jit_fixture.py": "32ea1da83266d7ad5be4a975ed6ecdc5bcd65005eda7eca847f5ca5d570179bb",
+    "simulations/trace_applications.py": "0d4014b8d718e60703da6105fa992b23f4bd5b53b1234e9bc884c03fc2e1f94f",
+    "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+    "examples/awareness_response.dec": "62b117a1f6d7e58dcf175d4dc3c20d76ade511baae9f597255b8dec93ec47500",
+    "simulations/vendor/aod_awareness.py": "6846300c020aca4af2c7fc51c0727dcd0ce7e302453e0a514904ce8aa5331d7b"
+  },
+  "focused_each_mode": {
+    "tests": 79,
+    "pass": true,
+    "sandbox_device_skips": 3
+  },
+  "required_device_each_mode": {
+    "tests": 29,
+    "pass": true,
+    "skips": 0,
+    "generated_boundary_jobs": 16,
+    "awareness_launches": 62
+  },
+  "native_conformance": {
+    "case_optimization_rows": 104,
+    "malformed_ir": 6,
+    "pass": true
+  },
+  "lint": {
+    "manuscripts": 14,
+    "pass": true
+  },
+  "local_full_suites": {
+    "normal": "incomplete: exit143",
+    "optimized": "incomplete: exit143"
+  },
+  "scope": "Current compiled batch and tracer checks; full workflow status recorded separately on GitHub. No physical prediction or speedup claim."
+}

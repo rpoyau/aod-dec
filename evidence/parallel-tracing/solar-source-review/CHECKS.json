@@ -1,0 +1,70 @@
+{
+  "normal": {
+    "command": "python -B -m unittest tests.test_solar_boundary_fixture -v",
+    "tests": 7,
+    "outcome": "PASS",
+    "duration_seconds": 20.679
+  },
+  "optimized": {
+    "command": "python -O -B -m unittest tests.test_solar_boundary_fixture -v",
+    "tests": 7,
+    "outcome": "PASS",
+    "duration_seconds": 11.674
+  },
+  "archive_probe": {
+    "events": 49,
+    "native_Duon_returns": 18,
+    "recurrent_waves": 4,
+    "generic_verified_couplings": 2,
+    "generic_verified_folds": 1,
+    "generic_shedding_bridge": "unavailable for Manual declared-load27 fixture",
+    "solar_adapter_status": "verified",
+    "selected_current": [
+      "4",
+      "-3",
+      "0",
+      "7",
+      "6"
+    ],
+    "complement_current": [
+      "-4",
+      "3",
+      "0",
+      "-7",
+      "-6"
+    ],
+    "whole_current": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "shedding_surplus": "3",
+    "shedding_surplus_unit": "native-closure-burden",
+    "independently_prepared_route_current": "2",
+    "pending_projection": "3",
+    "SI_map": null,
+    "replayed_declared_current_coverage": "complete",
+    "replayed_full_current_coverage": "partial"
+  },
+  "falsifiers": [
+    "mandatory hinge and exact integer signs",
+    "immutable retained prefixes",
+    "independent incidence/moving-sweep identity",
+    "complement and whole cancellation",
+    "full-current rejection when pending burden crosses boundary",
+    "real reopened archive with wrong native route pivot",
+    "real reopened archive with wrong chiral flip marker",
+    "real reopened archive with individually valid conflicting histories",
+    "real reopened archive with missing receiver formation",
+    "real reopened archive with burden substituted for signed current",
+    "event and byte inspection budget exhaustion",
+    "reopened boundary_views preserves exact tagged swept-content fractions",
+    "declared-current boundary replay complete while full scope partial",
+    "real reopened archive with forged native cut snapshot",
+    "real reopened archive with disabled routed channel and correctly recomputed snapshot"
+  ],
+  "coverage": "finite fixture and its archive adapter only; no CPU/GPU timing, physical trajectory, or solar observable prediction checked",
+  "standalone_route_inspector": "Reconstructs canonical typed Ledger for all captured native cuts; validates snapshot/occurrence consistency and exact full routed Channel including availability and physical identity."
+}

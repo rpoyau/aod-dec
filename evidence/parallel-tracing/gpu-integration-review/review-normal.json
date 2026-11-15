@@ -1,0 +1,20 @@
+{
+  "fuel_depth_comparisons": 288,
+  "generated_cuda_sha256": "f915440fa77d49fa284b9e3a3a330336f80cd0368f3a86e67ec1126813b3b4f2",
+  "gpu_domain_and_bool_rejections_before_probe": 3,
+  "hardware_gate_rejects_no_device_execution": "compiled GPU check requires generated CUDA launches for coefficients and all trace groups",
+  "invalid_flag_assertions": 5,
+  "mode": "normal",
+  "scope": "Independent source/generator/fuel/admission/gate checks; generated body executed on host, not a GPU execution claim.",
+  "source_sha256": {
+    "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/gpu_compiler.py": "d32c0d3597de4dd1d67a2ec275b4fa233869cf61cffbb81c5ecba9f8e92a3804",
+    "scripts/check_compiled_boundaries.py": "fbb3330a68b1b9957ab2416576b201558262cb99ee7bf8cba06be85b25625392",
+    "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+    "simulations/trace_parallel.py": "31577ad9d1358d5fa9adf202826378e8f0c3a2add05016162eb9152df4c48627",
+    "tests/test_compiled_boundaries.py": "766ac2c44497d61dff58f4155077fea81aedb430a3d4ba2f89ab36af62db7977"
+  },
+  "status": "PASS",
+  "truth_table_rows": 48
+}

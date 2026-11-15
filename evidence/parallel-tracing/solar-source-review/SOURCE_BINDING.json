@@ -1,0 +1,95 @@
+{
+  "manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "dec_base_commit": "afa16a4b8dd8b6683dbf56fe7dc27f26f2f46235",
+  "note": "Main/Manual unchanged. Newly authorized fixture and tests are downstream working-tree implementation, bound by their file hashes. Other concurrent agent files excluded.",
+  "files": {
+    "main_duon": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/05_curl_closure_duon_current.tex",
+      "sha256": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f"
+    },
+    "main_time": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/06_wave_state_relational_time.tex",
+      "sha256": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b"
+    },
+    "main_field": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/06_field.tex",
+      "sha256": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88"
+    },
+    "main_mapping": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/07_cell_measures_mappings.tex",
+      "sha256": "759a6a8cae5f02bd1ddaf6c28057dbd7c4e87440ef49a0a5559e75f2b137c2e5"
+    },
+    "manual_dec": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/00_dec_ledger.tex",
+      "sha256": "934828daf766319e71eda3c4b89411b9a53dfc59d9d6774debbc7aa0657d3277"
+    },
+    "manual_boundary": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/04_boundary_current_applications.tex",
+      "sha256": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6"
+    },
+    "manual_solar": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/05_solar_system_field_tests.tex",
+      "sha256": "2a98a1bbc46c8721812da6a1c6e1b78fd2f961124d768e0563d8b3699e0a552b"
+    },
+    "manual_field": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/06_field_dynamics_applications.tex",
+      "sha256": "ed3931249a0a3a6e112ea77d33e7bbfc22f9047236860e05a6f3417a12279c06"
+    },
+    "manual_coordinates": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/appendices/C_3d_coordinate_phase_cycle_delta3_fixture.tex",
+      "sha256": "1d125ab97ad5e383f43467e56cd6e9e9297c95d9fe2c06bbe9b5f4c6d92c41bd"
+    },
+    "native": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/vendor/aod_manual_native.py",
+      "sha256": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
+    },
+    "region": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/region_engine.py",
+      "sha256": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc"
+    },
+    "solar_fixture": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/solar_boundary_fixture.py",
+      "sha256": "4edf64f0598db272a081c354e8b5442bac7a0e84996265d8c519439b1897ab62"
+    },
+    "solar_tests": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/tests/test_solar_boundary_fixture.py",
+      "sha256": "fb82b4aff9e8d19d0b9964480219b3a911ab9dbc61c84e8849778398f5e99187"
+    },
+    "support_detector": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/trace_support.py",
+      "sha256": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217"
+    },
+    "relation_detector": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/trace_particle_relations.py",
+      "sha256": "fe604ebf9894f58b59e3f5ffe90cd9780266b98204c79606d6971ac80e91b190"
+    },
+    "history_union": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/trace_history_union.py",
+      "sha256": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7"
+    },
+    "existing_parallel": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/simulate_routing_parallel.py",
+      "sha256": "2e0634b623d54520a7e6c48f12fd537c7635e5e983a2dbb1b21bb5839072fcd9"
+    },
+    "existing_gpu": {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/chiral_gpu.py",
+      "sha256": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618"
+    },
+    "aod_skill": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/SKILL.md",
+      "sha256": "8c1b32c2c882cf5627c33df9779b5d62c1797059cb38796438179cb51e56d024"
+    },
+    "aod_manuscripts": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/manuscripts.md",
+      "sha256": "e8599fe258eddffd77624c49942153e693af3d1e2dff36da82c2d8400cb4e85c"
+    },
+    "aod_amendment": {
+      "path": "/home/reginaldpoyau/.agents/skills/aod/references/local-manuscript-amendment.md",
+      "sha256": "3160241652ba9a4a986ff4837fc4cc1c7695a619c23bd2e6a791a51fffe3ae47"
+    },
+    "review_skill": {
+      "path": "/home/reginaldpoyau/.agents/skills/axiomatic-fundamentalism-review/SKILL.md",
+      "sha256": "09723f57c333102d5e1d4d22a0d9fad27638daacfa66608376edcc41343408c8"
+    }
+  }
+}

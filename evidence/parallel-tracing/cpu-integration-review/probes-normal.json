@@ -1,0 +1,496 @@
+{
+  "altered_compiled_values": {
+    "direct_consumed_value": "-3",
+    "expected": "3",
+    "joined_coverage": "partial"
+  },
+  "cli_mixed_outcomes": [
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "result": "53",
+      "stdout": ""
+    },
+    {
+      "error": "line 6: assertion failed",
+      "error_line": 6,
+      "exit_code": 1,
+      "result": null,
+      "stdout": ""
+    },
+    {
+      "error": null,
+      "error_line": 0,
+      "exit_code": 0,
+      "result": "-1",
+      "stdout": ""
+    }
+  ],
+  "native_evidence": {
+    "backend": "compiled-cpu",
+    "backend_requested": "compiled-cpu",
+    "capture_ns": 57982676,
+    "jobs": [
+      {
+        "frame_evidence": [
+          "b894dc7a9d00e90a86a7561d69b0124841f484809d1e2741b028585b92e6f3c0",
+          "92a3f3835d0a92d212515ac1b042523e34c7b4a4000e7c6e7e0f0fd55c997178"
+        ],
+        "input_sha256": "a55f6494a78cbe82bc0e622ffa88d068d159b4ddb2d9851c0fd1b98324c2bcb2",
+        "key": [
+          "fixture",
+          "left"
+        ],
+        "pid": 2,
+        "profile": {
+          "audit_sha256": "9bcfdce773bb6a25cfd2e25d226efdda13a8764cd0bc2bd83e272371f63629d0",
+          "backend": "compiled-cpu",
+          "classification_ns": 151313665,
+          "compiler_binding": {
+            "compiler": {
+              "abi": "aod-native-1",
+              "compiler": "dec-llvm-1",
+              "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+              "cpu": "goldmont",
+              "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+              "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+              "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+              "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+              "llvm_version": [
+                16,
+                0,
+                6
+              ],
+              "opt": 0,
+              "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+              "semantic_version": 1,
+              "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+              "target": "x86_64-redhat-linux-gnu"
+            },
+            "dispatcher": {
+              "binding": {
+                "cxx": "/usr/bin/g++",
+                "cxx_sha256": "1ad8469b205daace0f9f9f001f5ec2ab01012e79abe4648f7f0a3d298e9cd79b",
+                "flags": [
+                  "-std=c++17",
+                  "-O2",
+                  "-fPIC",
+                  "-shared",
+                  "-pthread"
+                ],
+                "runtime_library_sha256": "1d002ca061fb71f89e82f9002a99eebe00576ef0e091da4709669cbc25612b91",
+                "source_sha256": {
+                  "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+                  "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+                  "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+                  "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+                  "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+                  "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+                  "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+                  "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456"
+                }
+              },
+              "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/build/native/batch/72a4de7bf77c7b68ee754986edc5a975cff6c6a608c8fb660eb07c8df3ecf5d2.so",
+              "sha256": "5972bcb2ff8bf6643015bd8bb300dcfdf0831e89d7f7e2ac006f0291a470f599"
+            },
+            "entry": {
+              "domain": "pure nonrecursive int/bool entry; independent per-lane source fuel/depth",
+              "entry_sha256": "0e354b9014189eca665411e76d59a4add3f9901ee70b74aec6f796770833563b",
+              "function": "coefficient",
+              "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+              "max_steps_per_lane": 115,
+              "param_types": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "result_type": "int",
+              "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db"
+            },
+            "implementation_sha256": {
+              "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+              "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+              "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+              "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+              "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+              "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+              "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+              "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456"
+            },
+            "thunk": {
+              "ir_sha256": "5b37fb1314d586f419d87c5f594f7866f1ba1bbad4ef3357b945fd099611a73c",
+              "object": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/build/native/batch/1dfb825bc4b7f9a645205a0fb0e8f5ef2f06833ed2fd32592b6da80338a7392f.o",
+              "object_sha256": "1d368f84720c3d1b6365cb38322ce8ca38dcfc5ef167750c6fdbab2c4cae6045",
+              "symbol": "batch_entry_0e354b9014189eca665411e7"
+            }
+          },
+          "elapsed_ns": 165449427,
+          "execution": {
+            "backend": "compiled-cpu",
+            "compiled_entries_entered": 6,
+            "dispatches": {
+              "generic": 0,
+              "not_entered": 0,
+              "specialized": 6
+            },
+            "entry_address": 140551282847744,
+            "fuel_per_lane": 100000,
+            "max_depth_per_lane": 128,
+            "native_dispatch_calls": 1,
+            "native_dispatch_ns": 1881994,
+            "status": "EXECUTED",
+            "timing_scope": "eligibility, packing, compile/cache/load, native-thread dispatch, exact runtime, collection and source checks",
+            "total_ns": 150892189,
+            "worker_ids": [
+              14,
+              15
+            ],
+            "workers_requested": 2,
+            "workers_used": 2
+          },
+          "host_fraction_assembly_and_binding_ns": 9385328,
+          "input_sha256": "092b5b42fdf0e1b45f8c3599a3fb17a828c20a4139b00027ab3b416df9858730",
+          "occurrence_view_rows": 6,
+          "scope": "Dec-source compiled coefficients and exact host assembly; downstream replay adds canonical validation",
+          "source_sha256": {
+            "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+            "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+            "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+            "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+            "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+            "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+            "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+            "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+            "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+            "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+            "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+            "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+            "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc"
+          },
+          "sweep_rows": 0,
+          "validation_and_packing_ns": 4750434
+        },
+        "replay_ns": 199419308
+      },
+      {
+        "frame_evidence": [
+          "d999fd43e08bb068d074aa58c540a29ec8f121acc32d7ef6dab05e2dd2a87124",
+          "686c288f63382f3838972d50b17428be9ea9e95cc7bec5e456da8dc5183c4490"
+        ],
+        "input_sha256": "38725642d9926bf620a4eaf26bdc59f3209c4628a9622829604bc5f029150bce",
+        "key": [
+          "fixture",
+          "right"
+        ],
+        "pid": 2,
+        "profile": {
+          "audit_sha256": "1cbf07a557ec7383c7c0d650115a07391c17b094287c273d6c8106f27940fc70",
+          "backend": "compiled-cpu",
+          "classification_ns": 152537865,
+          "compiler_binding": {
+            "compiler": {
+              "abi": "aod-native-1",
+              "compiler": "dec-llvm-1",
+              "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+              "cpu": "goldmont",
+              "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+              "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+              "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+              "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+              "llvm_version": [
+                16,
+                0,
+                6
+              ],
+              "opt": 0,
+              "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+              "semantic_version": 1,
+              "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+              "target": "x86_64-redhat-linux-gnu"
+            },
+            "dispatcher": {
+              "binding": {
+                "cxx": "/usr/bin/g++",
+                "cxx_sha256": "1ad8469b205daace0f9f9f001f5ec2ab01012e79abe4648f7f0a3d298e9cd79b",
+                "flags": [
+                  "-std=c++17",
+                  "-O2",
+                  "-fPIC",
+                  "-shared",
+                  "-pthread"
+                ],
+                "runtime_library_sha256": "1d002ca061fb71f89e82f9002a99eebe00576ef0e091da4709669cbc25612b91",
+                "source_sha256": {
+                  "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+                  "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+                  "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+                  "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+                  "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+                  "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+                  "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+                  "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456"
+                }
+              },
+              "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/build/native/batch/72a4de7bf77c7b68ee754986edc5a975cff6c6a608c8fb660eb07c8df3ecf5d2.so",
+              "sha256": "5972bcb2ff8bf6643015bd8bb300dcfdf0831e89d7f7e2ac006f0291a470f599"
+            },
+            "entry": {
+              "domain": "pure nonrecursive int/bool entry; independent per-lane source fuel/depth",
+              "entry_sha256": "0e354b9014189eca665411e76d59a4add3f9901ee70b74aec6f796770833563b",
+              "function": "coefficient",
+              "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+              "max_steps_per_lane": 115,
+              "param_types": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "result_type": "int",
+              "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db"
+            },
+            "implementation_sha256": {
+              "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+              "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+              "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+              "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+              "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+              "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+              "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+              "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456"
+            },
+            "thunk": {
+              "ir_sha256": "5b37fb1314d586f419d87c5f594f7866f1ba1bbad4ef3357b945fd099611a73c",
+              "object": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/build/native/batch/1dfb825bc4b7f9a645205a0fb0e8f5ef2f06833ed2fd32592b6da80338a7392f.o",
+              "object_sha256": "1d368f84720c3d1b6365cb38322ce8ca38dcfc5ef167750c6fdbab2c4cae6045",
+              "symbol": "batch_entry_0e354b9014189eca665411e7"
+            }
+          },
+          "elapsed_ns": 166914343,
+          "execution": {
+            "backend": "compiled-cpu",
+            "compiled_entries_entered": 6,
+            "dispatches": {
+              "generic": 0,
+              "not_entered": 0,
+              "specialized": 6
+            },
+            "entry_address": 140551282847744,
+            "fuel_per_lane": 100000,
+            "max_depth_per_lane": 128,
+            "native_dispatch_calls": 1,
+            "native_dispatch_ns": 2110195,
+            "status": "EXECUTED",
+            "timing_scope": "eligibility, packing, compile/cache/load, native-thread dispatch, exact runtime, collection and source checks",
+            "total_ns": 152084983,
+            "worker_ids": [
+              16,
+              17
+            ],
+            "workers_requested": 2,
+            "workers_used": 2
+          },
+          "host_fraction_assembly_and_binding_ns": 9657413,
+          "input_sha256": "311417435f7f6e00b4337d306187ad4afed12d472947b569baa18665bde9e2c9",
+          "occurrence_view_rows": 6,
+          "scope": "Dec-source compiled coefficients and exact host assembly; downstream replay adds canonical validation",
+          "source_sha256": {
+            "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+            "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+            "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+            "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+            "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+            "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+            "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+            "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+            "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+            "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+            "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+            "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+            "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc"
+          },
+          "sweep_rows": 0,
+          "validation_and_packing_ns": 4719065
+        },
+        "replay_ns": 201261461
+      },
+      {
+        "frame_evidence": [
+          "8cdee86faa4a54f18367a001bc473622b7fecff216a851db0eea176709e8cdb5",
+          "1a1d1a917e3df61ff079801e6c254a5d70d898a34e23a7dac670f1251b81fbf4"
+        ],
+        "input_sha256": "00296747c238d342467224ff1a0a6634d5cf51b5ae41ba12163fa2b07629c539",
+        "key": [
+          "fixture",
+          "union"
+        ],
+        "pid": 2,
+        "profile": {
+          "audit_sha256": "08411de855aa7196c6f43d596be7c9fc31a6e1284c035d4ec276fd91e344f54c",
+          "backend": "compiled-cpu",
+          "classification_ns": 152160296,
+          "compiler_binding": {
+            "compiler": {
+              "abi": "aod-native-1",
+              "compiler": "dec-llvm-1",
+              "compiler_sha256": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+              "cpu": "goldmont",
+              "features": "-avx512pf,-tsxldtrk,+cx16,+sahf,-tbm,-avx512ifma,+sha,+crc32,-fma4,+vpclmulqdq,+prfchw,+bmi2,-cldemote,+fsgsbase,-avx512bf16,-amx-tile,-raoint,-uintr,+gfni,+popcnt,+ptwrite,+aes,-avx512bitalg,+movdiri,-widekl,+xsaves,-avx512er,+avxvnni,-avx512fp16,-avx512vnni,-amx-bf16,-avxvnniint8,-avx512vpopcntdq,-pconfig,+clwb,-cmpccxadd,-avx512f,+xsavec,-clzero,+pku,-amx-fp16,+mmx,-lwp,+rdpid,-xop,+rdseed,+waitpkg,-prefetchi,-kl,+movdir64b,-sse4a,-avx512bw,-avxneconvert,+clflushopt,+xsave,-avx512vbmi2,+64bit,-avx512vl,+serialize,+hreset,+invpcid,-avx512cd,+avx,+vaes,-amx-int8,+cx8,+fma,-rtm,+bmi,-enqcmd,+rdrnd,-mwaitx,+sse4.1,+sse4.2,+avx2,+fxsr,-wbnoinvd,+sse,+lzcnt,+pclmul,-rdpru,-avxifma,+f16c,+ssse3,-sgx,-prefetchwt1,+cmov,-avx512vbmi,+shstk,+movbe,-avx512vp2intersect,+xsaveopt,-avx512dq,+sse2,+adx,+sse3",
+              "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+              "llvm_library": "/usr/lib64/llvm16/lib/libLLVM-16.so",
+              "llvm_sha256": "e774f7e469042552e74528b1795974d93185bf011400974f055ab3fb44ebcb2f",
+              "llvm_version": [
+                16,
+                0,
+                6
+              ],
+              "opt": 0,
+              "runtime_sha256": "60a0dbc95eecc1e20b99fd0698880710e15664087fdca81756aa72cee7515561",
+              "semantic_version": 1,
+              "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+              "target": "x86_64-redhat-linux-gnu"
+            },
+            "dispatcher": {
+              "binding": {
+                "cxx": "/usr/bin/g++",
+                "cxx_sha256": "1ad8469b205daace0f9f9f001f5ec2ab01012e79abe4648f7f0a3d298e9cd79b",
+                "flags": [
+                  "-std=c++17",
+                  "-O2",
+                  "-fPIC",
+                  "-shared",
+                  "-pthread"
+                ],
+                "runtime_library_sha256": "1d002ca061fb71f89e82f9002a99eebe00576ef0e091da4709669cbc25612b91",
+                "source_sha256": {
+                  "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+                  "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+                  "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+                  "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+                  "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+                  "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+                  "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+                  "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456"
+                }
+              },
+              "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/build/native/batch/72a4de7bf77c7b68ee754986edc5a975cff6c6a608c8fb660eb07c8df3ecf5d2.so",
+              "sha256": "5972bcb2ff8bf6643015bd8bb300dcfdf0831e89d7f7e2ac006f0291a470f599"
+            },
+            "entry": {
+              "domain": "pure nonrecursive int/bool entry; independent per-lane source fuel/depth",
+              "entry_sha256": "0e354b9014189eca665411e76d59a4add3f9901ee70b74aec6f796770833563b",
+              "function": "coefficient",
+              "ir_sha256": "c51c8ec6a61f4e160fb154af17006370753cec48399d31b1444c70519e176c29",
+              "max_steps_per_lane": 115,
+              "param_types": [
+                "int",
+                "int",
+                "int",
+                "int",
+                "int"
+              ],
+              "result_type": "int",
+              "source_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db"
+            },
+            "implementation_sha256": {
+              "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+              "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+              "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+              "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+              "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+              "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+              "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+              "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456"
+            },
+            "thunk": {
+              "ir_sha256": "5b37fb1314d586f419d87c5f594f7866f1ba1bbad4ef3357b945fd099611a73c",
+              "object": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/build/native/batch/1dfb825bc4b7f9a645205a0fb0e8f5ef2f06833ed2fd32592b6da80338a7392f.o",
+              "object_sha256": "1d368f84720c3d1b6365cb38322ce8ca38dcfc5ef167750c6fdbab2c4cae6045",
+              "symbol": "batch_entry_0e354b9014189eca665411e7"
+            }
+          },
+          "elapsed_ns": 166426022,
+          "execution": {
+            "backend": "compiled-cpu",
+            "compiled_entries_entered": 6,
+            "dispatches": {
+              "generic": 0,
+              "not_entered": 0,
+              "specialized": 6
+            },
+            "entry_address": 140551282847744,
+            "fuel_per_lane": 100000,
+            "max_depth_per_lane": 128,
+            "native_dispatch_calls": 1,
+            "native_dispatch_ns": 2231290,
+            "status": "EXECUTED",
+            "timing_scope": "eligibility, packing, compile/cache/load, native-thread dispatch, exact runtime, collection and source checks",
+            "total_ns": 151765601,
+            "worker_ids": [
+              18,
+              19
+            ],
+            "workers_requested": 2,
+            "workers_used": 2
+          },
+          "host_fraction_assembly_and_binding_ns": 9512760,
+          "input_sha256": "f83b654288620caa4239a5d417464328a074a9264c124fba5f71c32aedea65a9",
+          "occurrence_view_rows": 6,
+          "scope": "Dec-source compiled coefficients and exact host assembly; downstream replay adds canonical validation",
+          "source_sha256": {
+            "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+            "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+            "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+            "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+            "native/cpu_batch.py": "0e694ca4308fd16dfe63439507b4a570569e74f3d45576a498e5410d0f7b5a12",
+            "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+            "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+            "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+            "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+            "simulations/boundary_accelerator.py": "bc302d4bfbefd9dc66117c2f6e8978b756978fade988979533522680863bb8e2",
+            "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+            "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+            "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc"
+          },
+          "sweep_rows": 0,
+          "validation_and_packing_ns": 4752966
+        },
+        "replay_ns": 201327032
+      }
+    ],
+    "native_workers_requested": 2,
+    "peak_pending_jobs": 1,
+    "pool_width": 1,
+    "scope": "complete boundary audit jobs; native formation/path admission remains joined on the host",
+    "snapshot_bytes": 13778,
+    "start_method": "native-threads",
+    "total_ns": 696652816,
+    "worker_pids": [
+      2
+    ],
+    "workers_requested": 2,
+    "workers_used": 1
+  },
+  "source_linkage": {
+    "reason": "compiled source text differs from bound Dec file",
+    "status": "REJECTED"
+  },
+  "source_sha256": {
+    "aodc.py": "6fa664dfa48def096b9ca7edd6b0ae6a3709dc1f7e723f5d18be9d66182567b4",
+    "examples/boundary_coefficients.dec": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+    "scripts/check_compiled_boundaries.py": "f7aeb80cdbf4f930a6de83b5a0a1599a8ae37ba051f940b81171c54c4baec2cf",
+    "simulations/compiled_boundaries.py": "d0d7ac35fb5c8163f85da068751d373ecde6ef52dd33cee28a9efd20f9e22d18",
+    "simulations/trace_detectors.py": "ece0b8dc762f47fcc6c6ed5559b3d854149f357c6393f645dadcb1887bf73f99",
+    "simulations/trace_parallel.py": "31577ad9d1358d5fa9adf202826378e8f0c3a2add05016162eb9152df4c48627",
+    "tests/test_compiled_boundaries.py": "766ac2c44497d61dff58f4155077fea81aedb430a3d4ba2f89ab36af62db7977"
+  },
+  "tests": {
+    "errors": 0,
+    "failures": 0,
+    "run": 7
+  }
+}
