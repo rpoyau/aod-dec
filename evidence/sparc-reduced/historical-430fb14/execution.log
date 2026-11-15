@@ -1,0 +1,31 @@
+DDO154 spacing: starting
+NGC2403 spacing: starting
+NGC2841 spacing: starting
+DDO154 spacing: completed in 5.4s
+DDO154 disabled: starting
+DDO154 disabled: completed in 5.3s
+DDO154 unit: starting
+DDO154 unit: completed in 5.3s
+NGC3198 spacing: starting
+NGC3198 spacing: completed in 95.5s
+NGC3198 disabled: starting
+NGC2841 spacing: completed in 148.7s
+NGC2841 disabled: starting
+NGC3198 disabled: completed in 89.7s
+NGC3198 unit: starting
+NGC2841 disabled: completed in 139.1s
+NGC2841 unit: starting
+NGC3198 unit: completed in 90.3s
+NGC6503 spacing: starting
+NGC6503 spacing: completed in 41.4s
+NGC6503 disabled: starting
+NGC2403 spacing: completed in 357.7s
+NGC2403 disabled: starting
+NGC6503 disabled: completed in 40.3s
+NGC6503 unit: starting
+NGC6503 unit: completed in 40.5s
+NGC2841 unit: completed in 139.5s
+NGC2403 disabled: completed in 298.6s
+NGC2403 unit: starting
+NGC2403 unit: completed in 166.7s
+{"display": {"spacing": {"mape_percent": "26.977910478548", "equal_galaxy_mape_percent": "29.659018883013", "change_percentage_points": "+0.407357054687"}, "disabled": {"mape_percent": "26.570553423860", "equal_galaxy_mape_percent": "28.440531838479", "change_percentage_points": "+0.000000000000"}, "unit": {"mape_percent": "25.749001445995", "equal_galaxy_mape_percent": "28.561245339735", "change_percentage_points": "-0.821551977865"}, "baseline_mape_percent": "26.570553423860"}, "execution": {"workers": 3, "digest_cache": true, "elapsed_seconds": 861.6275031920013, "replay": "not_requested"}}

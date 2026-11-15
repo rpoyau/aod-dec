@@ -1,0 +1,24 @@
+{
+  "baseline_commit": "430fb14",
+  "evidence_sha256": {
+    "baseline_reduced_boundary_response.py": "d5b9b8acc5c0d157ced83e0b64394c75c971587692df9527ed9a88f3c19f1c0d",
+    "benchmark-normal.json": "34d1f8b3158743f786b829a9ebfd14be8f2c1cab025bb65203ee1970316014d2",
+    "benchmark-optimized.json": "82fab3693d64069edc036e4ea0a59fbea7304a10093eade6bb05825dcf6d8e55",
+    "benchmark.py": "663e2d53d43028fb26671e6cbc4b57d5afe4805242257e54d4a92c088de3d453",
+    "normal.log": "0a05c1a4b34f6d5434bb89c72b66e7859379a6df2eff7ef4556574d60d3b0683",
+    "optimized.log": "0b995528ed562e7f30dbab22c50882f8444884d78088566ea19b4e651da1be44"
+  },
+  "normal_tests": 14,
+  "optimized_tests": 14,
+  "result": "PASS",
+  "semantics": "same complete response and boundary records; one shared admitted response/global field per cut; existing per-view validator unchanged",
+  "source_edits": [
+    "simulations/reduced_boundary_response.py",
+    "tests/test_reduced_boundary_response.py"
+  ],
+  "source_sha256": {
+    "simulations/reduced_boundary_response.py": "83c81b1ff135048a455b8b032d10859966712c99ee756f7231714d7068e954d5",
+    "tests/test_reduced_boundary_response.py": "5ade626e0d098f71079c21315bc1309751a71d59b7e91d407884a48cc9082e5b"
+  },
+  "timing_scope": "context creation + response copy + four views; compared with four original boundary_step calls, excluding original separate response_step; not a full-engine speedup claim"
+}

@@ -1,0 +1,43 @@
+{
+  "evidence_files": {
+    "admission-roundtrip.json": "cc8e6d54fe336fcbc5769e6128e517d94e85a033a22dab4681692e329726d8b8",
+    "initial_field_frontier.py": "64dbe82519fac8806de38677e15752b6ea8038ed3f2f4cfac750d877012c7f63",
+    "queue-and-write-failure.json": "5873e396ef2aaa36df6d10bd8f6ef20fa3b2aa07c71eeb02f06d3130708823db",
+    "review-probes-normal.json": "9958d8043ffb979f8a65e4f2f91103322d6ea4a362a8ff26f6c31f9a176acdbf",
+    "review-probes-optimized.json": "ebc835c3752bfc3fe187bade5f9fe38d467acd158e57e18898ca59193de6e4cf",
+    "review_probes.py": "4bfe78b090d97eb0381f55717456a9024c79abd2a12a213a6cdc04bbdd2ee3dd",
+    "tests-normal.log": "ab3873d30e3566fa571db6d462fa2cf2d6c8a758e0fe140f9263e106c06e0185",
+    "tests-optimized.log": "94df767ea8a34ed9f098e27dffc4ef094527de5daebbb3affdeeb91fcf53e317",
+    "witness-bool-alias.json": "7aff566ec3e8bbc305a04e2253218f592cf1e90a2e0f9cc17395342ce865c079"
+  },
+  "final_source_sha256": "dbf302431419c7f638893960fede15da180a30e50ee4ab2d916297642f898465",
+  "findings": {
+    "F1_integer_reflection_flag_roundtrip": "closed",
+    "F2_boolean_certificate_scale_alias": "closed",
+    "F3_failed_write_union_recovery": "closed",
+    "F4_unbounded_duplicate_file_read": "closed"
+  },
+  "focused_tests": {
+    "normal": 17,
+    "optimized": 17
+  },
+  "independent_probes": {
+    "normal": "PASS",
+    "optimized": "PASS",
+    "queue_operations_per_mode": 20000
+  },
+  "initial_source_sha256": "64dbe82519fac8806de38677e15752b6ea8038ed3f2f4cfac750d877012c7f63",
+  "repo_head": "430fb143f20abb73662a91aeff84445527eb603e",
+  "result": "no outstanding blocker identified within reviewed response-only scope",
+  "review_mode": "read-only production review; repairs performed by implementation owner",
+  "reviewed_at_utc": "2026-11-15T11:41:51.303074+00:00",
+  "source_files": {
+    "docs/field-frontiers.typ": "61b541800bf229a287f303f38ca8f2ee4f7a4799d115acf13d86825b2a1223d5",
+    "scripts/check_field_frontiers.py": "4f3af89e9883aab6fcb2f865939499c0e4adbdfe7cbe813d79e0ea30a6563dc6",
+    "simulations/field_frontier.py": "dbf302431419c7f638893960fede15da180a30e50ee4ab2d916297642f898465",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "simulations/trace_support.py": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "tests/test_field_frontier.py": "140ecf565cfb4d85575e4ed1777796f33f6c9228b19ede012a78a5ce9c13c90d"
+  }
+}

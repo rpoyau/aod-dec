@@ -1,0 +1,61 @@
+{
+  "admission_types": {
+    "boolean_certificate_scale": {
+      "message": "exact native field required: scale",
+      "rejected": true,
+      "type": "FrontierError"
+    },
+    "integer_reflection_flag": {
+      "message": "exact native field required: reflected_comparison",
+      "rejected": true,
+      "type": "FrontierError"
+    }
+  },
+  "archive_and_nested_union": {
+    "byte_cap": 8192,
+    "duplicate_read_requests": [
+      8193
+    ],
+    "nested_conflict": {
+      "message": "conflicting retained history binding: terminal",
+      "rejected": true,
+      "type": "FrontierError"
+    },
+    "nested_reopened_conflict": {
+      "message": "conflicting retained history binding: terminal",
+      "rejected": true,
+      "type": "FrontierError"
+    }
+  },
+  "hot_response": {
+    "exact_current": "1658/2695",
+    "no_hot_archive_access": true,
+    "unchanged_formation": true
+  },
+  "mode": "normal",
+  "probe_sha256": "4bfe78b090d97eb0381f55717456a9024c79abd2a12a213a6cdc04bbdd2ee3dd",
+  "queue": {
+    "operations": 20000,
+    "result": "PASS"
+  },
+  "rebind": {
+    "advanced_committed_cut": 25,
+    "current": "1549/3185",
+    "failed_exposure_atomic": true,
+    "old_attention_rejected": true,
+    "pending_preserved": true
+  },
+  "source_sha256": "dbf302431419c7f638893960fede15da180a30e50ee4ab2d916297642f898465",
+  "write_failure": {
+    "live_rejection": {
+      "message": "archive write failed; reopen and rebuild retained bindings",
+      "rejected": true,
+      "type": "FrontierError"
+    },
+    "reopened_rejection": {
+      "message": "conflicting retained history binding: terminal",
+      "rejected": true,
+      "type": "FrontierError"
+    }
+  }
+}

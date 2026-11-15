@@ -130,6 +130,36 @@ The closed radial/out-of-plane ports and absence of separate shedding channels
 are explicit reduction assumptions. This is a finite radial response experiment;
 full G2/G3 formation and physical boundary exchange remain unresolved.
 
+## Field boundary frontiers
+
+The [field frontier companion](docs/field-frontiers.typ) describes active
+boundary summaries with recoverable native-wave interiors. Admission validates
+the witness and merges its retained-history bindings into a disk SQLite index.
+Reopening the archive rebuilds that index from canonical witness files; the index
+is derived data. The response loop uses supplied, domain-bound attention and
+does no interior-history I/O. It updates current and committed cut while keeping
+closure and beat counts fixed.
+
+Here `n` counts active fields. The indexed queue retains at most one pending
+event per field; `m` events require `O(m log n)` heap work when local response,
+coupling degree and operand size are bounded. Admission, archive recovery,
+attention generation and full output costs are separate. Explicit `rebind`
+exposes the archived wave when a window or coupling identity changes, preserves
+the current response state and counts, and invalidates earlier bound attention.
+It does not infer a new physical coupling or resolve pending obligations or
+scale formation. Exposure returns the historical wave; callers journal later
+responses through `TraceStore`.
+The frontier's host response-validity window is `[start,end)`, distinct from
+the native retained-return/RCD count window `(start,end]`. Rebinding validity
+does not recompute RCD or supply a physical clock.
+
+Run `make check-field-frontiers` for the normal/optimized exact-response and
+scheduler checks, and `make docs-field-frontiers` for the two-page Typst PDF.
+Results and timing observations are written under `build/field-frontiers/` and
+retained by CI. The checks impose no timing threshold or whole-engine speedup
+claim. Shared boundary contexts separately reuse one validated response and
+swept field across multiple passive region views.
+
 ## Run
 
 ```sh

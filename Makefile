@@ -131,3 +131,13 @@ docs-sparc-reduced:
 	mkdir -p $(BUILD_DIR)/sparc-reduced
 	$(TYPST) compile --root . --creation-timestamp 1794700800 \
 		docs/sparc-reduced.typ $(BUILD_DIR)/sparc-reduced/sparc-reduced.pdf
+
+.PHONY: check-field-frontiers docs-field-frontiers
+check-field-frontiers:
+	$(PYTHON) -B scripts/check_field_frontiers.py --output $(BUILD_DIR)/field-frontiers/normal.json
+	$(PYTHON) -B -O scripts/check_field_frontiers.py --output $(BUILD_DIR)/field-frontiers/optimized.json
+
+docs-field-frontiers:
+	mkdir -p $(BUILD_DIR)/field-frontiers
+	$(TYPST) compile --root . --creation-timestamp 1794700800 \
+		docs/field-frontiers.typ $(BUILD_DIR)/field-frontiers/field-frontiers.pdf

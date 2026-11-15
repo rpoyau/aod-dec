@@ -1,0 +1,12 @@
+{
+  "source_sha256": "64dbe82519fac8806de38677e15752b6ea8038ed3f2f4cfac750d877012c7f63",
+  "admitted_non_boolean_flag": true,
+  "expose": {
+    "exception": "SupportError",
+    "message": "typed reflection comparison required"
+  },
+  "reopen": {
+    "exception": "SupportError",
+    "message": "typed reflection comparison required"
+  }
+}

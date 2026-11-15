@@ -110,3 +110,12 @@ manuscript scan is retained under `evidence/sparc-reduced/`, separately from
 the executed recurrence, complete-cohort score, exact moving-boundary audits
 and deterministic trace comparisons. No physical accuracy claim follows from
 the manuscript lint result.
+
+The field frontier companion, `docs/field-frontiers.typ`, is another applicable
+Typst input. Use the emitted manuscript file list and diagnostics to establish
+the actual lint coverage. Its PDF is built by `make docs-field-frontiers` and
+retained with the CI frontier reports. Manuscript lint does not validate native
+witness admission, the SQLite history-union index, recoverable archives,
+response-only domain restrictions, queue complexity, boundary-view equivalence
+or measured performance. Those claims require their separate source-bound
+tests and execution records; a successful Typst build is also a separate check.

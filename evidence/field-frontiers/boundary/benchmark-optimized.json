@@ -1,0 +1,104 @@
+{
+  "baseline_commit": "430fb14",
+  "benchmarks": [
+    {
+      "cells": 24,
+      "channels": 23,
+      "exact_full_record_equality": true,
+      "median_seconds": {
+        "context_creation_response_copy_four_views": 0.09802088900323724,
+        "original_four_boundary_steps": 0.15116093400138197
+      },
+      "moving_selected_membership": false,
+      "partition_status": "PASS",
+      "partition_total_residual": "0",
+      "ratio_original_to_shared": 1.5421298004794644,
+      "record_sha256": "1ffaaea06d2cf5196db3792b08c77e6cc3c223aac56fd13c169e4144687febd1",
+      "repeats": 11,
+      "returns_per_cell": 12,
+      "timing_seconds": {
+        "context_creation_response_copy_four_views": [
+          0.09808862100180704,
+          0.09777861900511198,
+          0.09837431999767432,
+          0.09820833500270965,
+          0.1000466619952931,
+          0.09760051299963379,
+          0.09791133800172247,
+          0.09794313200109173,
+          0.09793451999576064,
+          0.09802088900323724,
+          0.09816519299783977
+        ],
+        "original_four_boundary_steps": [
+          0.15121514900238253,
+          0.15228154500073288,
+          0.151068168997881,
+          0.15165642300416948,
+          0.15116475299873855,
+          0.15112776900059544,
+          0.15100664800411323,
+          0.15159643399965717,
+          0.1509064749989193,
+          0.15116093400138197,
+          0.15102868900430622
+        ]
+      }
+    },
+    {
+      "cells": 48,
+      "channels": 47,
+      "exact_full_record_equality": true,
+      "median_seconds": {
+        "context_creation_response_copy_four_views": 0.19055416599439923,
+        "original_four_boundary_steps": 0.29551626500324346
+      },
+      "moving_selected_membership": true,
+      "partition_status": "PASS",
+      "partition_total_residual": "0",
+      "ratio_original_to_shared": 1.5508255275401812,
+      "record_sha256": "b41d059d05620a83bd86bd6e2fa354f07cb14ee1cc8823dc4e3a215305572020",
+      "repeats": 11,
+      "returns_per_cell": 12,
+      "timing_seconds": {
+        "context_creation_response_copy_four_views": [
+          0.18974047300434904,
+          0.18763427499652607,
+          0.188170033005008,
+          0.19068071200308623,
+          0.1905761509988224,
+          0.1929214760020841,
+          0.19091438099712832,
+          0.1900923060020432,
+          0.18884843800333329,
+          0.19207097199978307,
+          0.19055416599439923
+        ],
+        "original_four_boundary_steps": [
+          0.29352541400294285,
+          0.2931710140037467,
+          0.3131203649973031,
+          0.2943641279998701,
+          0.29551626500324346,
+          0.2952616170005058,
+          0.2973401350027416,
+          0.29750770799728343,
+          0.29612748700310476,
+          0.29610151999804657,
+          0.2943206729978556
+        ]
+      }
+    }
+  ],
+  "measurement_scope": "Includes creation/validation, response copy and all four views; input preparation shared and excluded; full equality checked outside timing; no full-engine speedup claim",
+  "mode": "optimized",
+  "platform": "Linux-7.3.3-300.fc45.x86_64-x86_64-with-glibc2.44",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "source_sha256": {
+    "aod-dec/simulations/reduced_boundary_response.py": "83c81b1ff135048a455b8b032d10859966712c99ee756f7231714d7068e954d5",
+    "aod-dec/simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "aod-dec/simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "closure-optimization/boundary/baseline_reduced_boundary_response.py": "d5b9b8acc5c0d157ced83e0b64394c75c971587692df9527ed9a88f3c19f1c0d",
+    "closure-optimization/boundary/benchmark.py": "663e2d53d43028fb26671e6cbc4b57d5afe4805242257e54d4a92c088de3d453"
+  }
+}

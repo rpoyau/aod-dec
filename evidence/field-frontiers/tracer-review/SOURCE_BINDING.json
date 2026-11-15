@@ -1,0 +1,25 @@
+{
+  "repository_head": "430fb143f20abb73662a91aeff84445527eb603e",
+  "sources": {
+    "simulations/field_frontier.py": "dbf302431419c7f638893960fede15da180a30e50ee4ab2d916297642f898465",
+    "tests/test_field_frontier.py": "140ecf565cfb4d85575e4ed1777796f33f6c9228b19ede012a78a5ce9c13c90d",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "simulations/trace_support.py": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217",
+    "simulations/scoped_reduction.py": "2db625f18b34d110180389f14735ed8fc4daffd202be798d187b9e9f6cd2402d",
+    "simulations/recurrence_cache.py": "ae0105142d7c51ebabb38f8d5759949228d4bd63558144b96c536306308806aa",
+    "simulations/reduced_duon_history.py": "9033ac9a998cb34229d76b90475dfeec8be7bf1c8813f64e7ec700d0fb00b13e",
+    "simulations/trace_store.py": "ea31598a0cdaa3a88d44503e0aec1d2bd17dbaad02ad563e90291427c8567853"
+  },
+  "new_file_tests": {
+    "normal": {
+      "passed": 17,
+      "seconds": 1.078
+    },
+    "optimized": {
+      "passed": 17,
+      "seconds": 1.061
+    }
+  },
+  "scope": "Supplied-attention exact native inverse-pressure response, historical closure archive, and indexed pending-event scheduling."
+}

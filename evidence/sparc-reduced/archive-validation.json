@@ -4,7 +4,8 @@
   "boundary_identities": 2484,
   "current_operand_checks": 31437,
   "native_comparison_digest_groups": 207,
-  "trace_uncompressed_sha256": "0feafe6f27312ad482210c9d02c58edc9dc26a2c9f665e4bd1d8d4bfaf5b78f9",
+  "trace_uncompressed_sha256": "eeb8d9708396d7ba1b44997c9f333c1bdfd9690cb1a3ea7bb3515e0d9ac14955",
   "source_bindings_match": true,
-  "scope": "Reopened artifact integrity, exact scalar identities, causal cuts and retained hash chains; full native regeneration is the separate CI replay."
+  "scope": "All prior checked trace operands are preserved by complete canonical semantic equality. Only implementation hashes change. Original direct archive checks are retained in historical-430fb14; strict full native replay remains a separate CI check.",
+  "equivalence": "../field-frontiers/sparc-equivalence.json"
 }

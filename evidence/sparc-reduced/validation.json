@@ -1,117 +1,43 @@
 {
   "status": "PASS",
-  "scope": "Executed finite reduced radial response; no full G2/G3 formation or complete physical-error claim",
   "main_manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
-  "source_before_commit": "82ffaf21001efb7e93bc6f1c6642e0779272d475",
+  "source_before_commit": "430fb143f20abb73662a91aeff84445527eb603e",
   "implementation_sha256": {
     "scripts/simulate_sparc_reduced.py": "3a240a6490e0c597a01263b770961db77662f3d3fa7b922dd8f2ead60a2b4241",
     "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
-    "simulations/reduced_boundary_response.py": "d5b9b8acc5c0d157ced83e0b64394c75c971587692df9527ed9a88f3c19f1c0d",
+    "simulations/reduced_boundary_response.py": "83c81b1ff135048a455b8b032d10859966712c99ee756f7231714d7068e954d5",
     "simulations/reduced_duon_history.py": "9033ac9a998cb34229d76b90475dfeec8be7bf1c8813f64e7ec700d0fb00b13e",
     "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
     "simulations/sparc_comparison.py": "61a13fea2f5e030161befb1df0c1bdc97c14389b30de58cba64658bafb394bc1",
     "simulations/sparc_inputs.py": "540f445911da1488739a1a7ad52dedaf1b80cc6ae240d5392baeb85982d1168d",
     "simulations/sparc_inverse.py": "971a4c8016fcb19653e1e65a389065d81f35bbd4f0415b46b87ea1ce252c0045",
     "simulations/sparc_native_span.py": "560337d1e825eae8a32080c9186ad0190b8a2972423bfb1b2cb98b0efbb5e1ec",
-    "simulations/sparc_reduced.py": "80a363e11b72ed2829eafb5bc803c86f549959a0223d6a7e8a79681bfefb044b",
+    "simulations/sparc_reduced.py": "dd6b00b0b8c552b3a2f53fbabb6ebc435e01f03c6ec19ca3fa8b7f0ae3023c79",
     "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
     "simulations/vendor/aod_trace_digest_cache.py": "0d36febb309f6366d12da54955010e94124581739e0da70660e19192a60eac14"
   },
   "execution": {
     "workers": 3,
     "digest_cache": true,
-    "elapsed_seconds": 861.6275031920013,
+    "elapsed_seconds": 711.7526652110027,
     "replay": "not_requested"
   },
-  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
-  "zlib": "1.3.2",
-  "local_tests": {
-    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
-    "checks": {
-      "full-normal.log": {
-        "tests": 624,
-        "skipped": 2,
-        "seconds": 715.718,
-        "sha256": "18e405b7f5cd36a021605bf8d3cddd9da83ed28765b779939a9c89e7168089f3"
-      },
-      "full-optimized.log": {
-        "tests": 632,
-        "skipped": 2,
-        "seconds": 720.552,
-        "sha256": "1e555fa2e671c9b0e6f47c824a1cfddbe5223173ae2a1dad536256375e33050d"
-      },
-      "driver-final-normal.log": {
-        "tests": 8,
-        "skipped": 0,
-        "seconds": 14.16,
-        "sha256": "94412feebd9410be25d8b1b9830d72422540fba1f43f3ef42021e803319638df"
-      },
-      "driver-final-optimized.log": {
-        "tests": 8,
-        "skipped": 0,
-        "seconds": 17.658,
-        "sha256": "5a53d8efe42ad47cbf91dedebd58f2e6b13e8c3b007c5ce30f37e26f8837cedf"
-      },
-      "tests-final-normal.log": {
-        "tests": 33,
-        "skipped": 0,
-        "seconds": 7.924,
-        "sha256": "736253cd3cba8e75479728d3cf30da0918b311d4e43c3a9df85474b3efcdda1a"
-      },
-      "tests-final-optimized.log": {
-        "tests": 33,
-        "skipped": 0,
-        "seconds": 8.063,
-        "sha256": "8c3099aa62f9f87f3b4a1b2e552ada0ed434afcc2ee43808a1a1272e9e15529d"
-      }
-    },
-    "normal_coverage": "624-test discovery plus the subsequently added 8 driver integration cases; optimized discovery includes all 632"
-  },
-  "independent_oracle": {
-    "status": "PASS",
-    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/reduced-final/comparison.csv",
-    "sha256": "ac54f28028976fb7e0f73e1a07982fb22cd33c37e9cae17ee4554ff13dbc6686",
-    "rows_checked": 627,
-    "exact_numeric_field_checks": 3135,
-    "mismatches": []
-  },
+  "semantic_equivalence": "../field-frontiers/sparc-equivalence.json",
+  "historical_model_validation": "historical-430fb14/validation.json",
+  "current_implementation_validation": "../field-frontiers/validation.json",
   "reopened_archive": {
     "status": "PASS",
     "transition_chains": 621,
     "boundary_identities": 2484,
     "current_operand_checks": 31437,
     "native_comparison_digest_groups": 207,
-    "trace_uncompressed_sha256": "0feafe6f27312ad482210c9d02c58edc9dc26a2c9f665e4bd1d8d4bfaf5b78f9",
+    "trace_uncompressed_sha256": "eeb8d9708396d7ba1b44997c9f333c1bdfd9690cb1a3ea7bb3515e0d9ac14955",
     "source_bindings_match": true,
-    "scope": "Reopened artifact integrity, exact scalar identities, causal cuts and retained hash chains; full native regeneration is the separate CI replay."
+    "scope": "All prior checked trace operands are preserved by complete canonical semantic equality. Only implementation hashes change. Original direct archive checks are retained in historical-430fb14; strict full native replay remains a separate CI check.",
+    "equivalence": "../field-frontiers/sparc-equivalence.json"
   },
-  "manuscript": {
-    "typst": "0.13.1",
-    "pages": 4,
-    "rendered_pages_inspected": [
-      1,
-      2,
-      3,
-      4
-    ],
-    "lint_status": "PASS",
-    "lint_files": 11,
-    "pdf_sha256": "1f41568565b0cc0b86dfa73ca0ee13004b8d0f628c0c254e72317f844e2de3e8"
-  },
-  "ci_full_recomputation": "Separate post-push normal/optimized jobs; no remote result claimed by this local record",
-  "prior_attempts": [
-    {
-      "scope": "exploratory trace before final passive-partition/runner changes",
-      "result": "interrupted; excluded from evidence"
-    },
-    {
-      "scope": "earlier frozen-source invocation",
-      "result": "exit143 without output; excluded from evidence"
-    },
-    {
-      "scope": "concurrent optimized invocation",
-      "result": "stopped before the final source/logging freeze; excluded from evidence"
-    }
-  ],
-  "timing_scope": "Elapsed seconds cover the completed invocation including output writing; abandoned attempts are excluded. No speedup claim."
+  "scope": "Same complete finite radial predictions and traces after shared-context optimization; no accuracy change.",
+  "publication": "The existing four-page SPARC PDF and chart retain identical scientific data and unchanged Typst source.",
+  "timing_scope": "Completed invocation including serialization; prior exit143 attempt excluded. No full-application speedup claim.",
+  "ci": "Complete normal/optimized strict recomputation is required separately after push."
 }

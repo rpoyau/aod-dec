@@ -1,9 +1,12 @@
-from dataclasses import replace
+from dataclasses import replace, FrozenInstanceError
 from fractions import Fraction as Q
+from types import MappingProxyType
 import unittest
+from unittest.mock import patch
 
 from simulations.reduced_boundary_response import (ResponseError, response_step,
-    boundary_step, region, native, UNIT, WINDOW_DOMAIN)
+    boundary_step, boundary_context, boundary_view, BoundaryContext,
+    region, native, UNIT, WINDOW_DOMAIN)
 
 
 def states():
@@ -25,6 +28,10 @@ def view(response, before, after):
 
 
 class ReducedBoundaryResponseTests(unittest.TestCase):
+    def context(self, before, channels, **options):
+        return boundary_context(before, channels, scope='declared-response-region',
+                                window=3, window_domain=WINDOW_DOMAIN, **options)
+
     def test_independent_three_cell_weighted_response(self):
         initial = states()
         response = response_step(initial, (channel(), channel('b-r', 'b', 'reservoir', 1)))
@@ -147,6 +154,97 @@ class ReducedBoundaryResponseTests(unittest.TestCase):
         self.assertEqual(result['total_current_residual'], 0)
         self.assertEqual(moving['stock_change'], 1)
         self.assertEqual(moving['audit'].rows[0]['current'], -1)
+
+    def test_shared_context_matches_each_complete_compatibility_record_and_partition(self):
+        initial = states()
+        channels = (channel(value=3), channel('shed', 'b', 'reservoir', Q(1, 2), kind='shedding'),
+                    channel('inactive', 'reservoir', 'a', 100, available=False))
+        original = response_step(initial, channels)
+        context = self.context(initial, channels, after=original['after'])
+        self.assertEqual(context.response(), original)
+        selections = ((('a', 'reservoir'), ('b', 'reservoir')),
+                      (('b',), ('a',)),
+                      (tuple(initial), tuple(initial)),
+                      (('a', 'reservoir'), ('a', 'reservoir')))
+        records = []
+        for before, after in selections:
+            record = boundary_view(context, region.Region('before', before), region.Region('after', after))
+            self.assertEqual(record, view(original, before, after))
+            self.assertEqual(region.fingerprint(record), region.fingerprint(view(original, before, after)))
+            records.append(record)
+        self.assertEqual(region.audit_partition(records[2]['audit'],
+                         (records[0]['audit'], records[1]['audit']))['total_current_residual'], 0)
+
+    def test_context_and_four_views_update_and_commit_only_once(self):
+        initial, channels = states(), (channel(),)
+        with patch.object(native, 'update', wraps=native.update) as update, \
+             patch.object(region, 'commit', wraps=region.commit) as commit, \
+             patch.object(region, 'audit_boundary', wraps=region.audit_boundary) as audit:
+            context = self.context(initial, channels)
+            context.response()
+            for cells in (('a',), ('b',), ('reservoir',), tuple(initial)):
+                boundary_view(context, region.Region('old', cells), region.Region('new', cells))
+        self.assertEqual(update.call_count, len(initial))
+        self.assertEqual(commit.call_count, 1)
+        self.assertEqual(audit.call_count, 4)
+
+    def test_caller_and_returned_mutations_do_not_change_later_context_views(self):
+        initial, channels = states(), (channel(),)
+        context = self.context(MappingProxyType(initial), channels)
+        before, after = region.Region('old', ('a',)), region.Region('new', ('a', 'b'))
+        expected_response = context.response()
+        expected_view = boundary_view(context, before, after)
+        # Caller-owned objects, even forcibly changed frozen ancillary objects,
+        # do not alias the admitted private response or ledger.
+        object.__setattr__(initial['a'], 'pressure', Q(999))
+        initial.clear()
+        object.__setattr__(channels[0], 'value', Q(999))
+        emitted = context.response()
+        emitted['before_stock']['a'] = Q(999)
+        object.__setattr__(emitted['after']['a'], 'pressure', Q(999))
+        emitted['after'].clear()
+        record = boundary_view(context, before, after)
+        record['before_stock'].clear()
+        record['audit'].rows[0]['current'] = Q(999)
+        object.__setattr__(record['ledger'].commits[0].channels[0], 'value', Q(999))
+        self.assertEqual(context.response(), expected_response)
+        self.assertEqual(boundary_view(context, before, after), expected_view)
+
+    def test_context_rejects_supplied_pressure_closure_and_source_family_mismatch(self):
+        initial, channels = states(), (channel(),)
+        expected = response_step(initial, channels)['after']
+        for field, value in (('pressure', Q(9)), ('current', Q(99)), ('committed', 9),
+                             ('closure_memory', ('foreign',)), ('identity', 'foreign'),
+                             ('boundary', 'foreign'), ('capacity', Q(99))):
+            altered = dict(expected)
+            altered['a'] = replace(altered['a'], **{field: value})
+            with self.subTest(field=field), self.assertRaises(ResponseError):
+                self.context(initial, channels, after=altered)
+        with self.assertRaises(ResponseError):
+            self.context(initial, (channel(value=1),), after=expected)
+        with self.assertRaises(ResponseError):
+            self.context(initial, channels, after=None)
+        context = self.context(initial, channels)
+        with self.assertRaises(FrozenInstanceError):
+            context._ledger = replace(context._ledger, scope='foreign')
+        with self.assertRaises(ResponseError):
+            replace(context, _ledger=replace(context._ledger, scope='foreign'))
+        with self.assertRaises(ResponseError):
+            BoundaryContext()
+        with self.assertRaises(ResponseError):
+            boundary_view({}, region.Region('old', ('a',)), region.Region('new', ('a',)))
+        with self.assertRaises(ResponseError):
+            boundary_view(context, region.Region('old', ('unknown',)), region.Region('new', ('a',)))
+
+    def test_compatibility_wrapper_rejects_bad_views_before_committing(self):
+        initial, channels = states(), (channel(),)
+        after = response_step(initial, channels)['after']
+        with patch.object(region, 'commit', wraps=region.commit) as commit:
+            for before_region in (object(), region.Region('old', ('unknown',))):
+                with self.subTest(region=before_region), self.assertRaises(ResponseError):
+                    boundary_step(initial, after, channels, before_region, region.Region('new', ('a',)),
+                                  scope='test', window=3, window_domain=WINDOW_DOMAIN)
+        self.assertEqual(commit.call_count, 0)
 
 
 if __name__ == '__main__':

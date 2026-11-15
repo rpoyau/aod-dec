@@ -1,0 +1,32 @@
+{
+  "status": "complete",
+  "scope": "read-only source and implementation mapping for incremental closure/field/boundary tracking; includes owner clarification on transient Trion/curling forms",
+  "main_manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "implementation_commit": "430fb143f20abb73662a91aeff84445527eb603e",
+  "coverage": [
+    "Monon closure and recurrence",
+    "Dion/Duon grammar and retained components",
+    "Trion/Tetron/tetrion/tetrad distinctions",
+    "field membership and folded outer closure",
+    "finite Stokes and moving boundary",
+    "incremental validation reuse constraints"
+  ],
+  "source_changes": "none",
+  "remote_changes": "none",
+  "primary_artifact": "BOUNDARY_TRACKING.md",
+  "claims": "CLAIMS.json",
+  "source_binding": "SOURCE_BINDING.json",
+  "validation": {
+    "probe": "probe_tracking_types.py",
+    "normal": "PASS",
+    "optimized": "PASS",
+    "identical_outputs": true,
+    "cases": 7
+  },
+  "not_checked": [
+    "new boundary-compaction kernel implementation",
+    "performance gain",
+    "physical Trion lifetime",
+    "universal native-weight to SI conversion"
+  ]
+}

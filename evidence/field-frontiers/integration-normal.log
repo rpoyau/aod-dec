@@ -1,0 +1,85 @@
+test_cadence_and_pressure_come_from_committed_representative_history (tests.test_sparc_reduced.SparcReducedTests.test_cadence_and_pressure_come_from_committed_representative_history) ... ok
+test_constant_and_zero_input_families_do_not_manufacture_a_response (tests.test_sparc_reduced.SparcReducedTests.test_constant_and_zero_input_families_do_not_manufacture_a_response) ... ok
+test_coupling_disabled_keeps_initial_projection_with_same_pressure_and_horizon (tests.test_sparc_reduced.SparcReducedTests.test_coupling_disabled_keeps_initial_projection_with_same_pressure_and_horizon) ... ok
+test_fixed_native_pressure_stock_and_range_are_preserved (tests.test_sparc_reduced.SparcReducedTests.test_fixed_native_pressure_stock_and_range_are_preserved) ... ok
+test_independent_exact_three_bin_response_and_projection (tests.test_sparc_reduced.SparcReducedTests.test_independent_exact_three_bin_response_and_projection) ... ok
+test_input_order_normalization_preserves_synchronous_history (tests.test_sparc_reduced.SparcReducedTests.test_input_order_normalization_preserves_synchronous_history) ... ok
+test_malformed_support_and_undeclared_controls_are_rejected (tests.test_sparc_reduced.SparcReducedTests.test_malformed_support_and_undeclared_controls_are_rejected) ... ok
+test_moving_sweep_uses_old_stock_and_after_membership_crossing (tests.test_sparc_reduced.SparcReducedTests.test_moving_sweep_uses_old_stock_and_after_membership_crossing) ... ok
+test_spacing_primary_and_unit_ablation_have_independent_expected_states (tests.test_sparc_reduced.SparcReducedTests.test_spacing_primary_and_unit_ablation_have_independent_expected_states) ... ok
+test_targets_cannot_enter_preparation_response_or_projection (tests.test_sparc_reduced.SparcReducedTests.test_targets_cannot_enter_preparation_response_or_projection) ... ok
+test_after_membership_and_pre_stock_are_necessary_for_moving_identity (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_after_membership_and_pre_stock_are_necessary_for_moving_identity) ... ok
+test_boundary_derived_from_response_partitions_same_committed_history (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_boundary_derived_from_response_partitions_same_committed_history) ... ok
+test_boundary_rejects_future_response_changed_pressure_and_cross_domain (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_boundary_rejects_future_response_changed_pressure_and_cross_domain) ... ok
+test_caller_and_returned_mutations_do_not_change_later_context_views (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_caller_and_returned_mutations_do_not_change_later_context_views) ... ok
+test_compatibility_wrapper_rejects_bad_views_before_committing (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_compatibility_wrapper_rejects_bad_views_before_committing) ... ok
+test_context_and_four_views_update_and_commit_only_once (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_context_and_four_views_update_and_commit_only_once) ... ok
+test_context_rejects_supplied_pressure_closure_and_source_family_mismatch (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_context_rejects_supplied_pressure_closure_and_source_family_mismatch) ... ok
+test_exact_shared_state_domain_and_complete_endpoint_family (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_exact_shared_state_domain_and_complete_endpoint_family) ... ok
+test_independent_three_cell_weighted_response (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_independent_three_cell_weighted_response) ... ok
+test_internal_reverse_and_whole_universe_cancel (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_internal_reverse_and_whole_universe_cancel) ... ok
+test_multiple_passive_views_preserve_states_and_return_exact_operands (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_multiple_passive_views_preserve_states_and_return_exact_operands) ... ok
+test_negative_stock_is_rejected_without_clipping (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_negative_stock_is_rejected_without_clipping) ... ok
+test_shared_context_matches_each_complete_compatibility_record_and_partition (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_shared_context_matches_each_complete_compatibility_record_and_partition) ... ok
+test_shedding_and_unavailable_channels_are_retained_without_double_response (tests.test_reduced_boundary_response.ReducedBoundaryResponseTests.test_shedding_and_unavailable_channels_are_retained_without_double_response) ... ok
+Alpha spacing: starting
+Alpha spacing: completed in 0.3s
+Alpha disabled: starting
+Alpha disabled: completed in 0.3s
+Alpha unit: starting
+Alpha unit: completed in 0.3s
+Beta spacing: starting
+Beta spacing: completed in 0.3s
+Beta disabled: starting
+Beta disabled: completed in 0.3s
+Beta unit: starting
+Beta unit: completed in 0.3s
+test_cli_replays_reopened_trace_and_rejects_valid_but_changed_json (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_cli_replays_reopened_trace_and_rejects_valid_but_changed_json) ... ok
+test_execute_keeps_all_bins_and_reports_independent_exact_worsening (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_execute_keeps_all_bins_and_reports_independent_exact_worsening) ... ok
+test_implementation_change_during_execution_is_rejected (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_implementation_change_during_execution_is_rejected) ... Alpha spacing: starting
+Alpha spacing: completed in 0.3s
+Alpha disabled: starting
+Alpha disabled: completed in 0.3s
+Alpha unit: starting
+Alpha unit: completed in 0.3s
+Beta spacing: starting
+Beta spacing: completed in 0.3s
+Beta disabled: starting
+Beta disabled: completed in 0.3s
+Beta unit: starting
+Beta unit: completed in 0.3s
+ok
+test_invalid_worker_counts_are_rejected_before_execution (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_invalid_worker_counts_are_rejected_before_execution) ... ok
+test_output_csv_and_report_use_the_actual_small_cohort (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_output_csv_and_report_use_the_actual_small_cohort) ... ok
+test_saved_trace_reopens_with_exact_states_native_returns_and_bound_hashes (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_saved_trace_reopens_with_exact_states_native_returns_and_bound_hashes) ... ok
+test_serialization_and_digest_cache_are_deterministic (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_serialization_and_digest_cache_are_deterministic) ... Alpha spacing: starting
+Alpha spacing: completed in 0.4s
+Alpha disabled: starting
+Alpha disabled: completed in 0.4s
+Alpha unit: starting
+Alpha unit: completed in 0.4s
+Beta spacing: starting
+Beta spacing: completed in 0.4s
+Beta disabled: starting
+Beta disabled: completed in 0.4s
+Beta unit: starting
+Beta unit: completed in 0.3s
+ok
+test_worker_count_preserves_complete_exact_result (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_worker_count_preserves_complete_exact_result) ... Alpha spacing: starting
+Beta spacing: starting
+Beta spacing: completed in 0.2s
+Beta disabled: starting
+Alpha spacing: completed in 0.2s
+Alpha disabled: starting
+Beta disabled: completed in 0.2s
+Beta unit: starting
+Alpha disabled: completed in 0.2s
+Alpha unit: starting
+Beta unit: completed in 0.3s
+Alpha unit: completed in 0.3s
+ok
+
+----------------------------------------------------------------------
+Ran 32 tests in 18.673s
+
+OK

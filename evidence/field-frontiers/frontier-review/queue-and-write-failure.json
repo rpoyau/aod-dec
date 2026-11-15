@@ -1,0 +1,11 @@
+{
+  "source_sha256": "64dbe82519fac8806de38677e15752b6ea8038ed3f2f4cfac750d877012c7f63",
+  "queue_random_operations": 20000,
+  "queue_result": "PASS",
+  "durable_files_after_failed_admission": 1,
+  "conflicting_second_admission": "accepted",
+  "reopen_after_write_failure": {
+    "type": "FrontierError",
+    "message": "conflicting retained history binding: terminal"
+  }
+}

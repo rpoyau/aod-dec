@@ -1,0 +1,38 @@
+{
+  "main_manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "implementation_commit": "430fb143f20abb73662a91aeff84445527eb603e",
+  "main_manual": {
+    "sections/03_afc_basis.tex": "d5b648c0c74afe8c34a344d5069e78b5be5d9a98851ce1abcc6c0f9d1df8c6d3",
+    "sections/04_cut_running_fractal_tesseract.tex": "d52b8b2548bd61534a2b18c664284fdb14ec7ac7fe1d8b715c47483ca8e09d11",
+    "sections/05_curl_closure_duon_current.tex": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+    "sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+    "sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+    "sections/07_cell_measures_mappings.tex": "759a6a8cae5f02bd1ddaf6c28057dbd7c4e87440ef49a0a5559e75f2b137c2e5",
+    "sections/08_awareness_learning_mindfulness.tex": "310b4860c1710b8191725d9c40ff1fc05bd45a7ed818f0891e1fbd8fa58feae1",
+    "appendices/A_fractal_address_bip_biz.tex": "422d585b3f317ea52ebe8f7401119ad3e0be526dadd8d9fcd26ec72bdccce8d7",
+    "appendices/B_curling_curls.tex": "c47c04f45b584dc284a576301a8af43507725c207f8fd5a0bda583ab17822e04",
+    "appendices/E_glossary.tex": "9fa8739bd736f0e1f45866cd2b9d61fea1866c38e6c3f74af4c750eafe7ca953",
+    "manual/sections/00_native_closure_wave_temporal_fixtures.tex": "ddb69be4ad9086b0c21c2d80f6c0b686e509f94bf5d4e94bd8f4fe1c4dd8a4a6",
+    "manual/sections/06_field_dynamics_applications.tex": "ed3931249a0a3a6e112ea77d33e7bbfc22f9047236860e05a6f3417a12279c06"
+  },
+  "implementation": {
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "simulations/vendor/aod_trace_digest_cache.py": "0d36febb309f6366d12da54955010e94124581739e0da70660e19192a60eac14",
+    "simulations/trace_support.py": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217",
+    "simulations/trace_particle_relations.py": "fe604ebf9894f58b59e3f5ffe90cd9780266b98204c79606d6971ac80e91b190",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "simulations/reduced_boundary_response.py": "83c81b1ff135048a455b8b032d10859966712c99ee756f7231714d7068e954d5",
+    "simulations/reduced_duon_history.py": "9033ac9a998cb34229d76b90475dfeec8be7bf1c8813f64e7ec700d0fb00b13e",
+    "simulations/sparc_native_span.py": "560337d1e825eae8a32080c9186ad0190b8a2972423bfb1b2cb98b0efbb5e1ec"
+  },
+  "skills": {
+    "/home/reginaldpoyau/.agents/skills/aod/SKILL.md": "8c1b32c2c882cf5627c33df9779b5d62c1797059cb38796438179cb51e56d024",
+    "/home/reginaldpoyau/.agents/skills/aod/references/authority.md": "fc881342ffac7b6a5b4e13e295888c49bbd67520330752878cca5960b9b805a6",
+    "/home/reginaldpoyau/.agents/skills/aod/references/manuscripts.md": "e8599fe258eddffd77624c49942153e693af3d1e2dff36da82c2d8400cb4e85c",
+    "/home/reginaldpoyau/.agents/skills/aod/references/local-manuscript-amendment.md": "3160241652ba9a4a986ff4837fc4cc1c7695a619c23bd2e6a791a51fffe3ae47",
+    "/home/reginaldpoyau/.agents/skills/axiomatic-fundamentalism-review/SKILL.md": "09723f57c333102d5e1d4d22a0d9fad27638daacfa66608376edcc41343408c8",
+    "/home/reginaldpoyau/.codex/skills/axiomatic-fundamentalism/SKILL.md": "bbd2094206c0d1d7bdb6bf78c8a53e4cc9ff3411f6a39d84e2783c79658ecea3"
+  },
+  "authority": "Current owner instructions and local Main/Manual amendment govern. Main owns ontology/scoped mathematics; this review changes no source."
+}

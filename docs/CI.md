@@ -219,3 +219,44 @@ moving-boundary partitions, source-change rejection, malformed histories,
 cache equivalence and one-worker/two-worker determinism on small cohorts.
 Neither exact conservation nor replay certifies the unknown physical exchange
 at the deliberately closed radial/out-of-plane ports.
+
+## Field boundary frontiers
+
+`make check-field-frontiers` runs `scripts/check_field_frontiers.py` normally
+and under `-O`, writing `build/field-frontiers/normal.json` and `optimized.json`.
+The fixture varies active-field count and archived interior size, checks an
+independent exact supplied-attention response, bounds the queue to one pending
+event per active field, requires zero interior archive reads in the response
+loop, and verifies exposure afterward. It records queue operation counts,
+source hashes, archive/summary sizes, and separate cold and hot timings.
+The reports contain mode and timing observations and are not expected to be
+byte-identical. No timing threshold is used for acceptance.
+
+`make docs-field-frontiers TYPST=/path/to/typst` builds the source-bound
+two-page companion. CI runs both Make targets after the trace companion and
+retains the complete `build/field-frontiers/` directory, including available
+results after failure. The existing full Python suites separately exercise
+admission, archive-integrity, cross-history conflicts, domain changes, queue
+replacement and boundary-view isolation.
+
+The frontier's `n` is the number of active fields. One pending event per field
+gives `O(m log n)` heap work for `m` events under bounded local response cost,
+coupling degree and operand size. This bound excludes canonical admission,
+archive I/O, attention generation, expanded output and arbitrary-precision
+growth. Cold admission uses a disk SQLite union index rebuilt from canonical
+witness files when the archive opens; the response loop reads no interior
+history. A new closure still needs canonical admission. Explicit `rebind` on a
+changed window or coupling identity validates the archived wave, preserves hot
+current, committed cut and closure/beat counts, and invalidates old bound
+attention through a new generation. It establishes neither a new physical
+coupling nor a resolution of pending obligations or scale formation. Exposure
+returns the archived historical wave, while later response journaling through
+`TraceStore` remains the caller's responsibility.
+The frontier window is the host response-validity interval `[start,end)`;
+native retained-return/RCD counting uses `(start,end]`. Rebinding the validity
+domain neither recomputes RCD nor establishes physical time.
+
+The separate local approximately 1.55× timing result applies only to a matched
+four-view boundary helper, including its context creation and full audits.
+It does not establish a FieldFrontier, SPARC, or whole-engine speedup. The CI
+fixture's timing records likewise remain observations on the actual host.

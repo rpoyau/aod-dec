@@ -38,14 +38,25 @@ make docs-sparc-reduced TYPST=/path/to/typst
 Source changes deliberately invalidate exact archived replay. The retained
 Main/Manual binding and executed implementation hashes are in the summary.
 `SOURCE_REVIEW.md` and its bindings record the earlier source-review snapshot;
-`validation.json` records subsequent local execution and packaging checks.
-The normal local discovery covered 624 tests, followed by all eight newly
+`validation.json` records the current execution and packaging checks.
+`historical-430fb14/` preserves the earlier summary, execution and validation.
+That normal local discovery covered 624 tests, followed by all eight newly
 added driver tests. Optimized discovery covered all 632. Two CUDA-device
 tests skipped in each discovery; driver and 33 focused model tests pass in
 both modes. Eleven current manuscripts pass pinned AOD lint. The final PDF
 was compiled with Typst 0.13.1 and all four pages were inspected.
 
-The completed local invocation used three worker processes and took 861.63
-seconds, including serialization. This timing excludes abandoned attempts and
-establishes no speedup. CI independently regenerates the complete archived
-trace in normal and optimized modes; its final status is reported on the PR.
+The shared-context optimization computes the response and swept-field ledger
+once for all four boundary views. Its new complete run matches every scientific
+trace value and every comparison CSV byte from `430fb14`; only two implementation
+hashes change. The [equivalence record](../field-frontiers/sparc-equivalence.json)
+checks the complete canonical trace. Production replay still requires strict
+whole-trace equality. Predictions and error scores are unchanged.
+
+The current completed invocation used three workers and took 711.75 seconds,
+including serialization; the earlier invocation took 861.63 seconds. These
+invocations had different concurrent host workloads and establish no matched
+whole-application speedup. Interrupted attempts are excluded. Current frontier,
+boundary, review and lint checks are recorded under
+[field-frontiers](../field-frontiers/README.md). CI independently regenerates
+the complete archive in both Python modes; its final status is reported on the PR.

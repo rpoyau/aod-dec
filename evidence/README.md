@@ -10,7 +10,7 @@ This repository imports the completed, detached M0–M5 implementation. The nati
 compiler/runtime and learning code are unchanged from the sealed candidate;
 repository-specific additions provide CI, pinned skills/lint guidance, provenance
 checks and navigable documentation. M6 self-hosting and AArch64 remain unimplemented.
-No cost-inclusive speedup was established.
+That adaptive compiler experiment established no cost-inclusive speedup.
 
 ## Original execution
 
@@ -187,3 +187,12 @@ contacts, response operands and moving-boundary stock/sweep audits. The
 declaration precedes scoring. Its closed-port and fixed-support assumptions
 remain attached to the result; formation, physical calibration and unresolved
 external exchange are outside this finite experiment.
+
+## Field boundary compaction
+
+[`field-frontiers/`](field-frontiers/README.md) binds the source review, compact
+response implementation, archive and recoupling checks, indexed field scheduler,
+and shared-boundary helper measurements. Here `n` counts active fields, with at
+most one pending event each. Recoverable interiors stay outside active updates.
+The helper's measured saving has its own scope; it does not change the historical
+adaptive compiler result or establish a whole-engine speedup.

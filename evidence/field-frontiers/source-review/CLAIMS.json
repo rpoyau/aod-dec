@@ -1,0 +1,79 @@
+[
+  {
+    "id": "C01",
+    "disposition": "supported",
+    "claim": "certified enclosing closure supports cycle-valued boundary compression with retained interior provenance",
+    "anchors": "sections/05_curl_closure_duon_current.tex:228-278",
+    "evidence": "source extraction/fidelity check"
+  },
+  {
+    "id": "C02",
+    "disposition": "supported",
+    "claim": "macroscopic clustering can retain boundary/window summaries; future sufficiency requires matched-response falsifiers",
+    "anchors": "manual/sections/06_field_dynamics_applications.tex:17-24",
+    "evidence": "source extraction/fidelity check"
+  },
+  {
+    "id": "C03",
+    "disposition": "supported",
+    "claim": "fixed antisymmetric flux permits exact cancellation of internal pairs while preserving lineage records",
+    "anchors": "sections/06_field.tex:43-60;129-144;1645-1675",
+    "evidence": "source derivation reviewed"
+  },
+  {
+    "id": "C04",
+    "disposition": "conditional",
+    "claim": "interiors can leave active tracking when the declared compact boundary state supplies every operand for the intended window response; reopen before consuming absent operands",
+    "anchors": "C01+C02+C03",
+    "evidence": "implementation design consequence, new compact kernel not implemented"
+  },
+  {
+    "id": "C05",
+    "disposition": "supported",
+    "claim": "00 is the first finite anchor; base native weight1 is owner normalization; closure cycles and reclosure beats retain separate source counters",
+    "anchors": "sections/03_afc_basis.tex:36-50;appendices/E_glossary.tex:115-122;sections/04_cut_running_fractal_tesseract.tex:35-43;75-115",
+    "evidence": "source plus explicit current owner instruction"
+  },
+  {
+    "id": "C06",
+    "disposition": "supported",
+    "claim": "field/scale weights, admitted capacities and pressure can vary without assigning a physical power-of-two/eight law to octal digits",
+    "anchors": "sections/07_cell_measures_mappings.tex:7-33;sections/06_field.tex:77-127;1293-1317",
+    "evidence": "source extraction and domain reconciliation"
+  },
+  {
+    "id": "C07",
+    "disposition": "supported",
+    "claim": "Monon/Dion/Duon/Trion/Tetron/enclosure/recurrence are connected types, not a mandatory linear ladder",
+    "anchors": "sections/04_cut_running_fractal_tesseract.tex:6-150;sections/05_curl_closure_duon_current.tex:25-121;appendices/B_curling_curls.tex:46-78",
+    "evidence": "source extraction/fidelity check"
+  },
+  {
+    "id": "C08",
+    "disposition": "supported",
+    "claim": "Trion instability should be retained as transient compatibility/route lifecycle evidence rather than an invented universal decay probability",
+    "anchors": "sections/06_field.tex:610-674;782-790;appendices/B_curling_curls.tex:46-78",
+    "evidence": "source predicates plus current owner clarification; no numerical Trion lifetime found in inspected definitions"
+  },
+  {
+    "id": "C09",
+    "disposition": "supported",
+    "claim": "current detector can validate3:1 while q1 RD is unavailable; Tetron/E4 admission is not supplied by current motif API",
+    "anchors": "simulations/trace_support.py:115-211;simulations/vendor/aod_manual_native.py:337-387",
+    "evidence": "executable normal and optimized probes"
+  },
+  {
+    "id": "C10",
+    "disposition": "supported",
+    "claim": "successful subtree validation does not discharge cross-object event/terminal/prefix contradictions",
+    "anchors": "simulations/trace_history_union.py:15-95;simulations/vendor/aod_manual_native.py:186-215",
+    "evidence": "source inspection and executable conflict probe"
+  },
+  {
+    "id": "C11",
+    "disposition": "conditional",
+    "claim": "per-cut shared response/ledger/sweep data and changed-frontier indexing can reduce repeated boundary work without changing currents",
+    "anchors": "simulations/reduced_boundary_response.py:74-151;simulations/region_engine.py:268-385",
+    "evidence": "design constraints; implementation equivalence/performance not established here"
+  }
+]

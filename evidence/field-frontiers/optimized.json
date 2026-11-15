@@ -1,0 +1,149 @@
+{
+  "status": "PASS",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "mode": "optimized",
+  "scaling": [
+    {
+      "active_fields": 8,
+      "inner_waves_per_field": 0,
+      "response_events": 32,
+      "cold_preparation_admission_archive_seconds": 0.11284579900529934,
+      "hot_schedule_and_response_seconds": 0.026584330000332557,
+      "cold_plus_hot_seconds": 0.1394301290056319,
+      "one_field_exposure_seconds": 0.0065494220034452155,
+      "cold_hot_one_exposure_seconds": 0.1459795510090771,
+      "active_summary_json_bytes": 4520,
+      "archive_bytes": 60392,
+      "hot_archive_reads": 0,
+      "exposure_verified": true,
+      "queue": {
+        "comparisons": 96,
+        "peak_pending": 8,
+        "schedules": 32,
+        "pops": 32
+      },
+      "comparisons_per_event_log2_n": 1.0,
+      "independent_exact_response": "PASS"
+    },
+    {
+      "active_fields": 32,
+      "inner_waves_per_field": 0,
+      "response_events": 128,
+      "cold_preparation_admission_archive_seconds": 0.4446394960032194,
+      "hot_schedule_and_response_seconds": 0.11181782899802784,
+      "cold_plus_hot_seconds": 0.5564573250012472,
+      "one_field_exposure_seconds": 0.006456297000113409,
+      "cold_hot_one_exposure_seconds": 0.5629136220013606,
+      "active_summary_json_bytes": 18080,
+      "archive_bytes": 205452,
+      "hot_archive_reads": 0,
+      "exposure_verified": true,
+      "queue": {
+        "comparisons": 920,
+        "peak_pending": 32,
+        "schedules": 128,
+        "pops": 128
+      },
+      "comparisons_per_event_log2_n": 1.4375,
+      "independent_exact_response": "PASS"
+    },
+    {
+      "active_fields": 128,
+      "inner_waves_per_field": 0,
+      "response_events": 512,
+      "cold_preparation_admission_archive_seconds": 1.7127689539993298,
+      "hot_schedule_and_response_seconds": 0.40880596000351943,
+      "cold_plus_hot_seconds": 2.1215749140028493,
+      "one_field_exposure_seconds": 0.006375470002240036,
+      "cold_hot_one_exposure_seconds": 2.1279503840050893,
+      "active_summary_json_bytes": 72320,
+      "archive_bytes": 782820,
+      "hot_archive_reads": 0,
+      "exposure_verified": true,
+      "queue": {
+        "comparisons": 5844,
+        "peak_pending": 128,
+        "schedules": 512,
+        "pops": 512
+      },
+      "comparisons_per_event_log2_n": 1.6305803571428572,
+      "independent_exact_response": "PASS"
+    }
+  ],
+  "interior_variation": [
+    {
+      "active_fields": 8,
+      "inner_waves_per_field": 1,
+      "response_events": 32,
+      "cold_preparation_admission_archive_seconds": 0.4345316019971506,
+      "hot_schedule_and_response_seconds": 0.025552692997734994,
+      "cold_plus_hot_seconds": 0.46008429499488557,
+      "one_field_exposure_seconds": 0.02411688799475087,
+      "cold_hot_one_exposure_seconds": 0.48420118298963644,
+      "active_summary_json_bytes": 4520,
+      "archive_bytes": 128256,
+      "hot_archive_reads": 0,
+      "exposure_verified": true,
+      "queue": {
+        "comparisons": 112,
+        "peak_pending": 8,
+        "schedules": 32,
+        "pops": 32
+      },
+      "comparisons_per_event_log2_n": 1.1666666666666667,
+      "independent_exact_response": "PASS"
+    },
+    {
+      "active_fields": 8,
+      "inner_waves_per_field": 4,
+      "response_events": 32,
+      "cold_preparation_admission_archive_seconds": 1.457061948000046,
+      "hot_schedule_and_response_seconds": 0.025307650001195725,
+      "cold_plus_hot_seconds": 1.4823695980012417,
+      "one_field_exposure_seconds": 0.08067580100032501,
+      "cold_hot_one_exposure_seconds": 1.5630453990015667,
+      "active_summary_json_bytes": 4520,
+      "archive_bytes": 354400,
+      "hot_archive_reads": 0,
+      "exposure_verified": true,
+      "queue": {
+        "comparisons": 100,
+        "peak_pending": 8,
+        "schedules": 32,
+        "pops": 32
+      },
+      "comparisons_per_event_log2_n": 1.0416666666666667,
+      "independent_exact_response": "PASS"
+    },
+    {
+      "active_fields": 8,
+      "inner_waves_per_field": 16,
+      "response_events": 32,
+      "cold_preparation_admission_archive_seconds": 5.609106247997261,
+      "hot_schedule_and_response_seconds": 0.025527536003210116,
+      "cold_plus_hot_seconds": 5.634633784000471,
+      "one_field_exposure_seconds": 0.30601577200286556,
+      "cold_hot_one_exposure_seconds": 5.940649556003336,
+      "active_summary_json_bytes": 4520,
+      "archive_bytes": 1282720,
+      "hot_archive_reads": 0,
+      "exposure_verified": true,
+      "queue": {
+        "comparisons": 104,
+        "peak_pending": 8,
+        "schedules": 32,
+        "pops": 32
+      },
+      "comparisons_per_event_log2_n": 1.0833333333333333,
+      "independent_exact_response": "PASS"
+    }
+  ],
+  "source_sha256": {
+    "scripts/check_field_frontiers.py": "4f3af89e9883aab6fcb2f865939499c0e4adbdfe7cbe813d79e0ea30a6563dc6",
+    "simulations/field_frontier.py": "dbf302431419c7f638893960fede15da180a30e50ee4ab2d916297642f898465",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "simulations/trace_support.py": "a1942aa88aa23844522db5538d21e51dd59469606b2f56689fa6767981eea217",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7"
+  },
+  "scope": "Exact supplied-attention response and indexed scheduler; n counts active fields. Cold admission/archive and hot response measured separately and summed. Attention generation, arbitrary coupling graphs and full response journaling are outside this fixture. Operation counts test scheduler scaling; timings are not a whole-engine speedup claim."
+}

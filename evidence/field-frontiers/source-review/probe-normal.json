@@ -1,0 +1,18 @@
+{
+  "closure_not_field_rejection": "field cannot admit closure or alias as wave",
+  "cross_history_conflict_rejection": "conflicting trace for immutable terminal return event",
+  "enclosure_four_rejected": "invalid enclosure/chirality",
+  "field_alias_member_count": 1,
+  "primitive": {
+    "closure": "verified",
+    "detector": "unresolved",
+    "reason": "retained higher-support construction unavailable"
+  },
+  "tetron_name_rejected": "unknown inherited core",
+  "threefold": {
+    "RD": null,
+    "enclosure_status": "unresolved",
+    "signature": "3:1",
+    "status": "verified"
+  }
+}

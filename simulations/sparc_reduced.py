@@ -151,7 +151,9 @@ def simulate_galaxy(rows, *, coupled=True, geometry='spacing'):
             channels.append(region.Channel(identity, identity, left, right, current,
                 region.fingerprint(operands[-1]), available=coupled))
         channels = tuple(channels)
-        result = response.response_step(states, channels)
+        boundary_context = response.boundary_context(states, channels, scope=scope,
+            window=cadence, window_domain=response.WINDOW_DOMAIN)
+        result = boundary_context.response()
         after = result['after']
         before_selection = tuple(cell for cell in cells if states[cell].current >= threshold)
         after_selection = tuple(cell for cell in cells if after[cell].current >= threshold)
@@ -162,8 +164,7 @@ def simulate_galaxy(rows, *, coupled=True, geometry='spacing'):
         frames = {'selected':(selected_before,selected_after),
                   'complement':(complement_before,complement_after),
                   'whole':(whole,whole), 'stationary':(static_region,static_region)}
-        audits = {name:response.boundary_step(states,after,channels,before,following,
-                    scope=scope,window=cadence,window_domain=response.WINDOW_DOMAIN)
+        audits = {name:response.boundary_view(boundary_context,before,following)
                   for name,(before,following) in frames.items()}
         partition = region.audit_partition(audits['whole']['audit'],
             (audits['selected']['audit'],audits['complement']['audit']))

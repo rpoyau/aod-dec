@@ -171,6 +171,18 @@ jobs:
         run: make trace-example
       - name: Compile trace and profile companion
         run: make docs-trace TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
+      - name: Check field frontiers in normal and optimized Python
+        run: make check-field-frontiers
+      - name: Compile field frontier companion
+        run: make docs-field-frontiers TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
+      - name: Retain field frontier checks and documentation
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: field-frontiers-${{ github.sha }}
+          path: build/field-frontiers/
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain scoped current studies and documentation
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
