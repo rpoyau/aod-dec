@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/reduced-final/comparison.csv",
+  "sha256": "ac54f28028976fb7e0f73e1a07982fb22cd33c37e9cae17ee4554ff13dbc6686",
+  "rows_checked": 627,
+  "exact_numeric_field_checks": 3135,
+  "mismatches": []
+}

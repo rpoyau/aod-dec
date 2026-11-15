@@ -223,3 +223,64 @@ jobs:
             build/ci/conformance/cache/*.ll
           if-no-files-found: warn
           retention-days: 14
+
+  sparc-reduced:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: normal
+            flags: ''
+          - mode: optimized
+            flags: '-O'
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      TYPST_ARCHIVE_SHA256: 7d214bfeffc2e585dc422d1a09d2b144969421281e8c7f5d784b65fc69b5673f
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install reduced application prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends python3 python3-matplotlib curl xz-utils fonts-dejavu-core
+          mkdir -p build/tools
+          curl --fail --location --retry 3 --output build/tools/typst.tar.xz \
+            https://github.com/typst/typst/releases/download/v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz
+          printf '%s  %s\n' "$TYPST_ARCHIVE_SHA256" build/tools/typst.tar.xz | sha256sum -c -
+          tar -xJf build/tools/typst.tar.xz -C build/tools
+      - name: Verify recorded source hashes
+        run: sha256sum -c SHA256SUMS
+      - name: Reopen and recompute the complete cohort and controls
+        run: |
+          python3 -B ${{ matrix.flags }} scripts/simulate_sparc_reduced.py --workers 2 \
+            --replay evidence/sparc-reduced/trace.json.gz --output build/sparc-reduced
+          python3 - <<'PY'
+          import gzip
+          from pathlib import Path
+          original = gzip.decompress(Path('evidence/sparc-reduced/trace.json.gz').read_bytes())
+          fresh = gzip.decompress(Path('build/sparc-reduced/trace.json.gz').read_bytes())
+          if original != fresh:
+              raise SystemExit('Canonical trace bytes differ after decompression')
+          PY
+          cmp evidence/sparc-reduced/comparison.csv build/sparc-reduced/comparison.csv
+      - name: Build reduced application documentation from fresh results
+        run: |
+          python3 scripts/plot_sparc_reduced.py --input build/sparc-reduced/comparison.csv \
+            --output build/sparc-reduced/radial-comparison.png
+          build/tools/typst-x86_64-unknown-linux-musl/typst compile --root . \
+            --creation-timestamp 1794700800 \
+            --input results=../build/sparc-reduced/summary.json \
+            --input chart=../build/sparc-reduced/radial-comparison.png \
+            docs/sparc-reduced.typ build/sparc-reduced/sparc-reduced.pdf
+      - name: Retain complete reduced traces and comparison
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sparc-reduced-${{ matrix.mode }}-${{ github.sha }}
+          path: build/sparc-reduced/
+          if-no-files-found: warn
+          retention-days: 90

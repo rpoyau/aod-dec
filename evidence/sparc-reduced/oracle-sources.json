@@ -1,0 +1,47 @@
+{
+  "command": [
+    "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+    "evidence/sparc-reduced/independent_oracle.py",
+    "--input",
+    "data/sparc",
+    "--output",
+    "../reduced-oracle-final",
+    "--comparison",
+    "../reduced-final/comparison.csv"
+  ],
+  "input_sources": [
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/data/sparc/DDO154_rotmod.dat",
+      "name": "DDO154_rotmod.dat",
+      "sha256": "2458c2c392ab2314abc92725b7d0ccee22d9b666a15377e13a1c69d5f5d67ac7",
+      "rows": 12
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/data/sparc/NGC2403_rotmod.dat",
+      "name": "NGC2403_rotmod.dat",
+      "sha256": "9be193eccc5c363e74d04270290d831738f41ec9225a3b2c95353fd3812170b8",
+      "rows": 73
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/data/sparc/NGC2841_rotmod.dat",
+      "name": "NGC2841_rotmod.dat",
+      "sha256": "3182e398c3325cb7d43dcda432e150e55a06be8d74b2e95fd92e094e291b4e5f",
+      "rows": 50
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/data/sparc/NGC3198_rotmod.dat",
+      "name": "NGC3198_rotmod.dat",
+      "sha256": "17b774ad11e7dd745a067073b76f1909d4de32fa87616df12b64da3f225cf953",
+      "rows": 43
+    },
+    {
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/data/sparc/NGC6503_rotmod.dat",
+      "name": "NGC6503_rotmod.dat",
+      "sha256": "82015340fa6465db44e6375cf3a7745d49d916dca21a56fbcbe758809e66e27c",
+      "rows": 31
+    }
+  ],
+  "oracle_path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/evidence/sparc-reduced/independent_oracle.py",
+  "oracle_sha256": "d99165fe0cee411338de0e893ec7fdad711c8299f6003756c95724501f975d8f",
+  "results_sha256": "d5d543c5a0622a5866e504876e5566056a9145024d9d6ab11c7e1862eaf25cb3"
+}

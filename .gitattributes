@@ -25,3 +25,7 @@ evidence/sparc-reconstruction/*.json linguist-generated=true
 evidence/sparc-reconstruction/*.csv linguist-generated=true
 evidence/sparc-reconstruction/*.log linguist-generated=true
 evidence/sparc-reconstruction/*.txt linguist-generated=true
+evidence/sparc-reduced/*.json linguist-generated=true
+evidence/sparc-reduced/*.json.gz linguist-generated=true
+evidence/sparc-reduced/*.csv linguist-generated=true
+evidence/sparc-reduced/*.log linguist-generated=true

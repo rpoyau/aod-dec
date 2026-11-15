@@ -1,0 +1,86 @@
+{
+  "head": "82ffaf21001efb7e93bc6f1c6642e0779272d475",
+  "inspected_evidence": {
+    "engine-review/REDUCED_MODEL_REVIEW.md": "9e6968865da75637a5f93510ece3d390564fec7f0dd316591f9ce2aa7b8c1691",
+    "engine-review/REDUCED_RESPONSE_PROOF.json": "41dc554fa101a835059de1d59b31439d8266cc6c450a85525e4cf5c8d3d1a73a",
+    "engine-review/reduced-response-global-sweep-normal.txt": "8aad1c46691b0ab6c7c8c84bf5bea48ad8b0f1e9f9d524f76eee4d59310d95a8",
+    "engine-review/reduced-response-global-sweep-optimized.txt": "6f92774c75f88fdc5079c49b1f7141332e5afcbfbdd4aeb5f7442efd0e0d97b1",
+    "inputs/reduced-oracle/REPORT.md": "90b7108df9349d2308542005bb7f4fbe9b7c2624196e4d529dd8c7eef388085d",
+    "inputs/reduced_independent_oracle.py": "d99165fe0cee411338de0e893ec7fdad711c8299f6003756c95724501f975d8f",
+    "reduced-checks/aod-lint.json": "68d2fd5094a6f8cbff252cc6fa88c23308c2dd5297c626af44d0562948aa231c",
+    "reduced-checks/tests-final-normal.log": "736253cd3cba8e75479728d3cf30da0918b311d4e43c3a9df85474b3efcdda1a",
+    "reduced-checks/tests-final-optimized.log": "8c3099aa62f9f87f3b4a1b2e552ada0ed434afcc2ee43808a1a1272e9e15529d"
+  },
+  "lint_current_document_hash_matches": true,
+  "main_manual": {
+    "files": {
+      "manual/sections/06_field_dynamics_applications.tex": "ed3931249a0a3a6e112ea77d33e7bbfc22f9047236860e05a6f3417a12279c06",
+      "sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+      "sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b"
+    },
+    "head": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual"
+  },
+  "mode": "read-only source review; artifacts outside repository",
+  "packaging_snapshot": {
+    "full_execution_disposition": "pending parent completion and replay; not certified by this read-only review",
+    "recorded_manifest_mismatches_in_reviewed_files": [
+      ".gitattributes",
+      ".github/workflows/ci.yml",
+      "Makefile",
+      "README.md",
+      "docs/CI.md",
+      "docs/LINT.md",
+      "evidence/README.md"
+    ],
+    "retained_replay_evidence_present": false,
+    "reviewed_files_not_in_manifest": [
+      "docs/sparc-reduced.typ",
+      "scripts/simulate_sparc_reduced.py",
+      "scripts/plot_sparc_reduced.py",
+      "simulations/sparc_reduced.py",
+      "simulations/reduced_boundary_response.py",
+      "simulations/reduced_duon_history.py",
+      "simulations/vendor/aod_trace_digest_cache.py",
+      "tests/test_sparc_reduced.py",
+      "tests/test_reduced_boundary_response.py",
+      "tests/test_reduced_duon_history.py",
+      "tests/test_reduced_digest_cache.py",
+      "tests/test_sparc_reduced_driver.py",
+      "SHA256SUMS"
+    ]
+  },
+  "repo": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+  "review_time_utc": "2026-11-15T09:29:32.412052+00:00",
+  "source_files": {
+    ".gitattributes": "34715fb3be3af2647e738b13ab9958612d9f99776281a492f11bbe1f15dd366f",
+    ".github/workflows/ci.yml": "c3ebd6cab1714ec45e57fc4fb74b24f265fde136b160c512276e1a9af9b02712",
+    "Makefile": "9469c28dfcdc35b23abcbe011598094bbd8ff0170595eb9071fb2f9064a8507b",
+    "README.md": "023c90c489ab31b0f8e27a58038ed016805ab0bc35655ebf253b37fa199097ef",
+    "SHA256SUMS": "14dca7c1ec2994eb8e09b53d0554edabd70a919a3bc0a138b004c2b85c3f050d",
+    "docs/CI.md": "feec7107f2173c134ef58d8098cfa2650de23dfd7f08774c3a63d46444f513d1",
+    "docs/LINT.md": "d70b3be27463c3b08f220f51dd0e114d310a49876801d95c8a200837494172ca",
+    "docs/sparc-reduced.typ": "bea7d0024e5fce54e051b16cd18eead571f86e85cf3faf78c50004efc6f250b8",
+    "evidence/README.md": "81d3ab06254a58daa7e1727ebbfd7532e7b8f074b11c30a737b899c7f02893ac",
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f",
+    "scripts/plot_sparc_reduced.py": "42763c15797e96f147a8d673c4af33e39d0cff261b2d819feef06266da98f0c8",
+    "scripts/simulate_sparc_reduced.py": "3a240a6490e0c597a01263b770961db77662f3d3fa7b922dd8f2ead60a2b4241",
+    "scripts/verify_native.py": "f8ed5d571861108b6f20167024b2d3871d0d44302d29138b7529349841aa844d",
+    "simulations/boundary_accounting.py": "5b2127b90e9527b00bfcea742b98e1bec60d13e344828a34a0c69e86ff713f78",
+    "simulations/reduced_boundary_response.py": "d5b9b8acc5c0d157ced83e0b64394c75c971587692df9527ed9a88f3c19f1c0d",
+    "simulations/reduced_duon_history.py": "9033ac9a998cb34229d76b90475dfeec8be7bf1c8813f64e7ec700d0fb00b13e",
+    "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "simulations/sparc_comparison.py": "61a13fea2f5e030161befb1df0c1bdc97c14389b30de58cba64658bafb394bc1",
+    "simulations/sparc_inputs.py": "540f445911da1488739a1a7ad52dedaf1b80cc6ae240d5392baeb85982d1168d",
+    "simulations/sparc_inverse.py": "971a4c8016fcb19653e1e65a389065d81f35bbd4f0415b46b87ea1ce252c0045",
+    "simulations/sparc_native_span.py": "560337d1e825eae8a32080c9186ad0190b8a2972423bfb1b2cb98b0efbb5e1ec",
+    "simulations/sparc_reduced.py": "80a363e11b72ed2829eafb5bc803c86f549959a0223d6a7e8a79681bfefb044b",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "simulations/vendor/aod_trace_digest_cache.py": "0d36febb309f6366d12da54955010e94124581739e0da70660e19192a60eac14",
+    "tests/test_reduced_boundary_response.py": "8c54a62900b6fa22302f1671f92a249c14f6e442c7b7201669589a5010fdbbb5",
+    "tests/test_reduced_digest_cache.py": "fe5dfd6493a811f2c76eec37da91df534b8dee7c7750d384746975262ad74176",
+    "tests/test_reduced_duon_history.py": "02c99ad271e0f108cd665c1ed7d99c90270865973e7791d6a1746ab8820d8a29",
+    "tests/test_sparc_reduced.py": "b003b148d1e36cc7cca052931dd94716811b79bae77be4baa67b5ad9520006a7",
+    "tests/test_sparc_reduced_driver.py": "8052e7292bae9e9fc241bde8dd80496f042b41c75b17acabe695a02706e7c03a"
+  }
+}

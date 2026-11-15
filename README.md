@@ -114,6 +114,22 @@ the R04 admission repair, independent falsifiers and portable-run comparisons.
 `make docs-scoped` builds the retained, boundary, particle and region companions;
 CI retains their PDFs and fresh execution results for this commit.
 
+## Reduced SPARC response
+
+The [reduced radial application](docs/sparc-reduced.typ) evolves a declared
+adjacent-cell support through native pressure/current response. Computational
+Duon representatives retain certified returns and directional contacts. Moving
+control boundaries account for crossing current and the pre-response stock
+swept by changed membership. Observed speeds enter only the final comparison.
+
+Run `make simulate-sparc-reduced` for all 209 retained bins, the coupling-disabled
+control and the unit-intensity ablation. The fixed horizon, input map and all
+controls remain in the [execution evidence](evidence/sparc-reduced/REPORT.md),
+including any worsening score. `make docs-sparc-reduced` builds its Typst PDF.
+The closed radial/out-of-plane ports and absence of separate shedding channels
+are explicit reduction assumptions. This is a finite radial response experiment;
+full G2/G3 formation and physical boundary exchange remain unresolved.
+
 ## Run
 
 ```sh

@@ -200,3 +200,22 @@ zero currents and explicit rational reporting-scale maps; higher native formatio
 still requires ancestral support. The maser and Earth-water-Moon examples supply
 their motion, gates and current operands. Their exact accounting identities are
 not measured hyperfine, power, tide-height or fluid-velocity predictions.
+
+## Reduced SPARC execution
+
+The separate `sparc-reduced` matrix executes all five galaxies and all three
+predeclared cases under normal and optimized Python. Each run reopens the
+retained compressed trace, recomputes every result and requires complete
+equality. Each job retains its trace, all-bin comparison table, summary, radial
+comparison figure and a Typst PDF built from fresh results. Full retained-history
+admission makes this application slower than its scalar recurrence alone;
+each matrix job has a 40-minute budget and does not extend the compiler job.
+
+Locally, run `make simulate-sparc-reduced`, then repeat
+`python3 -B -O scripts/simulate_sparc_reduced.py --workers 2
+--replay build/sparc-reduced/trace.json.gz --output build/sparc-reduced-replay`.
+The full test suites also exercise exact independent recurrence answers,
+moving-boundary partitions, source-change rejection, malformed histories,
+cache equivalence and one-worker/two-worker determinism on small cohorts.
+Neither exact conservation nor replay certifies the unknown physical exchange
+at the deliberately closed radial/out-of-plane ports.

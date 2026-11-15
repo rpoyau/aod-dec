@@ -177,3 +177,13 @@ offline `compute_75` PTX and the device-targeted `compute_86` PTX have distinct
 recorded hashes. GPU execution is verified for this fixture and device; full
 witness admission remains on the host, and no cost-inclusive speedup or physical
 proton-scattering correspondence is established.
+
+## Reduced SPARC response
+
+[`sparc-reduced/`](sparc-reduced/) records the executed radial native-response
+specialization, unchanged G0 control, geometry ablation and complete 209-bin
+comparison. The compressed trace retains actual representative returns,
+contacts, response operands and moving-boundary stock/sweep audits. The
+declaration precedes scoring. Its closed-port and fixed-support assumptions
+remain attached to the result; formation, physical calibration and unresolved
+external exchange are outside this finite experiment.

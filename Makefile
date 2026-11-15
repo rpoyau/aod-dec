@@ -122,3 +122,12 @@ verify: verify-python verify-rust examples
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+.PHONY: simulate-sparc-reduced docs-sparc-reduced
+simulate-sparc-reduced:
+	$(PYTHON) -B scripts/simulate_sparc_reduced.py --workers 2 --output $(BUILD_DIR)/sparc-reduced
+
+docs-sparc-reduced:
+	mkdir -p $(BUILD_DIR)/sparc-reduced
+	$(TYPST) compile --root . --creation-timestamp 1794700800 \
+		docs/sparc-reduced.typ $(BUILD_DIR)/sparc-reduced/sparc-reduced.pdf

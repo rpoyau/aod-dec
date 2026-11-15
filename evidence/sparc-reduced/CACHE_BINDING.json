@@ -1,0 +1,31 @@
+{
+  "source_repository": "rpoyau/aod-manual",
+  "source_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "source_path": "manual/scripts/aod_trace_digest_cache.py",
+  "source_sha256": "0d36febb309f6366d12da54955010e94124581739e0da70660e19192a60eac14",
+  "vendored_path": "simulations/vendor/aod_trace_digest_cache.py",
+  "vendored_sha256": "0d36febb309f6366d12da54955010e94124581739e0da70660e19192a60eac14",
+  "copy_status": "byte-for-byte",
+  "license_notice": "simulations/vendor/LICENSE",
+  "license_sha256": "bcaee0778a5a742463fae8d3bf66d1dfc37d45b2a92962ad415b730b310d5bf7",
+  "execution_role": "Opt-in host execution cache only; canonical admission and witness validators unchanged; descriptor restored on context exit.",
+  "binary_status": "Python source module; no new binary added",
+  "test_python": {
+    "executable": "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+    "version": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "executable_sha256": "fa67443527ed9647f760d807e2a38f26340757123e643c4639cf273ed15d5ea7"
+  },
+  "validation": {
+    "normal_tests_passed": 6,
+    "optimized_tests_passed": 6,
+    "test_module": "tests.test_reduced_digest_cache",
+    "checks": [
+      "same full simulate_galaxy output, final return identities and history hashes with cache off/on",
+      "descriptor restored after success and error",
+      "validator function identities untouched",
+      "same forged native history rejected after valid cache priming",
+      "actual bounded entry/key-byte peaks, eviction and oversize fallback",
+      "invalid bounds reject without replacing descriptor"
+    ]
+  }
+}

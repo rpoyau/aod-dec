@@ -104,3 +104,9 @@ scan, PDF build and reconstruction checks are recorded under
 fit are scoped data calculations. Neither lint nor those fits establish a
 G2/G3 galaxy evolution, native beat calibration or a complete physical error
 budget. The native span extractor requires actual validated histories.
+
+The reduced SPARC companion adds `docs/sparc-reduced.typ`. Its current strict
+manuscript scan is retained under `evidence/sparc-reduced/`, separately from
+the executed recurrence, complete-cohort score, exact moving-boundary audits
+and deterministic trace comparisons. No physical accuracy claim follows from
+the manuscript lint result.

@@ -1,0 +1,61 @@
+Alpha spacing: starting
+Alpha spacing: completed in 0.3s
+Alpha disabled: starting
+Alpha disabled: completed in 0.3s
+Alpha unit: starting
+Alpha unit: completed in 0.3s
+Beta spacing: starting
+Beta spacing: completed in 0.3s
+Beta disabled: starting
+Beta disabled: completed in 0.3s
+Beta unit: starting
+Beta unit: completed in 0.3s
+test_cli_replays_reopened_trace_and_rejects_valid_but_changed_json (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_cli_replays_reopened_trace_and_rejects_valid_but_changed_json) ... ok
+test_execute_keeps_all_bins_and_reports_independent_exact_worsening (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_execute_keeps_all_bins_and_reports_independent_exact_worsening) ... ok
+test_implementation_change_during_execution_is_rejected (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_implementation_change_during_execution_is_rejected) ... Alpha spacing: starting
+Alpha spacing: completed in 0.3s
+Alpha disabled: starting
+Alpha disabled: completed in 0.3s
+Alpha unit: starting
+Alpha unit: completed in 0.3s
+Beta spacing: starting
+Beta spacing: completed in 0.3s
+Beta disabled: starting
+Beta disabled: completed in 0.3s
+Beta unit: starting
+Beta unit: completed in 0.3s
+ok
+test_invalid_worker_counts_are_rejected_before_execution (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_invalid_worker_counts_are_rejected_before_execution) ... ok
+test_output_csv_and_report_use_the_actual_small_cohort (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_output_csv_and_report_use_the_actual_small_cohort) ... ok
+test_saved_trace_reopens_with_exact_states_native_returns_and_bound_hashes (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_saved_trace_reopens_with_exact_states_native_returns_and_bound_hashes) ... ok
+test_serialization_and_digest_cache_are_deterministic (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_serialization_and_digest_cache_are_deterministic) ... Alpha spacing: starting
+Alpha spacing: completed in 0.4s
+Alpha disabled: starting
+Alpha disabled: completed in 0.4s
+Alpha unit: starting
+Alpha unit: completed in 0.4s
+Beta spacing: starting
+Beta spacing: completed in 0.4s
+Beta disabled: starting
+Beta disabled: completed in 0.4s
+Beta unit: starting
+Beta unit: completed in 0.4s
+ok
+test_worker_count_preserves_complete_exact_result (tests.test_sparc_reduced_driver.SparcReducedDriverTests.test_worker_count_preserves_complete_exact_result) ... Alpha spacing: starting
+Beta spacing: starting
+Alpha spacing: completed in 0.3s
+Alpha disabled: starting
+Beta spacing: completed in 0.3s
+Beta disabled: starting
+Alpha disabled: completed in 0.3s
+Alpha unit: starting
+Beta disabled: completed in 0.3s
+Beta unit: starting
+Beta unit: completed in 0.3s
+Alpha unit: completed in 0.3s
+ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 14.160s
+
+OK

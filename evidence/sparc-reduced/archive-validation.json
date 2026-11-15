@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "transition_chains": 621,
+  "boundary_identities": 2484,
+  "current_operand_checks": 31437,
+  "native_comparison_digest_groups": 207,
+  "trace_uncompressed_sha256": "0feafe6f27312ad482210c9d02c58edc9dc26a2c9f665e4bd1d8d4bfaf5b78f9",
+  "source_bindings_match": true,
+  "scope": "Reopened artifact integrity, exact scalar identities, causal cuts and retained hash chains; full native regeneration is the separate CI replay."
+}
