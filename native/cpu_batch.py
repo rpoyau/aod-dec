@@ -1,5 +1,6 @@
 """Compiler-owned native-thread batches entering real guarded LLVM functions."""
 import ctypes as C
+from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
@@ -121,14 +122,19 @@ def _load_thunk(session, entry):
         "object_sha256": compiler.file_digest(obj), "ir_sha256": binding["ir_sha256"]}
 
 
-def _execute(session, entry, inputs, *, workers, fuel, max_depth, expected_sources=None):
+def _execute(session, entry, inputs, *, workers, fuel, max_depth, expected_sources=None, prepared=None):
     """Pack/collect only in Python; the single native dispatch computes all rows."""
     with session.lock:
         require(not session.closed, "JIT session is closed")
         entry_binding(entry)
         require(session.program == entry.program, "batch session belongs to another verified program")
-        address, thunk = _load_thunk(session, entry)
-        library, dispatch_binding = _dispatcher()
+        if prepared is None:
+            address, thunk = _load_thunk(session, entry)
+            library, dispatch_binding = _dispatcher()
+        else:
+            address, thunk, library, dispatch_binding = prepared
+            require(session.addresses.get(thunk["symbol"]) == address,
+                    "prepared batch entry is not owned by this live JIT session")
         require(expected_sources is None or source_bindings() == expected_sources,
                 "compiler batch source changed before native dispatch")
         require(session.info["binding"]["runtime_sha256"] == compiler.runtime_digest(),
@@ -169,6 +175,91 @@ def _execute(session, entry, inputs, *, workers, fuel, max_depth, expected_sourc
                     "thunk": thunk, "dispatcher": dispatch_binding}
         finally:
             library.dec_batch_free(owner)
+
+
+class CpuBatchSession:
+    """Own one verified program's reusable generated CPU entries.
+
+    Entry selection, thunk loading and dispatcher loading are retained. Every
+    run still validates exact inputs and source bindings, and its native lanes
+    allocate fresh Contexts. Calls and close share the JIT lifetime lock. Use a
+    context manager so the executable code is released after all calls finish.
+    """
+    def __init__(self, program, *, workers=1, opt=0):
+        require(type(workers) is int and 1 <= workers <= 32, "workers must be an exact integer in 1..32")
+        require(type(opt) is int and opt in (0, 1, 2, 3), "optimization level must be an exact integer in 0..3")
+        self._sources = source_bindings()
+        self._session = compiler.JitSession(program, opt=opt)
+        self._program_digest = hashlib.sha256(compiler.dumps_ir(self._session.program).encode()).hexdigest()
+        self._workers = workers
+        self._selected, self._loaded = {}, {}
+        self._dispatcher = None
+        self._calls = 0
+        if source_bindings() != self._sources:
+            self.close()
+            raise BatchError("compiler batch source changed during session creation")
+
+    @property
+    def closed(self):
+        return self._session.closed
+
+    def run(self, function, rows, *, fuel=100000, max_depth=128, param_types=None):
+        """Execute one ordered batch; return the same public outcome contract."""
+        started = time.perf_counter_ns()
+        session = self._session
+        with session.lock:
+            require(not session.closed, "JIT session is closed")
+            require(source_bindings() == self._sources, "compiler batch source changed during reusable session")
+            require(hashlib.sha256(compiler.dumps_ir(session.program).encode()).hexdigest() == self._program_digest,
+                    "reusable batch program changed after admission")
+            require(type(function) is str and function, "exact entry function name required")
+            require(param_types is None or (type(param_types) in (tuple, list) and
+                    all(type(value) is str for value in param_types)),
+                    "explicit exact parameter type sequence required")
+            key = (function, None if param_types is None else tuple(param_types))
+            if key not in self._selected:
+                self._selected[key] = select_entry(session.program, function, param_types=key[1])
+            entry = self._selected[key]
+            inputs = validate_inputs(entry, rows, fuel=fuel, max_depth=max_depth)
+            selected = entry_binding(entry)
+            entry_hit = entry.entry_sha256 in self._loaded
+            if not entry_hit:
+                self._loaded[entry.entry_sha256] = _load_thunk(session, entry)
+            dispatcher_hit = self._dispatcher is not None
+            if not dispatcher_hit:
+                self._dispatcher = _dispatcher()
+            address, thunk = self._loaded[entry.entry_sha256]
+            library, dispatch_binding = self._dispatcher
+            results, execution, artifacts = _execute(session, entry, inputs,
+                workers=self._workers, fuel=fuel, max_depth=max_depth, expected_sources=self._sources,
+                prepared=(address, thunk, library, dispatch_binding))
+            require(source_bindings() == self._sources and entry_binding(entry) == selected and
+                    hashlib.sha256(compiler.dumps_ir(session.program).encode()).hexdigest() == self._program_digest,
+                    "compiler batch source or program changed during reusable execution")
+            self._calls += 1
+            execution.update(reusable_session=True, session_call=self._calls,
+                loaded_entry_count=len(self._loaded), entry_load_cache_hit=entry_hit,
+                dispatcher_load_cache_hit=dispatcher_hit, total_ns=time.perf_counter_ns()-started,
+                timing_scope="This call: source/IR/input validation, first-use compile/load when needed, packing, "
+                    "native-thread dispatch, exact runtime, collection and source checks; session construction "
+                    "and final close are separate and must be included in lifecycle benchmarks")
+            # Reports must not expose mutable references into the owning cache.
+            return {"rows": results, "execution": execution, "source_binding": deepcopy({"entry": selected,
+                "implementation_sha256": self._sources, **artifacts})}
+
+    def close(self):
+        with self._session.lock:
+            self._session.close()
+            self._selected.clear()
+            self._loaded.clear()
+            self._dispatcher = None
+
+    def __enter__(self):
+        require(not self.closed, "JIT session is closed")
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
 
 def run_cpu_batch(program, function, rows, *, workers=1, fuel=100000, max_depth=128, opt=0, param_types=None):

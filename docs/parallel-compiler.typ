@@ -102,6 +102,42 @@ prior measurements may select between prevalidated native variants with equal
 semantic outcomes. This example supplies no cost evidence and keeps generic
 O0. Hardware duration adds no AOD clock or awareness transition law.
 
+= Tracing the existing evolution <existing-evolution>
+
+`run_engine_case()` invokes the unchanged Manual `learning()` or
+`mindfulness()` function. A scoped observer records its actual call and return
+events: the committed state, retained sources, query observation cut,
+`transition()` input, native `update()` and resulting state. The query and
+later consequence already belong to that execution. The observer supplies
+neither operands nor a response rule. On Python 3.12 or later, observation uses
+local monitoring events on the selected source functions. The broad profiler
+remains an explicit comparison and a compatibility fallback. Both mechanisms
+must capture identical records.
+
+Call-tree identities distinguish matched branches that share native cut numbers.
+Native histories keep their own immutable identities. Typed retained witnesses
+bind each transition and update; verification replays them separately and checks
+their combined histories. Event and byte limits produce explicit partial
+coverage while preserving the engine's result or original error. A previous
+profiler is restored after observation. Complete state and event values must
+match execution with tracing disabled.
+
+#pagebreak()
+= Reusing the compiled runtime <runtime-reuse>
+
+`CpuBatchSession` keeps one JIT and dispatcher alive across successive calls,
+loading each selected entry once. Every lane still owns a fresh native context,
+fuel and value arena. `GpuBatchSession` retains one CUDA context, compiled
+entries and capacity-checked buffers. Each call restores the caller's CUDA
+context; calls and cleanup share the owning lock. Source and input checks
+remain in both paths. Context managers release executable and device resources.
+
+The compiled awareness checker uses one CPU session across six families and
+one GPU session across five. Its generated response, query and selector still
+undergo the same native admission and complete-outcome comparison. Reuse removes
+repeated runtime setup. It does not remove retained histories or infer a new
+evolution from timing observations.
+
 = Execution and evidence <compiled-reproduction>
 
 The compiler reads an array of typed argument rows. For example,
@@ -124,9 +160,18 @@ finite truth table, the reference VM and complete retained boundary views.
 optimized Python modes are checked separately. GPU absence is recorded; an
 explicitly required device run must execute a real kernel.
 
+`scripts/check_introspection_evolution.py` records the original engine with
+tracing on and off, then compares the same compiled continuation using one-shot
+and reusable runtimes. Timed intervals include construction, first loading,
+execution, cleanup and report serialization. Shared fixture preparation is
+excluded from both compiled intervals; verification has a separate recorded
+cost. The original engine's trace overhead and the compiled adapter's runtime
+reuse ratio are different comparisons. Neither establishes a general engine
+speedup or an adaptive compiler policy.
+
 Source, verified IR, generated artifacts and target capabilities bind execution
-evidence. Timings include their declared preparation, compilation and execution
-costs; this example makes no cost-inclusive speedup claim. Equality establishes
+evidence. All measured samples, including slower outcomes, are retained.
+Equality establishes
 the bounded computation inspected, not empirical accuracy of an unmeasured
 physical observable.
 

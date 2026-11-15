@@ -1,0 +1,9 @@
+# Reusable CPU batch session
+
+CpuBatchSession owns one verified program, one JIT lifetime, one lazily loaded native dispatcher and one generated thunk per selected entry. Each call still validates source/IR/input identity and applies exact resource/fuel limits. Native calls and close share the JIT lifetime lock; every lane allocates a fresh runtime Context. Returned reports copy cached provenance so caller edits cannot alter the session. The one-shot run_cpu_batch interface remains available and unchanged in behavior.
+
+Nineteen tests pass in normal and optimized Python. Added cases cover multiple selected entries with one load each, actual two-thread execution, report alias isolation, 35 fuel values and depth/error paths, output-failure recovery, source/IR mutation, exception close, repeated close, and waiting for an active reused dispatch before reclaiming code.
+
+The paired benchmark runs 24 calls to the existing response/continuation/reflexive-query Dec functions, each with three rows and two native workers. It includes session construction, first entry/dispatcher loads, all validation/packing/native execution/collection, and final close. Both variants use a warm persistent artifact cache. Seven paired sequences, with seeded randomized order, have median one-shot/reusable ratio 3.7697; sequence-time medians are 697.735 ms and 167.090 ms respectively. Exact rows match independent arithmetic in every sequence. Shared host load is uncontrolled.
+
+This measures removal of repeated compiler/JIT ownership work. It does not demonstrate a blanket engine speedup, full native evolution throughput, GPU performance or cold-artifact compilation gain. The parent task measures the existing awareness example separately. Reproducible script, per-pair timings and source hashes are included here.

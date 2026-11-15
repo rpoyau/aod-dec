@@ -1,0 +1,50 @@
+{
+  "status": "complete",
+  "scope": "Source-bound existing-engine introspection path; passive observation and independent trace replay; no upstream model repair",
+  "artifacts": [
+    "SOURCE_BINDING.json",
+    "ENGINE_PATH.md",
+    "PROFILE_EXISTING.json",
+    "profile_existing.py",
+    "tests-normal.log",
+    "tests-optimized.log",
+    "MONITORING_REVIEW.md",
+    "MONITORING_REVIEW.json"
+  ],
+  "expected_tests": 18,
+  "checks": {
+    "normal": "18 passed",
+    "optimized": "18 passed",
+    "passive_outcomes": "exact existing native returns equal for learning, mindfulness and delayed",
+    "hostile_controls": "rehashed query/cut/result forgery and missing execution reject",
+    "coverage_failures": "observer budgets and failures preserve result; original engine errors preserved",
+    "source": "unchanged bound engine; new helper frozen",
+    "fixed_model_binding": "Complete traces bind canonical world/model, source-owned initial states, eight learning branch schedules and six-step mindfulness horizon; coherent current99/query\u221299 substitution rejected.",
+    "source_call_completeness": "Complete roots must return normally; exact selected-function parent/child topology and branch horizons required.",
+    "retention_link": "Recorded retained prior/result must be the source-owned canonical preparation.",
+    "exact_types": "Canonical typed JSON comparisons reject bool/int aliases in world, inputs, states, retention, and replay results.",
+    "strict_schema": "Declared event field sets and canonical event/witness JSON required; history-union verifier code source-bound.",
+    "independent_hostile_probes": "PASS normal/-O on final monitoring source; all six prior hostile mutations rejected.",
+    "monitoring": "Selected-code local start/return and filtered unwind; full profile/monitoring traces exactly equal; original errors, fallback, ownership and thread separation tested.",
+    "independent_monitoring_review": "7 targeted probes PASS normal/-O on unchanged source: exact records/error parity, ownership/fallback/thread/lifecycle checks."
+  },
+  "test_logs_sha256": {
+    "tests-normal.log": "bc8bd50ce9ed5e7e2349801aef8b9769782981c805d080aa8e65528879a305dc",
+    "tests-optimized.log": "41d9d62653f3550d77eebd9c2f0fd1e0c47ccabe71fd4bff9e4b83c29cf4fb8d"
+  },
+  "independent_probe_sha256": {
+    "review_trace_probes.py": "89e208e275bb39fbde437ea1d49b9fdfd318b8ba5ee547718ccaa250ecdc3416",
+    "trace-probes-normal.json": "ab6faa1fe8c568059028af8fe17458be620aa50b376a4980ff14abc3a464484a",
+    "trace-probes-optimized.json": "ab6faa1fe8c568059028af8fe17458be620aa50b376a4980ff14abc3a464484a"
+  },
+  "monitoring_log_sha256": {
+    "monitoring-tests-normal.log": "aa0b582afdeb6906b294cda25606b7b95124ab1426f4e60efbffad1e6d4dbf8f",
+    "monitoring-tests-optimized.log": "ebdb259b15872b96f335f55c31d536901466458da2906d1783391de74d101e9c"
+  },
+  "independent_monitoring_sha256": {
+    "review-monitoring-normal.json": "7d3acbbadd46ca8e6c6d18d28d48805b890e14d3110d734ff1411106b53b8864",
+    "review-monitoring-optimized.json": "7d3acbbadd46ca8e6c6d18d28d48805b890e14d3110d734ff1411106b53b8864",
+    "trace-probes-normal.json": "9ca260a1158896a5bedebe73e0e943aaaac456f567911b40eed5e0158bc26879",
+    "trace-probes-optimized.json": "9ca260a1158896a5bedebe73e0e943aaaac456f567911b40eed5e0158bc26879"
+  }
+}

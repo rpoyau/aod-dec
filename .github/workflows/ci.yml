@@ -181,6 +181,10 @@ jobs:
         run: make docs-parallel-tracing TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
       - name: Check source-compiled boundary and awareness batches
         run: make check-compiled-boundaries check-awareness-jit
+      - name: Trace unchanged introspective evolution in both Python modes
+        run: |
+          python3 -B scripts/check_introspection_evolution.py --repeats 1 --gpu auto --output build/introspection-evolution/normal
+          python3 -B -O scripts/check_introspection_evolution.py --repeats 1 --gpu auto --output build/introspection-evolution/optimized
       - name: Compile parallel compiler companion
         run: make docs-parallel-compiler TYPST=build/tools/typst-x86_64-unknown-linux-musl/typst
       - name: Retain compiled batch and awareness evidence
@@ -191,6 +195,7 @@ jobs:
           path: |
             build/compiled-boundaries/
             build/awareness-jit/
+            build/introspection-evolution/
           if-no-files-found: warn
           retention-days: 90
       - name: Retain parallel boundary tracing evidence

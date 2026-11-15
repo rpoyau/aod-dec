@@ -1,0 +1,108 @@
+{
+  "status": "PASS",
+  "steps": [
+    {
+      "mode": "normal",
+      "check": "tests",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_gpu_compiler",
+        "-v"
+      ],
+      "exit_code": 0,
+      "elapsed_ns": 9427826421
+    },
+    {
+      "mode": "normal",
+      "check": "awareness",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "scripts/check_awareness_jit.py",
+        "--gpu",
+        "required",
+        "--workers",
+        "2",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/device-final/normal-awareness"
+      ],
+      "exit_code": 0,
+      "elapsed_ns": 17325581569
+    },
+    {
+      "mode": "normal",
+      "check": "evolution",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "scripts/check_introspection_evolution.py",
+        "--gpu",
+        "required",
+        "--workers",
+        "2",
+        "--repeats",
+        "5",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/device-final/normal-evolution"
+      ],
+      "exit_code": 0,
+      "elapsed_ns": 114266700295
+    },
+    {
+      "mode": "optimized",
+      "check": "tests",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "-m",
+        "unittest",
+        "tests.test_gpu_compiler",
+        "-v"
+      ],
+      "exit_code": 0,
+      "elapsed_ns": 14741135658
+    },
+    {
+      "mode": "optimized",
+      "check": "awareness",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "scripts/check_awareness_jit.py",
+        "--gpu",
+        "required",
+        "--workers",
+        "2",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/device-final/optimized-awareness"
+      ],
+      "exit_code": 0,
+      "elapsed_ns": 18095370493
+    },
+    {
+      "mode": "optimized",
+      "check": "evolution",
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "-B",
+        "-O",
+        "scripts/check_introspection_evolution.py",
+        "--gpu",
+        "required",
+        "--workers",
+        "2",
+        "--repeats",
+        "5",
+        "--output",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/device-final/optimized-evolution"
+      ],
+      "exit_code": 0,
+      "elapsed_ns": 117936829783
+    }
+  ]
+}

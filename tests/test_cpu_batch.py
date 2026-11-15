@@ -105,6 +105,121 @@ class InputContractTests(unittest.TestCase):
             batch.select_entry(source, "chosen", param_types=["bool"])
 
 
+class ReusableSessionTests(unittest.TestCase):
+    def test_multiple_entries_load_once_and_reports_do_not_alias_session_state(self):
+        source = program("assert x >= 0\nresult = x * x").replace(MAIN,
+            "\nDec flip(x) -> result:\n    (bool x) -> bool result:\n        result = not x\n"+MAIN)
+        with patch.object(cpu, "_load_thunk", wraps=cpu._load_thunk) as load, \
+             patch.object(cpu, "_dispatcher", wraps=cpu._dispatcher) as dispatcher, \
+             patch.object(Interpreter, "call", side_effect=AssertionError("interpreter used")):
+            with cpu.CpuBatchSession(source, workers=2) as session:
+                first = session.run("chosen", [(3,), (-1,), (11,)])
+                first["source_binding"]["entry"]["function"] = "forged-report"
+                first["source_binding"]["compiler"]["runtime_sha256"] = "forged-report"
+                second = session.run("chosen", [(7,), (5,)], param_types=["int"])
+                third = session.run("flip", [(True,), (False,)])
+                fourth = session.run("flip", [(False,), (True,)])
+            self.assertEqual(load.call_count, 2)
+            self.assertEqual(dispatcher.call_count, 1)
+        self.assertEqual([r["result"] for r in first["rows"]], ["9", None, "121"])
+        self.assertEqual([r["result"] for r in second["rows"]], ["49", "25"])
+        self.assertEqual([r["result"] for r in third["rows"]], ["false", "true"])
+        self.assertEqual([r["result"] for r in fourth["rows"]], ["true", "false"])
+        self.assertEqual(first["execution"]["entry_address"], second["execution"]["entry_address"])
+        self.assertEqual(second["source_binding"]["entry"]["function"], "chosen")
+        self.assertNotEqual(second["source_binding"]["compiler"]["runtime_sha256"], "forged-report")
+        self.assertTrue(second["execution"]["entry_load_cache_hit"])
+        self.assertTrue(fourth["execution"]["dispatcher_load_cache_hit"])
+        self.assertEqual(fourth["execution"]["loaded_entry_count"], 2)
+        self.assertEqual([r["execution"]["session_call"] for r in (first, second, third, fourth)], [1, 2, 3, 4])
+        for report in (first, second, third, fourth):
+            self.assertEqual(report["execution"]["workers_used"], 2)
+            self.assertEqual(report["execution"]["native_dispatch_calls"], 1)
+
+    def test_repeated_fuel_depth_errors_and_output_failure_do_not_share_contexts(self):
+        source = program("assert x != 0\nint y = x + 3\nresult = y * x if x > 0 else -y")
+        rows = [(0,), (7,), (-2,)]
+        with cpu.CpuBatchSession(source, workers=2) as session:
+            for fuel in range(35):
+                with self.subTest(fuel=fuel):
+                    report = session.run("chosen", rows, fuel=fuel)
+                    self.assertEqual(report["rows"], reference(source, rows, fuel=fuel))
+            for fuel, depth in ((0, 0), (1, 0), (100, 0), (100, 1)):
+                report = session.run("chosen", rows, fuel=fuel, max_depth=depth)
+                self.assertEqual(report["rows"], reference(source, rows, fuel=fuel, max_depth=depth))
+            with patch.object(cpu, "MAX_OUTPUT_BYTES", 1):
+                with self.assertRaisesRegex(DecError, "output byte budget"):
+                    session.run("chosen", rows)
+            self.assertEqual(session.run("chosen", rows)["rows"], reference(source, rows))
+            self.assertEqual(session.run("chosen", [])["execution"]["status"], "NO_WORK")
+
+    def test_source_and_ir_mutation_reject_before_reusing_native_entry(self):
+        source = program("result = x * x")
+        with cpu.CpuBatchSession(source, workers=2) as session:
+            session.run("chosen", [(3,), (7,)])
+            changed = dict(cpu.source_bindings(), **{"native/cpu_batch.py": "0"*64})
+            with patch.object(cpu, "source_bindings", return_value=changed), \
+                 patch.object(cpu, "_execute", side_effect=AssertionError("stale source executed")):
+                with self.assertRaisesRegex(DecError, "source changed"):
+                    session.run("chosen", [(4,)])
+            session._session.program["source"] += "\n# mutated admitted program\n"
+            with patch.object(cpu, "_execute", side_effect=AssertionError("stale program executed")):
+                with self.assertRaisesRegex(DecError, "program changed"):
+                    session.run("chosen", [(4,)])
+
+    def test_exception_close_and_double_close_reject_further_calls(self):
+        source = program("result = x")
+        session = cpu.CpuBatchSession(source)
+        with self.assertRaisesRegex(RuntimeError, "caller failure"):
+            with session:
+                session.run("chosen", [(7,)])
+                raise RuntimeError("caller failure")
+        self.assertTrue(session.closed)
+        session.close()
+        with self.assertRaisesRegex(DecError, "closed"):
+            session.run("chosen", [(7,)])
+        with self.assertRaisesRegex(DecError, "closed"):
+            session.__enter__()
+
+    def test_close_waits_for_reused_native_dispatch(self):
+        session = cpu.CpuBatchSession(program("result = x * x"), workers=2)
+        session.run("chosen", [(2,), (3,)])
+        library, binding = session._dispatcher
+        started, release, closed = threading.Event(), threading.Event(), threading.Event()
+        outcomes, errors = [], []
+        class BlockedDispatch:
+            def __getattr__(self, name):
+                return getattr(library, name)
+            def dec_batch_execute(self, *args):
+                started.set()
+                if not release.wait(10):
+                    raise RuntimeError("test dispatch release timeout")
+                return library.dec_batch_execute(*args)
+        session._dispatcher = (BlockedDispatch(), binding)
+        def execute():
+            try:
+                outcomes.append(session.run("chosen", [(7,), (11,)]))
+            except BaseException as exc:
+                errors.append(exc)
+        def close():
+            session.close()
+            closed.set()
+        worker, closer = threading.Thread(target=execute), threading.Thread(target=close)
+        worker.start()
+        self.assertTrue(started.wait(10))
+        closer.start()
+        try:
+            self.assertFalse(closed.wait(0.05))
+        finally:
+            release.set()
+            worker.join(10)
+            closer.join(10)
+        self.assertFalse(worker.is_alive() or closer.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual([r["result"] for r in outcomes[0]["rows"]], ["49", "121"])
+        self.assertTrue(session.closed)
+
+
 class NativeBatchTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

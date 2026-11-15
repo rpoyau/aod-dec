@@ -1,0 +1,137 @@
+{
+  "scope": "Recorded prior actual-device baseline and subsequent one-repeat monitoring smoke; final repeated hardware results belong to root runner. No unmeasured universal speedup claim.",
+  "source_sha256": {
+    "simulations/awareness_engine_trace.py": "be8d518e49805ab7b982f49f4b5db330c8dd466f2ed4ebaeaf9b952098fbf2fa",
+    "tests/test_awareness_engine_trace.py": "e6dfd18eb2b816880003040898018d4d850f2f9a83ab410cf37e7efb2ce9673d"
+  },
+  "official_documentation": "https://docs.python.org/3.12/library/sys.monitoring.html",
+  "baseline": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/device-profile-baseline/normal-evolution/results.json",
+    "sha256": "f1258b9510a7bcc1ec92a348827e2a20dff6bf69daf8206a44083225a0f9b765",
+    "repeats": 5,
+    "helper_sha256": "322936e6880b53586740d5f02caac47dbeff6aef6a8e776e86aff8ed3b78fd6d",
+    "engine": {
+      "delayed": {
+        "events": 30,
+        "median_after_ns": 927228090,
+        "median_before_ns": 83975149,
+        "median_paired_time_ratio": 0.08925408573895625,
+        "passive_equal": true,
+        "retained_bytes": 139196,
+        "timing_scope": "source checks, original source execution, observer lifecycle, retained witnesses and full report serialization"
+      },
+      "learning": {
+        "events": 144,
+        "median_after_ns": 3871865811,
+        "median_before_ns": 373972629,
+        "median_paired_time_ratio": 0.09392089401446857,
+        "passive_equal": true,
+        "retained_bytes": 210411,
+        "timing_scope": "source checks, original source execution, observer lifecycle, retained witnesses and full report serialization"
+      },
+      "mindfulness": {
+        "events": 30,
+        "median_after_ns": 999458021,
+        "median_before_ns": 83429830,
+        "median_paired_time_ratio": 0.08347507173590435,
+        "passive_equal": true,
+        "retained_bytes": 139186,
+        "timing_scope": "source checks, original source execution, observer lifecycle, retained witnesses and full report serialization"
+      }
+    }
+  },
+  "monitoring_smoke": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/monitoring-smoke/results.json",
+    "sha256": "1feb310553082ad3cebc88648aa2a425ecd799a20b792b6d0ee06305fcd8a5a1",
+    "repeats": 1,
+    "helper_sha256": "be8d518e49805ab7b982f49f4b5db330c8dd466f2ed4ebaeaf9b952098fbf2fa",
+    "engine": {
+      "delayed": {
+        "events": 30,
+        "median_after_ns": 88849499,
+        "median_before_ns": 97521976,
+        "median_paired_time_ratio": 1.097608620167909,
+        "observer_backend": "sys.monitoring",
+        "observer_mechanisms_equal": true,
+        "observer_reuse": {
+          "after": "trace_on_ns",
+          "all_pairs_faster": true,
+          "before": "trace_profile_ns",
+          "median_after_ns": 88849499,
+          "median_before_ns": 976822658,
+          "median_paired_time_ratio": 10.994126798621565,
+          "samples": [
+            {
+              "trace_off_ns": 97521976,
+              "trace_on_ns": 88849499,
+              "trace_profile_ns": 976822658
+            }
+          ]
+        },
+        "passive_equal": true,
+        "retained_bytes": 139196,
+        "timing_scope": "source checks, original source execution, observer lifecycle, retained witnesses and full report serialization"
+      },
+      "learning": {
+        "events": 144,
+        "median_after_ns": 350520108,
+        "median_before_ns": 296309102,
+        "median_paired_time_ratio": 0.8453412378841331,
+        "observer_backend": "sys.monitoring",
+        "observer_mechanisms_equal": true,
+        "observer_reuse": {
+          "after": "trace_on_ns",
+          "all_pairs_faster": true,
+          "before": "trace_profile_ns",
+          "median_after_ns": 350520108,
+          "median_before_ns": 3624249201,
+          "median_paired_time_ratio": 10.339632786487673,
+          "samples": [
+            {
+              "trace_off_ns": 296309102,
+              "trace_on_ns": 350520108,
+              "trace_profile_ns": 3624249201
+            }
+          ]
+        },
+        "passive_equal": true,
+        "retained_bytes": 210411,
+        "timing_scope": "source checks, original source execution, observer lifecycle, retained witnesses and full report serialization"
+      },
+      "mindfulness": {
+        "events": 30,
+        "median_after_ns": 97917646,
+        "median_before_ns": 106695594,
+        "median_paired_time_ratio": 1.08964623189573,
+        "observer_backend": "sys.monitoring",
+        "observer_mechanisms_equal": true,
+        "observer_reuse": {
+          "after": "trace_on_ns",
+          "all_pairs_faster": true,
+          "before": "trace_profile_ns",
+          "median_after_ns": 97917646,
+          "median_before_ns": 1149250830,
+          "median_paired_time_ratio": 11.736912364090125,
+          "samples": [
+            {
+              "trace_off_ns": 106695594,
+              "trace_on_ns": 97917646,
+              "trace_profile_ns": 1149250830
+            }
+          ]
+        },
+        "passive_equal": true,
+        "retained_bytes": 139186,
+        "timing_scope": "source checks, original source execution, observer lifecycle, retained witnesses and full report serialization"
+      }
+    }
+  },
+  "tests": {
+    "normal": 18,
+    "optimized": 18,
+    "log_sha256": {
+      "monitoring-tests-normal.log": "aa0b582afdeb6906b294cda25606b7b95124ab1426f4e60efbffad1e6d4dbf8f",
+      "monitoring-tests-optimized.log": "ebdb259b15872b96f335f55c31d536901466458da2906d1783391de74d101e9c"
+    }
+  }
+}

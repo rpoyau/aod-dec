@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "source_sha256": "be8d518e49805ab7b982f49f4b5db330c8dd466f2ed4ebaeaf9b952098fbf2fa",
+  "sources_unchanged": true,
+  "probes": {
+    "original": {
+      "status": "VERIFIED",
+      "transitions": 6,
+      "native_updates": 6,
+      "retentions": 1,
+      "calls": 15,
+      "scope": "captured existing-engine calls, native transitions, retention and committed-query causality"
+    },
+    "root_unwound": {
+      "status": "REJECTED",
+      "reason": "complete source call did not return normally"
+    },
+    "deleted_context": {
+      "status": "REJECTED",
+      "reason": "source-owned child-call coverage differs"
+    },
+    "relabelled_context": {
+      "status": "REJECTED",
+      "reason": "source-owned child-call coverage differs"
+    },
+    "detached_retention": {
+      "status": "REJECTED",
+      "reason": "source-owned retention operands differ"
+    },
+    "extra_record_field": {
+      "status": "REJECTED",
+      "reason": "source call fields/types differ"
+    },
+    "boolean_certificate_scale_in_world": {
+      "status": "REJECTED",
+      "reason": "source-owned world/model differs"
+    }
+  }
+}

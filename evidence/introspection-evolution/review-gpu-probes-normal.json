@@ -1,0 +1,76 @@
+{
+  "status": "PASS",
+  "scope": "Fake-driver failure isolation only; no GPU device execution claim",
+  "probes": [
+    {
+      "fault": "device",
+      "error": "cuDeviceGet: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "create",
+      "error": "cuCtxCreate: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "load",
+      "error": "cuModuleLoadData: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "function",
+      "error": "cuModuleGetFunction: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "allocate",
+      "error": "cuMemAlloc: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "to_device",
+      "error": "cuMemcpyHtoD: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "launch",
+      "error": "cuLaunchKernel: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "sync",
+      "error": "cuCtxSynchronize: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "from_device",
+      "error": "cuMemcpyDtoH: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "pop",
+      "error": "GPU cleanup failures: restore caller CUDA context: cuCtxPopCurrent: CUDA_ERROR_INJECTED",
+      "resources_released": true,
+      "caller_context_restored": true
+    },
+    {
+      "fault": "free-old-buffer-during-growth",
+      "resources_released": true,
+      "later_run_recovers": true
+    }
+  ],
+  "source_sha256": {
+    "native/gpu_compiler.py": "ea4639310af2788572681e838c78930c4e1af8a34a0f0a9d876931a9f9191f8f",
+    "tests/test_gpu_compiler.py": "f9d0d8b8158974e99f27717321eaca48b0ebffd9c9980926204c6d8db2c50e03",
+    "simulations/chiral_gpu.py": "08d464c5857fb49c7c5551a497c246e939fc31cb4a412a33827dbc5b0fae5618"
+  }
+}

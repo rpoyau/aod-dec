@@ -1,0 +1,29 @@
+{
+  "collection_failure": {
+    "native_owner_frees": 1,
+    "recovered_rows": [
+      {
+        "result": "121",
+        "stdout": "",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0
+      },
+      {
+        "result": "169",
+        "stdout": "",
+        "error": null,
+        "error_line": 0,
+        "exit_code": 0
+      }
+    ]
+  },
+  "wrong_entry_address": "rejected before native invocation",
+  "thread_migration": "exact output and joined native lane contexts",
+  "source_sha256": {
+    "native/cpu_batch.py": "560810bbb94181f9f9047b064911dc32d72c357dd4b67e0d904d7cb99fba12d9",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "tests/test_cpu_batch.py": "3d92731ce24d95666a6ccd88467eb02045f88145b3b8f0f31f9251b779cc258a"
+  },
+  "status": "PASS"
+}

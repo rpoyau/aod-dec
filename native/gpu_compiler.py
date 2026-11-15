@@ -9,14 +9,17 @@ ratios and retained-history construction remain outside this target.
 from __future__ import annotations
 
 import ctypes as C
+from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path
 import re
 import sys
+import threading
 import time
 
 from .batch import BatchError, entry_binding, select_entry, validate_inputs
+from runtime.dec_language import compile_source, dumps_ir, loads_ir
 from simulations import chiral_gpu as cuda
 
 
@@ -25,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGET = "dec-cuda-int64-bool-v1"
 I64_MIN, I64_MAX = -(1 << 63), (1 << 63)-1
 KERNEL_NAME = "dec_gpu_rows"
+MAX_SESSION_KERNELS = 64
 ERRORS = {1: "execution step budget exhausted", 2: "call depth limit exceeded",
           3: "assertion failed", 4: "GPU int64 target domain exceeded"}
 
@@ -283,61 +287,8 @@ def compile_cuda(source, architecture="compute_75", *, opt=0):
             check(lib.nvrtcDestroyProgram(C.byref(program)), "nvrtcDestroyProgram"))], sys.exc_info()[1])
 
 
-def _execute(source, rows, fuel, max_depth, opt):
-    started = time.perf_counter_ns()
-    probe = cuda.probe_gpu()
-    if probe["status"] != "AVAILABLE":
-        raise GPUUnavailable(probe)
-    device_info = probe["devices"][0]
-    profile = {"gpu_executed": False, "launch_count": 0, "device": device_info,
-               "driver_version": probe["driver_version"], "probe_ns": time.perf_counter_ns()-started}
-    if not rows:
-        return (), {**profile, "status": "NO_WORK"}
-    started = time.perf_counter_ns()
-    compiled = compile_cuda(source, "compute_"+"".join(map(str, device_info["compute_capability"])), opt=opt)
-    profile["compile_ns"] = time.perf_counter_ns()-started
-    profile["compilation"] = {key: value for key, value in compiled.items() if key != "ptx"}
-    driver, device = cuda._driver(), C.c_int()
-    cuda._check(driver, driver.cuDeviceGet(C.byref(device), 0), "cuDeviceGet")
-    context, module, function = C.c_void_p(), C.c_void_p(), C.c_void_p()
-    allocated, count = [], len(rows)
-    flat = tuple(int(value) for row in rows for value in row)
-    inputs = (C.c_int64*max(1, len(flat)))(*(flat or (0,)))
-    outputs = ((C.c_int64*count)(), (C.c_int32*count)(), (C.c_int32*count)(), (C.c_int64*count)())
-    started = time.perf_counter_ns()
-    try:
-        cuda._check(driver, driver.cuCtxCreate_v2(C.byref(context), 0, device), "cuCtxCreate")
-        ptx = C.create_string_buffer(compiled["ptx"])
-        cuda._check(driver, driver.cuModuleLoadData(C.byref(module), ptx), "cuModuleLoadData")
-        cuda._check(driver, driver.cuModuleGetFunction(C.byref(function), module, KERNEL_NAME.encode()), "cuModuleGetFunction")
-        for host in (inputs, *outputs):
-            pointer = C.c_uint64()
-            cuda._check(driver, driver.cuMemAlloc_v2(C.byref(pointer), C.sizeof(host)), "cuMemAlloc")
-            allocated.append(pointer)
-        profile["load_allocate_ns"] = time.perf_counter_ns()-started
-        started = time.perf_counter_ns()
-        cuda._check(driver, driver.cuMemcpyHtoD_v2(allocated[0], inputs, C.sizeof(inputs)), "cuMemcpyHtoD")
-        profile["transfer_to_device_ns"] = time.perf_counter_ns()-started
-        parameters = [*allocated, C.c_uint(count), C.c_int64(fuel), C.c_int32(max_depth)]
-        arguments = (C.c_void_p*len(parameters))(*[C.cast(C.byref(value), C.c_void_p) for value in parameters])
-        started = time.perf_counter_ns()
-        cuda._check(driver, driver.cuLaunchKernel(function, (count+127)//128, 1, 1, 128, 1, 1,
-                    0, None, arguments, None), "cuLaunchKernel")
-        cuda._check(driver, driver.cuCtxSynchronize(), "cuCtxSynchronize")
-        profile["launch_synchronize_ns"] = time.perf_counter_ns()-started
-        started = time.perf_counter_ns()
-        for host, pointer in zip(outputs, allocated[1:]):
-            cuda._check(driver, driver.cuMemcpyDtoH_v2(host, pointer, C.sizeof(host)), "cuMemcpyDtoH")
-        profile["transfer_from_device_ns"] = time.perf_counter_ns()-started
-        result = tuple(tuple(buffer[row] for buffer in outputs) for row in range(count))
-    finally:
-        started = time.perf_counter_ns()
-        cuda._release_driver_resources(driver, allocated, module, context, sys.exc_info()[1])
-        profile["cleanup_ns"] = time.perf_counter_ns()-started
-    profile.update(status="EXECUTED", gpu_executed=True, launch_count=1,
-                   host_to_device_bytes=C.sizeof(inputs), device_to_host_bytes=sum(C.sizeof(buffer) for buffer in outputs),
-                   grid=[(count+127)//128, 1, 1], block=[128, 1, 1])
-    return result, profile
+def _execute(source, rows, fuel, max_depth, opt, *, session, entry_key):
+    return session._device_run(source, rows, fuel, max_depth, opt, entry_key)
 
 
 def _materialize(entry, values, *, fuel):
@@ -361,37 +312,285 @@ def _materialize(entry, values, *, fuel):
     return result
 
 
+class GpuBatchSession:
+    """Own immutable source, compiled entries, one context and reusable buffers.
+
+    Calls and close are serialized. Each call pushes this session's context on
+    its calling thread and pops it afterwards, restoring any caller context.
+    Contexts are detached while idle and may therefore move between threads.
+    CUDA context-stack semantics: https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__CTX.html
+    """
+    def __init__(self, program, opt=0):
+        require(type(opt) is int and opt in range(4), "GPU optimization request must be an exact integer in 0..3")
+        sources = _source_bindings()
+        verified = loads_ir(dumps_ir(compile_source(program) if type(program) is str else program))
+        self._source, self._source_sha = verified['source'], verified['source_sha256']
+        require(_source_bindings() == sources, "GPU compiler sources changed during session creation")
+        self._sources, self._opt = sources, opt
+        self._lock, self._closed, self._broken = threading.RLock(), False, False
+        self._driver, self._probe = None, None
+        self._context, self._device = C.c_void_p(), C.c_int()
+        self._kernels, self._modules, self._allocations = {}, [], []
+        self._buffers = [(C.c_uint64(), 0) for _ in range(5)]
+        self._counts = dict(runs=0, failed_device_calls=0, contexts_created=0,
+                            kernels_compiled=0, device_allocations=0, launches=0)
+        self._close_ns = 0
+
+    @property
+    def stats(self):
+        with self._lock:
+            return {**self._counts, 'closed': self._closed, 'broken': self._broken,
+                    'cached_entries': len(self._kernels), 'live_context': bool(self._context.value),
+                    'buffer_capacities_bytes': [capacity for _, capacity in self._buffers],
+                    'close_ns': self._close_ns}
+
+    def _ready(self):
+        require(not self._closed, "GPU session is closed")
+        require(not self._broken, "GPU session context/cleanup failed; close this session")
+        require(type(self._source) is str and _sha(self._source.encode()) == self._source_sha,
+                "GPU session source snapshot changed")
+        require(_source_bindings() == self._sources, "GPU compiler sources changed during session lifetime")
+
+    def _probe_device(self):
+        if self._probe is None:
+            probe = cuda.probe_gpu()
+            if probe['status'] != 'AVAILABLE':
+                raise GPUUnavailable(probe)
+            self._probe = json.loads(json.dumps(probe))
+        return self._probe
+
+    def _load_driver(self):
+        if self._driver is None:
+            driver = cuda._driver()
+            # These two APIs are local to the session implementation; the
+            # existing one-shot application driver module stays unchanged.
+            cuda._function(driver, 'cuCtxPushCurrent_v2', [C.c_void_p])
+            cuda._function(driver, 'cuCtxPopCurrent_v2', [C.POINTER(C.c_void_p)])
+            cuda._check(driver, driver.cuDeviceGet(C.byref(self._device), 0), 'cuDeviceGet')
+            self._driver = driver
+
+    @contextmanager
+    def _activate(self):
+        self._load_driver()
+        driver = self._driver
+        if self._context.value:
+            cuda._check(driver, driver.cuCtxPushCurrent_v2(self._context), 'cuCtxPushCurrent')
+        else:
+            cuda._check(driver, driver.cuCtxCreate_v2(C.byref(self._context), 0, self._device), 'cuCtxCreate')
+            self._counts['contexts_created'] += 1
+        try:
+            yield
+        finally:
+            primary = sys.exc_info()[1]
+            def restore():
+                try:
+                    popped = C.c_void_p()
+                    cuda._check(driver, driver.cuCtxPopCurrent_v2(C.byref(popped)), 'cuCtxPopCurrent')
+                    require(popped.value == self._context.value, 'GPU context stack ownership changed')
+                except BaseException:
+                    self._broken = True
+                    raise
+            cuda._finish_cleanup([('restore caller CUDA context', restore)], primary)
+
+    def _discard(self, primary=None):
+        """Attempt every release; context destruction also owns remaining data."""
+        if not self._context.value:
+            return
+        driver, failures, pushed = self._driver, [], False
+        def attempt(name, operation):
+            try:
+                operation()
+                return True
+            except Exception as exc:
+                failures.append(name+': '+str(exc))
+                return False
+        pushed = attempt('cuCtxPushCurrent', lambda: cuda._check(driver,
+            driver.cuCtxPushCurrent_v2(self._context), 'cuCtxPushCurrent'))
+        if pushed:
+            for pointer in tuple(reversed(self._allocations)):
+                if attempt('cuMemFree', lambda pointer=pointer: cuda._check(driver,
+                           driver.cuMemFree_v2(pointer), 'cuMemFree')):
+                    self._allocations.remove(pointer)
+            for module in tuple(reversed(self._modules)):
+                if attempt('cuModuleUnload', lambda module=module: cuda._check(driver,
+                           driver.cuModuleUnload(module), 'cuModuleUnload')):
+                    self._modules.remove(module)
+            def restore():
+                popped = C.c_void_p()
+                cuda._check(driver, driver.cuCtxPopCurrent_v2(C.byref(popped)), 'cuCtxPopCurrent')
+                require(popped.value == self._context.value, 'GPU cleanup context ownership changed')
+            attempt('restore caller CUDA context', restore)
+        destroyed = attempt('cuCtxDestroy', lambda: cuda._check(driver,
+                            driver.cuCtxDestroy_v2(self._context), 'cuCtxDestroy'))
+        if destroyed:
+            self._context = C.c_void_p()
+            self._kernels.clear()
+            self._modules.clear()
+            self._allocations.clear()
+            self._buffers = [(C.c_uint64(), 0) for _ in range(5)]
+        if failures:
+            self._broken = True
+            message = 'GPU session cleanup failures: '+'; '.join(failures)
+            if primary is not None:
+                primary.add_note(message)
+            else:
+                raise RuntimeError(message)
+
+    def _reserve(self, index, size):
+        pointer, capacity = self._buffers[index]
+        if capacity >= size:
+            return pointer, True
+        replacement = C.c_uint64()
+        cuda._check(self._driver, self._driver.cuMemAlloc_v2(C.byref(replacement), size), 'cuMemAlloc')
+        self._allocations.append(replacement)
+        self._counts['device_allocations'] += 1
+        if pointer.value:
+            cuda._check(self._driver, self._driver.cuMemFree_v2(pointer), 'cuMemFree during growth')
+            self._allocations.remove(pointer)
+        self._buffers[index] = replacement, size
+        return replacement, False
+
+    def _device_run(self, source, rows, fuel, max_depth, opt, entry_key):
+        started = time.perf_counter_ns()
+        probe = self._probe_device()
+        device_info = probe['devices'][0]
+        profile = {'gpu_executed': False, 'launch_count': 0, 'device': json.loads(json.dumps(device_info)),
+            'driver_version': probe['driver_version'], 'probe_ns': time.perf_counter_ns()-started,
+            'context_reused': bool(self._context.value), 'compilation_cache_hit': entry_key in self._kernels}
+        if not rows:
+            return (), {**profile, 'status': 'NO_WORK'}
+        cached = self._kernels.get(entry_key)
+        if cached is None:
+            require(len(self._kernels) < MAX_SESSION_KERNELS, 'GPU session compiled-entry budget exceeded')
+            started = time.perf_counter_ns()
+            compiled = compile_cuda(source, 'compute_'+''.join(map(str, device_info['compute_capability'])), opt=opt)
+            profile['compile_ns'] = time.perf_counter_ns()-started
+        else:
+            require(cached['source_sha256'] == _sha(source.encode()), 'GPU cached kernel differs from current source')
+            compiled = None
+            profile['compile_ns'] = 0
+        flat = tuple(int(value) for row in rows for value in row)
+        inputs = (C.c_int64*max(1, len(flat)))(*(flat or (0,)))
+        count = len(rows)
+        outputs = ((C.c_int64*count)(), (C.c_int32*count)(), (C.c_int32*count)(), (C.c_int64*count)())
+        started = time.perf_counter_ns()
+        try:
+            with self._activate():
+                driver = self._driver
+                if cached is None:
+                    module, function = C.c_void_p(), C.c_void_p()
+                    ptx = C.create_string_buffer(compiled['ptx'])
+                    cuda._check(driver, driver.cuModuleLoadData(C.byref(module), ptx), 'cuModuleLoadData')
+                    self._modules.append(module)
+                    cuda._check(driver, driver.cuModuleGetFunction(C.byref(function), module, KERNEL_NAME.encode()), 'cuModuleGetFunction')
+                    cached = {'module': module, 'function': function, 'source_sha256': _sha(source.encode()),
+                              'metadata_json': json.dumps({key: value for key, value in compiled.items() if key != 'ptx'})}
+                    self._kernels[entry_key] = cached
+                    self._counts['kernels_compiled'] += 1
+                pointers, reused = [], 0
+                for index, host in enumerate((inputs, *outputs)):
+                    pointer, reuse = self._reserve(index, C.sizeof(host))
+                    pointers.append(pointer)
+                    reused += int(reuse)
+                profile['load_allocate_ns'] = time.perf_counter_ns()-started
+                started = time.perf_counter_ns()
+                cuda._check(driver, driver.cuMemcpyHtoD_v2(pointers[0], inputs, C.sizeof(inputs)), 'cuMemcpyHtoD')
+                profile['transfer_to_device_ns'] = time.perf_counter_ns()-started
+                parameters = [*pointers, C.c_uint(count), C.c_int64(fuel), C.c_int32(max_depth)]
+                arguments = (C.c_void_p*len(parameters))(*[C.cast(C.byref(value), C.c_void_p) for value in parameters])
+                started = time.perf_counter_ns()
+                cuda._check(driver, driver.cuLaunchKernel(cached['function'], (count+127)//128, 1, 1,
+                            128, 1, 1, 0, None, arguments, None), 'cuLaunchKernel')
+                self._counts['launches'] += 1
+                cuda._check(driver, driver.cuCtxSynchronize(), 'cuCtxSynchronize')
+                profile['launch_synchronize_ns'] = time.perf_counter_ns()-started
+                started = time.perf_counter_ns()
+                for host, pointer in zip(outputs, pointers[1:]):
+                    cuda._check(driver, driver.cuMemcpyDtoH_v2(host, pointer, C.sizeof(host)), 'cuMemcpyDtoH')
+                profile['transfer_from_device_ns'] = time.perf_counter_ns()-started
+                result = tuple(tuple(buffer[row] for buffer in outputs) for row in range(count))
+                started = time.perf_counter_ns()
+            profile['context_restore_ns'] = time.perf_counter_ns()-started
+        except BaseException as exc:
+            self._counts['failed_device_calls'] += 1
+            self._discard(exc)
+            raise
+        profile.update(status='EXECUTED', gpu_executed=True, launch_count=1,
+            compilation=json.loads(cached['metadata_json']), buffers_reused=reused,
+            buffer_capacities_bytes=[capacity for _, capacity in self._buffers],
+            host_to_device_bytes=C.sizeof(inputs), device_to_host_bytes=sum(C.sizeof(buffer) for buffer in outputs),
+            grid=[(count+127)//128, 1, 1], block=[128, 1, 1])
+        return result, profile
+
+    def run(self, function, rows, *, fuel=100000, max_depth=128, param_types=None):
+        """Execute an independent ordered batch, retaining reusable resources."""
+        with self._lock:
+            started = time.perf_counter_ns()
+            self._ready()
+            entry = select_entry(self._source, function, param_types=param_types)
+            rows = validate_inputs(entry, rows, fuel=fuel, max_depth=max_depth)
+            require(all(type(value) is bool or I64_MIN <= value <= I64_MAX for row in rows for value in row),
+                    'GPU input outside signed int64 target domain')
+            lowered = _lower_entry(entry)
+            input_hash = _sha(_canonical({'rows': rows, 'param_types': entry.param_types, 'fuel': fuel, 'max_depth': max_depth}))
+            preparation_ns = time.perf_counter_ns()-started
+            values, execution = _execute(lowered['source'], rows, fuel, max_depth, self._opt,
+                                         session=self, entry_key=entry.entry_sha256)
+            require(len(values) == len(rows), 'GPU result row count differs from source batch')
+            assembly_start = time.perf_counter_ns()
+            result = _materialize(entry, values, fuel=fuel)
+            require(_source_bindings() == self._sources == lowered['source_binding']['implementation_sha256'],
+                    'GPU compiler sources changed during execution')
+            require(entry_binding(entry) == {key: lowered['source_binding'][key] for key in entry_binding(entry)},
+                    'GPU entry changed during execution')
+            if rows:
+                require(execution.get('gpu_executed') is True and execution.get('launch_count', 0) > 0,
+                        'required GPU batch did not execute')
+                require(execution['compilation']['generated_cuda_sha256'] == lowered['source_binding']['generated_cuda_sha256'],
+                        'GPU compiled artifact differs from lowered source')
+            source_binding = {**lowered['source_binding'], 'input_sha256': input_hash,
+                              'result_sha256': _sha(_canonical(result))}
+            if rows:
+                source_binding['ptx_sha256'] = execution['compilation']['ptx_sha256']
+            self._counts['runs'] += 1
+            execution.update(backend='cuda-generated', target=TARGET, preparation_ns=preparation_ns,
+                host_assembly_ns=time.perf_counter_ns()-assembly_start, rows=len(rows), requested_opt=self._opt,
+                total_ns=time.perf_counter_ns()-started, session=self.stats,
+                timing_scope='Per-call source/input validation, lowering, device preparation or reuse, transfers, '
+                'kernel, synchronization, caller-context restoration and exact result/source bindings; '
+                'session construction and final close are separate, no final report serialization.')
+            return {'rows': result, 'execution': execution, 'source_binding': source_binding}
+
+    def _close(self, primary=None):
+        with self._lock:
+            started = time.perf_counter_ns()
+            self._closed = True
+            try:
+                self._discard(primary)
+            finally:
+                self._close_ns += time.perf_counter_ns()-started
+
+    def close(self):
+        """Release every owned allocation/module/context; closed calls reject."""
+        self._close()
+
+    def __enter__(self):
+        with self._lock:
+            self._ready()
+        return self
+
+    def __exit__(self, kind, error, traceback):
+        self._close(error)
+
+
 def run_gpu_batch(program, function, rows, *, fuel=100000, max_depth=128, opt=0, param_types=None):
-    """Compile the selected Dec entry and execute independent exact device rows."""
+    """One-shot compatibility API, including resource close in total timing."""
     started = time.perf_counter_ns()
-    sources = _source_bindings()
-    require(type(opt) is int and opt in range(4), "GPU optimization request must be an exact integer in 0..3")
-    entry = select_entry(program, function, param_types=param_types)
-    rows = validate_inputs(entry, rows, fuel=fuel, max_depth=max_depth)
-    require(all(type(value) is bool or I64_MIN <= value <= I64_MAX for row in rows for value in row),
-            "GPU input outside signed int64 target domain")
-    lowered = _lower_entry(entry)
-    input_hash = _sha(_canonical({"rows": rows, "param_types": entry.param_types, "fuel": fuel, "max_depth": max_depth}))
-    preparation_ns = time.perf_counter_ns()-started
-    values, execution = _execute(lowered["source"], rows, fuel, max_depth, opt)
-    require(len(values) == len(rows), "GPU result row count differs from source batch")
-    assembly_start = time.perf_counter_ns()
-    result = _materialize(entry, values, fuel=fuel)
-    require(_source_bindings() == sources == lowered['source_binding']['implementation_sha256'],
-            "GPU compiler sources changed during execution")
-    require(entry_binding(entry) == {key: lowered['source_binding'][key] for key in entry_binding(entry)},
-            "GPU entry changed during execution")
-    if rows:
-        require(execution.get('gpu_executed') is True and execution.get('launch_count', 0) > 0,
-                "required GPU batch did not execute")
-        require(execution['compilation']['generated_cuda_sha256'] == lowered['source_binding']['generated_cuda_sha256'],
-                "GPU compiled artifact differs from lowered source")
-    source_binding = {**lowered['source_binding'], "input_sha256": input_hash,
-                      "result_sha256": _sha(_canonical(result))}
-    if rows:
-        source_binding['ptx_sha256'] = execution['compilation']['ptx_sha256']
-    execution.update(backend="cuda-generated", target=TARGET, preparation_ns=preparation_ns,
-        host_assembly_ns=time.perf_counter_ns()-assembly_start, rows=len(rows), requested_opt=opt,
-        total_ns=time.perf_counter_ns()-started,
-        timing_scope="Input/source validation, CUDA lowering, device probe, NVRTC compilation, module/context/allocation, transfers, launch, synchronization, cleanup, exact result materialization and source/result bindings; excludes final report serialization.")
-    return {"rows": result, "execution": execution, "source_binding": source_binding}
+    with GpuBatchSession(program, opt=opt) as session:
+        result = session.run(function, rows, fuel=fuel, max_depth=max_depth, param_types=param_types)
+    result['execution'].update(total_ns=time.perf_counter_ns()-started,
+        cleanup_ns=session.stats['close_ns'], session=session.stats,
+        timing_scope='One-shot session construction, source/input validation, CUDA lowering/compilation, '
+        'module/context/allocation, transfers, kernel, synchronization, context restoration, exact result/source '
+        'bindings and final resource close; excludes final report serialization.')
+    return result

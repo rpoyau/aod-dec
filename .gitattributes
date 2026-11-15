@@ -35,3 +35,6 @@ evidence/parallel-tracing/**/*.json linguist-generated=true
 evidence/parallel-tracing/**/*.json.gz linguist-generated=true
 evidence/parallel-tracing/**/*.log linguist-generated=true
 evidence/parallel-tracing/device/*.cu linguist-generated=true
+evidence/introspection-evolution/**/*.json linguist-generated=true
+evidence/introspection-evolution/**/*.json.gz linguist-generated=true
+evidence/introspection-evolution/**/*.log linguist-generated=true

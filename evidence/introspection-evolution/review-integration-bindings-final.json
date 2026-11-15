@@ -1,0 +1,8 @@
+{
+  "simulations/awareness_engine_trace.py": "322936e6880b53586740d5f02caac47dbeff6aef6a8e776e86aff8ed3b78fd6d",
+  "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+  "scripts/check_awareness_jit.py": "a6fe726d1764871c3ad1fa8bbe67e867f8d4c37232342ff4ab7e2d17913fabc3",
+  "scripts/check_introspection_evolution.py": "1085e02a69b3f0e0bd5ce2069dad868c9f00188e72b99d2cf4cec2310c33d32d",
+  "tests/test_awareness_engine_trace.py": "6215ac6ea98641a91ce1d999b5a354b6224d0e1da30104075893d0d23150e945",
+  "tests/test_awareness_jit.py": "03d8a45ef03d33375eecc9572a10eaa87ace39b2dcb4d85874a8e5300a3158a6"
+}

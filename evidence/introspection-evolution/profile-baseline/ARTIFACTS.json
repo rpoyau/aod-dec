@@ -1,0 +1,176 @@
+[
+  {
+    "original": "normal-awareness/cpu-execution.json",
+    "stored": "normal-awareness/cpu-execution.json.gz",
+    "sha256": "6caf55eede87f88d58e1b4a6de624043826b8a982b02cac483508e4293883d49",
+    "bytes": 1381628
+  },
+  {
+    "original": "normal-awareness/gpu-execution.json",
+    "stored": "normal-awareness/gpu-execution.json.gz",
+    "sha256": "95c7f36b91287a16fb5e0897db56d1597c3cf314f9d5c689496c152f9395aea6",
+    "bytes": 1069257
+  },
+  {
+    "original": "normal-awareness/results.json",
+    "stored": "normal-awareness/results.json",
+    "sha256": "9ac0a88bc9c9df73fad7ac53f116e7efbeed1b5bea80d84aa34c4826a1f0843d",
+    "bytes": 16230
+  },
+  {
+    "original": "normal-awareness/witnesses.json",
+    "stored": "normal-awareness/witnesses.json.gz",
+    "sha256": "3f3100c5321f85f1e70064af3ad0fb8e120279ce7e700c8c0c6547e3d63a8caf",
+    "bytes": 632374
+  },
+  {
+    "original": "normal-awareness.log",
+    "stored": "normal-awareness.log",
+    "sha256": "07d676f38bac38fb4d73d2fdd5ed425bc47a940c652b424e4d11bdc0d233fcc4",
+    "bytes": 165
+  },
+  {
+    "original": "normal-evolution/cpu-execution.json",
+    "stored": "normal-evolution/cpu-execution.json.gz",
+    "sha256": "465095d90feedad51e86a271a93073216c5003b333bf367f0cc028ac96f3d637",
+    "bytes": 211000
+  },
+  {
+    "original": "normal-evolution/delayed-trace.json",
+    "stored": "normal-evolution/delayed-trace.json.gz",
+    "sha256": "9256e88074907d73060a627e991f6f7ee43f238cdad7b01dd7c4778e2d7ea0f8",
+    "bytes": 153412
+  },
+  {
+    "original": "normal-evolution/gpu-execution.json",
+    "stored": "normal-evolution/gpu-execution.json.gz",
+    "sha256": "70e3f9df874af3dd9fb12f483b57dc6e219fe8e8952ab1dbb70c6f8cdd7db0b3",
+    "bytes": 175922
+  },
+  {
+    "original": "normal-evolution/learning-trace.json",
+    "stored": "normal-evolution/learning-trace.json.gz",
+    "sha256": "2e6ba4c907812bbd306857b08c465b60e8242b4dc4a883767ea42b9a54381626",
+    "bytes": 274959
+  },
+  {
+    "original": "normal-evolution/mindfulness-trace.json",
+    "stored": "normal-evolution/mindfulness-trace.json.gz",
+    "sha256": "47d8dcaac114e20f9a24318c6990610be7f7706721825a6dea2bf844379de300",
+    "bytes": 153402
+  },
+  {
+    "original": "normal-evolution/results.json",
+    "stored": "normal-evolution/results.json",
+    "sha256": "f1258b9510a7bcc1ec92a348827e2a20dff6bf69daf8206a44083225a0f9b765",
+    "bytes": 9787
+  },
+  {
+    "original": "normal-evolution.log",
+    "stored": "normal-evolution.log",
+    "sha256": "1492e9718cff745783c4447c07d9e2b334d5640b264b68d5176a0a1152737438",
+    "bytes": 312
+  },
+  {
+    "original": "normal-tests.log",
+    "stored": "normal-tests.log",
+    "sha256": "e0162c47d06631f6090e5b1065f7c36ff2d62f6a24875391dc6af9b22f2877aa",
+    "bytes": 4493
+  },
+  {
+    "original": "optimized-awareness/cpu-execution.json",
+    "stored": "optimized-awareness/cpu-execution.json.gz",
+    "sha256": "87e06f8cf1addd525b75c01a590705c64c2afc55cc2a07b7220acf32b9e65d67",
+    "bytes": 1381628
+  },
+  {
+    "original": "optimized-awareness/gpu-execution.json",
+    "stored": "optimized-awareness/gpu-execution.json.gz",
+    "sha256": "c047c42601a7327ad50476d446e3cdc37ee459fdac33863832ffe97830e13ac6",
+    "bytes": 1069256
+  },
+  {
+    "original": "optimized-awareness/results.json",
+    "stored": "optimized-awareness/results.json",
+    "sha256": "dc43f0dd87732c16fa39f439ae4376cd82932f0a1c9b3a267614221fd6c582a6",
+    "bytes": 16230
+  },
+  {
+    "original": "optimized-awareness/witnesses.json",
+    "stored": "optimized-awareness/witnesses.json.gz",
+    "sha256": "3f3100c5321f85f1e70064af3ad0fb8e120279ce7e700c8c0c6547e3d63a8caf",
+    "bytes": 632374
+  },
+  {
+    "original": "optimized-awareness.log",
+    "stored": "optimized-awareness.log",
+    "sha256": "eb43d62a86351d1e4f01517b60bb5bef003d46414eaa561951d8b13411545c51",
+    "bytes": 168
+  },
+  {
+    "original": "optimized-evolution/cpu-execution.json",
+    "stored": "optimized-evolution/cpu-execution.json.gz",
+    "sha256": "9e169bb3cb6880c39488fa361f2ae1527e3637fe5c40aad61c30310edd532c58",
+    "bytes": 211001
+  },
+  {
+    "original": "optimized-evolution/delayed-trace.json",
+    "stored": "optimized-evolution/delayed-trace.json.gz",
+    "sha256": "735f1496968616f8352be65dfc644221d9fe8f343d7a06a628f9d4a1a031b3ee",
+    "bytes": 153412
+  },
+  {
+    "original": "optimized-evolution/gpu-execution.json",
+    "stored": "optimized-evolution/gpu-execution.json.gz",
+    "sha256": "9fee5aa1f7963f88decec4afa4d8732f2651624b1ccc6d8ec64a83bb15ec6233",
+    "bytes": 175921
+  },
+  {
+    "original": "optimized-evolution/learning-trace.json",
+    "stored": "optimized-evolution/learning-trace.json.gz",
+    "sha256": "a427772b8bf4c7c213b3c665676801e517ba979dabe6ebfe821a968517a755a6",
+    "bytes": 274959
+  },
+  {
+    "original": "optimized-evolution/mindfulness-trace.json",
+    "stored": "optimized-evolution/mindfulness-trace.json.gz",
+    "sha256": "ea7f8b345f6bc347472a5a652ec92f8ff4e0b4d24d3ce3b44677d4d37745d191",
+    "bytes": 153402
+  },
+  {
+    "original": "optimized-evolution/results.json",
+    "stored": "optimized-evolution/results.json",
+    "sha256": "943b2d93fff05dc72399a65b2c565631715cbb7f8de4063747b870c088ad5d6b",
+    "bytes": 9790
+  },
+  {
+    "original": "optimized-evolution.log",
+    "stored": "optimized-evolution.log",
+    "sha256": "3e27b6234efd77606e1fb97b3e638c4370cb02ae4ae2e8b89f799e2a1e042122",
+    "bytes": 317
+  },
+  {
+    "original": "optimized-tests.log",
+    "stored": "optimized-tests.log",
+    "sha256": "c03cc6bd6ee9702fc03cd6c27a7c32273daf47f4cc308fee37a21856efa0e3b1",
+    "bytes": 4494
+  },
+  {
+    "original": "source/scripts/check_introspection_evolution.py",
+    "stored": "source/scripts/check_introspection_evolution.py",
+    "sha256": "1085e02a69b3f0e0bd5ce2069dad868c9f00188e72b99d2cf4cec2310c33d32d",
+    "bytes": 8122
+  },
+  {
+    "original": "source/simulations/awareness_engine_trace.py",
+    "stored": "source/simulations/awareness_engine_trace.py",
+    "sha256": "322936e6880b53586740d5f02caac47dbeff6aef6a8e776e86aff8ed3b78fd6d",
+    "bytes": 27311
+  },
+  {
+    "original": "steps.json",
+    "stored": "steps.json",
+    "sha256": "b62ec11b4d69cfd0a60a10d1619ba14d1ff7c17f4eb19e6047c206fc3d106b06",
+    "bytes": 2988
+  }
+]

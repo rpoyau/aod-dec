@@ -1,0 +1,164 @@
+[
+  {
+    "original": "normal-awareness/cpu-execution.json",
+    "stored": "normal-awareness/cpu-execution.json.gz",
+    "sha256": "0b5ea2d57bf9c80102c1deaf3456244532c0420ad82911d2e9f329b6eedc5ca3",
+    "bytes": 1381627
+  },
+  {
+    "original": "normal-awareness/gpu-execution.json",
+    "stored": "normal-awareness/gpu-execution.json.gz",
+    "sha256": "61953ee6dd2b00440bafde1ba6a5ec1182f573aa80717339e256d3aa88e687fe",
+    "bytes": 1069249
+  },
+  {
+    "original": "normal-awareness/results.json",
+    "stored": "normal-awareness/results.json",
+    "sha256": "110f32eb386e686d569a4d8ced70126e74cd04c96c7d77856a945b69a4e0358d",
+    "bytes": 16230
+  },
+  {
+    "original": "normal-awareness/witnesses.json",
+    "stored": "normal-awareness/witnesses.json.gz",
+    "sha256": "3f3100c5321f85f1e70064af3ad0fb8e120279ce7e700c8c0c6547e3d63a8caf",
+    "bytes": 632374
+  },
+  {
+    "original": "normal-awareness.log",
+    "stored": "normal-awareness.log",
+    "sha256": "07d676f38bac38fb4d73d2fdd5ed425bc47a940c652b424e4d11bdc0d233fcc4",
+    "bytes": 165
+  },
+  {
+    "original": "normal-evolution/cpu-execution.json",
+    "stored": "normal-evolution/cpu-execution.json.gz",
+    "sha256": "c06ab3ff2bbba7eb7d913f697fff131a0d613d3e17d5d48b346332d9ff38126c",
+    "bytes": 211000
+  },
+  {
+    "original": "normal-evolution/delayed-trace.json",
+    "stored": "normal-evolution/delayed-trace.json.gz",
+    "sha256": "016aaef148c906cefb53b1f52532a7d6c705ac329ad2189aec14b5045b669957",
+    "bytes": 153520
+  },
+  {
+    "original": "normal-evolution/gpu-execution.json",
+    "stored": "normal-evolution/gpu-execution.json.gz",
+    "sha256": "9261a18b3f73eccebed7e31812a5629266206f4b3596596d6ece82f0a4851a2c",
+    "bytes": 175920
+  },
+  {
+    "original": "normal-evolution/learning-trace.json",
+    "stored": "normal-evolution/learning-trace.json.gz",
+    "sha256": "6ec08ebef9bc1b9c2a5e4abd49b6f523a9d4a780973bc8a34f5beeb0ecf0e1b4",
+    "bytes": 275067
+  },
+  {
+    "original": "normal-evolution/mindfulness-trace.json",
+    "stored": "normal-evolution/mindfulness-trace.json.gz",
+    "sha256": "2f4218f8fbda4d762707c0e8cb8c1615e0ca9ffba4e6d48f9d72ef570c66a090",
+    "bytes": 153512
+  },
+  {
+    "original": "normal-evolution/results.json",
+    "stored": "normal-evolution/results.json",
+    "sha256": "c189ac1259d062cee50398e61e468157fae08b335c6685eaf3b9bcf1db512c52",
+    "bytes": 12252
+  },
+  {
+    "original": "normal-evolution.log",
+    "stored": "normal-evolution.log",
+    "sha256": "9640d560e542be283f34e6271903bf4883036d11cb7a9ab87c195857f4070e80",
+    "bytes": 314
+  },
+  {
+    "original": "normal-tests.log",
+    "stored": "normal-tests.log",
+    "sha256": "562562a211b2ef7f14c83f28229eeda0a949c456e04400a8cc61e8cdc19113f8",
+    "bytes": 4494
+  },
+  {
+    "original": "optimized-awareness/cpu-execution.json",
+    "stored": "optimized-awareness/cpu-execution.json.gz",
+    "sha256": "5c3d3a7ca083aace7c446a2c614fefefe291b82924da7fa894672fc899ce5eb8",
+    "bytes": 1381627
+  },
+  {
+    "original": "optimized-awareness/gpu-execution.json",
+    "stored": "optimized-awareness/gpu-execution.json.gz",
+    "sha256": "865270b297438d71307b76e935b325468ae2e867276f86b224e49849651ed6ac",
+    "bytes": 1069254
+  },
+  {
+    "original": "optimized-awareness/results.json",
+    "stored": "optimized-awareness/results.json",
+    "sha256": "aca081d81d46064b2566c6634a025cc447a102d7729aea547991837a135637d7",
+    "bytes": 16230
+  },
+  {
+    "original": "optimized-awareness/witnesses.json",
+    "stored": "optimized-awareness/witnesses.json.gz",
+    "sha256": "3f3100c5321f85f1e70064af3ad0fb8e120279ce7e700c8c0c6547e3d63a8caf",
+    "bytes": 632374
+  },
+  {
+    "original": "optimized-awareness.log",
+    "stored": "optimized-awareness.log",
+    "sha256": "eb43d62a86351d1e4f01517b60bb5bef003d46414eaa561951d8b13411545c51",
+    "bytes": 168
+  },
+  {
+    "original": "optimized-evolution/cpu-execution.json",
+    "stored": "optimized-evolution/cpu-execution.json.gz",
+    "sha256": "e3776deb050d516148f5a74eaac003d0bc2bca268ecf35453b78902ca24afef7",
+    "bytes": 211000
+  },
+  {
+    "original": "optimized-evolution/delayed-trace.json",
+    "stored": "optimized-evolution/delayed-trace.json.gz",
+    "sha256": "145585d996eafe1443f9f3e9550b9c9554e80bf9489ace6b6c63424cfaec6709",
+    "bytes": 153520
+  },
+  {
+    "original": "optimized-evolution/gpu-execution.json",
+    "stored": "optimized-evolution/gpu-execution.json.gz",
+    "sha256": "25edef94f64d201d506f9c66aab9134cf74ff7dba2a6654367986fca81e90852",
+    "bytes": 175921
+  },
+  {
+    "original": "optimized-evolution/learning-trace.json",
+    "stored": "optimized-evolution/learning-trace.json.gz",
+    "sha256": "db81a28de0910394f34182ac10aabb1fd930c8dd1c8d717270f429dfc120ff01",
+    "bytes": 275067
+  },
+  {
+    "original": "optimized-evolution/mindfulness-trace.json",
+    "stored": "optimized-evolution/mindfulness-trace.json.gz",
+    "sha256": "4a2cb73179cfdc91570b046307e1bbdc612d1930a4cfb0be97ebffd31c029638",
+    "bytes": 153510
+  },
+  {
+    "original": "optimized-evolution/results.json",
+    "stored": "optimized-evolution/results.json",
+    "sha256": "3d89a51184d709ca03318cb74bda4ecba799ebe0ff15bd85b28289a95d4da29e",
+    "bytes": 12261
+  },
+  {
+    "original": "optimized-evolution.log",
+    "stored": "optimized-evolution.log",
+    "sha256": "133f055076b07d6b75c09da2b67106ddbe50ed87fc8071c689f67bf3b9ec46ad",
+    "bytes": 317
+  },
+  {
+    "original": "optimized-tests.log",
+    "stored": "optimized-tests.log",
+    "sha256": "249bc69dc31433a437d31b7abd2f47d811ca720daf12ee328def7cee8198840f",
+    "bytes": 4494
+  },
+  {
+    "original": "steps.json",
+    "stored": "steps.json",
+    "sha256": "453c07d7ed49695b6fa4a29b206e6822e8bdca99d797cc368b1b2127167c44c6",
+    "bytes": 2989
+  }
+]

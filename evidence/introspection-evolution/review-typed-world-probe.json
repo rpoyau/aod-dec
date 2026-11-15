@@ -1,0 +1,7 @@
+{
+  "changed_fields": 36,
+  "outcome": {
+    "rejected": "captured source result differs from native replay"
+  },
+  "source_sha256": "d2792931385ad76d8d7b833c4b9a71f11047a194b947c82da4830dac2de827e2"
+}

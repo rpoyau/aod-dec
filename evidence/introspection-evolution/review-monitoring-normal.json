@@ -1,0 +1,44 @@
+{
+  "parity": [
+    {
+      "case": "learning",
+      "tool_id": 3,
+      "events": 144,
+      "exact_records": true
+    },
+    {
+      "case": "mindfulness",
+      "tool_id": 3,
+      "events": 30,
+      "exact_records": true
+    },
+    {
+      "case": "delayed",
+      "tool_id": 3,
+      "events": 30,
+      "exact_records": true
+    }
+  ],
+  "error_parity": {
+    "events": 10,
+    "original_error": {
+      "type": "RuntimeError",
+      "message": "review original engine error"
+    }
+  },
+  "simultaneous_tool_ids": [
+    3,
+    4
+  ],
+  "status": "PASS",
+  "tests": 7,
+  "errors": 0,
+  "failures": 0,
+  "source_sha256": {
+    "simulations/awareness_engine_trace.py": "be8d518e49805ab7b982f49f4b5db330c8dd466f2ed4ebaeaf9b952098fbf2fa",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "tests/test_awareness_engine_trace.py": "e6dfd18eb2b816880003040898018d4d850f2f9a83ab410cf37e7efb2ce9673d"
+  },
+  "sources_unchanged": true,
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]"
+}

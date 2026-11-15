@@ -1,0 +1,1 @@
+{"status": "PASS", "compiler": {"cpu": {"status": "PASS", "median_paired_time_ratio": 1.456442420877832}, "gpu": {"status": "PASS", "median_paired_time_ratio": 3.542494721773927}}, "output": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/introspection-evolution/device-final/normal-evolution"}

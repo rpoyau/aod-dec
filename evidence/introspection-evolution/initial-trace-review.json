@@ -1,0 +1,26 @@
+{
+  "root_none_or_unwound_complete": {
+    "status": "VERIFIED",
+    "transitions": 6,
+    "native_updates": 6,
+    "retentions": 1,
+    "calls": 15,
+    "scope": "captured existing-engine calls, native transitions, retention and committed-query causality"
+  },
+  "source_sha256": "967b5fe2b1487a583e3de1bfee9b3aa626363cbdb15f52205ba55424b407629f",
+  "dropped_context_call": {
+    "status": "VERIFIED",
+    "transitions": 6,
+    "native_updates": 6,
+    "retentions": 1,
+    "calls": 14,
+    "scope": "captured existing-engine calls, native transitions, retention and committed-query causality"
+  },
+  "drop_context_source_sha256": "4b284ed5889d0479fbd49a0c1906d9e014565e7b3556236fcf5d603d02017571",
+  "boolean_pressure_alias": {
+    "changed_fields": 24,
+    "outcome": {
+      "rejected": "exact integer, rational or rational string required"
+    }
+  }
+}

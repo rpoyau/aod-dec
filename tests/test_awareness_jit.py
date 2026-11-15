@@ -6,12 +6,39 @@ import sys
 import tempfile
 import unittest
 
-from native.cpu_batch import run_cpu_batch
+from native.cpu_batch import CpuBatchSession, run_cpu_batch
 from scripts import check_awareness_jit as check
 from simulations import awareness_jit_fixture as fixture
 
 
 class AwarenessJitTests(unittest.TestCase):
+    def test_reusable_runtime_preserves_complete_delayed_continuation(self):
+        data = fixture.prepare_mindfulness(fixture.prepare())
+        old = check.execute_compiled(data, workers=2, reflexive=True, extra_delay=True, passive=True, reuse=False)
+        new = check.execute_compiled(data, workers=2, reflexive=True, extra_delay=True, passive=True)
+        self.assertTrue(check._same(old["lanes"], new["lanes"]))
+        self.assertEqual([c["rows"] for c in old["calls"]], [c["rows"] for c in new["calls"]])
+        self.assertEqual([c["execution"]["session_call"] for c in new["calls"]], list(range(1, 19)))
+        self.assertEqual(new["calls"][-1]["execution"]["loaded_entry_count"], 3)
+        for lane in old["lanes"]:
+            self.assertEqual(old["lanes"][lane]["observations"], new["lanes"][lane]["observations"])
+        source = (fixture.ROOT / "examples/awareness_response.dec").read_text()
+        with CpuBatchSession(source, workers=2) as session:
+            a = check.execute_compiled(data, session=session, reflexive=True)
+            b = check.execute_compiled(data, session=session, reflexive=True)
+            self.assertTrue(check._same(a["lanes"], b["lanes"]))
+            self.assertEqual(b["calls"][0]["execution"]["session_call"], 19)
+            self.assertFalse(session.closed)
+        self.assertTrue(session.closed)
+
+    def test_external_session_must_bind_exact_example_source(self):
+        data = fixture.prepare()
+        source = (fixture.ROOT / "examples/awareness_response.dec").read_text()
+        # Identical values still cannot authenticate a different source text.
+        with CpuBatchSession(source + "\n", workers=2) as session:
+            with self.assertRaisesRegex(ValueError, "differs from bound awareness source"):
+                check.execute_compiled(data, session=session)
+
     def test_exact_manual_source_and_isolated_dependency_binding(self):
         before = sys.modules.get("aod_native_closure_wave")
         with ThreadPoolExecutor(max_workers=4) as pool:

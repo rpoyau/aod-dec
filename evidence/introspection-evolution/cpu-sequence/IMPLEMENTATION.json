@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "source_sha256": {
+    "native/cpu_batch.py": "560810bbb94181f9f9047b064911dc32d72c357dd4b67e0d904d7cb99fba12d9",
+    "tests/test_cpu_batch.py": "3d92731ce24d95666a6ccd88467eb02045f88145b3b8f0f31f9251b779cc258a"
+  },
+  "tests": {
+    "normal": {
+      "passed": 19,
+      "seconds": 3.168
+    },
+    "optimized": {
+      "passed": 19,
+      "seconds": 5.886
+    }
+  },
+  "interface": "with CpuBatchSession(program,workers=1,opt=0) as session: session.run(function,rows,fuel=100000,max_depth=128,param_types=None)",
+  "benchmark": "results.json"
+}

@@ -1,0 +1,93 @@
+{
+  "status": "PASS",
+  "source_sha256": {
+    "native/batch.py": "6290208534768b7128c445134e86657e767723a1123765a09f1c72f8b4dcd6a4",
+    "native/cpu_batch.py": "560810bbb94181f9f9047b064911dc32d72c357dd4b67e0d904d7cb99fba12d9",
+    "native/batch_dispatch.cpp": "e8fcc81364b32a7fd2d683b58edacbc5cec82249239671be934c02b15ed2914c",
+    "native/compiler.py": "16029e1d7b13b21485a07cba60d88a2a755debd88b32a7c66b75f433ed956854",
+    "native/runtime.cpp": "1c0994645c6d30b023d17d80b9bebd6f8a5cc42d71b654f7b61ba136f3b39af1",
+    "native/runtime.hpp": "7018e9dd3b4739699e81528a3602b366195f724f14250e732ef424cb9d58b39e",
+    "runtime/dec_language.py": "900cfd50f134ee525ee05e0a3369f2fbdf817801b3528383856ada6af3037456",
+    "runtime/dec_core.py": "cb6955ac694d02ad275c5040e165180f281692917f5717f544184371bb852d3f"
+  },
+  "source_dec_sha256": "62b117a1f6d7e58dcf175d4dc3c20d76ade511baae9f597255b8dec93ec47500",
+  "benchmark_sha256": "c693352d07b3dee94c81eba3ef2e3ff10ffb02297c34bea95729c265dd5043aa",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "workers": 2,
+  "rows_per_call": 3,
+  "calls_per_sequence": 24,
+  "pairs": [
+    {
+      "order": [
+        "reusable",
+        "one_shot"
+      ],
+      "reusable": 196226703,
+      "one_shot": 656308807,
+      "ratio": 3.344645743754865
+    },
+    {
+      "order": [
+        "reusable",
+        "one_shot"
+      ],
+      "reusable": 194120739,
+      "one_shot": 738187806,
+      "ratio": 3.802725096775981
+    },
+    {
+      "order": [
+        "one_shot",
+        "reusable"
+      ],
+      "one_shot": 697735198,
+      "reusable": 151693792,
+      "ratio": 4.599629218841072
+    },
+    {
+      "order": [
+        "reusable",
+        "one_shot"
+      ],
+      "reusable": 146178500,
+      "one_shot": 425268394,
+      "ratio": 2.9092403739263983
+    },
+    {
+      "order": [
+        "reusable",
+        "one_shot"
+      ],
+      "reusable": 202240109,
+      "one_shot": 762384703,
+      "ratio": 3.7697008114250967
+    },
+    {
+      "order": [
+        "one_shot",
+        "reusable"
+      ],
+      "one_shot": 726716666,
+      "reusable": 167089561,
+      "ratio": 4.349264320587927
+    },
+    {
+      "order": [
+        "reusable",
+        "one_shot"
+      ],
+      "reusable": 146971009,
+      "one_shot": 430759209,
+      "ratio": 2.930912782942111
+    }
+  ],
+  "median_ratio": 3.7697008114250967,
+  "median_one_shot_ns": 697735198,
+  "median_reusable_ns": 167089561,
+  "warmup_ns": {
+    "one_shot": 2220534031,
+    "reusable": 202827458
+  },
+  "timing_scope": "Warm persistent artifact cache; each measured sequence includes owning session construction, first-use entry/dispatcher loads, all per-call source/IR/input validation, exact packing, native threads, runtime Context allocation/free, result collection and final JIT close. Report serialization and oracle checks excluded.",
+  "limitation": "A call-sequence optimization for the existing three source functions; not full native evolution, cold artifact compilation, GPU, physical prediction or blanket engine speedup. Shared host load is uncontrolled."
+}

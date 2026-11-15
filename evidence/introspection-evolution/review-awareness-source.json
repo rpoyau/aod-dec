@@ -1,0 +1,7 @@
+{
+  "caller_owned_alternate_source": {
+    "status": "REJECTED",
+    "reason": "returned compiler entry differs from bound awareness source"
+  },
+  "source_sha256": "a6fe726d1764871c3ad1fa8bbe67e867f8d4c37232342ff4ab7e2d17913fabc3"
+}

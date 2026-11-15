@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "production_sources": {
+    "simulations/awareness_engine_trace.py": "be8d518e49805ab7b982f49f4b5db330c8dd466f2ed4ebaeaf9b952098fbf2fa",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "tests/test_awareness_engine_trace.py": "e6dfd18eb2b816880003040898018d4d850f2f9a83ab410cf37e7efb2ce9673d"
+  },
+  "review_artifacts": {
+    "review_monitoring.py": "37d8eb434a1a2b6fca9ab7834f7524b689c0913707aada16758b331fd783dabb",
+    "review-monitoring-normal.json": "7d3acbbadd46ca8e6c6d18d28d48805b890e14d3110d734ff1411106b53b8864",
+    "review-monitoring-optimized.json": "7d3acbbadd46ca8e6c6d18d28d48805b890e14d3110d734ff1411106b53b8864",
+    "review_trace_probes.py": "89e208e275bb39fbde437ea1d49b9fdfd318b8ba5ee547718ccaa250ecdc3416",
+    "trace-probes-normal.json": "9ca260a1158896a5bedebe73e0e943aaaac456f567911b40eed5e0158bc26879",
+    "trace-probes-optimized.json": "9ca260a1158896a5bedebe73e0e943aaaac456f567911b40eed5e0158bc26879",
+    "review-monitoring.md": "49200c19edc255a692142c80090a72e2aab57b0cd98c539ccb1b06615447eacf"
+  },
+  "production_source_changes_by_reviewer": false,
+  "monitoring_tests_per_mode": 7,
+  "hostile_probes_per_mode": 6,
+  "modes": [
+    "normal",
+    "optimized"
+  ]
+}

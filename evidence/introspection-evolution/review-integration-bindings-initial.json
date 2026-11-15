@@ -1,0 +1,6 @@
+{
+  "simulations/awareness_engine_trace.py": "4b284ed5889d0479fbd49a0c1906d9e014565e7b3556236fcf5d603d02017571",
+  "scripts/check_awareness_jit.py": "c3414ad7913dfc5db19eb8f5464f64d097981eb1807686c153da15fb88e01234",
+  "scripts/check_introspection_evolution.py": "790e73857cac5a1b5db74643fac70fc7007ce45b6032d9805839943d9e9fbf1b",
+  "tests/test_awareness_engine_trace.py": "e11768ad793d94c90bb7f0f8fc31912949da403ff603085896b33e7fea470d1f"
+}

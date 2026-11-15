@@ -1,0 +1,12 @@
+{
+  "changed_fields": 8,
+  "outcome": {
+    "status": "VERIFIED",
+    "transitions": 6,
+    "native_updates": 6,
+    "retentions": 1,
+    "calls": 15,
+    "scope": "captured existing-engine calls, native transitions, retention and committed-query causality"
+  },
+  "source_sha256": "9cc8b0f8eddf2621948dd20d687884edefe272217724535d4b8ac2498dce674a"
+}

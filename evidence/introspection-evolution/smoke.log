@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/check_introspection_evolution.py", line 147, in <module>
+    main()
+  File "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/check_introspection_evolution.py", line 140, in main
+    report = check(args.output, repeats=args.repeats, gpu=args.gpu, workers=args.workers)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/check_introspection_evolution.py", line 81, in check
+    started = time.perf_counter_ns(); verification = verify_trace(trace)
+                                                     ^^^^^^^^^^^^^^^^^^^
+  File "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/awareness_engine_trace.py", line 293, in verify_trace
+    used = sum(len(v.encode()) for v in result.events)+sum(64+len(v.encode()) for _, v in result.witnesses)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/awareness_engine_trace.py", line 26, in require
+    if not condition:
+        ^^^^^^^^^^^^^^
+ValueError: engine trace source binding differs

@@ -1,5 +1,6 @@
 """Independent exact expectations and generated-code/GPU conformance."""
 import ctypes as C
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import itertools
 from pathlib import Path
@@ -7,6 +8,8 @@ import random
 import re
 import shutil
 import subprocess
+import threading
+import time
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
@@ -236,6 +239,291 @@ class AdmissionAndDriverTests(unittest.TestCase):
         self.assertFalse(result["execution"]["gpu_executed"])
 
 
+class SessionDriver:
+    """Explicit fake Driver for lifetime tests, never device-execution evidence.
+
+    Its launch computes the independent identity fixture only. Actual code and
+    device semantics are covered by the generated-body and hardware tests.
+    """
+    def __init__(self):
+        self.local = threading.local()
+        self.contexts, self.memory, self.modules = set(), {}, {}
+        self.next_context, self.next_module = 100, 1000
+        self.calls, self.failures = {}, {}
+        self.active, self.maximum_active = 0, 0
+
+    def stack(self):
+        if not hasattr(self.local, 'stack'):
+            self.local.stack = [77]  # Caller-owned context, never ours to free.
+        return self.local.stack
+
+    def call(self, name):
+        self.calls[name] = self.calls.get(name, 0)+1
+        if self.failures.get(name, 0):
+            self.failures[name] -= 1
+            return 999
+        return 0
+
+    def cuGetErrorName(self, code, pointer):
+        pointer._obj.value = b'CUDA_ERROR_INJECTED'
+        return 0
+
+    def cuDeviceGet(self, pointer, index):
+        pointer._obj.value = 0
+        return self.call('device')
+
+    def cuCtxCreate_v2(self, pointer, flags, device):
+        error = self.call('create')
+        if error:
+            return error
+        self.next_context += 1
+        pointer._obj.value = self.next_context
+        self.contexts.add(self.next_context)
+        self.stack().append(self.next_context)
+        return 0
+
+    def cuCtxPushCurrent_v2(self, context):
+        error = self.call('push')
+        if error:
+            return error
+        if context.value not in self.contexts:
+            raise RuntimeError('pushed foreign/dead context')
+        self.stack().append(context.value)
+        return 0
+
+    def cuCtxPopCurrent_v2(self, pointer):
+        error = self.call('pop')
+        if error:
+            return error
+        pointer._obj.value = self.stack().pop()
+        return 0
+
+    def cuCtxDestroy_v2(self, context):
+        error = self.call('destroy')
+        if error:
+            return error
+        self.contexts.remove(context.value)
+        self.memory = {p: value for p, value in self.memory.items() if value[0] != context.value}
+        self.modules = {p: owner for p, owner in self.modules.items() if owner != context.value}
+        self.local.stack = [value for value in self.stack() if value != context.value]
+        return 0
+
+    def cuModuleLoadData(self, pointer, ptx):
+        error = self.call('load')
+        if error:
+            return error
+        self.next_module += 1
+        pointer._obj.value = self.next_module
+        self.modules[self.next_module] = self.stack()[-1]
+        return 0
+
+    def cuModuleGetFunction(self, pointer, module, name):
+        pointer._obj.value = module.value
+        return self.call('function')
+
+    def cuModuleUnload(self, module):
+        error = self.call('unload')
+        if not error:
+            del self.modules[module.value]
+        return error
+
+    def cuMemAlloc_v2(self, pointer, size):
+        error = self.call('allocate')
+        if error:
+            return error
+        buffer = C.create_string_buffer(size)
+        pointer._obj.value = C.addressof(buffer)
+        self.memory[pointer._obj.value] = self.stack()[-1], buffer
+        return 0
+
+    def cuMemFree_v2(self, pointer):
+        error = self.call('free')
+        if not error:
+            del self.memory[pointer.value]
+        return error
+
+    def cuMemcpyHtoD_v2(self, pointer, host, size):
+        error = self.call('to_device')
+        if not error:
+            if size > C.sizeof(self.memory[pointer.value][1]):
+                raise RuntimeError('input write beyond allocated capacity')
+            C.memmove(pointer.value, host, size)
+        return error
+
+    def cuMemcpyDtoH_v2(self, host, pointer, size):
+        error = self.call('from_device')
+        if not error:
+            if size > C.sizeof(self.memory[pointer.value][1]):
+                raise RuntimeError('output read beyond allocated capacity')
+            C.memmove(host, pointer.value, size)
+        return error
+
+    def cuCtxSynchronize(self):
+        return self.call('sync')
+
+    def cuLaunchKernel(self, function, gx, gy, gz, bx, by, bz, shared, stream, args, extra):
+        error = self.call('launch')
+        if error:
+            return error
+        self.active += 1
+        self.maximum_active = max(self.maximum_active, self.active)
+        try:
+            time.sleep(0.002)  # Release the GIL so lock serialization is tested.
+            addresses = [C.cast(args[i], C.POINTER(C.c_uint64)).contents.value for i in range(5)]
+            count = C.cast(args[5], C.POINTER(C.c_uint)).contents.value
+            fuel = C.cast(args[6], C.POINTER(C.c_int64)).contents.value
+            depth = C.cast(args[7], C.POINTER(C.c_int32)).contents.value
+            source = C.cast(addresses[0], C.POINTER(C.c_int64))
+            values, errors, lines, remaining = (C.cast(address, C.POINTER(kind)) for address, kind in
+                zip(addresses[1:], (C.c_int64, C.c_int32, C.c_int32, C.c_int64)))
+            for row in range(count):
+                status = 1 if not fuel else 2 if not depth else 1 if fuel < 3 else 0
+                values[row], errors[row], lines[row] = 0 if status else source[row], status, 0
+                remaining[row] = max(0, fuel-(1 if status == 2 else 3))
+        finally:
+            self.active -= 1
+        return 0
+
+
+class SessionLifetimeTests(unittest.TestCase):
+    def setUp(self):
+        self.driver = SessionDriver()
+        self.probe = {'status': 'AVAILABLE', 'driver_version': 1,
+                      'devices': [{'index': 0, 'name': 'fake-lifetime-driver', 'compute_capability': [8, 6]}]}
+        def compile_fake(source, architecture, opt=0):
+            raw = b'lifetime test PTX\0'
+            return {'status': 'COMPILED', 'gpu_executed': False, 'ptx': raw,
+                    'generated_cuda_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                    'ptx_sha256': hashlib.sha256(raw).hexdigest(), 'requested_opt': opt,
+                    'architecture': architecture, 'nvrtc_version': [0, 0], 'compiler_options': []}
+        self.patches = [patch.object(gpu.cuda, 'probe_gpu', return_value=self.probe),
+                        patch.object(gpu.cuda, '_driver', return_value=self.driver),
+                        patch.object(gpu.cuda, '_function', side_effect=lambda *args: None),
+                        patch.object(gpu, 'compile_cuda', side_effect=compile_fake)]
+        for item in self.patches:
+            item.start()
+        self.addCleanup(lambda: [item.stop() for item in reversed(self.patches)])
+        self.source = program('result = x')
+
+    def test_context_kernel_and_buffers_reuse_growth_and_no_stale_rows(self):
+        with gpu.GpuBatchSession(self.source) as session:
+            first = session.run('chosen', [(1,), (2,)])
+            repeated = session.run('chosen', [(-3,)])
+            grown = session.run('chosen', [(i,) for i in range(12)])
+            shrunk = session.run('chosen', [(99,)])
+            self.assertFalse(first['execution']['context_reused'])
+            self.assertTrue(repeated['execution']['context_reused'])
+            self.assertTrue(repeated['execution']['compilation_cache_hit'])
+            self.assertEqual(repeated['execution']['buffers_reused'], 5)
+            self.assertEqual(grown['execution']['buffers_reused'], 0)
+            self.assertEqual(shrunk['execution']['buffers_reused'], 5)
+            self.assertEqual([r['result'] for r in grown['rows']], list(map(str, range(12))))
+            self.assertEqual([r['result'] for r in shrunk['rows']], ['99'])
+            self.assertEqual(session.stats['contexts_created'], 1)
+            self.assertEqual(session.stats['kernels_compiled'], 1)
+            self.assertEqual(self.driver.stack(), [77])
+            # Returned metadata is a copy; it cannot mutate a cached binding.
+            repeated['execution']['compilation']['ptx_sha256'] = 'bad'
+            self.assertNotEqual(session.run('chosen', [(4,)])['source_binding']['ptx_sha256'], 'bad')
+        self.assertEqual((self.driver.contexts, self.driver.memory, self.driver.modules), (set(), {}, {}))
+        self.assertEqual(self.driver.stack(), [77])
+
+    def test_source_snapshot_signature_cache_and_post_close_rejection(self):
+        source = self.source.replace(MAIN, '\nDec second(x) -> result:\n    (int x) -> int result:\n        result = x\n'+MAIN)
+        ir = compile_source(source)
+        session = gpu.GpuBatchSession(ir)
+        ir['source'] = 'caller changed original dict'
+        with session:
+            for entry in ('chosen', 'second', 'chosen'):
+                self.assertEqual(session.run(entry, [(8,)])['rows'][0]['result'], '8')
+            self.assertEqual(session.stats['kernels_compiled'], 2)
+            with patch.object(gpu, 'MAX_SESSION_KERNELS', 2):
+                self.assertEqual(session.run('chosen', [(8,)])['rows'][0]['result'], '8')
+                with self.assertRaisesRegex(DecError, 'compiled-entry budget'):
+                    session.run('main', [()])
+            with self.assertRaises(DecError):
+                session.run('chosen', [(True,)])
+            self.assertEqual(session.run('chosen', [(8,)])['rows'][0]['result'], '8')
+        session.close()
+        with self.assertRaisesRegex(DecError, 'closed'):
+            session.run('chosen', [(8,)])
+
+    def test_lane_budget_error_then_success_and_input_guard_recovery(self):
+        with gpu.GpuBatchSession(self.source) as session:
+            self.assertEqual(session.run('chosen', [(8,)], fuel=0)['rows'][0]['error'], 'execution step budget exhausted')
+            self.assertEqual(session.run('chosen', [(8,)], max_depth=0)['rows'][0]['error'], 'call depth limit exceeded')
+            with self.assertRaises(DecError):
+                session.run('chosen', [(gpu.I64_MAX+1,)])
+            self.assertEqual(session.run('chosen', [(8,)])['rows'][0]['result'], '8')
+            self.assertEqual(session.stats['contexts_created'], 1)
+            self.assertEqual(session.stats['failed_device_calls'], 0)
+
+    def test_failed_launch_and_failed_growth_discard_then_recover(self):
+        with gpu.GpuBatchSession(self.source) as session:
+            session.run('chosen', [(2,)])
+            self.driver.failures['launch'] = 1
+            with self.assertRaisesRegex(RuntimeError, 'cuLaunchKernel'):
+                session.run('chosen', [(3,)])
+            self.assertEqual((self.driver.contexts, self.driver.memory, self.driver.modules), (set(), {}, {}))
+            self.assertEqual(session.run('chosen', [(4,)])['rows'][0]['result'], '4')
+            self.driver.failures['allocate'] = 1
+            with self.assertRaisesRegex(RuntimeError, 'cuMemAlloc'):
+                session.run('chosen', [(i,) for i in range(10)])
+            self.assertEqual(session.run('chosen', [(5,)])['rows'][0]['result'], '5')
+            self.assertEqual(session.stats['failed_device_calls'], 2)
+            self.assertEqual(session.stats['contexts_created'], 3)
+
+    def test_close_attempts_all_resources_preserves_primary_and_can_retry_destroy(self):
+        session = gpu.GpuBatchSession(self.source)
+        session.run('chosen', [(2,)])
+        self.driver.failures.update(free=1, unload=1, destroy=1)
+        primary = ValueError('original model outcome')
+        session.__exit__(ValueError, primary, None)
+        self.assertEqual(str(primary), 'original model outcome')
+        self.assertIn('cleanup failures', '\n'.join(primary.__notes__))
+        self.assertEqual(self.driver.calls['free'], 5)
+        self.assertEqual(self.driver.calls['unload'], 1)
+        self.assertEqual(self.driver.calls['destroy'], 1)
+        self.assertTrue(session.stats['broken'])
+        session.close()
+        self.assertEqual((self.driver.contexts, self.driver.memory, self.driver.modules), (set(), {}, {}))
+        self.assertEqual(self.driver.stack(), [77])
+
+    def test_failed_context_restore_is_fail_closed(self):
+        session = gpu.GpuBatchSession(self.source)
+        self.driver.failures['pop'] = 1
+        with self.assertRaisesRegex(RuntimeError, 'cuCtxPopCurrent'):
+            session.run('chosen', [(2,)])
+        with self.assertRaisesRegex(DecError, 'context/cleanup failed'):
+            session.run('chosen', [(3,)])
+        session.close()
+        self.assertEqual(self.driver.stack(), [77])
+
+    def test_thread_migration_serializes_and_restores_each_calling_thread(self):
+        session = gpu.GpuBatchSession(self.source)
+        def invoke(value):
+            row = session.run('chosen', [(value,)])['rows'][0]
+            self.assertEqual(self.driver.stack(), [77])
+            return row['result']
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            self.assertEqual(list(executor.map(invoke, range(9))), list(map(str, range(9))))
+            executor.submit(session.close).result()
+        self.assertEqual(session.stats['contexts_created'], 1)
+        self.assertEqual(self.driver.maximum_active, 1)
+        self.assertEqual(self.driver.contexts, set())
+
+    def test_source_change_between_calls_rejects_without_launching(self):
+        with gpu.GpuBatchSession(self.source) as session:
+            session.run('chosen', [(1,)])
+            altered = gpu._source_bindings()
+            altered['native/gpu_compiler.py'] = '0'*64
+            with patch.object(gpu, '_source_bindings', return_value=altered):
+                with self.assertRaisesRegex(DecError, 'sources changed'):
+                    session.run('chosen', [(2,)])
+            self.assertEqual(self.driver.calls['launch'], 1)
+            self.assertEqual(session.run('chosen', [(3,)])['rows'][0]['result'], '3')
+
+
 class ActualDeviceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -272,6 +560,49 @@ class ActualDeviceTests(unittest.TestCase):
         self.assertEqual(actual[0]["failure_kind"], "target-domain")
         source = program("result = -9223372036854775808", ())
         self.assertEqual(gpu.run_gpu_batch(source, "chosen", [(), ()])["rows"][0]["result"], str(gpu.I64_MIN))
+
+    def test_actual_session_reuse_growth_entry_change_and_error_recovery(self):
+        source = program('assert x >= 0\nresult = x+1')
+        source = source.replace(MAIN, '\nDec negate(x) -> result:\n    (int x) -> int result:\n        result = -x\n'+MAIN)
+        with gpu.GpuBatchSession(source) as session:
+            first = session.run('chosen', [(i,) for i in range(4)])
+            failed = session.run('chosen', [(-1,), (2,)], fuel=100)
+            grown = session.run('chosen', [(i,) for i in range(129)])
+            negate = session.run('negate', [(gpu.I64_MIN,), (3,)])
+            last = session.run('chosen', [(9,)])
+            self.assertEqual([row['result'] for row in first['rows']], ['1','2','3','4'])
+            self.assertEqual([row['result'] for row in failed['rows']], [None,'3'])
+            self.assertEqual([row['result'] for row in grown['rows']], list(map(str, range(1,130))))
+            self.assertEqual([row['result'] for row in negate['rows']], [None,'-3'])
+            self.assertEqual(last['rows'][0]['result'], '10')
+            self.assertTrue(last['execution']['compilation_cache_hit'])
+            self.assertEqual(last['execution']['buffers_reused'], 5)
+            self.assertEqual(session.stats['contexts_created'], 1)
+            self.assertEqual(session.stats['kernels_compiled'], 2)
+        self.assertFalse(session.stats['live_context'])
+
+    def test_actual_session_restores_caller_context_and_migrates_threads(self):
+        driver = gpu.cuda._driver()
+        gpu.cuda._function(driver, 'cuCtxGetCurrent', [C.POINTER(C.c_void_p)])
+        device, caller = C.c_int(), C.c_void_p()
+        gpu.cuda._check(driver, driver.cuDeviceGet(C.byref(device), 0), 'cuDeviceGet')
+        gpu.cuda._check(driver, driver.cuCtxCreate_v2(C.byref(caller), 0, device), 'cuCtxCreate caller')
+        try:
+            with gpu.GpuBatchSession(program('result = x+1')) as session:
+                session.run('chosen', [(1,)])
+                current = C.c_void_p()
+                gpu.cuda._check(driver, driver.cuCtxGetCurrent(C.byref(current)), 'cuCtxGetCurrent')
+                self.assertEqual(current.value, caller.value)
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    def invoke(value):
+                        return session.run('chosen', [(value,)])['rows'][0]['result']
+                    self.assertEqual(list(executor.map(invoke, range(6))), list(map(str, range(1,7))))
+                    executor.submit(session.close).result()
+                gpu.cuda._check(driver, driver.cuCtxGetCurrent(C.byref(current)), 'cuCtxGetCurrent')
+                self.assertEqual(current.value, caller.value)
+                self.assertEqual(session.stats['contexts_created'], 1)
+        finally:
+            gpu.cuda._check(driver, driver.cuCtxDestroy_v2(caller), 'cuCtxDestroy caller')
 
 
 if __name__ == "__main__":

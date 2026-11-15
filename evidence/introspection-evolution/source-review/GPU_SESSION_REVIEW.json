@@ -1,0 +1,22 @@
+{
+  "status": "no_open_blocker_found",
+  "scope": "Independent static review of reusable GPU session source/fuel/cache/results; actual device tests and context-driver probes are separately owned",
+  "source_sha256": {
+    "native/gpu_compiler.py": "ea4639310af2788572681e838c78930c4e1af8a34a0f0a9d876931a9f9191f8f",
+    "tests/test_gpu_compiler.py": "f9d0d8b8158974e99f27717321eaca48b0ebffd9c9980926204c6d8db2c50e03"
+  },
+  "reviewed": [
+    "immutable copied program source and per-call software/source hash checks",
+    "entry-specific cache key and generated-source hash check",
+    "exact per-lane fresh fuel/error/depth semantics inherited unchanged in emitted kernel",
+    "per-call typed input bounds and ordered output materialization",
+    "buffer size growth and smaller subsequent count overwrite every returned row",
+    "compile/admission failures preserve previous valid resources; device failures discard allocations/modules/context",
+    "constructor/run/close timing scopes and defensive metadata copies"
+  ],
+  "limits": [
+    "This review did not execute CUDA hardware.",
+    "The earlier independent416-row generated-body host oracle remains a separate source-bound result.",
+    "Context ownership/cleanup fault-injection and actual caller-context preservation are covered by implementation owner/CPU reviewer and parent device suites."
+  ]
+}

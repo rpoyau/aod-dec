@@ -11,8 +11,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from native.cpu_batch import run_cpu_batch
-from native.gpu_compiler import run_gpu_batch, GPUUnavailable
+from native.cpu_batch import CpuBatchSession, run_cpu_batch
+from native.gpu_compiler import GpuBatchSession, run_gpu_batch, GPUUnavailable
 from simulations import awareness_jit_fixture as fixture
 
 
@@ -44,20 +44,54 @@ def _integers(result, count):
     return tuple(values)
 
 
-def execute_compiled(preparation, *, backend="cpu", workers=2, passive=False, reflexive=False, extra_delay=False):
+def execute_compiled(preparation, *, backend="cpu", workers=2, passive=False, reflexive=False,
+                     extra_delay=False, session=None, reuse=True):
+    """Reuse generated entries while retaining every native state admission."""
+    require(backend in ("cpu", "gpu"), "explicit compiled backend required")
+    require(type(reuse) is bool, "explicit reusable-session mode required")
+    require(session is None or reuse, "external session requires reuse")
+    if session is not None:
+        require(isinstance(session, CpuBatchSession if backend == "cpu" else GpuBatchSession),
+                "compiled session belongs to another backend")
+    started = time.perf_counter_ns()
+    options = dict(backend=backend, workers=workers, passive=passive,
+                   reflexive=reflexive, extra_delay=extra_delay)
+    if reuse and session is None:
+        source = (ROOT / "examples/awareness_response.dec").read_text()
+        owner = (CpuBatchSession(source, workers=workers, opt=0) if backend == "cpu"
+                 else GpuBatchSession(source, opt=0))
+        with owner:
+            result = _execute_compiled(preparation, session=owner, **options)
+        timing_scope = "complete execution including session construction, first loads, and close"
+    else:
+        result = _execute_compiled(preparation, session=session, **options)
+        timing_scope = ("execution within caller-owned session; caller accounts for construction and close"
+                        if session is not None else "complete execution including each one-shot runtime lifecycle")
+    result.update(elapsed_ns=time.perf_counter_ns()-started, timing_scope=timing_scope,
+                  runtime_reuse=reuse)
+    return result
+
+
+def _execute_compiled(preparation, *, backend, workers, passive, reflexive, extra_delay, session):
     """Generated values drive the next native state; host checks their source law."""
     require(backend in ("cpu", "gpu"), "explicit compiled backend required")
     require(not extra_delay or reflexive, "delayed query requires the explicit perturbation family")
     manual = fixture.load_manual()
     source = (ROOT / "examples/awareness_response.dec").read_text()
+    source_sha = hashlib.sha256(source.encode()).hexdigest()
     states = dict(preparation["lanes"])
     names = tuple(states)
     previous = {name: (states[name].present.committed-1, fixture.native.Q(0)) for name in names}
     results = {name: {"states": [], "events": [], "observations": []} for name in names}
     calls = []
     def batch(function, rows):
-        answer = (run_cpu_batch(source, function, rows, workers=workers, opt=0) if backend == "cpu"
+        answer = (session.run(function, rows) if session is not None else
+                  run_cpu_batch(source, function, rows, workers=workers, opt=0) if backend == "cpu"
                   else run_gpu_batch(source, function, rows, opt=0))
+        binding = answer["source_binding"]
+        entry = binding["entry"] if backend == "cpu" else binding
+        require(entry["source_sha256"] == source_sha,
+                "returned compiler entry differs from bound awareness source")
         if backend == "gpu":
             require(answer["execution"].get("gpu_executed") is True,
                     "nonempty GPU awareness batch did not execute on device")
@@ -124,22 +158,38 @@ def _same(left, right):
 
 
 def check(output, *, gpu="auto", workers=2):
+    started = time.perf_counter_ns()
+    before = source_binding()
+    source = (ROOT / "examples/awareness_response.dec").read_text()
+    require(hashlib.sha256(source.encode()).hexdigest() == before["examples/awareness_response.dec"],
+            "awareness source changed before session construction")
+    with CpuBatchSession(source, workers=workers, opt=0) as session:
+        report = _check(output, gpu=gpu, workers=workers, cpu_session=session, before=before)
+    require(source_binding() == before, "source changed during awareness session lifetime")
+    report["complete_check_ns"] = time.perf_counter_ns()-started
+    report["runtime_reuse"] = "one CPU session across six families; one GPU session across five families"
+    report["timing_scope"] = "preparation, admissions, compilation/loading, execution, checking, artifact writes and runtime close"
+    (Path(output) / "results.json").write_text(json.dumps(fixture.load_manual().encode(report), indent=2) + "\n")
+    return report
+
+
+def _check(output, *, gpu, workers, cpu_session, before):
     require(gpu in ("auto", "required", "off"), "explicit GPU mode required")
     require(type(workers) is int and 2 <= workers <= 32, "multicore example requires 2..32 workers")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    before = source_binding()
+    require(source_binding() == before, "source changed during awareness session construction")
     manual = fixture.load_manual()
     preparation = fixture.prepare()
     started = time.perf_counter_ns()
-    cpu = execute_compiled(preparation, workers=workers)
-    passive = execute_compiled(preparation, workers=workers, passive=True)
-    queried = execute_compiled(preparation, workers=workers, reflexive=True)
+    cpu = execute_compiled(preparation, workers=workers, session=cpu_session)
+    passive = execute_compiled(preparation, workers=workers, passive=True, session=cpu_session)
+    queried = execute_compiled(preparation, workers=workers, reflexive=True, session=cpu_session)
     learning_preparation = fixture.prepare_learning(preparation, cpu["lanes"]["retained"]["final"])
-    learning = execute_compiled(learning_preparation, workers=workers)
+    learning = execute_compiled(learning_preparation, workers=workers, session=cpu_session)
     mindfulness_preparation = fixture.prepare_mindfulness(preparation)
-    mindfulness = execute_compiled(mindfulness_preparation, workers=workers, reflexive=True)
-    delayed = execute_compiled(mindfulness_preparation, workers=workers, reflexive=True, extra_delay=True)
+    mindfulness = execute_compiled(mindfulness_preparation, workers=workers, reflexive=True, session=cpu_session)
+    delayed = execute_compiled(mindfulness_preparation, workers=workers, reflexive=True, extra_delay=True, session=cpu_session)
     cpu_runs = {"ordinary": cpu, "passive": passive, "query": queried,
                 "learning": learning, "mindfulness": mindfulness, "delayed": delayed}
     require(_same(cpu["lanes"], preparation["reference"]), "compiled CPU changed the complete Manual outcome")
@@ -171,13 +221,14 @@ def check(output, *, gpu="auto", workers=2):
     gpu_record = {"status": "NOT_REQUESTED", "gpu_executed": False}
     if gpu != "off":
         try:
-            device = execute_compiled(preparation, backend="gpu", workers=workers)
-            device_query = execute_compiled(preparation, backend="gpu", workers=workers, reflexive=True)
-            device_learning_preparation = fixture.prepare_learning(preparation, device["lanes"]["retained"]["final"])
-            device_runs = {"ordinary": device, "query": device_query,
-                "learning": execute_compiled(device_learning_preparation, backend="gpu", workers=workers),
-                "mindfulness": execute_compiled(mindfulness_preparation, backend="gpu", workers=workers, reflexive=True),
-                "delayed": execute_compiled(mindfulness_preparation, backend="gpu", workers=workers, reflexive=True, extra_delay=True)}
+            with GpuBatchSession((ROOT / "examples/awareness_response.dec").read_text(), opt=0) as device_session:
+                device = execute_compiled(preparation, backend="gpu", workers=workers, session=device_session)
+                device_query = execute_compiled(preparation, backend="gpu", workers=workers, reflexive=True, session=device_session)
+                device_learning_preparation = fixture.prepare_learning(preparation, device["lanes"]["retained"]["final"])
+                device_runs = {"ordinary": device, "query": device_query,
+                    "learning": execute_compiled(device_learning_preparation, backend="gpu", workers=workers, session=device_session),
+                    "mindfulness": execute_compiled(mindfulness_preparation, backend="gpu", workers=workers, reflexive=True, session=device_session),
+                    "delayed": execute_compiled(mindfulness_preparation, backend="gpu", workers=workers, reflexive=True, extra_delay=True, session=device_session)}
         except GPUUnavailable as exc:
             gpu_record = {"status": "UNAVAILABLE", "gpu_executed": False, "reason": exc.report}
             if gpu == "required":
