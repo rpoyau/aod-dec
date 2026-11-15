@@ -20,10 +20,14 @@
 The original core grammar is frozen at v1. No extensions were required to execute
 the five examples or the M0–M5 compiler-control model, and none are silently
 accepted. `dec/*.dec` remains rejected design material. General folding/RCD,
-physical awareness/FRG equivalence, GPU/UMA and parallel execution require separate
-models and language increments.
+physical awareness/FRG equivalence and general shared-state parallel execution
+require separate models and interfaces. The later compiler-owned `aodc batch`
+interface accepts independent pure int/bool invocations without new grammar:
+generated LLVM runs on native CPU threads, while generated CUDA uses a checked
+int64 domain. General GPU Dec/GMP execution, GPU AOT and UMA remain unsupported.
 
-Linux x86-64 is the executed target. AArch64 and other operating systems remain
+Linux x86-64 is the executed scalar target, with a separately validated bounded
+NVIDIA CUDA batch target. AArch64 and other operating systems remain
 unsupported. AOT needs its listed native shared libraries, but no Python runtime.
 Compiler frontend, JIT control and adaptive policy currently use Python. Retained
 profiles are single-writer; concurrent first native builds share locked atomically

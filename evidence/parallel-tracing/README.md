@@ -45,7 +45,7 @@ AArch64 or M6 self-hosting.
 - Final focused suite: 79 tests pass in each Python mode, with three sandbox
   device skips; required-device runs separately cover the actual hardware cases.
   The local monolithic suites ended with status 143 before completion and are
-  retained as incomplete. Complete current-tree suites run in CI.
+  retained as incomplete. The [complete implementation workflow](ci-202c94d.json) passes all three jobs, including both full Python suites, native conformance, all applications and documentation.
 - [Pinned aod-lint](aod-lint.json): all 14 applicable Typst manuscripts pass.
   Both new companions build to two pages and were visually inspected:
   [compiler](parallel-compiler.pdf) and [boundary tracing](parallel-boundary-tracing.pdf).
@@ -77,3 +77,9 @@ Independent source reviews and falsifiers are retained under `compiler-cpu`,
 `compiler-gpu`, `cpu-integration-review`, `gpu-integration-review`,
 `awareness-source-review` and `solar-source-review`. They distinguish source
 eligibility, execution, retained causal evidence and physical interpretation.
+
+The original [language and compiler manual](language-and-compiler.pdf) now also
+identifies the bounded CPU/CUDA targets. Its ten literal examples pass reference
+and typed-IR execution; changed page 20 was inspected. The inventory correction
+changes documentation only; implementation/device evidence remains bound to the
+same source bytes.

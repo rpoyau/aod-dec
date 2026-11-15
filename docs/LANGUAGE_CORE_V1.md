@@ -47,10 +47,17 @@ ABI; canonical retained records use the same escaped JSON as the reference.
 Supported: all ten R01 value types, all original builtin signatures, five worked
 examples, exact overloads, conditionals, recursion and immutable witness records.
 Unsupported: structs, arrays/slices, tuples, explicit loop blocks, modules,
-pattern dispatch, file I/O, concurrency, GPU execution, general cell-complex
+pattern dispatch, file I/O, source-level shared-state concurrency, general cell-complex
 folding and general RCD construction. These are future grammar/model increments;
 the original `dec/*.dec` sketches are not thereby executable programs.
 
-Only Linux x86-64 has execution coverage. AArch64, Android and other operating
+The separate `aodc batch` interface compiles selected pure int/bool entries to
+LLVM/native CPU threads or generated CUDA. GPU inputs/intermediates use an
+explicit checked int64 domain. This adds no collection or concurrency grammar;
+general Dec/GMP execution on GPU and GPU AOT remain unsupported. See the
+[parallel compiler companion](parallel-compiler.typ).
+
+The scalar native target has Linux x86-64 execution coverage; the bounded CUDA
+batch target also has recorded NVIDIA device execution. AArch64, Android and other operating
 systems are not claimed. The compiler frontend and JIT orchestration currently
 require Python; emitted AOT programs do not. Self-hosting is not implemented.

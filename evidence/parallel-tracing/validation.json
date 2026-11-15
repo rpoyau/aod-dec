@@ -56,5 +56,18 @@
     "normal": "incomplete: exit143",
     "optimized": "incomplete: exit143"
   },
-  "scope": "Current compiled batch and tracer checks; full workflow status recorded separately on GitHub. No physical prediction or speedup claim."
+  "scope": "Current compiled batch and tracer checks; full workflow status recorded separately on GitHub. No physical prediction or speedup claim.",
+  "complete_implementation_ci": {
+    "status": "PASS",
+    "head": "202c94dbd963c46ac06f39f1f866193e112ce4ef",
+    "tested_merge": "2898eaa306dbd07a09f7c55960b1635232ec8298",
+    "run": 43720711018
+  },
+  "documentation_followup": {
+    "source": "docs/language-and-compiler.typ",
+    "page_inspected": 20,
+    "literal_examples": 10,
+    "reference_and_ir": "PASS",
+    "lint": "14 manuscripts PASS"
+  }
 }

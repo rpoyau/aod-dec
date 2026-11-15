@@ -1,0 +1,616 @@
+{
+  "status": "PASS",
+  "head_commit": "202c94dbd963c46ac06f39f1f866193e112ce4ef",
+  "tested_merge_commit": "2898eaa306dbd07a09f7c55960b1635232ec8298",
+  "workflow_run": 43720711018,
+  "url": "https://github.com/rpoyau/aod-dec/actions/runs/43720711018",
+  "jobs": {
+    "jobs": [
+      {
+        "id": 132831871478,
+        "name": "sparc-reduced (optimized, -O)",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 43720711018,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Check out source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Install reduced application prerequisites",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Verify recorded source hashes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Reopen and recompute the complete cohort and controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Build reduced application documentation from fresh results",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Retain complete reduced traces and comparison",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Post Check out source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15
+          }
+        ]
+      },
+      {
+        "id": 132831871692,
+        "name": "linux-x86-64",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 43720711018,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Check out source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Install native prerequisites",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Verify recorded source hashes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Verify imported source and evidence provenance",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Run native and reference conformance",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Install pinned Typst 0.13.1",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Build manual and verify published examples",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Retain language and compiler manual",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Run cell jitter study and native replay",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Build computational application from fresh results",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Retain cell jitter study",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Run chiral encounter study and native replay",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          },
+          {
+            "name": "Build chiral application from fresh results",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Retain chiral encounter study",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15
+          },
+          {
+            "name": "Run routed tracing and parallel application study",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16
+          },
+          {
+            "name": "Build routed tracing application from fresh results",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17
+          },
+          {
+            "name": "Retain routed tracing and parallel study",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18
+          },
+          {
+            "name": "Verify counted retained continuation",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19
+          },
+          {
+            "name": "Run scoped region and particle applications in both Python modes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20
+          },
+          {
+            "name": "Execute region scalar formulas through reference, ORC and AOT",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21
+          },
+          {
+            "name": "Build retained, boundary, particle and region companions",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 22
+          },
+          {
+            "name": "Execute trace replay and finite boundary reduction",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 23
+          },
+          {
+            "name": "Compile trace and profile companion",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 24
+          },
+          {
+            "name": "Check field frontiers in normal and optimized Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 25
+          },
+          {
+            "name": "Compile field frontier companion",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 26
+          },
+          {
+            "name": "Check parallel boundary tracing in both Python modes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 27
+          },
+          {
+            "name": "Compile parallel boundary tracing companion",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 28
+          },
+          {
+            "name": "Check source-compiled boundary and awareness batches",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 29
+          },
+          {
+            "name": "Compile parallel compiler companion",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 30
+          },
+          {
+            "name": "Retain compiled batch and awareness evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 31
+          },
+          {
+            "name": "Retain parallel boundary tracing evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 32
+          },
+          {
+            "name": "Retain field frontier checks and documentation",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 33
+          },
+          {
+            "name": "Retain scoped current studies and documentation",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 34
+          },
+          {
+            "name": "Reconstruct SPARC stellar inputs and compare the frozen cohort",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 35
+          },
+          {
+            "name": "Retain SPARC reconstruction and inverse diagnostics",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 36
+          },
+          {
+            "name": "Retain validation evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 37
+          },
+          {
+            "name": "Post Check out source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 74
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 75
+          }
+        ]
+      },
+      {
+        "id": 132831871704,
+        "name": "sparc-reduced (normal)",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 43720711018,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Check out source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Install reduced application prerequisites",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Verify recorded source hashes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Reopen and recompute the complete cohort and controls",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Build reduced application documentation from fresh results",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Retain complete reduced traces and comparison",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Post Check out source",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15
+          }
+        ]
+      }
+    ]
+  },
+  "artifacts": {
+    "artifacts": [
+      {
+        "id": 14165005310,
+        "name": "routing-parallel-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 2413215,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14165005310",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14165005310/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:53:30Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:53:30Z",
+        "digest": "sha256:d321403c9770fd2d8e11df6ab9900acfad41540dbb15474b7e199cae02e210d9",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164921533,
+        "name": "sparc-reconstruction-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 141736,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164921533",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164921533/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:54:30Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:54:30Z",
+        "digest": "sha256:81f111366f138560d792f840ad522883688610a0e55366d15b8053631855fad8",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164786989,
+        "name": "chiral-core-collision-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 1605352,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164786989",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164786989/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:53:11Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:53:11Z",
+        "digest": "sha256:6ea6f065a487af01cbb530ac0f61112828e943ce99ce3985a7e4c21d90ab5b85",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164591991,
+        "name": "sparc-reduced-optimized-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 29001668,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164591991",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164591991/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:50:13Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:50:13Z",
+        "digest": "sha256:2eaa5e169b99473e528e9001a8c1309f4edf989dd78636b0080da8895afee2e7",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164567717,
+        "name": "scoped-current-applications-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 917540,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164567717",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164567717/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:54:28Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:54:28Z",
+        "digest": "sha256:a1343f733f29bd0a8c4d746e9bda7a854507b1f30fe7e1799c24f335a15e3139",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164522629,
+        "name": "language-and-compiler-manual-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 142144,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164522629",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164522629/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:52:29Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:52:29Z",
+        "digest": "sha256:1b8a356a64799c5292e0b35bf10ba0583eb073059dc42accb6b6933ffeb66178",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164443286,
+        "name": "native-core-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 1666650,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164443286",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164443286/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:54:32Z",
+        "expires_at": "2026-11-29T13:54:30Z",
+        "updated_at": "2026-11-15T13:54:32Z",
+        "digest": "sha256:cab5c86a20568dd4a63260d6ddbf2c0b70d47f95901cfc403581ecd4abe3472f",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164373588,
+        "name": "compiled-batches-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 329736,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164373588",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164373588/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:54:23Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:54:23Z",
+        "digest": "sha256:24d1117627be2fc6f5e7683d0a67fedbf3975fea773b16009ae73db67d29ae5b",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164343695,
+        "name": "parallel-boundary-tracing-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 562412,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164343695",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164343695/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:54:25Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:54:25Z",
+        "digest": "sha256:468a7d62d821481a055eeed2e8d460cd7838d81f5df6c5e0195a482f101a573f",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164328458,
+        "name": "tesseract-cell-jitter-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 433217,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164328458",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164328458/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:52:51Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:52:51Z",
+        "digest": "sha256:3e80787b0a5e57939276ef6d4aeaf9598c894beecadd57ba15f8618125ee4ec5",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14164293826,
+        "name": "field-frontiers-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 48002,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164293826",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14164293826/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:54:26Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:54:26Z",
+        "digest": "sha256:54d8843808908821b92ba57d916dffd239eb8e51cb3b5e919920066e2038b86a",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      },
+      {
+        "id": 14163868637,
+        "name": "sparc-reduced-normal-2898eaa306dbd07a09f7c55960b1635232ec8298",
+        "size_in_bytes": 29001663,
+        "url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14163868637",
+        "archive_download_url": "https://api.github.com/repos/rpoyau/aod-dec/actions/artifacts/14163868637/zip",
+        "expired": false,
+        "created_at": "2026-11-15T13:50:24Z",
+        "expires_at": "2027-02-13T13:46:06Z",
+        "updated_at": "2026-11-15T13:50:24Z",
+        "digest": "sha256:010187227e459b559d2ac0eb2b15369460b2261a959bd8cc5060a20339ea2209",
+        "workflow_run": {
+          "id": 43720711018,
+          "repository_id": 1456566085,
+          "head_repository_id": 1456566085,
+          "head_branch": "codex/sparc-field-window",
+          "head_sha": "202c94dbd963c46ac06f39f1f866193e112ce4ef"
+        }
+      }
+    ]
+  },
+  "scope": "Complete implementation workflow; later target-inventory documentation correction is separately built and linted."
+}

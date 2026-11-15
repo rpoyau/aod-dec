@@ -1,0 +1,808 @@
+{
+  "format": "aod.dec.documentation-build",
+  "version": 1,
+  "status": "PASS",
+  "started_utc": "2026-11-15T13:55:07.542377+00:00",
+  "root": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+  "source": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/docs/language-and-compiler.typ",
+  "source_sha256": "ee987589ead75c8e7666f93ee8853bd88737245395783c3d942b342748362c61",
+  "driver_sha256": "0fda2369251fce2b89236b265cd5142776d7e293b1e01c3341b40006b38e7b48",
+  "creation_timestamp": "1794528000",
+  "native_requested": false,
+  "commands": [
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+        "--version"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "typst 0.13.1 (8ace67d9)\n",
+      "stderr": "",
+      "elapsed_seconds": 0.0014067179945413955
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+        "compile",
+        "--root",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+        "--creation-timestamp",
+        "1794528000",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/docs/language-and-compiler.typ",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/aod-dec-language-and-compiler.pdf"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.9477473120059585
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-01.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.18283696900471114,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-01.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "t32(2)\n1/2\nt32(0)\n",
+      "stderr": "",
+      "elapsed_seconds": 0.21904801699565724,
+      "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-01.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-01.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.4035128809991875
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-01.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "t32(2)\n1/2\nt32(0)\n",
+      "stderr": "",
+      "elapsed_seconds": 0.3777059290005127,
+      "expected_stdout_sha256": "2012aa2c3661ff00327988070037a7e899c00a80d4eeb5763e3a6784791f78bf"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-02.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.3594730350014288,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-02.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "-3\n2\n7/3\n6\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.37211472899798537,
+      "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-02.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-02.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.3693731140010641
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-02.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "-3\n2\n7/3\n6\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.32234394600527594,
+      "expected_stdout_sha256": "ddfc745e63d8e033bce64293852292c622477107faf599499cfd9f70688e0bf0"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-03.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.19505448600102682,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-03.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "720\ntrue\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1761050570057705,
+      "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-03.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-03.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.20971453700622078
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-03.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "720\ntrue\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1963356349951937,
+      "expected_stdout_sha256": "a7d814d1bfbf512f235ea815cb6a7ba1ec1a6866e26f8119a52b6a3bfaa46026"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-04.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1768299300019862,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-04.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.18405991399777122,
+      "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-04.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-04.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.1670905520004453
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-04.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1663044919987442,
+      "expected_stdout_sha256": "20939887d738b6e7a2618e0feabba80dea9bf4f7815b2170cbf6ce4a5c8c404f"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-05.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.15870094199635787,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-05.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1621062920021359,
+      "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-05.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-05.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.15764376199513208
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-05.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.19068017100653378,
+      "expected_stdout_sha256": "3e2d23552fa1c56a73845bd8a375dc62d62bcb7cf36c4288a9531ee53ba642cd"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-06.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1811013480037218,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-06.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.18714988300052937,
+      "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-06.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-06.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.17859184699773323
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-06.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.17823189000046114,
+      "expected_stdout_sha256": "3d4ae4dcf4301cb36f7d4fee09cb911eb40880a288ff22ba6cefe80bbcd5b627"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-07.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.17044895100116264,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-07.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1\n0\n2\n1\n1/3\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.16757803699874785,
+      "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-07.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-07.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.16914288700354518
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-07.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1\n0\n2\n1\n1/3\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.16883765999955358,
+      "expected_stdout_sha256": "fcd2ab6967cdc9d5f2c2cd9ab2c889db3d45cc2af02eec14e6e834ff811e15ae"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-08.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1609566300030565,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-08.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "0\n1\n0\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.18946164400404086,
+      "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-08.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-08.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.17236441600107355
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-08.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "0\n1\n0\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.17683220600156346,
+      "expected_stdout_sha256": "5a38866523e6a019e6bdd66f5e9719125385fd023e5a0950161a99595e75bb5c"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-09.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.1602775979990838,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-09.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1/1\n-1\n0\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.16978007400030037,
+      "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-09.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-09.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.159330864000367
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-09.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1/1\n-1\n0\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.17081581599632045,
+      "expected_stdout_sha256": "82d51c7939a131cc666e8dbfea04863fcf6fe25f99e89f874520805e08fe8e92"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "check",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-10.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "OK: Dec core v1\n",
+      "stderr": "",
+      "elapsed_seconds": 0.15285852899978636,
+      "expected_stdout_sha256": "2ae4f98bffba46f82351399fc0552fea5cd7057c65cbb0de4b3b4832710543ab"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "run",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-10.dec"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1/3\n1/6\n1/2\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.16675125300389482,
+      "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "compile",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-10.dec",
+        "-o",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-10.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_seconds": 0.17486644000018714
+    },
+    {
+      "command": [
+        "/home/reginaldpoyau/projects/aod/AOD_M3_COMPARISON_EXECUTION_R02_2026-11-08/runtime/bin/python",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/aodc.py",
+        "exec",
+        "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-10.json"
+      ],
+      "cwd": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+      "status": "PASS",
+      "returncode": 0,
+      "stdout": "1/3\n1/6\n1/2\n0\n",
+      "stderr": "",
+      "elapsed_seconds": 0.16569007599900942,
+      "expected_stdout_sha256": "358aa9d1e088d231e9ecf2ec26d6604f9c6d7723319122e060b7843cb594ec6c"
+    }
+  ],
+  "examples": [
+    {
+      "number": 1,
+      "source_line": 72,
+      "expect_line": 96,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-01.dec",
+      "source_sha256": "bcaca700a8e59aca80435b7d95f087ed84467fdd83a0483016673c9f86184f34",
+      "expected_stdout": "t32(2)\n1/2\nt32(0)\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "89a557cf089e394ccebe63f61ef981d3091f835551c9e627b0cca1bf12c4d6c5"
+    },
+    {
+      "number": 2,
+      "source_line": 149,
+      "expect_line": 159,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-02.dec",
+      "source_sha256": "921948cdadf37838305d15f62bc3274831f391bca5c85660d6996ddb60cc7752",
+      "expected_stdout": "-3\n2\n7/3\n6\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "ba6068dab1065f6c86a84336dc4622b1ca8b4c8cc40c879f395cc46adba0bc4b"
+    },
+    {
+      "number": 3,
+      "source_line": 258,
+      "expect_line": 270,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-03.dec",
+      "source_sha256": "700052da7a08de644bd209a5bcd2adbc3c6940df25f4e5eb11d6504fd6a257d2",
+      "expected_stdout": "720\ntrue\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "89b7282eada95acc687a64c8bd3a778d2f7192b64572d9b37f8be548701ca503"
+    },
+    {
+      "number": 4,
+      "source_line": 300,
+      "expect_line": 321,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-04.dec",
+      "source_sha256": "2ceca9a9786a9b45c17409c307fff65cf97499d8beca4aa695c93221e82907c8",
+      "expected_stdout": "1/8\n1/8\n1/2\n1/4\n6/7\n1/7\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "e5a005c0ce18d17cd7319e839f1ab9375e1454c8d6351b44200fe3d8ceb9d8b3"
+    },
+    {
+      "number": 5,
+      "source_line": 351,
+      "expect_line": 375,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-05.dec",
+      "source_sha256": "42f8a56fdb2b86374e85256bc1508ad2e53809895a7d4a91c0a55fd8339e55f9",
+      "expected_stdout": "7\n6\n21\n3\n3\n-3\n0\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "6fb437d41cf1546af334a14c79f2241f9420b0cd87fd1a72e4fb0ab36010cf0c"
+    },
+    {
+      "number": 6,
+      "source_line": 410,
+      "expect_line": 433,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-06.dec",
+      "source_sha256": "7fe526f968a6a10a56b56b7e7e5f1092639685730886634ecaba95e0ed46f043",
+      "expected_stdout": "7\n4\n12\n4/1\n-4/1\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "6884be0d94b5efa6cf7f573c353191f48d293e8d2c17d0a4efb333432166b4ab"
+    },
+    {
+      "number": 7,
+      "source_line": 467,
+      "expect_line": 488,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-07.dec",
+      "source_sha256": "ddd81692942213a25265b3571b9becdf469836d81d33d1df26b3033bd84e88bd",
+      "expected_stdout": "1\n0\n2\n1\n1/3\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "a479d27513cadc88b2f9124a6e056ee11d4855dcb0ae3f4626db6cc40533b1a0"
+    },
+    {
+      "number": 8,
+      "source_line": 515,
+      "expect_line": 536,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-08.dec",
+      "source_sha256": "ef14ec2dbf2f8ae4041258d54c1b7351ecd68155cd6bbde50e00f4fac10d2762",
+      "expected_stdout": "0\n1\n0\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "5a0191b199557ccbd94e42f519be5c38117cb4796bec2e70908527d9c407d1c6"
+    },
+    {
+      "number": 9,
+      "source_line": 565,
+      "expect_line": 587,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-09.dec",
+      "source_sha256": "aeb2e946fe2dff01fb773509cc5e16542b204644cb53e816c9b6660aacc0530e",
+      "expected_stdout": "1/1\n-1\n0\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "dfe30a0eb3ae3016b95b80d16d222daaeef2f2f20fa1d31f915349a9f30b3f4e"
+    },
+    {
+      "number": 10,
+      "source_line": 614,
+      "expect_line": 626,
+      "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/examples/example-10.dec",
+      "source_sha256": "f6f62bf0191d93a0f8d9e5ff3c74858db41a500660e18832ad78955761626557",
+      "expected_stdout": "1/3\n1/6\n1/2\n0\n",
+      "status": "PASS",
+      "modes": [
+        "reference",
+        "typed-ir"
+      ],
+      "ir_sha256": "c30df51ebe18aebc15d7187abb967e098d4d871ea39de61cbe4a85e9e7129341"
+    }
+  ],
+  "example_count": 10,
+  "typst": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+    "version": "typst 0.13.1 (8ace67d9)",
+    "sha256": "61f743dccaaf7d763072ae046ad71f2303752e78d499d319043248f894602f45"
+  },
+  "pdf": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/parallel-tracing/main-manual/aod-dec-language-and-compiler.pdf",
+    "sha256": "ab21c4370c7e61b83699e71a168f9b43e42e07b090c58a18045f2bff5dff394b",
+    "bytes": 160218
+  },
+  "finished_utc": "2026-11-15T13:55:16.925501+00:00"
+}

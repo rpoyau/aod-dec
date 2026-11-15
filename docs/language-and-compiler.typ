@@ -1026,9 +1026,14 @@ coverage, and reproduction command.
 
 == Supported boundary
 
-Execution is covered on Linux x86-64. AArch64, Android, other operating systems,
-GPU execution, source-level parallel execution, and a Dec-written compiler are not implemented
-targets. Static AArch64 encodings in legacy Rust utilities do not supply a Dec
+Scalar native execution is covered on Linux x86-64. The separate parallel
+compiler companion documents `aodc batch`: independent pure integer/Boolean
+entries execute as generated LLVM on native CPU threads or generated CUDA on
+NVIDIA devices. The GPU subset checks its signed 64-bit domain; exact rational
+assembly and full witness admission remain on the host. General GPU execution
+of all Dec types, GPU AOT, source-level shared-state concurrency, AArch64,
+Android, other operating systems and a Dec-written compiler remain unimplemented.
+Static AArch64 encodings in legacy Rust utilities do not supply a Dec
 backend. Self-hosting requires a genuine compiler and a reproducible staged
 bootstrap; the old banner/file-probe executables are demonstrations only.
 
