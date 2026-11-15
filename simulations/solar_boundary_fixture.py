@@ -457,7 +457,7 @@ def inspect_trace(store, *, max_events=10000, max_bytes=16 * 1024 * 1024,
                 "target": route.identity, "receiver": receiver.identity, "surplus": record.surplus,
                 "surplus_unit": BURDEN_UNIT, "record_digest": record.record_digest},
             chiral_flips=[{"committed": f["committed"], "before": f["before"], "after": f["after"]} for f in flips],
-            declared_routed_current=Q(2), current_unit=UNIT,
+            declared_routed_current=channel.value, current_unit=UNIT,
             source_waves=len(waves), verified_route_current_occurrences=1)
     except (TraceError, ValueError, TypeError, KeyError, AttributeError, IndexError, ZeroDivisionError) as exc:
         result.update(status="rejected", coverage="partial")

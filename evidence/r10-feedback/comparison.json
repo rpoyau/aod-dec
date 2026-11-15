@@ -1,0 +1,34 @@
+[
+  {
+    "mode": "normal",
+    "alternate": false,
+    "committed_current": "2",
+    "before": "2",
+    "after": "2",
+    "all_other_semantic_fields_unchanged": true
+  },
+  {
+    "mode": "normal",
+    "alternate": true,
+    "committed_current": "0",
+    "before": "2",
+    "after": "0",
+    "all_other_semantic_fields_unchanged": true
+  },
+  {
+    "mode": "optimized",
+    "alternate": false,
+    "committed_current": "2",
+    "before": "2",
+    "after": "2",
+    "all_other_semantic_fields_unchanged": true
+  },
+  {
+    "mode": "optimized",
+    "alternate": true,
+    "committed_current": "0",
+    "before": "2",
+    "after": "0",
+    "all_other_semantic_fields_unchanged": true
+  }
+]

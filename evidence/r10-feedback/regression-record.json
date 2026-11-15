@@ -1,0 +1,27 @@
+{
+  "finding": "R10-01",
+  "scope": "one regression using actual native route/receiver histories, committed channels and reopened TraceStore archives",
+  "production_edits_by_agent": false,
+  "reviewed_head": "1edf97b710c0b1622db746ccd8b8638415a7e210",
+  "original_inspector_sha256": "4edf64f0598db272a081c354e8b5442bac7a0e84996265d8c519439b1897ab62",
+  "test_file": "tests/test_solar_boundary_fixture.py",
+  "test_file_sha256": "41cb2118257f50c435adc41aa51bf6fa0c6aa6101d95391545dd78da33798c8a",
+  "test": "SolarBoundaryFixtureTests.test_reopened_inspector_reports_current_from_lawful_route_cadence",
+  "pre_fix_result": {
+    "normal": "expected failure on alternate reported current2 versus expected0",
+    "log": "regression-before-normal.log",
+    "log_sha256": "56922eaaa198e05dfd0eb7b9c035db9d9db8cfbbe574470994e0f39c80e2075c"
+  },
+  "assertions_before_failure": [
+    "actual route completion cuts control27,30,33 and alternate27,33,39",
+    "actual receiver completion cuts control27,30,33 and alternate24,27,30,33,36,39",
+    "exact lag1/0 and separately expected committed current2/0",
+    "terminal source pivot and motif component bindings",
+    "native fold/shedding validation with load27/cost24/surplus3",
+    "reopened checksummed archive complete and inspector verified",
+    "unsigned surplus and current units remain separate",
+    "pending projection retained exactly, no surplus/current map",
+    "actual whole-return flip summaries unchanged"
+  ],
+  "post_fix_validation": "parent-owned normal/optimized affected suites and supplied probe"
+}

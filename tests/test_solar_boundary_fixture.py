@@ -2,6 +2,7 @@ from dataclasses import replace
 from copy import deepcopy
 from fractions import Fraction as Q
 from pathlib import Path
+import json
 import tempfile
 import unittest
 
@@ -137,6 +138,94 @@ class SolarBoundaryFixtureTests(unittest.TestCase):
                 rows = declared["boundaries"][solar.SCOPE + "/" + name]["rows"]
                 self.assertEqual(tuple(Q(row["current"]) for row in rows), expected)
             self.assertEqual(boundary_views(path, coverage_scope="full")["coverage"], "partial")
+
+    def test_reopened_inspector_reports_current_from_lawful_route_cadence(self):
+        """Different admitted histories retain their independently known current."""
+        original, n = self.fixture, solar.n
+        sun, mercury, original_route, original_receiver = original["native_waves"]
+        pivot = sun.returns[-1], sun.certificates[-1]
+        records, motifs = [], []
+        for index in range(3):
+            trace = n.trace(sun.lineage, 100 + index, scope=solar.SCOPE,
+                            start_index=25 + 6 * index, chirality=1)
+            certificate = n.certify(trace)
+            registry = {c.certificate_digest: c for c in (pivot[1], certificate)}
+            construction = ((1, -1), (pivot[1].certificate_digest, 1), (-1, 1))
+            motifs.append(n.motif_witness("Duon", trace, construction, (pivot,), registry,
+                                          enclosure=6, chirality=1))
+            records.append((trace, certificate, registry))
+        alternate_route = n.wave(tuple(records), tuple(motifs))
+        alternate_receiver = solar._duon("solar-role:route-receiver", (1,) * 6, start=22)
+        cases = (("control", original_route, original_receiver, (27, 30, 33), (27, 30, 33), Q(1), Q(2)),
+                 ("alternate", alternate_route, alternate_receiver, (27, 33, 39),
+                  (24, 27, 30, 33, 36, 39), Q(0), Q(0)))
+        with tempfile.TemporaryDirectory() as directory:
+            for label, route, receiver, route_cuts, receiver_cuts, lag, current in cases:
+                with self.subTest(case=label):
+                    n._validate_wave_collection((sun, mercury, route, receiver))
+                    self.assertEqual(tuple(t.indices[-1] for t in route.returns), route_cuts)
+                    self.assertEqual(tuple(t.indices[-1] for t in receiver.returns), receiver_cuts)
+                    self.assertTrue(all(m.component_traces == (pivot[0],) and
+                                        m.component_certificates == (pivot[1],)
+                                        for m in route.motif_witnesses))
+                    evidence = dict(original["route_evidence"], route_support=route, receiver=receiver)
+                    fold, shedding = evidence["fold"], evidence["shedding"]
+                    self.assertEqual((shedding.closure_load, shedding.closure_cost, shedding.surplus),
+                                     (Q(27), Q(24), Q(3)))
+                    self.assertTrue(n.validate_shedding(fold, shedding))
+                    self.assertIsNone(evidence["signed_projection"])
+                    comparison = solar._comparison(route, receiver, bias=(Q(1), Q(0)))
+                    self.assertEqual(comparison["comparison"]["lag"], lag)
+                    channel, operand = solar._channel(comparison, 40, "solar-routed-current:40",
+                        "solar-shell", "exterior", Q(1, 6), kind="shedding")
+                    operand.update(route_record=shedding.record_digest, surplus_to_current_map=None)
+                    channel = replace(channel, provenance=regions.fingerprint(operand))
+                    self.assertEqual(channel.value, current)
+                    pending = regions.PendingProjection("solar-surplus-unmapped",
+                        "solar-surplus:" + shedding.record_digest, "solar-shell", "exterior",
+                        Q(3), solar.BURDEN_UNIT, shedding.record_digest)
+                    path = Path(directory) / label
+                    manifest = run_manifest("solar-route-cadence-" + label, source=solar.SOURCE,
+                        kernel="native scoped current", preparation="declared retained route comparison")
+                    with TraceStore(path, manifest) as store:
+                        for wave, family in ((sun, "solar-role"), (mercury, "mercury-role"),
+                                (route, "sheddic-E2-role"), (receiver, "route-receiver-role")):
+                            solar._capture_wave(store, wave, family)
+                        outer = fold["outer"][0]
+                        solar._append(store, "particle.native_fold", {
+                            "schema": "native-particle-fold-v1", "capture": "validated-retained-snapshot",
+                            "scope": outer.scope, "lineage": outer.lineage, "scale": outer.scale, "fold": fold},
+                            scope=outer.scope, lineage=outer.lineage, scale=1, key=outer.return_id)
+                        solar._append(store, "evidence.solar_shedding", evidence, key=shedding.record_digest)
+                        ledger = regions.Ledger(solar.CELLS, solar.UNIT, 0, solar.SCOPE, solar.DOMAIN)
+                        with regions.observe_commits(store.core_recorder):
+                            ledger = regions.commit(ledger, 40, 4, (channel,), obligations=(pending,))
+                        parent = store.get_by_key(json.dumps(["region", solar.SCOPE, 40]))
+                        solar._append(store, "evidence.channel_preparation", operand,
+                            key=operand["identity"], parents=(parent["event_id"],))
+                        solar._append(store, "evidence.solar_chiral_flips", {
+                            "flips": original["chiral_flips"],
+                            "law": "prescribed whole-return signs; no transition probability"},
+                            key="whole-return-flips")
+                    # Reopen a real checksummed archive; no decoder or comparator is substituted.
+                    with TraceStore.open(path) as store:
+                        self.assertEqual(store.status()["coverage"], "complete")
+                        inspection = solar.inspect_trace(store)
+                        self.assertEqual((inspection["status"], inspection["coverage"]), ("verified", "complete"))
+                        self.assertEqual(inspection["failures"], [])
+                        self.assertEqual((inspection["route"]["surplus"], inspection["route"]["surplus_unit"]),
+                                         (Q(3), solar.BURDEN_UNIT))
+                        self.assertEqual(inspection["current_unit"], solar.UNIT)
+                        self.assertEqual(inspection["chiral_flips"], [
+                            {"committed": 14, "before": 1, "after": -1},
+                            {"committed": 20, "before": -1, "after": 1}])
+                        row = _decode_ratios(store.get_by_key(json.dumps(["region", solar.SCOPE, 40]))["payload"])["row"]
+                        committed_channel, = (regions.Channel(**c) for c in row["channels"])
+                        committed_pending, = (regions.PendingProjection(**o) for o in row["obligations"])
+                        self.assertEqual(committed_channel.value, current)
+                        self.assertEqual(committed_pending, pending)
+                        self.assertIsNone(operand["surplus_to_current_map"])
+                        self.assertEqual(inspection["declared_routed_current"], current)
 
     @staticmethod
     def _clone(source, destination, mutate):

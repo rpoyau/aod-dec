@@ -1,0 +1,49 @@
+{
+  "review": "R10",
+  "pr": 7,
+  "head": "1edf97b710c0b1622db746ccd8b8638415a7e210",
+  "base": "dbf79dcc14d5a36a68969212c617bb8d486fee2d",
+  "verdict": "HOLD_REPORTING_DEFECT",
+  "findings": [
+    {
+      "id": "R10-01",
+      "local_alias": "FRONTIER-01",
+      "priority": "P2",
+      "path": "simulations/solar_boundary_fixture.py",
+      "line": 460,
+      "title": "Return the reconstructed routed current instead of a fixture constant",
+      "observed": {
+        "valid_archive": true,
+        "actual_current": "0",
+        "reported_current": "2",
+        "status": "verified",
+        "coverage": "complete",
+        "modes": [
+          "normal",
+          "optimized"
+        ]
+      },
+      "repair": "Publish the regenerated and committed channel.value; add valid cadence variation regression."
+    }
+  ],
+  "notes": [
+    {
+      "priority": "nonblocking",
+      "topic": "Tau-normalized reconstruction API naming",
+      "path": "simulations/sparc_reconstruction.py"
+    }
+  ],
+  "current_ci": {
+    "run": 43728633037,
+    "status": "success",
+    "jobs": 3,
+    "discovered_methods_per_mode": 771,
+    "passed_methods_per_mode": 758,
+    "individually_skipped_per_mode": 8,
+    "class_blocked_methods_per_mode": 5
+  },
+  "writes": {
+    "source": false,
+    "github": false
+  }
+}

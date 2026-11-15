@@ -1,0 +1,50 @@
+[
+  {
+    "run": "before-normal",
+    "case": "control",
+    "sha256": "f3ef3fa2f6a6003f5e65ed7e0323d8911a59d7307a1e6d5d690659f9576aecfd",
+    "stored": "archives/control/trace.sqlite3.gz"
+  },
+  {
+    "run": "before-optimized",
+    "case": "control",
+    "sha256": "f3ef3fa2f6a6003f5e65ed7e0323d8911a59d7307a1e6d5d690659f9576aecfd",
+    "stored": "archives/control/trace.sqlite3.gz"
+  },
+  {
+    "run": "after-normal",
+    "case": "control",
+    "sha256": "f3ef3fa2f6a6003f5e65ed7e0323d8911a59d7307a1e6d5d690659f9576aecfd",
+    "stored": "archives/control/trace.sqlite3.gz"
+  },
+  {
+    "run": "after-optimized",
+    "case": "control",
+    "sha256": "f3ef3fa2f6a6003f5e65ed7e0323d8911a59d7307a1e6d5d690659f9576aecfd",
+    "stored": "archives/control/trace.sqlite3.gz"
+  },
+  {
+    "run": "before-normal",
+    "case": "variant",
+    "sha256": "9a2cc9bd4e5e01d4c9c003b89e1c299361ef0d5fbc8dfced2bb90d19cd64671c",
+    "stored": "archives/variant/trace.sqlite3.gz"
+  },
+  {
+    "run": "before-optimized",
+    "case": "variant",
+    "sha256": "9a2cc9bd4e5e01d4c9c003b89e1c299361ef0d5fbc8dfced2bb90d19cd64671c",
+    "stored": "archives/variant/trace.sqlite3.gz"
+  },
+  {
+    "run": "after-normal",
+    "case": "variant",
+    "sha256": "9a2cc9bd4e5e01d4c9c003b89e1c299361ef0d5fbc8dfced2bb90d19cd64671c",
+    "stored": "archives/variant/trace.sqlite3.gz"
+  },
+  {
+    "run": "after-optimized",
+    "case": "variant",
+    "sha256": "9a2cc9bd4e5e01d4c9c003b89e1c299361ef0d5fbc8dfced2bb90d19cd64671c",
+    "stored": "archives/variant/trace.sqlite3.gz"
+  }
+]

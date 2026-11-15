@@ -1,0 +1,114 @@
+{
+  "review_id": "R10-01-independent-solar",
+  "bound_head": "1edf97b710c0b1622db746ccd8b8638415a7e210",
+  "source_sha256": {
+    "simulations/solar_boundary_fixture.py": "4edf64f0598db272a081c354e8b5442bac7a0e84996265d8c519439b1897ab62",
+    "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "tests/test_solar_boundary_fixture.py": "fb82b4aff9e8d19d0b9964480219b3a911ab9dbc61c84e8849778398f5e99187",
+    "tests/test_trace_parallel.py": "21c6791ac3918310fc05e5f672ae6f93e6e2f913f20895723b23c3696278b6a0",
+    "scripts/check_parallel_tracing.py": "6c77ae703b1f811bce0523843c389106ad6fc78504d846671efe2b297468eaf0"
+  },
+  "main_manual_binding": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "finding": "confirmed_by_source_and_independent_exact_arithmetic",
+  "evidence_class": "declared finite native preparation and operational reporting contract",
+  "minimal_repair": "Publish channel.value in the final successful result.update after every existing admission check.",
+  "independent_arithmetic": [
+    {
+      "case": "control",
+      "route_completion_cuts": [
+        27,
+        30,
+        33
+      ],
+      "receiver_completion_cuts": [
+        27,
+        30,
+        33
+      ],
+      "comparison_window": [
+        30,
+        33
+      ],
+      "recurrent_counts": [
+        1,
+        1
+      ],
+      "oriented_bias": [
+        "1",
+        "0"
+      ],
+      "lag": "1",
+      "contact_support": 3,
+      "left_reflection_counts": [
+        1,
+        1
+      ],
+      "duration": 5,
+      "participation": 4,
+      "pressure": "12",
+      "intensity": "1/6",
+      "expected_signed_current": "2"
+    },
+    {
+      "case": "alternate",
+      "route_completion_cuts": [
+        27,
+        33,
+        39
+      ],
+      "receiver_completion_cuts": [
+        24,
+        27,
+        30,
+        33,
+        36,
+        39
+      ],
+      "comparison_window": [
+        33,
+        39
+      ],
+      "recurrent_counts": [
+        1,
+        2
+      ],
+      "oriented_bias": [
+        "1",
+        "0"
+      ],
+      "lag": "0",
+      "contact_support": 3,
+      "left_reflection_counts": [
+        1,
+        1
+      ],
+      "duration": 5,
+      "participation": 4,
+      "pressure": "12",
+      "intensity": "1/6",
+      "expected_signed_current": "0"
+    }
+  ],
+  "method": "Fraction arithmetic and direct completion-cut counting, without invoking _comparison, _channel or inspect_trace. Runtime reproduction is parent-owned.",
+  "reviewed_invariants": [
+    "retained history-union consistency and admission",
+    "canonical commit snapshots and unique typed channel identity",
+    "native comparison reconstructed from admitted route/receiver histories",
+    "exact equality of prepared operands and regenerated channel",
+    "actual causal parent commitment",
+    "27/24 bridge and unsigned surplus3 with unresolved projection",
+    "original pivot and whole-return flips",
+    "current_unit remains UNIT",
+    "first-failure/partial result remains unpublished"
+  ],
+  "no_stale_channel_path_found": true,
+  "not_checked": [
+    "full scientific framework",
+    "physical solar trajectory",
+    "unrelated reconstruction naming change",
+    "full suite/runtime rerun (parent-owned)"
+  ],
+  "repository_edited": false
+}

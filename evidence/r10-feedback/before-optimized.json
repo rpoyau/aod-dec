@@ -1,0 +1,143 @@
+[
+  {
+    "variant": false,
+    "native_route_valid": true,
+    "native_receiver_valid": true,
+    "route_cadence": [
+      3,
+      3
+    ],
+    "route_completion_cuts": [
+      27,
+      30,
+      33
+    ],
+    "receiver_completion_cuts": [
+      27,
+      30,
+      33
+    ],
+    "lag": "1",
+    "calculated_current": "2",
+    "reported_current": "2",
+    "archive_coverage": "complete",
+    "inspection": {
+      "status": "verified",
+      "coverage": "complete",
+      "scope": "declared fixture route/current witness",
+      "physical_trajectory": false,
+      "route": {
+        "status": "verified",
+        "core": "Duon",
+        "form": "E2",
+        "source": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+        "target": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6",
+        "receiver": "e22668c77f1a1fe5c699e4ee12408380736d90f9344d8594785661f7565881a9",
+        "surplus": "3",
+        "surplus_unit": "native-closure-burden",
+        "record_digest": "62fb61454caa823d6711e2080e6b6fa41e6364ae2cdf18b4256f4c2fdaa48ce2"
+      },
+      "chiral_flips": [
+        {
+          "committed": 14,
+          "before": 1,
+          "after": -1
+        },
+        {
+          "committed": 20,
+          "before": -1,
+          "after": 1
+        }
+      ],
+      "declared_routed_current": "2",
+      "full_current": "unresolved surplus-to-current map",
+      "failures": [],
+      "inspected_events": 23,
+      "inspected_bytes": 419683,
+      "current_unit": "native-pressure-current",
+      "source_waves": 4,
+      "verified_route_current_occurrences": 1,
+      "history_union": {
+        "status": "consistent",
+        "reason": null,
+        "bindings": 110,
+        "nodes": 1536,
+        "max_bindings": 100000,
+        "max_nodes": 500000
+      }
+    },
+    "trace_path": "checks/before-optimized/control"
+  },
+  {
+    "variant": true,
+    "native_route_valid": true,
+    "native_receiver_valid": true,
+    "route_cadence": [
+      6,
+      6
+    ],
+    "route_completion_cuts": [
+      27,
+      33,
+      39
+    ],
+    "receiver_completion_cuts": [
+      24,
+      27,
+      30,
+      33,
+      36,
+      39
+    ],
+    "lag": "0",
+    "calculated_current": "0",
+    "reported_current": "2",
+    "archive_coverage": "complete",
+    "inspection": {
+      "status": "verified",
+      "coverage": "complete",
+      "scope": "declared fixture route/current witness",
+      "physical_trajectory": false,
+      "route": {
+        "status": "verified",
+        "core": "Duon",
+        "form": "E2",
+        "source": "9f01b392244db427291f7c6df2754d25e929946116e2f366b45db621d98ab7c8",
+        "target": "677c097d6f8df2df337b629e3a98210f7855663e6d4dd737778c9e43dd0b52f6",
+        "receiver": "9713539a4b621b74d06d0b6b426c3caf4bb6b36a6750a82e57dfc5d4119e8a0a",
+        "surplus": "3",
+        "surplus_unit": "native-closure-burden",
+        "record_digest": "62fb61454caa823d6711e2080e6b6fa41e6364ae2cdf18b4256f4c2fdaa48ce2"
+      },
+      "chiral_flips": [
+        {
+          "committed": 14,
+          "before": 1,
+          "after": -1
+        },
+        {
+          "committed": 20,
+          "before": -1,
+          "after": 1
+        }
+      ],
+      "declared_routed_current": "2",
+      "full_current": "unresolved surplus-to-current map",
+      "failures": [],
+      "inspected_events": 26,
+      "inspected_bytes": 450271,
+      "current_unit": "native-pressure-current",
+      "source_waves": 4,
+      "verified_route_current_occurrences": 1,
+      "history_union": {
+        "status": "consistent",
+        "reason": null,
+        "bindings": 125,
+        "nodes": 1686,
+        "max_bindings": 100000,
+        "max_nodes": 500000
+      }
+    },
+    "trace_path": "checks/before-optimized/variant"
+  }
+]

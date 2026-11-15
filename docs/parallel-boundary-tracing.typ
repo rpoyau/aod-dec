@@ -107,6 +107,9 @@ the declared shedding record, the later route pivot and the whole-return flip
 markers. Names and positive surplus alone are not detection evidence. The
 solar fixture adapter validates its declared load bridge separately from the
 older proton-specific bridge in the general relation detector.
+The inspector publishes the reconstructed committed channel value. A lawful
+alternative cadence with comparison lag zero therefore reports zero, while
+unsigned surplus remains three.
 
 = Solar observable boundary and reproduction <parallel-observable>
 

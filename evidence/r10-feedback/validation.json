@@ -1,0 +1,66 @@
+{
+  "status": "local_validation_complete_ci_pending",
+  "scope": "Exact reporting correction in an existing native fixture; unchanged ontology, transition model, SI mapping and compiler backends. Broader R10 review conclusions retained as supplied evidence, not independently re-reviewed in this repair.",
+  "bundle": "/home/reginaldpoyau/projects/aod/.codex-attachments/8b24fdbf-5298-4064-b145-c8f9a54800a2/94a74e44-faa5-4c7d-a240-8ca2dfbdf224/AOD_DEC_PR7_REVIEW_R10.zip",
+  "bundle_sha256": "e06d37db27ddb4bbafa58cc790b832ec172b5ab91b0f55ec0c868c75a70c82a0",
+  "repository": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec",
+  "initial_head": "1edf97b710c0b1622db746ccd8b8638415a7e210",
+  "main_manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "feedback_root": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR7_R10_FIX_2026-11-15/feedback",
+  "reviewed": [
+    "R10-01 source/admission/reporting path",
+    "supplied original and alternate real-archive probes in both Python modes",
+    "independent exact cadence calculation",
+    "affected solar/frontier/boundary/trace regressions",
+    "changed Typst page"
+  ],
+  "not_checked": [
+    "claims outside R10 findings"
+  ],
+  "repairs": [
+    {
+      "id": "R10-01",
+      "disposition": "counterexample_reproduced_and_repaired",
+      "change": "publish reconstructed and committed channel.value after existing admission checks",
+      "regression": "test_reopened_inspector_reports_current_from_lawful_route_cadence"
+    }
+  ],
+  "final_source_sha256": {
+    "simulations/solar_boundary_fixture.py": "8da42a29a3424bf8482b67c30835bd37bdf73dcc0661a186fb55b2fcdf97990f",
+    "tests/test_solar_boundary_fixture.py": "41cb2118257f50c435adc41aa51bf6fa0c6aa6101d95391545dd78da33798c8a",
+    "docs/parallel-boundary-tracing.typ": "97b1b5677ede5116f3c700560384792ca3da8304b725988c3da6efe087905194",
+    "simulations/trace_store.py": "ea31598a0cdaa3a88d44503e0aec1d2bd17dbaad02ad563e90291427c8567853",
+    "simulations/region_engine.py": "69e3a091b49344a8caa377179d1a0cb8f84f41aa5d8eb3aadb2d7092b86460bc",
+    "simulations/trace_history_union.py": "8927a67022fb7c6a8f17fd6f730310da7b769f77f0279973a154b191466de6b7",
+    "simulations/vendor/aod_manual_native.py": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
+  },
+  "validation": {
+    "affected_each_mode": {
+      "run": 89,
+      "passed": 87,
+      "skipped": 2,
+      "skip_reason": "CUDA_ERROR_NO_DEVICE"
+    },
+    "unmodified_probe_each_mode": "control2 and alternate0 both verified complete",
+    "archive_inputs": "control and alternate bytes each identical across before/after and both modes",
+    "all_other_report_semantics_unchanged": true,
+    "aod_lint": {
+      "status": "PASS",
+      "manuscripts": 14,
+      "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844"
+    },
+    "typst": {
+      "version": "0.13.1",
+      "pages": 2,
+      "visually_inspected": [
+        2
+      ],
+      "pdf_sha256": "c2366995faadeb5809ad5103ebb716bb678bbfc8fdcb145b2eea9fefe817b93c"
+    }
+  },
+  "nonblocking_note": {
+    "topic": "Tau-normalized future API naming",
+    "disposition": "no public coefficient change in this reporting repair",
+    "mapping": "M/pi = 2(M/tau)"
+  }
+}
