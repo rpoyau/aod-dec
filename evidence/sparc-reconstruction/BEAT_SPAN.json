@@ -1,0 +1,214 @@
+{
+  "schema": "aod-beat-span-revised-v1",
+  "source_repository": "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual",
+  "source_head": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "authority_amendment": "User instructs using AOD itself and fitting/inferencing missing 3D galaxy data from known sizes, shapes, star distributions and densities to the observed projection; native scales/windows should be calculated from beats, not asked for or guessed.",
+  "relationship_to_previous": "Preserves SOURCE_MODEL.md/json. Revises broad missing-law wording to source-derived recurrence/window calculation and specifically identifies data/observation adapter status. No replacement evolution law is requested.",
+  "source_sha256": {
+    "manual/appendices/C_3d_coordinate_phase_cycle_delta3_fixture.tex": "1d125ab97ad5e383f43467e56cd6e9e9297c95d9fe2c06bbe9b5f4c6d92c41bd",
+    "manual/scripts/aod_3d_coordinate_phase_delta3.py": "55ab9a657321282f0560cc031f5baf41087072560840551a932a503ae63e412d",
+    "manual/sections/03_m3_temporal.tex": "dc2dfaa86c4e7ce3d4201f618b67b7b860866988f8dfd21c6f7ff300a4d15612",
+    "manual/sections/06_field_dynamics_applications.tex": "ed3931249a0a3a6e112ea77d33e7bbfc22f9047236860e05a6f3417a12279c06",
+    "sections/03_afc_basis.tex": "d5b648c0c74afe8c34a344d5069e78b5be5d9a98851ce1abcc6c0f9d1df8c6d3",
+    "sections/04_cut_running_fractal_tesseract.tex": "d52b8b2548bd61534a2b18c664284fdb14ec7ac7fe1d8b715c47483ca8e09d11",
+    "sections/05_curl_closure_duon_current.tex": "a46d92b6eb2dba5c461b0a8db1e0374384fb578be5c3ebbc8ec62cdd8150a06f",
+    "sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+    "sections/06_wave_state_relational_time.tex": "2add34566c97406939bfa6c67b1d6acef99ad13c22422ec5edc0800df7e52d2b",
+    "sections/07_cell_measures_mappings.tex": "759a6a8cae5f02bd1ddaf6c28057dbd7c4e87440ef49a0a5559e75f2b137c2e5"
+  },
+  "anchors": [
+    {
+      "id": "native_cut_lineage",
+      "path": "sections/03_afc_basis.tex",
+      "line_start": 163,
+      "line_end": 180,
+      "finding": "Finite retained interface, integer event order and scope; tesseract boundary is in Q4 edges times ternary role fibre."
+    },
+    {
+      "id": "native_capacity",
+      "path": "sections/03_afc_basis.tex",
+      "line_start": 145,
+      "line_end": 159,
+      "finding": "For k unconstrained retained ternary positions, C3=log_3(3^k)=k; not a mass conversion."
+    },
+    {
+      "id": "closure_phase",
+      "path": "sections/04_cut_running_fractal_tesseract.tex",
+      "line_start": 5,
+      "line_end": 45,
+      "finding": "Certified retained-start return adds one closure; atomic phase-bearing support m excludes dwell/replay and has m>=2."
+    },
+    {
+      "id": "beats_and_span",
+      "path": "sections/04_cut_running_fractal_tesseract.tex",
+      "line_start": 75,
+      "line_end": 114,
+      "finding": "Distinct certified reclosures supply beats; Sep_j=k_{j+1}-k_j; cadence is exact ordered separation list; arbitrary native windows have an origin indicator."
+    },
+    {
+      "id": "wave_segment",
+      "path": "sections/04_cut_running_fractal_tesseract.tex",
+      "line_start": 116,
+      "line_end": 150,
+      "finding": "Wave identity retains origin and cadence; localized wavelet binds adjacent certified return events and positive local separation."
+    },
+    {
+      "id": "RD_from_support",
+      "path": "sections/05_curl_closure_duon_current.tex",
+      "line_start": 69,
+      "line_end": 88,
+      "finding": "RD=first branch+hinge recurrence+return branch; symmetric single hinge gives 2Pi+1 only with its hypotheses."
+    },
+    {
+      "id": "support_recipe",
+      "path": "sections/05_curl_closure_duon_current.tex",
+      "line_start": 124,
+      "line_end": 153,
+      "finding": "Pi(p:q)=q^p+q is a declared finite support model; proposed grammar requires actual admission trace."
+    },
+    {
+      "id": "fold_scope",
+      "path": "sections/05_curl_closure_duon_current.tex",
+      "line_start": 227,
+      "line_end": 290,
+      "finding": "Outer scope must bind actual inner identities and actual outer return. Each certified outer closure contributes one; inner beats cannot be recounted as outer returns."
+    },
+    {
+      "id": "RCD_domain",
+      "path": "sections/06_wave_state_relational_time.tex",
+      "line_start": 53,
+      "line_end": 98,
+      "finding": "Directional RCD binds both histories/reflection; additive realization RD+sum r_s; compatible native window clip preserves RCD and RD."
+    },
+    {
+      "id": "cadence_ratio",
+      "path": "sections/06_wave_state_relational_time.tex",
+      "line_start": 100,
+      "line_end": 152,
+      "finding": "Coupled recurrent histories on common committed window give exact beat ratio, unwrapped lag and relational time; no global scalar clock."
+    },
+    {
+      "id": "field_count",
+      "path": "sections/06_field.tex",
+      "line_start": 1131,
+      "line_end": 1181,
+      "finding": "Coarsest admitted resolution with declared tie order; Nsupport from actual section/support family; Nmax=min(candidate,support,capacity bound,window/duration bound)."
+    },
+    {
+      "id": "range_coordinate",
+      "path": "sections/06_field.tex",
+      "line_start": 1293,
+      "line_end": 1317,
+      "finding": "Retained address range, tesseract section grade and support-expression family separately determine finite support multiplicity."
+    },
+    {
+      "id": "no_false_period",
+      "path": "sections/06_field.tex",
+      "line_start": 1374,
+      "line_end": 1384,
+      "finding": "RD-as-period is only an explicitly periodic display specialization."
+    },
+    {
+      "id": "cell_measure",
+      "path": "sections/07_cell_measures_mappings.tex",
+      "line_start": 7,
+      "line_end": 32,
+      "finding": "Geometry weighted support sum with separate cell identities/multiplicities; no cross-dimensional measure conversion without weights and geometry."
+    },
+    {
+      "id": "mass_size_adapter",
+      "path": "manual/appendices/C_3d_coordinate_phase_cycle_delta3_fixture.tex",
+      "line_start": 22,
+      "line_end": 46,
+      "finding": "Measured-track ingest specifies grid, timing, quantization and mass/size-to-beta map."
+    },
+    {
+      "id": "phase_scale",
+      "path": "manual/appendices/C_3d_coordinate_phase_cycle_delta3_fixture.tex",
+      "line_start": 83,
+      "line_end": 104,
+      "finding": "Candidate beta_a from mass/size is positive integer; Q mod beta_a produces phase counts."
+    },
+    {
+      "id": "implemented_beta",
+      "path": "manual/scripts/aod_3d_coordinate_phase_delta3.py",
+      "line_start": 23,
+      "line_end": 25,
+      "finding": "Released fixed coordinate fixture sets BETA_A=5 and LAG=1; no measured mass/size mapping function in that script."
+    },
+    {
+      "id": "clock_adapter",
+      "path": "manual/sections/03_m3_temporal.tex",
+      "line_start": 30,
+      "line_end": 60,
+      "finding": "Native return histories to cycle equivalents to SI time; gains/calibration separately bound."
+    },
+    {
+      "id": "three_dimensional_reconstruction",
+      "path": "manual/sections/06_field_dynamics_applications.tex",
+      "line_start": 572,
+      "line_end": 594,
+      "finding": "Own source or inferred/proxy rows may populate 3D density/velocity/current/time-flow; each status recorded."
+    }
+  ],
+  "derived_from_trace": {
+    "beat_count": "distinct compatible closure completions after the bound origin",
+    "cadence": "ordered differences k[j+1]-k[j]",
+    "local_wavelet_window": "(k[j], k[j+1]] on adjacent certified returns",
+    "recorded_reclosure_span": "k[last]-k[origin]; window (k[origin],k[last]]",
+    "inclusive_completion_window": "(k[first]-1,k[last]] for integer cuts, preserving first closure origin indicator",
+    "full_common_record_window": "intersection of committed observation domains for a coupled comparison; all pending support and boundary crossings retained; stop at recorded end, not hypothetical next beat",
+    "RD": "Pi_minus+H_mu+Pi_plus; count actual support occurrences",
+    "RCD": "directional bound histories, reflection, duration projection; additive specialization only when bound",
+    "native_capacity": "k retained unconstrained ternary positions -> C3=k",
+    "native_range": "actual retained address/section family and admitted fold depth",
+    "Nmax": "min(Ncandidate,Nsupport,floor(Kraw/kbar),floor(window/rhobar))"
+  },
+  "data_inference_allowed": {
+    "mass_per_cell": "rho_c * physical cell volume, with density/geometry uncertainty; not equal to C3",
+    "three_dimensional_density": "fit positive density distributions through their actual 2D projection to photometry/gas constraints; preserve degenerate fits and extrapolated tails",
+    "native_embedding": "bind reconstruction cell identities, native supports and calibrated unit/observation map explicitly; never infer an atomic closure certificate from density alone",
+    "temporal_data": "reconstruct kinematic/time inputs from independent field data where available, then compute native closures/cadence from engine histories; a static projection alone does not observe native event order",
+    "fit_status": "if Vobs participates in fitting, resulting Vobs residual is an in-sample reconstruction score, not held-out prediction"
+  },
+  "not_present_in_bound_sources_as_universal_formula": [
+    "mass or density to number of unconstrained native ternary positions",
+    "mass/size to beta_a numerical evaluator",
+    "native octal address digit to physical length multiplier",
+    "native beat count alone to complete directional RCD",
+    "unrealized future recurrence/window extension from finite observed cadence"
+  ],
+  "small_exact_check": {
+    "completion_cuts_compared": [
+      2,
+      10,
+      18,
+      26
+    ],
+    "completion_cuts_reference": [
+      2,
+      12,
+      22
+    ],
+    "compared_cadence": [
+      8,
+      8,
+      8
+    ],
+    "reference_cadence": [
+      10,
+      10
+    ],
+    "common_committed_reclosure_window": [
+      2,
+      26
+    ],
+    "beat_counts": [
+      3,
+      2
+    ],
+    "ratio": "3/2",
+    "window_span_native_cuts": 24,
+    "warning": "LCM(8,10)=40 is not an observed common window and is not substituted. RD values are independently 5 and 7 in this Manual example."
+  }
+}

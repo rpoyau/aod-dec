@@ -1,0 +1,30 @@
+test_context_is_restored_and_nested_observer_is_local (tests.test_trace_applications.AccountingObserverTests.test_context_is_restored_and_nested_observer_is_local) ... ok
+test_failed_region_capture_reports_typed_incomplete (tests.test_trace_applications.AccountingObserverTests.test_failed_region_capture_reports_typed_incomplete) ... ok
+test_passive_commit_and_error_order (tests.test_trace_applications.AccountingObserverTests.test_passive_commit_and_error_order) ... ok
+test_region_io_observer_failure_remains_incomplete (tests.test_trace_applications.AccountingObserverTests.test_region_io_observer_failure_remains_incomplete) ... ok
+test_storage_failure_stops_before_successor_is_returned (tests.test_trace_applications.AccountingObserverTests.test_storage_failure_stops_before_successor_is_returned) ... ok
+test_alternative_branches_can_reuse_route_identity (tests.test_trace_applications.AccountingRecorderRoutingTests.test_alternative_branches_can_reuse_route_identity) ... ok
+test_interleaved_receipts_keep_actual_route_after_reopen (tests.test_trace_applications.AccountingRecorderRoutingTests.test_interleaved_receipts_keep_actual_route_after_reopen) ... ok
+test_accounting_replay_reports_budget_and_partial_coverage (tests.test_trace_applications.ApplicationTraceTests.test_accounting_replay_reports_budget_and_partial_coverage) ... ok
+test_actual_observables_bind_scope_and_all_error_classes (tests.test_trace_applications.ApplicationTraceTests.test_actual_observables_bind_scope_and_all_error_classes) ... ok
+test_alternative_views_do_not_invent_causal_sequence (tests.test_trace_applications.ApplicationTraceTests.test_alternative_views_do_not_invent_causal_sequence) ... ok
+test_automatic_accounting_replay_validates_real_route_and_later_receipt (tests.test_trace_applications.ApplicationTraceTests.test_automatic_accounting_replay_validates_real_route_and_later_receipt) ... ok
+test_existing_moving_boundary_and_gate_results (tests.test_trace_applications.ApplicationTraceTests.test_existing_moving_boundary_and_gate_results) ... ok
+test_fine_query_budget_never_returns_digest_as_witness (tests.test_trace_applications.ApplicationTraceTests.test_fine_query_budget_never_returns_digest_as_witness) ... ok
+test_fold_history_is_chunked_and_recoverable (tests.test_trace_applications.ApplicationTraceTests.test_fold_history_is_chunked_and_recoverable) ... ok
+test_live_tau_and_orbit_claims_require_their_producers (tests.test_trace_applications.ApplicationTraceTests.test_live_tau_and_orbit_claims_require_their_producers) ... ok
+test_malformed_retrieval_locator_is_rejected (tests.test_trace_applications.ApplicationTraceTests.test_malformed_retrieval_locator_is_rejected) ... ok
+test_native_formation_snapshots_are_queryable (tests.test_trace_applications.ApplicationTraceTests.test_native_formation_snapshots_are_queryable) ... ok
+test_particle_obligations_and_alternative_windows_survive (tests.test_trace_applications.ApplicationTraceTests.test_particle_obligations_and_alternative_windows_survive) ... ok
+test_particle_passive_equality (tests.test_trace_applications.ApplicationTraceTests.test_particle_passive_equality) ... ok
+test_proton_observables_do_not_complete_or_add_alternative_currents (tests.test_trace_applications.ApplicationTraceTests.test_proton_observables_do_not_complete_or_add_alternative_currents) ... ok
+test_real_commit_capture_and_namespace (tests.test_trace_applications.ApplicationTraceTests.test_real_commit_capture_and_namespace) ... ok
+test_region_passive_equality (tests.test_trace_applications.ApplicationTraceTests.test_region_passive_equality) ... ok
+test_replay_rejects_route_partition_causality_and_duplicate_consumption (tests.test_trace_applications.ApplicationTraceTests.test_replay_rejects_route_partition_causality_and_duplicate_consumption) ... ok
+test_source_rebind_is_real (tests.test_trace_applications.ApplicationTraceTests.test_source_rebind_is_real) ... ok
+test_witness_retrieval_after_reopen (tests.test_trace_applications.ApplicationTraceTests.test_witness_retrieval_after_reopen) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 45.680s
+
+OK

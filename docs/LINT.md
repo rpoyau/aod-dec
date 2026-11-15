@@ -97,3 +97,10 @@ sweep coverage, exact cached current values, pending projection persistence,
 particle formation witnesses or compiler execution. Those claims use their
 separate source-bound tests and review. Typst compilation and rendered-page
 inspection likewise remain separate from lint.
+
+The SPARC reconstruction companion adds an actual Typst manuscript. Its strict
+scan, PDF build and reconstruction checks are recorded under
+`evidence/sparc-reconstruction/`. Its stellar column projection and inverse
+fit are scoped data calculations. Neither lint nor those fits establish a
+G2/G3 galaxy evolution, native beat calibration or a complete physical error
+budget. The native span extractor requires actual validated histories.

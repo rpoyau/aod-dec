@@ -18,3 +18,10 @@ evidence/routing-gpu-device/*.json.gz linguist-generated=true
 evidence/**/*.txt -whitespace
 evidence/**/*.log -whitespace
 evidence/**/*.patch -whitespace
+# Preserve official observational source bytes, including published whitespace.
+data/sparc/*_rotmod.dat -text -whitespace
+data/sparc/*.mrt -text -whitespace
+evidence/sparc-reconstruction/*.json linguist-generated=true
+evidence/sparc-reconstruction/*.csv linguist-generated=true
+evidence/sparc-reconstruction/*.log linguist-generated=true
+evidence/sparc-reconstruction/*.txt linguist-generated=true

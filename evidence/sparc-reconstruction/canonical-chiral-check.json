@@ -1,0 +1,7 @@
+{
+  "recipe": "core_only-7 with paired-study ticket denominator",
+  "ticket_denominator": 64,
+  "canonical_example_unchanged": true,
+  "generated_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+  "retained_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0"
+}

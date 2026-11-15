@@ -1,0 +1,56 @@
+{
+  "lint": {
+    "manuscripts": 10,
+    "revision": "68bc4795e982bbdeb266e346d694b08c7c49c844",
+    "status": "PASS"
+  },
+  "numerical_scope": "Input reconstruction and explicit inverse fit; galaxy native evolution unexecuted.",
+  "post_report_format_check": {
+    "normal": 3,
+    "optimized": 3,
+    "scope": "pipeline tests after CSV LF and cohort-size reporting changes"
+  },
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "source_sha256": {
+    "docs/sparc-reconstruction.typ": "33fc05c879bb05bb2f833a31f180e614e4f3352d06347ccb4ba84f7955858693",
+    "scripts/reconstruct_sparc.py": "1b669554cee1d5c57b0efa0974f687cf9fcf6f1e6a24916d92880a274541d972",
+    "simulations/sparc_comparison.py": "61a13fea2f5e030161befb1df0c1bdc97c14389b30de58cba64658bafb394bc1",
+    "simulations/sparc_inputs.py": "540f445911da1488739a1a7ad52dedaf1b80cc6ae240d5392baeb85982d1168d",
+    "simulations/sparc_inverse.py": "971a4c8016fcb19653e1e65a389065d81f35bbd4f0415b46b87ea1ce252c0045",
+    "simulations/sparc_native_span.py": "560337d1e825eae8a32080c9186ad0190b8a2972423bfb1b2cb98b0efbb5e1ec",
+    "simulations/sparc_reconstruction.py": "3d7c6f8de35aa0948b2ed3554c5f2b99985862784f779aaca4ae8c81240cc34a",
+    "simulations/trace_applications.py": "a93b9d7685a97a00f3c1327c5851a970ce629c6e599291e650ebf642a167e367",
+    "tests/test_sparc_comparison.py": "b9f57ff33226aa5b1060084313b3f6ea14efc2cd65d8270b0ae7572aaf962117",
+    "tests/test_sparc_inputs.py": "67d6b68197df25c6d9540e6510b2bfa956905be4c0e6c5ec8a9c4c4e928017eb",
+    "tests/test_sparc_inverse.py": "8174d12c38687e4927c16b5ce73a3a3658695970554dfbf82d683f9e35fae0b8",
+    "tests/test_sparc_native_span.py": "dba3a4965d5b274e3a95622178432260e41b614741785f877b1f5d3cc2a84ec3",
+    "tests/test_sparc_pipeline.py": "bb10a0384f2d512bb3ea35b004d22aaa128b4fe08905dd2bea2a77790838ad67",
+    "tests/test_sparc_reconstruction.py": "080cb4609e2d87b0bb295465b0b8523015ecf96b5d146ef30e7d7779991b5621",
+    "tests/test_trace_applications.py": "9e70bb1f48c6f57a72c773bbaf87e13d864ab68a6e41b79d5048d8ed3c40f0d1"
+  },
+  "test_commands": [
+    "python -B -m unittest discover -s tests -p test_sparc*.py -v",
+    "python -B -O -m unittest discover -s tests -p test_sparc*.py -v",
+    "python -B -m unittest tests.test_trace_applications -v",
+    "python -B -O -m unittest tests.test_trace_applications -v"
+  ],
+  "tests": {
+    "sparc": {
+      "normal": 49,
+      "optimized": 49
+    },
+    "trace_applications": {
+      "normal": 25,
+      "optimized": 25
+    }
+  },
+  "typst": {
+    "pages": 2,
+    "pdf_sha256": "9b3b2f7237212f112da982bbcc684ba4df7c5a4b51850c4e7c3722581acbd215",
+    "version": "0.13.1",
+    "visually_inspected_pages": [
+      1,
+      2
+    ]
+  }
+}

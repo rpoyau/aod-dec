@@ -190,6 +190,25 @@ jobs:
             build/retained-continuation/*.pdf
           if-no-files-found: warn
           retention-days: 90
+      - name: Reconstruct SPARC stellar inputs and compare the frozen cohort
+        run: |
+          python3 scripts/reconstruct_sparc.py --output build/sparc
+          build/tools/typst-x86_64-unknown-linux-musl/typst compile --root . \
+            --creation-timestamp 1794700800 \
+            --input results=../build/sparc/results.json \
+            docs/sparc-reconstruction.typ build/sparc/sparc-reconstruction.pdf
+      - name: Retain SPARC reconstruction and inverse diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sparc-reconstruction-${{ github.sha }}
+          path: |
+            build/sparc/results.json
+            build/sparc/*.csv
+            build/sparc/*.md
+            build/sparc/*.pdf
+          if-no-files-found: warn
+          retention-days: 90
       - name: Retain validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

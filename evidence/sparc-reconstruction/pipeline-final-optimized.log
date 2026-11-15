@@ -1,0 +1,8 @@
+test_full_cohort_control_inverse_and_missing_history_status (tests.test_sparc_pipeline.SparcPipelineTests.test_full_cohort_control_inverse_and_missing_history_status) ... ok
+test_missing_duplicate_and_truncated_catalog_rows_rejected (tests.test_sparc_pipeline.SparcPipelineTests.test_missing_duplicate_and_truncated_catalog_rows_rejected) ... ok
+test_official_catalog_field_alignment_and_distance_join (tests.test_sparc_pipeline.SparcPipelineTests.test_official_catalog_field_alignment_and_distance_join) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.957s
+
+OK

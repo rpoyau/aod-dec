@@ -14,6 +14,64 @@ from simulations.trace_observation import ERROR_CLASSES
 from simulations.trace_store import TraceStore, TraceLimits, TraceIncomplete, TraceIntegrityError, run_manifest
 
 
+class AccountingRecorderRoutingTests(unittest.TestCase):
+    def produce(self):
+        archive, ledger = a.ArchiveState(), a.RouteLedger()
+        for cut, identity in ((1, 'A'), (2, 'B')):
+            source = a.ContentRecord('source-' + identity, 'physical-' + identity,
+                '1' * 64, cut, 0, 'burden', 1, ('support-' + identity,))
+            archive = a.commit_archive(archive, cut, ((source, 'routed'),))
+            route = a.RouteRecord('route-' + identity, source.identity, cut, 1, 'burden',
+                (a.RouteLeg('leg-' + identity, 'exoshedding', 1, 'outside'),), '1' * 64)
+            ledger = a.register_route(ledger, archive, route)
+        ledger = a.receive_route(ledger, 'route-A', 'leg-A', 3, 'outside', 'receipt-A', '1' * 64)
+        self.assertEqual([row['route_id'] for row in a.pending_routes(ledger)], ['route-B'])
+        return a.receive_route(ledger, 'route-B', 'leg-B', 4, 'outside', 'receipt-B', '1' * 64)
+
+    def test_interleaved_receipts_keep_actual_route_after_reopen(self):
+        expected = self.produce()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'trace'
+            manifest = run_manifest('interleaved-routes', source='fixture',
+                kernel='declared exact accounting', preparation='two disjoint routed sources')
+            with TraceStore(path, manifest) as store:
+                with a.observe_commits(apps.AccountingRecorder(store, 'interleaved')):
+                    self.assertEqual(self.produce(), expected)
+            with TraceStore(path, read_only=True) as reopened:
+                result = apps.replay_accounting(reopened)
+                self.assertEqual(result['coverage'], 'complete')
+                route_a, route_b, receipt_a, receipt_b = result['transitions']
+                self.assertEqual(reopened.get(receipt_a['event_id'])['causal_parents'], [route_a['event_id']])
+                self.assertEqual(reopened.get(receipt_b['event_id'])['causal_parents'], [route_b['event_id']])
+                self.assertEqual([row['route_id'] for row in receipt_a['pending_routes']], ['route-B'])
+                self.assertEqual(receipt_b['pending_routes'], [])
+
+    def test_alternative_branches_can_reuse_route_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'trace'
+            manifest = run_manifest('alternative-routes', source='fixture',
+                kernel='declared exact accounting', preparation='nonadditive alternate windows')
+            with TraceStore(path, manifest) as store:
+                recorder = apps.AccountingRecorder(store, 'alternatives', alternatives=True)
+                with a.observe_commits(recorder):
+                    # Each alternative is one independent archive/route family.
+                    for amount in (1, 2):
+                        source = a.ContentRecord('source', 'physical', '1' * 64, 1, 0,
+                            'burden', amount, ('support',))
+                        archive = a.commit_archive(a.ArchiveState(), 1, ((source, 'routed'),))
+                        route = a.RouteRecord('route', source.identity, 1, amount, 'burden',
+                            (a.RouteLeg('leg', 'exoshedding', amount, 'outside'),), '1' * 64)
+                        ledger = a.register_route(a.RouteLedger(), archive, route)
+                        a.receive_route(ledger, 'route', 'leg', 2, 'outside', 'receipt', '1' * 64)
+            with TraceStore(path, read_only=True) as reopened:
+                result = apps.replay_accounting(reopened)
+                route_1, receipt_1, route_2, receipt_2 = result['transitions']
+                self.assertNotEqual(route_1['event_id'], route_2['event_id'])
+                self.assertEqual(reopened.get(receipt_1['event_id'])['causal_parents'], [route_1['event_id']])
+                self.assertEqual(reopened.get(receipt_2['event_id'])['causal_parents'], [route_2['event_id']])
+                self.assertEqual(len(result['applications']['alternatives']['branches']), 2)
+
+
 class ApplicationTraceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

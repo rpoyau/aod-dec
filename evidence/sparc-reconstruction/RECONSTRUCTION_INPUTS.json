@@ -1,0 +1,822 @@
+{
+  "schema": "aod.sparc.reconstruction-inputs.v1",
+  "source": {
+    "url": "https://astroweb.case.edu/SPARC/SPARC_Lelli2016c.mrt",
+    "local_path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/inputs/reconstruction_sources/SPARC_Lelli2016c.mrt",
+    "sha256": "5aa0501f6b0d881fa579030e315e7b5b6ef561a5bd3a07472f9929c7e5728243",
+    "bytes": 28259,
+    "parser": "selected noncomment rows use 19 whitespace-separated fields; published fixed-width offsets drift from actual spacing",
+    "roles": "geometry and photometric metadata; Vflat retained as comparison-only, not preparation"
+  },
+  "galaxies": {
+    "DDO154": {
+      "hubble_type": {
+        "decimal": "10",
+        "exact": "10",
+        "unit": "integer"
+      },
+      "distance_mpc": {
+        "decimal": "4.04",
+        "exact": "101/25",
+        "unit": "Mpc"
+      },
+      "distance_error_mpc": {
+        "decimal": "0.20",
+        "exact": "1/5",
+        "unit": "Mpc"
+      },
+      "distance_method": {
+        "decimal": "2",
+        "exact": "2",
+        "unit": "integer"
+      },
+      "inclination_deg": {
+        "decimal": "64.0",
+        "exact": "64",
+        "unit": "deg"
+      },
+      "inclination_error_deg": {
+        "decimal": "3.0",
+        "exact": "3",
+        "unit": "deg"
+      },
+      "luminosity_1e9_lsun": {
+        "decimal": "0.053",
+        "exact": "53/1000",
+        "unit": "10^9 Lsun"
+      },
+      "luminosity_error_1e9_lsun": {
+        "decimal": "0.002",
+        "exact": "1/500",
+        "unit": "10^9 Lsun"
+      },
+      "effective_radius_kpc": {
+        "decimal": "0.65",
+        "exact": "13/20",
+        "unit": "kpc"
+      },
+      "effective_surface_brightness_lsun_pc2": {
+        "decimal": "19.99",
+        "exact": "1999/100",
+        "unit": "Lsun/pc^2"
+      },
+      "disk_scale_kpc": {
+        "decimal": "0.37",
+        "exact": "37/100",
+        "unit": "kpc"
+      },
+      "disk_central_surface_brightness_lsun_pc2": {
+        "decimal": "71.26",
+        "exact": "3563/50",
+        "unit": "Lsun/pc^2"
+      },
+      "hi_mass_1e9_msun": {
+        "decimal": "0.275",
+        "exact": "11/40",
+        "unit": "10^9 Msun"
+      },
+      "hi_radius_kpc": {
+        "decimal": "4.96",
+        "exact": "124/25",
+        "unit": "kpc"
+      },
+      "vflat_km_s_comparison_only": {
+        "decimal": "47.0",
+        "exact": "47",
+        "unit": "km/s"
+      },
+      "vflat_error_km_s_comparison_only": {
+        "decimal": "1.0",
+        "exact": "1",
+        "unit": "km/s"
+      },
+      "quality_flag": {
+        "decimal": "2",
+        "exact": "2",
+        "unit": "integer"
+      },
+      "source_line": 104,
+      "raw_row": "     DDO154 10   4.04  0.20  2 64.0  3.0   0.053   0.002  0.65    19.99  0.37    71.26   0.275  4.96  47.0   1.0   2      Be91,CB89",
+      "rotation_source_references": "Be91,CB89",
+      "disk_scale_error_kpc": null,
+      "effective_radius_error_kpc": null,
+      "hi_mass_error_1e9_msun": null,
+      "hi_radius_error_kpc": null,
+      "estimated_exponential_height_kpc": 0.10445464626926053,
+      "height_role": "empirical estimate; not a measured vertical profile",
+      "height_error_kpc": null
+    },
+    "NGC2403": {
+      "hubble_type": {
+        "decimal": "6",
+        "exact": "6",
+        "unit": "integer"
+      },
+      "distance_mpc": {
+        "decimal": "3.16",
+        "exact": "79/25",
+        "unit": "Mpc"
+      },
+      "distance_error_mpc": {
+        "decimal": "0.16",
+        "exact": "4/25",
+        "unit": "Mpc"
+      },
+      "distance_method": {
+        "decimal": "2",
+        "exact": "2",
+        "unit": "integer"
+      },
+      "inclination_deg": {
+        "decimal": "63.0",
+        "exact": "63",
+        "unit": "deg"
+      },
+      "inclination_error_deg": {
+        "decimal": "3.0",
+        "exact": "3",
+        "unit": "deg"
+      },
+      "luminosity_1e9_lsun": {
+        "decimal": "10.041",
+        "exact": "10041/1000",
+        "unit": "10^9 Lsun"
+      },
+      "luminosity_error_1e9_lsun": {
+        "decimal": "0.028",
+        "exact": "7/250",
+        "unit": "10^9 Lsun"
+      },
+      "effective_radius_kpc": {
+        "decimal": "2.16",
+        "exact": "54/25",
+        "unit": "kpc"
+      },
+      "effective_surface_brightness_lsun_pc2": {
+        "decimal": "341.06",
+        "exact": "17053/50",
+        "unit": "Lsun/pc^2"
+      },
+      "disk_scale_kpc": {
+        "decimal": "1.39",
+        "exact": "139/100",
+        "unit": "kpc"
+      },
+      "disk_central_surface_brightness_lsun_pc2": {
+        "decimal": "1408.74",
+        "exact": "70437/50",
+        "unit": "Lsun/pc^2"
+      },
+      "hi_mass_1e9_msun": {
+        "decimal": "3.199",
+        "exact": "3199/1000",
+        "unit": "10^9 Msun"
+      },
+      "hi_radius_kpc": {
+        "decimal": "15.11",
+        "exact": "1511/100",
+        "unit": "kpc"
+      },
+      "vflat_km_s_comparison_only": {
+        "decimal": "131.2",
+        "exact": "656/5",
+        "unit": "km/s"
+      },
+      "vflat_error_km_s_comparison_only": {
+        "decimal": "4.9",
+        "exact": "49/10",
+        "unit": "km/s"
+      },
+      "quality_flag": {
+        "decimal": "1",
+        "exact": "1",
+        "unit": "integer"
+      },
+      "source_line": 143,
+      "raw_row": "    NGC2403  6   3.16  0.16  2 63.0  3.0  10.041   0.028  2.16   341.06  1.39  1408.74   3.199 15.11 131.2   4.9   1      Da06,Fr02",
+      "rotation_source_references": "Da06,Fr02",
+      "disk_scale_error_kpc": null,
+      "effective_radius_error_kpc": null,
+      "hi_mass_error_1e9_msun": null,
+      "hi_radius_error_kpc": null,
+      "estimated_exponential_height_kpc": 0.2414262228976889,
+      "height_role": "empirical estimate; not a measured vertical profile",
+      "height_error_kpc": null
+    },
+    "NGC2841": {
+      "hubble_type": {
+        "decimal": "3",
+        "exact": "3",
+        "unit": "integer"
+      },
+      "distance_mpc": {
+        "decimal": "14.10",
+        "exact": "141/10",
+        "unit": "Mpc"
+      },
+      "distance_error_mpc": {
+        "decimal": "1.40",
+        "exact": "7/5",
+        "unit": "Mpc"
+      },
+      "distance_method": {
+        "decimal": "3",
+        "exact": "3",
+        "unit": "integer"
+      },
+      "inclination_deg": {
+        "decimal": "76.0",
+        "exact": "76",
+        "unit": "deg"
+      },
+      "inclination_error_deg": {
+        "decimal": "10.0",
+        "exact": "10",
+        "unit": "deg"
+      },
+      "luminosity_1e9_lsun": {
+        "decimal": "188.121",
+        "exact": "188121/1000",
+        "unit": "10^9 Lsun"
+      },
+      "luminosity_error_1e9_lsun": {
+        "decimal": "0.520",
+        "exact": "13/25",
+        "unit": "10^9 Lsun"
+      },
+      "effective_radius_kpc": {
+        "decimal": "5.51",
+        "exact": "551/100",
+        "unit": "kpc"
+      },
+      "effective_surface_brightness_lsun_pc2": {
+        "decimal": "983.63",
+        "exact": "98363/100",
+        "unit": "Lsun/pc^2"
+      },
+      "disk_scale_kpc": {
+        "decimal": "3.64",
+        "exact": "91/25",
+        "unit": "kpc"
+      },
+      "disk_central_surface_brightness_lsun_pc2": {
+        "decimal": "4751.49",
+        "exact": "475149/100",
+        "unit": "Lsun/pc^2"
+      },
+      "hi_mass_1e9_msun": {
+        "decimal": "9.775",
+        "exact": "391/40",
+        "unit": "10^9 Msun"
+      },
+      "hi_radius_kpc": {
+        "decimal": "45.12",
+        "exact": "1128/25",
+        "unit": "kpc"
+      },
+      "vflat_km_s_comparison_only": {
+        "decimal": "284.8",
+        "exact": "1424/5",
+        "unit": "km/s"
+      },
+      "vflat_error_km_s_comparison_only": {
+        "decimal": "8.6",
+        "exact": "43/5",
+        "unit": "km/s"
+      },
+      "quality_flag": {
+        "decimal": "1",
+        "exact": "1",
+        "unit": "integer"
+      },
+      "source_line": 145,
+      "raw_row": "    NGC2841  3  14.10  1.40  3 76.0 10.0 188.121   0.520  5.51   983.63  3.64  4751.49   9.775 45.12 284.8   8.6   1      Di08,Be91",
+      "rotation_source_references": "Di08,Be91",
+      "disk_scale_error_kpc": null,
+      "effective_radius_error_kpc": null,
+      "hi_mass_error_1e9_msun": null,
+      "hi_radius_error_kpc": null,
+      "estimated_exponential_height_kpc": 0.44405140364853096,
+      "height_role": "empirical estimate; not a measured vertical profile",
+      "height_error_kpc": null
+    },
+    "NGC3198": {
+      "hubble_type": {
+        "decimal": "5",
+        "exact": "5",
+        "unit": "integer"
+      },
+      "distance_mpc": {
+        "decimal": "13.80",
+        "exact": "69/5",
+        "unit": "Mpc"
+      },
+      "distance_error_mpc": {
+        "decimal": "1.40",
+        "exact": "7/5",
+        "unit": "Mpc"
+      },
+      "distance_method": {
+        "decimal": "3",
+        "exact": "3",
+        "unit": "integer"
+      },
+      "inclination_deg": {
+        "decimal": "73.0",
+        "exact": "73",
+        "unit": "deg"
+      },
+      "inclination_error_deg": {
+        "decimal": "3.0",
+        "exact": "3",
+        "unit": "deg"
+      },
+      "luminosity_1e9_lsun": {
+        "decimal": "38.279",
+        "exact": "38279/1000",
+        "unit": "10^9 Lsun"
+      },
+      "luminosity_error_1e9_lsun": {
+        "decimal": "0.212",
+        "exact": "53/250",
+        "unit": "10^9 Lsun"
+      },
+      "effective_radius_kpc": {
+        "decimal": "5.84",
+        "exact": "146/25",
+        "unit": "kpc"
+      },
+      "effective_surface_brightness_lsun_pc2": {
+        "decimal": "178.99",
+        "exact": "17899/100",
+        "unit": "Lsun/pc^2"
+      },
+      "disk_scale_kpc": {
+        "decimal": "3.14",
+        "exact": "157/50",
+        "unit": "kpc"
+      },
+      "disk_central_surface_brightness_lsun_pc2": {
+        "decimal": "1602.62",
+        "exact": "80131/50",
+        "unit": "Lsun/pc^2"
+      },
+      "hi_mass_1e9_msun": {
+        "decimal": "10.869",
+        "exact": "10869/1000",
+        "unit": "10^9 Msun"
+      },
+      "hi_radius_kpc": {
+        "decimal": "35.66",
+        "exact": "1783/50",
+        "unit": "kpc"
+      },
+      "vflat_km_s_comparison_only": {
+        "decimal": "150.1",
+        "exact": "1501/10",
+        "unit": "km/s"
+      },
+      "vflat_error_km_s_comparison_only": {
+        "decimal": "3.9",
+        "exact": "39/10",
+        "unit": "km/s"
+      },
+      "quality_flag": {
+        "decimal": "1",
+        "exact": "1",
+        "unit": "integer"
+      },
+      "source_line": 152,
+      "raw_row": "    NGC3198  5  13.80  1.40  3 73.0  3.0  38.279   0.212  5.84   178.99  3.14  1602.62  10.869 35.66 150.1   3.9   1 Da06,Be91,Be87",
+      "rotation_source_references": "Da06,Be91,Be87",
+      "disk_scale_error_kpc": null,
+      "effective_radius_error_kpc": null,
+      "hi_mass_error_1e9_msun": null,
+      "hi_radius_error_kpc": null,
+      "estimated_exponential_height_kpc": 0.4044012958750498,
+      "height_role": "empirical estimate; not a measured vertical profile",
+      "height_error_kpc": null
+    },
+    "NGC6503": {
+      "hubble_type": {
+        "decimal": "6",
+        "exact": "6",
+        "unit": "integer"
+      },
+      "distance_mpc": {
+        "decimal": "6.26",
+        "exact": "313/50",
+        "unit": "Mpc"
+      },
+      "distance_error_mpc": {
+        "decimal": "0.31",
+        "exact": "31/100",
+        "unit": "Mpc"
+      },
+      "distance_method": {
+        "decimal": "2",
+        "exact": "2",
+        "unit": "integer"
+      },
+      "inclination_deg": {
+        "decimal": "74.0",
+        "exact": "74",
+        "unit": "deg"
+      },
+      "inclination_error_deg": {
+        "decimal": "2.0",
+        "exact": "2",
+        "unit": "deg"
+      },
+      "luminosity_1e9_lsun": {
+        "decimal": "12.845",
+        "exact": "2569/200",
+        "unit": "10^9 Lsun"
+      },
+      "luminosity_error_1e9_lsun": {
+        "decimal": "0.059",
+        "exact": "59/1000",
+        "unit": "10^9 Lsun"
+      },
+      "effective_radius_kpc": {
+        "decimal": "1.62",
+        "exact": "81/50",
+        "unit": "kpc"
+      },
+      "effective_surface_brightness_lsun_pc2": {
+        "decimal": "774.16",
+        "exact": "19354/25",
+        "unit": "Lsun/pc^2"
+      },
+      "disk_scale_kpc": {
+        "decimal": "2.16",
+        "exact": "54/25",
+        "unit": "kpc"
+      },
+      "disk_central_surface_brightness_lsun_pc2": {
+        "decimal": "398.87",
+        "exact": "39887/100",
+        "unit": "Lsun/pc^2"
+      },
+      "hi_mass_1e9_msun": {
+        "decimal": "1.744",
+        "exact": "218/125",
+        "unit": "10^9 Msun"
+      },
+      "hi_radius_kpc": {
+        "decimal": "14.05",
+        "exact": "281/20",
+        "unit": "kpc"
+      },
+      "vflat_km_s_comparison_only": {
+        "decimal": "116.3",
+        "exact": "1163/10",
+        "unit": "km/s"
+      },
+      "vflat_error_km_s_comparison_only": {
+        "decimal": "2.4",
+        "exact": "12/5",
+        "unit": "km/s"
+      },
+      "quality_flag": {
+        "decimal": "1",
+        "exact": "1",
+        "unit": "integer"
+      },
+      "source_line": 187,
+      "raw_row": "    NGC6503  6   6.26  0.31  2 74.0  2.0  12.845   0.059  1.62   774.16  2.16   398.87   1.744 14.05 116.3   2.4   1      Be91,Be87",
+      "rotation_source_references": "Be91,Be87",
+      "disk_scale_error_kpc": null,
+      "effective_radius_error_kpc": null,
+      "hi_mass_error_1e9_msun": null,
+      "hi_radius_error_kpc": null,
+      "estimated_exponential_height_kpc": 0.3191282831756813,
+      "height_role": "empirical estimate; not a measured vertical profile",
+      "height_error_kpc": null
+    }
+  },
+  "additional_public_sources": [
+    {
+      "url": "https://astroweb.case.edu/SPARC/sfb_LTG.zip",
+      "role": "on-sky 3.6-micron surface profiles, not inclination/extinction corrected",
+      "downloaded_here": false
+    },
+    {
+      "url": "https://astroweb.case.edu/SPARC/BulgeDiskDec_LTG.zip",
+      "role": "disk/bulge decomposition profiles; uncorrected inclination, extrapolations declared by SPARC",
+      "downloaded_here": false
+    },
+    {
+      "url": "https://astroweb.case.edu/SPARC/Bulges.mrt",
+      "role": "nonparametric bulge luminosity estimates",
+      "downloaded_here": false
+    }
+  ],
+  "empirical_geometry_source": {
+    "url": "https://astroweb.case.edu/ssm/papers/AJv152n157.pdf",
+    "doi": "10.3847/0004-6256/152/6/157",
+    "section": "3.3",
+    "stellar_vertical_family": "exp(-abs(z)/z_d)/(2*z_d)",
+    "height_relation": "z_d/kpc = 0.196 * (R_d/kpc)^0.633",
+    "model_status": "empirical shape prior; does not specify native formation or dynamics"
+  },
+  "identifiability": {
+    "face_on_column": "all positive heights give the same vertical integral; face-on column fit cannot determine height",
+    "position_angle": "not supplied by Table1; radial axisymmetric column projection does not constrain it",
+    "inclination": "catalog mean inclination with quoted error; spatially varying warp is not supplied",
+    "vertical_thickness_error": "not supplied; do not substitute zero",
+    "galaxy_specific_gas_volume_density": "not reconstructed by global HI mass/radius alone",
+    "bulge_density": "requires separate adopted deprojection",
+    "azimuthal_spiral_or_bar_structure": "not identified by radial averages",
+    "native_coordinate_conversion": "none inferred"
+  },
+  "root_output_check": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/outputs/results.json",
+    "sha256_at_review": "fcefbd5accb43b282cacc7411f8228e0c091f0334c036b2b7c828e4c22271e7d",
+    "checks": [
+      {
+        "galaxy": "DDO154",
+        "field": "distance_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "disk_scale_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "inclination_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "estimated_height_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "distance_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "disk_scale_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "inclination_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "estimated_height_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "distance_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "disk_scale_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "inclination_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "estimated_height_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "distance_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "disk_scale_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "inclination_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "estimated_height_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "distance_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "disk_scale_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "inclination_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "estimated_height_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "distance_error_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "inclination_error_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "total_luminosity_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "luminosity_error_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "effective_radius_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "hi_mass_1e9_msun",
+        "matches": true
+      },
+      {
+        "galaxy": "DDO154",
+        "field": "hi_radius_at_1_msun_pc2_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "distance_error_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "inclination_error_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "total_luminosity_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "luminosity_error_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "effective_radius_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "hi_mass_1e9_msun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2403",
+        "field": "hi_radius_at_1_msun_pc2_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "distance_error_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "inclination_error_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "total_luminosity_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "luminosity_error_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "effective_radius_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "hi_mass_1e9_msun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC2841",
+        "field": "hi_radius_at_1_msun_pc2_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "distance_error_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "inclination_error_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "total_luminosity_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "luminosity_error_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "effective_radius_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "hi_mass_1e9_msun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "field": "hi_radius_at_1_msun_pc2_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "distance_error_mpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "inclination_error_deg",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "total_luminosity_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "luminosity_error_1e9_lsun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "effective_radius_kpc",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "hi_mass_1e9_msun",
+        "matches": true
+      },
+      {
+        "galaxy": "NGC6503",
+        "field": "hi_radius_at_1_msun_pc2_kpc",
+        "matches": true
+      }
+    ],
+    "all_match": true,
+    "check_count": 55
+  },
+  "access_status": {
+    "browser_research_completed": true,
+    "direct_download_attempt": "sandbox DNS failure; escalation awaited 653.8 seconds then was aborted; parent supplied catalog locally",
+    "local_photometry_archive_downloads": false,
+    "further_network_requests": false
+  }
+}

@@ -1,0 +1,133 @@
+[
+  {
+    "cut": 17,
+    "started_support": {
+      "minimum": 0,
+      "maximum": 7,
+      "retained_values": [
+        0,
+        7
+      ]
+    },
+    "admitted_recurrent": {
+      "minimum": 0,
+      "maximum": 0,
+      "retained_values": [
+        0
+      ]
+    },
+    "paths": [
+      [
+        {
+          "identity": "0016eca2a360ec318906d0bc6e5fa8d78f838560f919f8b277b97b2c570796e9",
+          "scope": "B1",
+          "scale": 7,
+          "recurrence_status": "no_completed_return_in_projection",
+          "address": null
+        }
+      ]
+    ]
+  },
+  {
+    "cut": 18,
+    "started_support": {
+      "minimum": 0,
+      "maximum": 7,
+      "retained_values": [
+        0,
+        7
+      ]
+    },
+    "admitted_recurrent": {
+      "minimum": 0,
+      "maximum": 0,
+      "retained_values": [
+        0
+      ]
+    },
+    "paths": [
+      [
+        {
+          "identity": "0016eca2a360ec318906d0bc6e5fa8d78f838560f919f8b277b97b2c570796e9",
+          "scope": "B1",
+          "scale": 7,
+          "recurrence_status": "no_completed_return_in_projection",
+          "address": null
+        }
+      ]
+    ]
+  },
+  {
+    "cut": 19,
+    "started_support": {
+      "minimum": 0,
+      "maximum": 7,
+      "retained_values": [
+        0,
+        7
+      ]
+    },
+    "admitted_recurrent": {
+      "minimum": 0,
+      "maximum": 0,
+      "retained_values": [
+        0
+      ]
+    },
+    "paths": [
+      [
+        {
+          "identity": "0016eca2a360ec318906d0bc6e5fa8d78f838560f919f8b277b97b2c570796e9",
+          "scope": "B1",
+          "scale": 7,
+          "recurrence_status": "one_closure",
+          "address": null
+        },
+        {
+          "identity": "f45cf5cd43f86fb7edc22886dbbf1e8b5d9c411ee293ab751cbff0c2fba2a232",
+          "scope": "B0",
+          "scale": 0,
+          "recurrence_status": "admitted",
+          "address": null
+        }
+      ]
+    ]
+  },
+  {
+    "cut": 29,
+    "started_support": {
+      "minimum": 0,
+      "maximum": 7,
+      "retained_values": [
+        0,
+        7
+      ]
+    },
+    "admitted_recurrent": {
+      "minimum": 0,
+      "maximum": 7,
+      "retained_values": [
+        0,
+        7
+      ]
+    },
+    "paths": [
+      [
+        {
+          "identity": "0016eca2a360ec318906d0bc6e5fa8d78f838560f919f8b277b97b2c570796e9",
+          "scope": "B1",
+          "scale": 7,
+          "recurrence_status": "admitted",
+          "address": null
+        },
+        {
+          "identity": "f45cf5cd43f86fb7edc22886dbbf1e8b5d9c411ee293ab751cbff0c2fba2a232",
+          "scope": "B0",
+          "scale": 0,
+          "recurrence_status": "admitted",
+          "address": null
+        }
+      ]
+    ]
+  }
+]

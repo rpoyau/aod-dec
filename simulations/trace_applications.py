@@ -102,7 +102,13 @@ class AccountingRecorder:
     def __init__(self, store, application, *, alternatives=False):
         self.store, self.application = store, application
         self.alternatives, self.sequence = alternatives, 0
-        self.archive_parent, self.route_parent = None, None
+        self.archive_parent, self.branch_parent = None, None
+
+    def _route_key(self, identity):
+        # Alternative windows may reuse route identities. Their first archive
+        # commitment separates branches without retaining a growing route map.
+        return json.dumps([self.application, 'accounting.route', self.branch_parent, identity],
+                          separators=(',', ':'))
 
     def __call__(self, kind, record):
         payload = {"record": plain(record), "application": self.application,
@@ -110,18 +116,29 @@ class AccountingRecorder:
                    "occurrence_semantics": "non-additive alternative views" if self.alternatives else "successive committed accounting deltas"}
         # Serialization order is already recorded by the archive chain. It
         # must not create causal dependencies between alternative windows.
-        parent = (None if self.alternatives else self.archive_parent) if kind == "accounting.commit" else (
-            self.archive_parent if kind == "accounting.route" else self.route_parent)
+        source_key = self.application + ":accounting:" + str(self.sequence)
+        if kind == "accounting.commit":
+            parent = None if self.alternatives else self.archive_parent
+        elif kind == "accounting.route":
+            parent = self.archive_parent
+            source_key = self._route_key(record.identity)
+        elif kind == "accounting.receipt":
+            route = self.store.get_by_key(self._route_key(record.route_id))
+            if route is None:
+                raise TraceIncomplete("receipt's actual route is unavailable in this accounting branch")
+            parent = route["event_id"]
+        else:
+            raise TraceIntegrityError("unsupported accounting commitment kind")
         event = self.store.append("application." + kind, payload,
             scope_id=self.application, lineage_id="accounting",
             source_ref="simulations/boundary_accounting.py:" + kind,
             scale_family="retained-current-representation", scale_index=0,
             causal_parents=() if parent is None else (parent,),
-            source_key=self.application + ":accounting:" + str(self.sequence))
+            source_key=source_key)
         if kind == "accounting.commit":
             self.archive_parent = event["event_id"]
-        elif kind == "accounting.route":
-            self.route_parent = event["event_id"]
+            if self.alternatives or self.branch_parent is None:
+                self.branch_parent = event["event_id"]
         self.sequence += 1
 
 

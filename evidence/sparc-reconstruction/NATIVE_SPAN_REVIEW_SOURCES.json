@@ -1,0 +1,60 @@
+{
+  "before": {
+    "phase": "before requested range/digest clarification",
+    "files": [
+      {
+        "path": "simulations/sparc_native_span.py",
+        "sha256": "2d8e272b20b65c78b53519b9f026fe089ac433c14d4a7f7f575e984718e49b5a"
+      },
+      {
+        "path": "tests/test_sparc_native_span.py",
+        "sha256": "ec01a67021ac08cdde2f39cc3fa2cb230490b18af79c1974a34ace73f422d7aa"
+      },
+      {
+        "path": "simulations/vendor/aod_manual_native.py",
+        "sha256": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
+      },
+      {
+        "path": "simulations/chiral_dec.py",
+        "sha256": "32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0"
+      },
+      {
+        "path": "simulations/chiral_collision.py",
+        "sha256": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62"
+      },
+      {
+        "path": "examples/chiral_core_collision.dec",
+        "sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0"
+      }
+    ]
+  },
+  "after": {
+    "phase": "after requested range/digest clarification and independent cutoff recheck",
+    "files": [
+      {
+        "path": "simulations/sparc_native_span.py",
+        "sha256": "560337d1e825eae8a32080c9186ad0190b8a2972423bfb1b2cb98b0efbb5e1ec"
+      },
+      {
+        "path": "tests/test_sparc_native_span.py",
+        "sha256": "dba3a4965d5b274e3a95622178432260e41b614741785f877b1f5d3cc2a84ec3"
+      },
+      {
+        "path": "simulations/vendor/aod_manual_native.py",
+        "sha256": "918c6c0bd242e7ed0bff6f4d1a4ff7bf2cc840b3da41b6888c218d34eddf5be0"
+      },
+      {
+        "path": "simulations/chiral_dec.py",
+        "sha256": "32d253536cffef0f023afa67bd4ec97b75c6d3047b3b53f1a59bc0777f5377d0"
+      },
+      {
+        "path": "simulations/chiral_collision.py",
+        "sha256": "a1e307047d2dfd1bfe248a57d7b54169ac5f910cb41671540177dfaa5681fe62"
+      },
+      {
+        "path": "examples/chiral_core_collision.dec",
+        "sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0"
+      }
+    ]
+  }
+}
