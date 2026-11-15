@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-15",
+  "coverage": "read-only source and model-scope review; no scientific source repairs or new fit executed by reviewer",
+  "main_manual_commit": "ab8359209b8f9b2ef4007403101016e3ea58cfe4",
+  "dec_commit": "99035b0cd7bad3103e55fe0cf82fffc6b3145b8d",
+  "sources": {
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/06_field_dynamics_applications.tex": "ed3931249a0a3a6e112ea77d33e7bbfc22f9047236860e05a6f3417a12279c06",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/manual/sections/04_boundary_current_applications.tex": "6d517127cb599c502cbeb06deed09451495e4a824f2c93eaaa5a7076a72c37b6",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/07_cell_measures_mappings.tex": "759a6a8cae5f02bd1ddaf6c28057dbd7c4e87440ef49a0a5559e75f2b137c2e5",
+    "/home/reginaldpoyau/projects/aod/AOD_DEC_MANUAL_PATCH_2026-11-14/aod-manual/sections/06_field.tex": "74f2b76195fe5dd760540cdcf46a72f615022950ab07e38e4585ad77b643de88",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/sparc_reconstruction.py": "3d7c6f8de35aa0948b2ed3554c5f2b99985862784f779aaca4ae8c81240cc34a",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/sparc_inverse.py": "971a4c8016fcb19653e1e65a389065d81f35bbd4f0415b46b87ea1ce252c0045",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/AGENTS.md": "58799d7fee5b64d8f483e8e3f6f4ccd8e500ed75ddad16863787299df01d92e9",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/docs/SKILLS.md": "92408a6845a6f109efcba3dbb7a6cac4a6a8572fca599e3c6e38cfaf7ae01371",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_SUPPLEMENTARY_DATA_2026-11-15/INDEX.json": "6c2581c4264b31dbdc58ce90d166d88574dfdb4cad5cf3c4d132d2c175156210",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_SUPPLEMENTARY_DATA_2026-11-15/validation/OBSERVATIONAL-READINESS.md": "8013a60dd4d6f61e3baa5e0049438146eb49d5086d8f85d4ea8b8a7b9bf0bd92",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_SUPPLEMENTARY_DATA_2026-11-15/catalog-context.json": "d7cfe2b4ea86e4b4775ca54fe6b87ea228f576864fa72f417a5bcace77402834"
+  },
+  "external_primary_sources": [
+    {
+      "url": "https://arxiv.org/abs/1304.4232",
+      "inspected": "abstract, version1 publication provenance",
+      "role": "independent example of conditional 3D gas fitting for NGC3198; no fitted parameters imported as truth"
+    },
+    {
+      "url": "https://arxiv.org/abs/1505.07834",
+      "inspected": "abstract, version1 publication provenance",
+      "role": "primary precedent for spectroscopic cube rather than reduced 2D velocity-map fitting"
+    }
+  ]
+}

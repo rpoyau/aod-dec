@@ -1,0 +1,82 @@
+{
+  "scope": "fixed observed positive-intensity quantiles for basis-resolution selection; no data removal or depthmeasurement",
+  "records": [
+    {
+      "galaxy": "NGC2403",
+      "geometry_role": "intensity-momentseed;maxcataloginclination",
+      "inclination_deg": 66.0,
+      "pa_deg": 119.31205946060749,
+      "center_arcsec": [
+        -28.42569140936715,
+        20.41449657484311
+      ],
+      "quantiles_arcsec": {
+        "0.5": 645.749221126436,
+        "0.9": 1159.5809850829555,
+        "0.95": 1292.8659155729988,
+        "0.99": 1568.5829482499519,
+        "0.995": 1639.5230485674065,
+        "0.999": 1775.2073750185054,
+        "0.9995": 1841.000538838736,
+        "0.9999": 2027.8616410950833,
+        "1.0": 3080.682154582072
+      },
+      "beam_arcsec": 29.66439351438,
+      "positive_pixels": 166978,
+      "stride4_quantiles_arcsec": {
+        "0.5": 645.3821248625356,
+        "0.9": 1159.6860176834268,
+        "0.95": 1293.4286888848867,
+        "0.99": 1567.9229816468664,
+        "0.995": 1638.6051512881982,
+        "0.999": 1774.441831921451,
+        "0.9995": 1842.7473893938788,
+        "0.9999": 2028.5104813447679,
+        "1.0": 3067.2332669437546
+      },
+      "kpc_per_arcsec": 0.015320112323061337
+    },
+    {
+      "galaxy": "NGC3198",
+      "geometry_role": "intensity-momentseed;maxcataloginclination",
+      "inclination_deg": 76.0,
+      "pa_deg": 34.910789675923525,
+      "center_arcsec": [
+        0.2679606754232337,
+        -3.1171481246739265
+      ],
+      "quantiles_arcsec": {
+        "0.5": 351.9834012577309,
+        "0.9": 586.8373308165185,
+        "0.95": 639.4100376563315,
+        "0.99": 743.5918914957232,
+        "0.995": 787.8788568612334,
+        "0.999": 6873.148322863077,
+        "0.9995": 6951.435188996431,
+        "0.9999": 7082.268865199036,
+        "1.0": 11318.102239314121
+      },
+      "beam_arcsec": 35.232726484547996,
+      "positive_pixels": 29979,
+      "stride4_quantiles_arcsec": {
+        "0.5": 352.7173786761639,
+        "0.9": 586.1987512604916,
+        "0.95": 639.818495360079,
+        "0.99": 744.00928784745,
+        "0.995": 787.5324593377536,
+        "0.999": 6869.668193281168,
+        "0.9995": 6948.51695378481,
+        "0.9999": 7052.919629350324,
+        "1.0": 10692.894464419789
+      },
+      "kpc_per_arcsec": 0.06690428799311596
+    }
+  ],
+  "input_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/sparc_observations.py": "5299ff019199244f5fca438d4d30916f0d831909d31567d0a525b31c15138431",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_SUPPLEMENTARY_DATA_2026-11-15/catalog-context.json": "d7cfe2b4ea86e4b4775ca54fe6b87ea228f576864fa72f417a5bcace77402834",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_SUPPLEMENTARY_DATA_2026-11-15/INDEX.json": "6c2581c4264b31dbdc58ce90d166d88574dfdb4cad5cf3c4d132d2c175156210"
+  },
+  "quantile_rule": "Sort radius computed from intensity-moment seed center/PA and upper catalog inclination; inverse cumulative sum of strictly positive finite moment0 intensity; no observations discarded.",
+  "sampled_comparison_rule": "stride4 starts at original pixel index2 on each axis; fullresolution and stride4 separately measured"
+}

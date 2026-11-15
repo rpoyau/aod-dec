@@ -142,6 +142,35 @@ The closed radial/out-of-plane ports and absence of separate shedding channels
 are explicit reduction assumptions. This is a finite radial response experiment;
 full G2/G3 formation and physical boundary exchange remain unresolved.
 
+## Three-dimensional observational reconstruction
+
+The [projection-fit application](docs/sparc-projection-fit.typ) fits a finite
+three-dimensional HI density and mean-velocity distribution to acquired HALOGAS
+intensity and line-of-sight velocity maps for NGC2403 and NGC3198. The forward
+projection includes inclination, thickness and the measured telescope beam.
+The catalog HI mass is a declared fixed normalization; every fitted density is
+nonnegative and its full vertical tails remain accounted for. Rendering includes
+incoming beam contributions from outside the requested view.
+
+This is a fitted observational input state. It supplies no native formation
+history or physical evolution, and it does not fit the total stellar/bulge/gas
+mass of a galaxy. Residuals and alternative geometries remain explicit; optimizer
+iterations are not physical time. The original SPARC square-speed score is
+unchanged by this separate comparison.
+
+With optional NumPy and Astropy installed and the acquired HALOGAS files local:
+
+```sh
+python3 scripts/fit_sparc_projection.py --data /path/to/halogas \
+  --context evidence/sparc-projection-fit/catalog-context.json \
+  --workers 2 --output build/sparc-projection
+python3 scripts/plot_sparc_projection.py --help
+```
+
+The plotter additionally uses Matplotlib. The
+[execution record](evidence/sparc-projection-fit/README.md) binds source files,
+data, model choices, tests, numerical refinement and the actual fitted results.
+
 ## Field boundary frontiers
 
 The [field frontier companion](docs/field-frontiers.typ) describes active

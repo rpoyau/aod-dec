@@ -1,0 +1,16 @@
+{
+  "scope": "clarification of raw numerical diagnostic labels; no result values modified",
+  "field": "boundary_accounting.model_flux_outside_fit_view_inside_source_frame_jy_km_s",
+  "meaning": "signed sampled full-source-frame minus fitting-view flux; includes discretization/area differences",
+  "not_a_nonnegative_physical_outside_flux_measurement": true,
+  "results": {
+    "NGC2403": {
+      "result_sha256": "a0e5d307818ba65f12400e12738cb01c63a63a28529c294f3f245ac3e9d82b8c",
+      "signed_difference_jy_km_s": 3.2686048137884427
+    },
+    "NGC3198": {
+      "result_sha256": "fc865f913b35563a1240d3f55fa8a4667e60e9d617db3cd319b22fb7b597d703",
+      "signed_difference_jy_km_s": -0.010469547868467544
+    }
+  }
+}

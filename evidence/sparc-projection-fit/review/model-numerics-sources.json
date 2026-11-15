@@ -1,0 +1,30 @@
+{
+  "review_scope": "Final finite projection/radial-accounting source, analytic and hostile controls, and actual selected-state array/refinement audit.",
+  "date": "2026-11-15",
+  "tests_per_mode": 11,
+  "modes": [
+    "normal",
+    "optimized"
+  ],
+  "final_test_executor": "Parent; logs and final source inspected by reviewer",
+  "status": "Scoped controls pass; actual forward refinements small relative to residuals; geometry and physical interpretation remain conditional.",
+  "closed_findings": [
+    "N1 incoming beam support",
+    "N2 zero velocity-loss weight"
+  ],
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/sparc_projection_fit.py": "f67eb12438fa33db831f34d3ba099b07df49538b9a07b13c0eab6dbf73da0239",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/tests/test_sparc_projection_fit.py": "57b1bd1149850dd062f67e708b5bb879223ccb8ce4c19861cdc4f39b79648a2e",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/scripts/fit_sparc_projection.py": "cc77a28a0d1335492995a8030e626bb0116762d25d94c0757a87a5efc88beb8f",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/projection-final-normal.log": "3a587ec0cce8a011d43e692e811f6ed155cbd985441ee2c3c6ede80ce0c513aa",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/projection-final-optimized.log": "3468d3f4d39812ded47a15f92b57d403546e160b46c97ac07ac10da6532b97ab",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/model-numerics.md": "2f983bbce7eac7273b4659f081e4d0c5f79ec80fd05e03137ac5f30bdba2b7f5",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/radial-resolution-review.md": "d8cbbc9c9508b9830f33ab37e4b0d2a3d9c875a4f35a2972307b76ba9f40e55f",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/radial-resolution-data.json": "80b8af754de00c0cf151e2d5d4ff5b3abf4b60d1891e2acc4f3dd41f950a984b",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/results/NGC2403/results.json": "a0e5d307818ba65f12400e12738cb01c63a63a28529c294f3f245ac3e9d82b8c",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/results/NGC3198/results.json": "fc865f913b35563a1240d3f55fa8a4667e60e9d617db3cd319b22fb7b597d703",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/results/summary.json": "dc0c616fd6de6749bab21a9ea35a0604625277b11d8108c7bddd98f80abba0d4",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/actual-fit-audit.json": "b9a65b28ff64e5f21db91f090e692a36b29248df839f9188d6013705b203c228",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/actual-fit-review.md": "654bd1428fc8aac8ba388be4b892738c9eafa9cae502d393a6bb8165aeb70a83"
+  }
+}

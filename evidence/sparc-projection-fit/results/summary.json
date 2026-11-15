@@ -1,0 +1,346 @@
+{
+  "scope": "observational 3D HI inverse fit",
+  "python": "3.12.14",
+  "numpy": "2.5.4",
+  "workers_requested": 2,
+  "worker_threads": [
+    "projection-fit_0",
+    "projection-fit_1"
+  ],
+  "backend": "NumPy CPU; independent galaxy fits in threads",
+  "gpu_used": false,
+  "source_sha256": {
+    "scripts/fit_sparc_projection.py": "cc77a28a0d1335492995a8030e626bb0116762d25d94c0757a87a5efc88beb8f",
+    "simulations/sparc_projection_fit.py": "f67eb12438fa33db831f34d3ba099b07df49538b9a07b13c0eab6dbf73da0239",
+    "simulations/sparc_observations.py": "5299ff019199244f5fca438d4d30916f0d831909d31567d0a525b31c15138431"
+  },
+  "elapsed_seconds": 212.71761105200858,
+  "galaxies": [
+    {
+      "galaxy": "NGC2403",
+      "initial": {
+        "geometry": {
+          "center_east_arcsec": -28.42569140936715,
+          "center_north_arcsec": 20.41449657484311,
+          "pa_deg": 119.31205946060749,
+          "inclination_deg": 63.0,
+          "height_arcsec": 7.416098378595
+        },
+        "weights": [
+          8.624304362389708,
+          56.63238228864436,
+          146.46863155651906,
+          137.61241266145078,
+          194.219841579099,
+          181.05595024874702,
+          172.74162491037,
+          125.1241964735066,
+          95.84333563417836,
+          89.3360240420365,
+          48.50492547750592,
+          36.92537629501346,
+          40.040319830521724,
+          26.638587633369465,
+          0.0,
+          0.0
+        ],
+        "rotation_coefficients_km_s": [
+          46.0431002721392,
+          81.19709540438808,
+          110.11608381360368,
+          119.32905810562487,
+          119.91093375390048,
+          122.71383721927353,
+          126.15241881928858,
+          132.94615134195215,
+          132.26652084644022,
+          135.95427072219508,
+          131.08427566857097,
+          133.12764191119146,
+          131.07490231303296,
+          132.11537328341643,
+          0.0,
+          0.0
+        ],
+        "systemic_velocity_km_s": 134.62444638959718,
+        "score": 0.08698390035793602,
+        "intensity_nrmse": 0.28311862171263885,
+        "intensity_wape_fraction": 0.26569853234293034,
+        "velocity_rmse_km_s": 11.178287987182115,
+        "velocity_mae_km_s": 7.818017399701229,
+        "intensity_weighted_velocity_rmse_km_s": 9.314838832908576,
+        "velocity_loss_scale_km_s": 112.7292594909668,
+        "intrinsic_total_flux_jy_km_s": 1359.767912993352,
+        "projected_grid_flux_jy_km_s": 1354.2412023461122,
+        "grid_flux_deficit_fraction": 0.004064451436475935,
+        "mass_audit": {
+          "iterations": 3,
+          "converged": true,
+          "relative_mass_sum_error": 0.0,
+          "scaled_kkt_residual": 3.0329905253978495e-13,
+          "active_coefficients": 14
+        },
+        "velocity_audit": {
+          "iterations": 1,
+          "projected_gradient_residual": 7.221425231423101e-16,
+          "at_bound_count": 0
+        },
+        "velocity_denominator_floor_count": 4,
+        "intensity_sample_count": 10428,
+        "velocity_sample_count": 10428,
+        "loss_is_statistical_chi_square": false,
+        "quadrature_order": 16
+      },
+      "fitted": {
+        "geometry": {
+          "center_east_arcsec": -43.25788816655715,
+          "center_north_arcsec": 29.68461954808686,
+          "pa_deg": 123.81205946060749,
+          "inclination_deg": 60.0,
+          "height_arcsec": 54.358154307905714
+        },
+        "weights": [
+          11.51372305919551,
+          48.18968106739767,
+          198.7032047155035,
+          130.59149779599298,
+          208.52023235270264,
+          186.21804853827675,
+          185.9989658507513,
+          122.6190752172233,
+          87.50473085906388,
+          58.382340774573144,
+          35.332899727911546,
+          16.977155120497525,
+          69.21635791426249,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_coefficients_km_s": [
+          82.7977875470304,
+          92.90766978364205,
+          111.40946930724436,
+          123.0260031703735,
+          121.7822708039079,
+          122.54358765728169,
+          127.85718111339307,
+          131.41100461522348,
+          127.54315841937812,
+          133.0558723489558,
+          132.4081898266978,
+          111.02826920879863,
+          145.68765392836795,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "systemic_velocity_km_s": 131.8660839815133,
+        "score": 0.07392348821992759,
+        "intensity_nrmse": 0.2646093409424764,
+        "intensity_wape_fraction": 0.24310488634591848,
+        "velocity_rmse_km_s": 10.163311544938708,
+        "velocity_mae_km_s": 6.373882092915593,
+        "intensity_weighted_velocity_rmse_km_s": 7.04479850366171,
+        "velocity_loss_scale_km_s": 112.7292594909668,
+        "intrinsic_total_flux_jy_km_s": 1359.7679129933522,
+        "projected_grid_flux_jy_km_s": 1356.503707259622,
+        "grid_flux_deficit_fraction": 0.0024005609358324076,
+        "mass_audit": {
+          "iterations": 4,
+          "converged": true,
+          "relative_mass_sum_error": 1.672150616811501e-16,
+          "scaled_kkt_residual": 6.042111255766258e-13,
+          "active_coefficients": 13
+        },
+        "velocity_audit": {
+          "iterations": 1,
+          "projected_gradient_residual": 6.121183706679009e-16,
+          "at_bound_count": 0
+        },
+        "velocity_denominator_floor_count": 0,
+        "intensity_sample_count": 10428,
+        "velocity_sample_count": 10428,
+        "loss_is_statistical_chi_square": false,
+        "quadrature_order": 32
+      },
+      "numerical_check": {
+        "base_quadrature_order": 16,
+        "check_quadrature_order": 32,
+        "same_coefficients_no_refit": true,
+        "intensity_relative_l2": 0.0009001992064613881,
+        "velocity_rmse_km_s": 0.058215787401957375,
+        "spatial_refinement": {
+          "coarse_stride": 4,
+          "fine_stride": 2,
+          "same_coefficients_no_refit": true,
+          "intensity_relative_l2": 0.0003007652689021053,
+          "velocity_rmse_km_s": 0.020513466750941973
+        }
+      }
+    },
+    {
+      "galaxy": "NGC3198",
+      "initial": {
+        "geometry": {
+          "center_east_arcsec": 0.2679606754232337,
+          "center_north_arcsec": -3.1171481246739265,
+          "pa_deg": 34.910789675923525,
+          "inclination_deg": 73.0,
+          "height_arcsec": 8.808181621136999
+        },
+        "weights": [
+          0.0,
+          9.874640521827766,
+          20.494047990993835,
+          36.087230695871504,
+          21.937105887289842,
+          35.20681950785697,
+          25.310135370625826,
+          33.82349937208197,
+          17.038247109505786,
+          19.84544918165372,
+          7.706183477106057,
+          2.675853438167314,
+          0.0,
+          3.3610532291264543,
+          0.0,
+          8.885463792760026
+        ],
+        "rotation_coefficients_km_s": [
+          0.0,
+          -114.7912150288442,
+          -152.53581383082405,
+          -154.144905716743,
+          -155.27382446820846,
+          -152.75037628629647,
+          -152.0169151686712,
+          -146.88382131393826,
+          -143.6962259489398,
+          -149.94497095967046,
+          -151.68954836634498,
+          -146.61057503844472,
+          -1.4210854715202004e-14,
+          -144.13524446860654,
+          0.0,
+          -157.71493819342083
+        ],
+        "systemic_velocity_km_s": 657.965211011296,
+        "score": 0.05653098620198493,
+        "intensity_nrmse": 0.2341104508967614,
+        "intensity_wape_fraction": 0.23961736977257336,
+        "velocity_rmse_km_s": 24.151323359785067,
+        "velocity_mae_km_s": 8.885082673953471,
+        "intensity_weighted_velocity_rmse_km_s": 5.769634505424834,
+        "velocity_loss_scale_km_s": 138.98566284179685,
+        "intrinsic_total_flux_jy_km_s": 242.24572957486706,
+        "projected_grid_flux_jy_km_s": 234.75386676760638,
+        "grid_flux_deficit_fraction": 0.030926707440451673,
+        "mass_audit": {
+          "iterations": 4,
+          "converged": true,
+          "relative_mass_sum_error": 0.0,
+          "scaled_kkt_residual": 2.3676298822970093e-14,
+          "active_coefficients": 13
+        },
+        "velocity_audit": {
+          "iterations": 1,
+          "projected_gradient_residual": 7.805922763480453e-16,
+          "at_bound_count": 0
+        },
+        "velocity_denominator_floor_count": 0,
+        "intensity_sample_count": 1868,
+        "velocity_sample_count": 1868,
+        "loss_is_statistical_chi_square": false,
+        "quadrature_order": 16
+      },
+      "fitted": {
+        "geometry": {
+          "center_east_arcsec": 0.2679606754232337,
+          "center_north_arcsec": -5.319193529958176,
+          "pa_deg": 38.410789675923525,
+          "inclination_deg": 70.0,
+          "height_arcsec": 1.823360120962678
+        },
+        "weights": [
+          0.10599418181227836,
+          11.93880794631682,
+          24.78620286566475,
+          36.15866275701676,
+          28.117520805465453,
+          35.20104215081026,
+          31.027619136950612,
+          31.97760320179183,
+          15.38370123118117,
+          9.003744392567121,
+          3.8669543948708753,
+          4.203467699901756,
+          1.946864734483765,
+          2.803278260749575,
+          5.72426581528408,
+          0.0
+        ],
+        "rotation_coefficients_km_s": [
+          443.42821157116765,
+          -108.26885899335369,
+          -145.54761197385875,
+          -153.19581658819246,
+          -148.3093038064192,
+          -148.60288161463427,
+          -145.28322058641942,
+          -140.31462835113535,
+          -140.93408739894298,
+          -152.31604278506202,
+          -149.15447564143085,
+          -160.43659190584833,
+          -143.52720103501125,
+          -146.80239252178345,
+          -147.0165996634916,
+          0.0
+        ],
+        "systemic_velocity_km_s": 658.6903053366248,
+        "score": 0.03942465049139936,
+        "intensity_nrmse": 0.19110630019085117,
+        "intensity_wape_fraction": 0.19255897468056385,
+        "velocity_rmse_km_s": 25.18874198397469,
+        "velocity_mae_km_s": 11.403218383925628,
+        "intensity_weighted_velocity_rmse_km_s": 7.488519292090937,
+        "velocity_loss_scale_km_s": 138.98566284179685,
+        "intrinsic_total_flux_jy_km_s": 242.2457295748671,
+        "projected_grid_flux_jy_km_s": 240.1185123967958,
+        "grid_flux_deficit_fraction": 0.008781237059594438,
+        "mass_audit": {
+          "iterations": 2,
+          "converged": true,
+          "relative_mass_sum_error": 2.3465189235973844e-16,
+          "scaled_kkt_residual": 4.8317368172862835e-14,
+          "active_coefficients": 15
+        },
+        "velocity_audit": {
+          "iterations": 26,
+          "projected_gradient_residual": 8.66163477997694e-10,
+          "at_bound_count": 1
+        },
+        "velocity_denominator_floor_count": 10,
+        "intensity_sample_count": 1868,
+        "velocity_sample_count": 1868,
+        "loss_is_statistical_chi_square": false,
+        "quadrature_order": 32
+      },
+      "numerical_check": {
+        "base_quadrature_order": 16,
+        "check_quadrature_order": 32,
+        "same_coefficients_no_refit": true,
+        "intensity_relative_l2": 1.9367238382146233e-05,
+        "velocity_rmse_km_s": 0.0003797142649969824,
+        "spatial_refinement": {
+          "coarse_stride": 4,
+          "fine_stride": 2,
+          "same_coefficients_no_refit": true,
+          "intensity_relative_l2": 0.0011866347931795932,
+          "velocity_rmse_km_s": 0.026683726111401476
+        }
+      }
+    }
+  ]
+}

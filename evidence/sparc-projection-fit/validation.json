@@ -1,0 +1,34 @@
+{
+  "focused_checks_per_mode": 52,
+  "new_checks_per_mode": 17,
+  "modes": [
+    "normal",
+    "optimized"
+  ],
+  "aod_lint_status": "PASS",
+  "aod_lint_manuscripts": 15,
+  "aod_lint_scope": "Typst manuscript static checks; not Python or scientific validation",
+  "typst_companion_pages": 4,
+  "rendered_pages_inspected": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "actual_fits_completed": [
+    "NGC2403",
+    "NGC3198"
+  ],
+  "gpu_used": false,
+  "observational_scope": "3D HI projection inverse fit; no native temporal evolution or full galactic-matter reconstruction",
+  "remaining_fit_limits": [
+    "NGC3198 velocity residual worsens",
+    "both inclination optima at lower search bounds",
+    "one NGC3198 velocity coefficient at bound and ten denominator-floor pixels",
+    "unclassified distant observed components",
+    "fitted heights and outer mass are conditional"
+  ],
+  "raw_fit_result_values_modified": false,
+  "interpretation_note": "review/flux-diagnostic-interpretation.json",
+  "ci_status": "not yet executed for delivery commit"
+}

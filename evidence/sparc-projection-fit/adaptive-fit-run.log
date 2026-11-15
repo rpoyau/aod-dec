@@ -1,0 +1,15 @@
+NGC2403: initial projection
+NGC3198: initial projection
+NGC2403: 20 evaluated geometries
+NGC2403: profile selected, refining centre/orientation/height
+NGC2403: 40 evaluated geometries
+NGC3198: 20 evaluated geometries
+NGC2403: 60 evaluated geometries
+NGC3198: profile selected, refining centre/orientation/height
+NGC2403: numerical refinement and density export
+NGC2403: done {"initial_nrmse": 0.28311862171263885, "fitted_nrmse": 0.2646093409424764, "velocity_rmse": 10.163311544938708, "height_kpc": 0.832773029671416, "seconds": 67.79935029101034}
+NGC3198: 40 evaluated geometries
+NGC3198: 60 evaluated geometries
+NGC3198: 80 evaluated geometries
+NGC3198: numerical refinement and density export
+NGC3198: done {"initial_nrmse": 0.2341104508967614, "fitted_nrmse": 0.19110630019085117, "velocity_rmse": 25.18874198397469, "height_kpc": 0.12199061064804975, "seconds": 212.59685403299227}

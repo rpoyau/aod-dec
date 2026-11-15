@@ -1,0 +1,12 @@
+{
+  "stage": "pre-fix independent controls",
+  "tests": 11,
+  "passed": 9,
+  "failures": 1,
+  "errors": 1,
+  "source_sha256": {
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/simulations/sparc_projection_fit.py": "4226c1f254fa3493f451f66853725a285350b52fefb999d058fbacc6fbd53a72",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_FIELD_RUN_2026-11-15/aod-dec/tests/test_sparc_projection_fit.py": "abbbd5509f6d24ade8849c0909bbe2efd64557b3e41f99143d583ba7349158f6",
+    "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/review/projection-controls-before-fixes.log": "70fbe857be9d10d1f6b1d9061ecd9742db0447f297ed5018e656223481b83084"
+  }
+}

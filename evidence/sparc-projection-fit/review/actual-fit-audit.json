@@ -1,0 +1,99 @@
+{
+  "scope": "source-bound actual fit arrays, numeric partitions, active bounds and refinement checks; no new fit",
+  "records": [
+    {
+      "galaxy": "NGC2403",
+      "density_shapes": {
+        "density_msun_kpc3": [
+          241,
+          256
+        ],
+        "cartesian_density_msun_kpc3": [
+          49,
+          65,
+          65
+        ]
+      },
+      "input_results_sha256": "a0e5d307818ba65f12400e12738cb01c63a63a28529c294f3f245ac3e9d82b8c",
+      "array_sha256": "87e4cf9de8323e4e12340d311e1fc19da52255d8fbd3246898a35b308743336d",
+      "accounting_checks": {
+        "vertical_partition_relative_error": 0.0,
+        "radial_partition_relative_error": 0.0,
+        "combined_partition_relative_error": 0.0,
+        "outside_dense_radial_fraction": 0.0
+      },
+      "geometry_at_bound": {
+        "inclination_deg": 60.0
+      },
+      "velocity_at_bound_count": 0,
+      "velocity_denominator_floor_count": 0,
+      "initial_intensity_nrmse": 0.28311862171263885,
+      "fitted_intensity_nrmse": 0.2646093409424764,
+      "initial_velocity_rmse_km_s": 11.178287987182115,
+      "fitted_velocity_rmse_km_s": 10.163311544938708,
+      "initial_intensity_weighted_velocity_rmse_km_s": 9.314838832908576,
+      "fitted_intensity_weighted_velocity_rmse_km_s": 7.04479850366171,
+      "numerical_checks": {
+        "base_quadrature_order": 16,
+        "check_quadrature_order": 32,
+        "same_coefficients_no_refit": true,
+        "intensity_relative_l2": 0.0009001992064613881,
+        "velocity_rmse_km_s": 0.058215787401957375,
+        "spatial_refinement": {
+          "coarse_stride": 4,
+          "fine_stride": 2,
+          "same_coefficients_no_refit": true,
+          "intensity_relative_l2": 0.0003007652689021053,
+          "velocity_rmse_km_s": 0.020513466750941973
+        }
+      }
+    },
+    {
+      "galaxy": "NGC3198",
+      "density_shapes": {
+        "density_msun_kpc3": [
+          241,
+          256
+        ],
+        "cartesian_density_msun_kpc3": [
+          49,
+          65,
+          65
+        ]
+      },
+      "input_results_sha256": "fc865f913b35563a1240d3f55fa8a4667e60e9d617db3cd319b22fb7b597d703",
+      "array_sha256": "53f8903191d3a5c3b5a2ba79ef55c2356395d39a9ba41d459dc059faa7952dae",
+      "accounting_checks": {
+        "vertical_partition_relative_error": 1.7548519944912137e-16,
+        "radial_partition_relative_error": 0.0,
+        "combined_partition_relative_error": 0.0,
+        "outside_dense_radial_fraction": 0.02353930421259609
+      },
+      "geometry_at_bound": {
+        "inclination_deg": 70.0
+      },
+      "velocity_at_bound_count": 1,
+      "velocity_denominator_floor_count": 10,
+      "initial_intensity_nrmse": 0.2341104508967614,
+      "fitted_intensity_nrmse": 0.19110630019085117,
+      "initial_velocity_rmse_km_s": 24.151323359785067,
+      "fitted_velocity_rmse_km_s": 25.18874198397469,
+      "initial_intensity_weighted_velocity_rmse_km_s": 5.769634505424834,
+      "fitted_intensity_weighted_velocity_rmse_km_s": 7.488519292090937,
+      "numerical_checks": {
+        "base_quadrature_order": 16,
+        "check_quadrature_order": 32,
+        "same_coefficients_no_refit": true,
+        "intensity_relative_l2": 1.9367238382146233e-05,
+        "velocity_rmse_km_s": 0.0003797142649969824,
+        "spatial_refinement": {
+          "coarse_stride": 4,
+          "fine_stride": 2,
+          "same_coefficients_no_refit": true,
+          "intensity_relative_l2": 0.0011866347931795932,
+          "velocity_rmse_km_s": 0.026683726111401476
+        }
+      }
+    }
+  ]
+}

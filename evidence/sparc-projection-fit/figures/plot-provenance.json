@@ -1,0 +1,215 @@
+{
+  "plots": [
+    {
+      "galaxy": "NGC2403",
+      "results_sha256": "a0e5d307818ba65f12400e12738cb01c63a63a28529c294f3f245ac3e9d82b8c",
+      "arrays_sha256": "87e4cf9de8323e4e12340d311e1fc19da52255d8fbd3246898a35b308743336d",
+      "figures": [
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection.png",
+          "sha256": "5138dc5fbd974113a02b1f65de092b1f9977195685b515ac50b506274e69eabd"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection.svg",
+          "sha256": "259c31fa8e4df1205d42047223063caa54eca093f7d3f42b8468844455633e5f"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection.pdf",
+          "sha256": "1489f9fbc510956a54abbdc6683bba26db57589cef34a72c252b87cfdfa18bde"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-density-profile.png",
+          "sha256": "e2aa61a9785a191db055b39efd87f281b95672f92d59c73c072653f8ede65168"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-density-profile.svg",
+          "sha256": "27c3881173721a3852d264e882016f61368ffd9e8d250de48faeeb9fe5358c0e"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-density-profile.pdf",
+          "sha256": "af0dc7a74f2486618cdf7c065acee90169bbcbffb11fb634e1597b61debd38e8"
+        }
+      ],
+      "mask": "same retained observation fit mask for data, model and residual",
+      "normalization": "shared full-range observed/model limits per row; symmetric full residual limits",
+      "density_scope": "conditional axisymmetric HI model only; catalog HI mass fixed; dense inner radial/vertical view with exterior mass retained",
+      "height_profile_is_confidence_interval": false
+    },
+    {
+      "galaxy": "NGC3198",
+      "results_sha256": "fc865f913b35563a1240d3f55fa8a4667e60e9d617db3cd319b22fb7b597d703",
+      "arrays_sha256": "53f8903191d3a5c3b5a2ba79ef55c2356395d39a9ba41d459dc059faa7952dae",
+      "figures": [
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection.png",
+          "sha256": "5da96c20d9a65ce361c966187cd64a8c91124df58f024d99fb16345172be41a3"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection.svg",
+          "sha256": "206913ed71f8b13b8541cdce7ab4437d5a0213f2c3ff2e989807b2170b0bb441"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection.pdf",
+          "sha256": "86367a4c69d65c12b87d526610401f416ba5d16d7845491c67592db2796b5f75"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-density-profile.png",
+          "sha256": "668b979d4214304f552e7e67ef8be31a330c55794386e905777ad0aea343daa6"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-density-profile.svg",
+          "sha256": "7ec8d02928c4d5c0347b0240d7e5acadb72cbca4ed5fe9bccd54f25e7b3f74d9"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-density-profile.pdf",
+          "sha256": "26652b6f223afe96aa5a750113116c61f016b4a204306ad37f4b834b567bf58a"
+        }
+      ],
+      "mask": "same retained observation fit mask for data, model and residual",
+      "normalization": "shared full-range observed/model limits per row; symmetric full residual limits",
+      "density_scope": "conditional axisymmetric HI model only; catalog HI mass fixed; dense inner radial/vertical view with exterior mass retained",
+      "height_profile_is_confidence_interval": false
+    }
+  ],
+  "details": [
+    {
+      "galaxy": "NGC2403",
+      "results_sha256": "a0e5d307818ba65f12400e12738cb01c63a63a28529c294f3f245ac3e9d82b8c",
+      "arrays_sha256": "87e4cf9de8323e4e12340d311e1fc19da52255d8fbd3246898a35b308743336d",
+      "figures": [
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection-detail.png",
+          "sha256": "5870ed64cfbb0fa8bbe76a4c924ba348a11c19398ed692aea37de4f65074128e"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection-detail.svg",
+          "sha256": "336b204a4ad1202bea48b70feb41e5f44014771fa05025b64fa10d270bdb6997"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection-detail.pdf",
+          "sha256": "a27ead0cc27932f04bc57def0f405f8935fd1254a5c02877031555a39e62120f"
+        }
+      ],
+      "view_extent_arcsec": [
+        874.4660986253359,
+        -960.9818749584501,
+        -813.9161082768359,
+        873.2853473730096
+      ],
+      "extent_order": [
+        "east_max",
+        "east_min",
+        "north_min",
+        "north_max"
+      ],
+      "view_rule": "axis-aligned bounding box of projected R<=0.5*concentration radius, abs(z)<=6h cylinder, plus source major-beam margin",
+      "display_radius_fraction_of_concentration": 0.5,
+      "scales": [
+        {
+          "quantity": "Integrated HI intensity",
+          "unit": "Jy beam\u207b\u00b9 km s\u207b\u00b9",
+          "source_mask_count": 10428,
+          "visible_source_mask_count": 9353,
+          "shared_observed_model_limits": [
+            0.0045601465693919305,
+            2.9530656337738037
+          ],
+          "residual_limits": [
+            -1.220499304935219,
+            1.220499304935219
+          ],
+          "limits_rule": "actual extrema within declared view; no percentile clipping"
+        },
+        {
+          "quantity": "LOS mean velocity",
+          "unit": "km s\u207b\u00b9",
+          "source_mask_count": 10428,
+          "visible_source_mask_count": 9353,
+          "shared_observed_model_limits": [
+            1.6936559677124023,
+            281.2066345214844
+          ],
+          "residual_limits": [
+            -158.2674118666613,
+            158.2674118666613
+          ],
+          "limits_rule": "actual extrema within declared view; no percentile clipping"
+        }
+      ],
+      "model_refitted": false,
+      "scores_recomputed": false,
+      "full_frame_retained": true
+    },
+    {
+      "galaxy": "NGC3198",
+      "results_sha256": "fc865f913b35563a1240d3f55fa8a4667e60e9d617db3cd319b22fb7b597d703",
+      "arrays_sha256": "53f8903191d3a5c3b5a2ba79ef55c2356395d39a9ba41d459dc059faa7952dae",
+      "figures": [
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection-detail.png",
+          "sha256": "7c2c8d5a6870b3312c433a71e4cb10312149a62593fe9506612cc5db9c44a1a2"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection-detail.svg",
+          "sha256": "996928cabf18c62738bb56f81a1d2ed21616a842b1726dd9a22dbea7f1bf72f8"
+        },
+        {
+          "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection-detail.pdf",
+          "sha256": "808b097609955fb91893bfcdc064065130aae05d54edaa62596fdacbdef3dfc6"
+        }
+      ],
+      "view_extent_arcsec": [
+        321.9109300221954,
+        -321.3750086713489,
+        -380.9316931576585,
+        370.2933060977422
+      ],
+      "extent_order": [
+        "east_max",
+        "east_min",
+        "north_min",
+        "north_max"
+      ],
+      "view_rule": "axis-aligned bounding box of projected R<=0.5*concentration radius, abs(z)<=6h cylinder, plus source major-beam margin",
+      "display_radius_fraction_of_concentration": 0.5,
+      "scales": [
+        {
+          "quantity": "Integrated HI intensity",
+          "unit": "Jy beam\u207b\u00b9 km s\u207b\u00b9",
+          "source_mask_count": 1868,
+          "visible_source_mask_count": 1208,
+          "shared_observed_model_limits": [
+            0.004610216245055199,
+            2.6873393058776855
+          ],
+          "residual_limits": [
+            -0.8135500345464126,
+            0.8135500345464126
+          ],
+          "limits_rule": "actual extrema within declared view; no percentile clipping"
+        },
+        {
+          "quantity": "LOS mean velocity",
+          "unit": "km s\u207b\u00b9",
+          "source_mask_count": 1868,
+          "visible_source_mask_count": 1208,
+          "shared_observed_model_limits": [
+            515.3571166992188,
+            800.3029174804688
+          ],
+          "residual_limits": [
+            -40.93888542029174,
+            40.93888542029174
+          ],
+          "limits_rule": "actual extrema within declared view; no percentile clipping"
+        }
+      ],
+      "model_refitted": false,
+      "scores_recomputed": false,
+      "full_frame_retained": true
+    }
+  ],
+  "script_sha256": "254d8d70d872663ed01c0de114f6374e95b7445a5b29238c84175d2d5e76b85c",
+  "full_plot_script_sha256": "897d5a58ddb7be8ff01e8113026a5333403af5c55116807f54c260770e4b3b18",
+  "detail_plot_script_sha256": "254d8d70d872663ed01c0de114f6374e95b7445a5b29238c84175d2d5e76b85c"
+}

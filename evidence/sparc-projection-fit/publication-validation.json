@@ -1,0 +1,200 @@
+{
+  "scope": "Standalone projected-fit figures and Typst computational companion",
+  "status": "pass",
+  "typst_version": "0.13.1",
+  "typst_binary": "/home/reginaldpoyau/projects/aod/AOD_DEC_PR_2026-11-13/tools/typst-x86_64-unknown-linux-musl/typst",
+  "typst_sha256": "61f743dccaaf7d763072ae046ad71f2303752e78d499d319043248f894602f45",
+  "source_sha256": {
+    "scripts/plot_sparc_projection.py": "254d8d70d872663ed01c0de114f6374e95b7445a5b29238c84175d2d5e76b85c",
+    "docs/sparc-projection-fit.typ": "0d3bbae7fb87234321ef85d0c3dcbfc12f3866d72059784ef83e878330ddaa70"
+  },
+  "pdf": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/sparc-projection-fit.pdf",
+    "sha256": "a50a32a6882e3707f8e9702c6bc41f14932173670bdab2b9079178d7e5bd53c0",
+    "pages": 4,
+    "build_exit_code": 0,
+    "build_warnings": []
+  },
+  "visual_inspection": {
+    "pages": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "findings": "No clipping or overlaps; all data/model map pairs share masks and color limits, signed residuals retained, R-z axes explicitly scaled independently; mathematical NRMSE grouping checked after rendering.",
+    "render_sha256": {
+      "page-1.png": "6c5ca57c89841d010c1e24ce5512275433a0ae1468fa8234bfa7e5e4a6f67ba2",
+      "page-2.png": "c2545f5e926e1df8ceff4b98bb1f7bc047bfe9ab661b03178d4c16b267f6b747",
+      "page-3.png": "b4f901e17bcb85a9c063a9b4cd15823931a046d756e5fa9d7206fceb83363eef",
+      "page-4.png": "7ed77763812ee57032b8a722eb83104b38f45aaa27872e27078f7f5fa0ef0329"
+    }
+  },
+  "plot_provenance_sha256": "0954ab3fdefd3e464b369f481684a9c37a6ad95656eea669e234107833d32760",
+  "scientific_limits_visible": [
+    "fit residuals on reused data, not independent prediction",
+    "NGC3198 weighted and unweighted velocity residuals worsen",
+    "both inclinations at lower search bounds",
+    "NGC3198 velocity coefficient bound and denominator-floor counts",
+    "conditional HI mass normalization and source-footprint mismatch",
+    "cylindrical view exterior mass retained without double-counting; Cartesian corner samples distinct",
+    "unclassified outlying emission does not authenticate a halo",
+    "signed negative full-grid minus fit-view flux is a numerical diagnostic",
+    "no SPARC MAPE, unique thickness, full galaxy mass fit or native time evolution claim"
+  ],
+  "aod_lint": "Parent executes pinned repository-wide manuscript check separately; no lint verdict inferred from this build.",
+  "supplemental_detail_figures": {
+    "visually_inspected": [
+      "NGC2403",
+      "NGC3198"
+    ],
+    "view_rule": "Projected R<=0.5*concentration radius and |z|<=6h, with one beam margin; display only",
+    "source_masks_and_scores_changed": false,
+    "full_frame_and_density_pngs_byte_identical": true,
+    "original_png_hashes": "pre-detail-figure-hashes.json",
+    "details": [
+      {
+        "galaxy": "NGC2403",
+        "results_sha256": "a0e5d307818ba65f12400e12738cb01c63a63a28529c294f3f245ac3e9d82b8c",
+        "arrays_sha256": "87e4cf9de8323e4e12340d311e1fc19da52255d8fbd3246898a35b308743336d",
+        "figures": [
+          {
+            "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection-detail.png",
+            "sha256": "5870ed64cfbb0fa8bbe76a4c924ba348a11c19398ed692aea37de4f65074128e"
+          },
+          {
+            "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection-detail.svg",
+            "sha256": "336b204a4ad1202bea48b70feb41e5f44014771fa05025b64fa10d270bdb6997"
+          },
+          {
+            "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC2403-projection-detail.pdf",
+            "sha256": "a27ead0cc27932f04bc57def0f405f8935fd1254a5c02877031555a39e62120f"
+          }
+        ],
+        "view_extent_arcsec": [
+          874.4660986253359,
+          -960.9818749584501,
+          -813.9161082768359,
+          873.2853473730096
+        ],
+        "extent_order": [
+          "east_max",
+          "east_min",
+          "north_min",
+          "north_max"
+        ],
+        "view_rule": "axis-aligned bounding box of projected R<=0.5*concentration radius, abs(z)<=6h cylinder, plus source major-beam margin",
+        "display_radius_fraction_of_concentration": 0.5,
+        "scales": [
+          {
+            "quantity": "Integrated HI intensity",
+            "unit": "Jy beam\u207b\u00b9 km s\u207b\u00b9",
+            "source_mask_count": 10428,
+            "visible_source_mask_count": 9353,
+            "shared_observed_model_limits": [
+              0.0045601465693919305,
+              2.9530656337738037
+            ],
+            "residual_limits": [
+              -1.220499304935219,
+              1.220499304935219
+            ],
+            "limits_rule": "actual extrema within declared view; no percentile clipping"
+          },
+          {
+            "quantity": "LOS mean velocity",
+            "unit": "km s\u207b\u00b9",
+            "source_mask_count": 10428,
+            "visible_source_mask_count": 9353,
+            "shared_observed_model_limits": [
+              1.6936559677124023,
+              281.2066345214844
+            ],
+            "residual_limits": [
+              -158.2674118666613,
+              158.2674118666613
+            ],
+            "limits_rule": "actual extrema within declared view; no percentile clipping"
+          }
+        ],
+        "model_refitted": false,
+        "scores_recomputed": false,
+        "full_frame_retained": true
+      },
+      {
+        "galaxy": "NGC3198",
+        "results_sha256": "fc865f913b35563a1240d3f55fa8a4667e60e9d617db3cd319b22fb7b597d703",
+        "arrays_sha256": "53f8903191d3a5c3b5a2ba79ef55c2356395d39a9ba41d459dc059faa7952dae",
+        "figures": [
+          {
+            "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection-detail.png",
+            "sha256": "7c2c8d5a6870b3312c433a71e4cb10312149a62593fe9506612cc5db9c44a1a2"
+          },
+          {
+            "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection-detail.svg",
+            "sha256": "996928cabf18c62738bb56f81a1d2ed21616a842b1726dd9a22dbea7f1bf72f8"
+          },
+          {
+            "file": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/figures/NGC3198-projection-detail.pdf",
+            "sha256": "808b097609955fb91893bfcdc064065130aae05d54edaa62596fdacbdef3dfc6"
+          }
+        ],
+        "view_extent_arcsec": [
+          321.9109300221954,
+          -321.3750086713489,
+          -380.9316931576585,
+          370.2933060977422
+        ],
+        "extent_order": [
+          "east_max",
+          "east_min",
+          "north_min",
+          "north_max"
+        ],
+        "view_rule": "axis-aligned bounding box of projected R<=0.5*concentration radius, abs(z)<=6h cylinder, plus source major-beam margin",
+        "display_radius_fraction_of_concentration": 0.5,
+        "scales": [
+          {
+            "quantity": "Integrated HI intensity",
+            "unit": "Jy beam\u207b\u00b9 km s\u207b\u00b9",
+            "source_mask_count": 1868,
+            "visible_source_mask_count": 1208,
+            "shared_observed_model_limits": [
+              0.004610216245055199,
+              2.6873393058776855
+            ],
+            "residual_limits": [
+              -0.8135500345464126,
+              0.8135500345464126
+            ],
+            "limits_rule": "actual extrema within declared view; no percentile clipping"
+          },
+          {
+            "quantity": "LOS mean velocity",
+            "unit": "km s\u207b\u00b9",
+            "source_mask_count": 1868,
+            "visible_source_mask_count": 1208,
+            "shared_observed_model_limits": [
+              515.3571166992188,
+              800.3029174804688
+            ],
+            "residual_limits": [
+              -40.93888542029174,
+              40.93888542029174
+            ],
+            "limits_rule": "actual extrema within declared view; no percentile clipping"
+          }
+        ],
+        "model_refitted": false,
+        "scores_recomputed": false,
+        "full_frame_retained": true
+      }
+    ]
+  },
+  "full_plot_source_snapshot": {
+    "path": "/home/reginaldpoyau/projects/aod/AOD_SPARC_3D_INVERSE_2026-11-15/publication-review/full-frame-plot-source.py",
+    "sha256": "897d5a58ddb7be8ff01e8113026a5333403af5c55116807f54c260770e4b3b18",
+    "reason": "Full-frame figure source before adding the separate central-detail view; original embedded PNGs are byte-identical."
+  },
+  "final_plot_script_sha256": "254d8d70d872663ed01c0de114f6374e95b7445a5b29238c84175d2d5e76b85c"
+}

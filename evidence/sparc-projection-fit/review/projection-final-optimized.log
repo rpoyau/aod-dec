@@ -1,0 +1,16 @@
+test_beam_retains_centroid_and_does_not_wrap_lost_flux (tests.test_sparc_projection_fit.ProjectionFitTests.test_beam_retains_centroid_and_does_not_wrap_lost_flux) ... ok
+test_cylindrical_hat_areas_have_independent_polynomial_answers (tests.test_sparc_projection_fit.ProjectionFitTests.test_cylindrical_hat_areas_have_independent_polynomial_answers) ... ok
+test_face_on_height_degeneracy_and_exact_column (tests.test_sparc_projection_fit.ProjectionFitTests.test_face_on_height_degeneracy_and_exact_column) ... ok
+test_inclined_projection_mass_and_covariance (tests.test_sparc_projection_fit.ProjectionFitTests.test_inclined_projection_mass_and_covariance) ... ok
+test_incompatible_observed_support_is_scored_not_dropped (tests.test_sparc_projection_fit.ProjectionFitTests.test_incompatible_observed_support_is_scored_not_dropped) ... ok
+test_known_thin_projection_recovers_forward_values_and_mask_is_respected (tests.test_sparc_projection_fit.ProjectionFitTests.test_known_thin_projection_recovers_forward_values_and_mask_is_respected) ... ok
+test_nonfinite_velocity_weight_is_rejected_even_outside_intensity_mask (tests.test_sparc_projection_fit.ProjectionFitTests.test_nonfinite_velocity_weight_is_rejected_even_outside_intensity_mask) ... ok
+test_projection_renders_incoming_beam_flux_across_grid_boundary (tests.test_sparc_projection_fit.ProjectionFitTests.test_projection_renders_incoming_beam_flux_across_grid_boundary) ... ok
+test_simplex_and_box_fits_match_independent_constrained_minima (tests.test_sparc_projection_fit.ProjectionFitTests.test_simplex_and_box_fits_match_independent_constrained_minima) ... ok
+test_velocity_fit_rejects_zero_observational_weight (tests.test_sparc_projection_fit.ProjectionFitTests.test_velocity_fit_rejects_zero_observational_weight) ... ok
+test_volume_density_normalization_and_vertical_tail (tests.test_sparc_projection_fit.ProjectionFitTests.test_volume_density_normalization_and_vertical_tail) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 1.693s
+
+OK
