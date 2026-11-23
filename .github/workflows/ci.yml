@@ -1,0 +1,118 @@
+name: AOD-DEC v2 CI
+
+on:
+  push:
+    branches: ["main", "v2/native-reference-engine"]
+  pull_request:
+    branches: ["main", "v2/native-reference-engine"]
+
+permissions:
+  contents: read
+
+jobs:
+  rust-native-and-manual-verify:
+    name: Rust Native Engine, Manual Fixtures, and 6-Pass Manual Verify
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LLVM 18 and clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-18 libllvm18 clang
+
+      - name: Build and test workspace (debug, offline, -D warnings)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --workspace --offline
+
+      - name: Build and test workspace (release, offline, -D warnings)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: |
+          cargo test --workspace --release --offline
+          cargo build --workspace --release --offline
+
+      - name: Run Dec v1, v2 smoke, and Manual fixture suites
+        run: |
+          ./target/release/aodc test --compat v1 tests/fixtures/v1_examples
+          ./target/release/aodc test tests/fixtures/v2_smoke
+          ./target/release/aodc test manual_examples
+
+      - name: Run live hardware discovery & JIT micro-probes
+        run: ./target/release/aodc probe-hw
+
+      - name: Run 6-pass manual verifier (human + strict JSON)
+        run: |
+          ./target/release/aodc manual-verify docs/manual
+          ./target/release/aodc manual-verify docs/manual --json
+
+      - name: Run zero-raster PDF auditor unit tests (normal and -O)
+        run: |
+          python3 -m unittest scripts/test_audit_pdf_zero_raster.py
+          python3 -O -m unittest scripts/test_audit_pdf_zero_raster.py
+
+  typst-pdf-and-zero-raster-audit:
+    name: Typst 0.13.1 Deterministic PDF Build and Zero-Raster Audit
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Latin Modern and DejaVu fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-lmodern fonts-dejavu-core curl xz-utils
+
+      - name: Install pinned Typst v0.13.1
+        run: |
+          curl -fsSL "https://github.com/typst/typst/releases/download/v0.13.1/typst-x86_64-unknown-linux-musl.tar.xz" -o /tmp/typst.tar.xz
+          tar -xf /tmp/typst.tar.xz -C /tmp
+          sudo mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+          typst --version
+
+      - name: Double-build deterministic Typst PDF
+        env:
+          SOURCE_DATE_EPOCH: "0"
+        run: |
+          typst compile --root . --creation-timestamp 0 docs/manual/main.typ /tmp/aod-dec-v2-manual-1.pdf
+          typst compile --root . --creation-timestamp 0 docs/manual/main.typ /tmp/aod-dec-v2-manual-2.pdf
+
+      - name: Audit compiled PDFs for zero rasters, zero unresolved refs, and byte determinism
+        run: |
+          python3 scripts/audit_pdf_zero_raster.py \
+            --min-pages 6 \
+            --compare-pdf /tmp/aod-dec-v2-manual-2.pdf \
+            /tmp/aod-dec-v2-manual-1.pdf
+
+      - name: Upload verified PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aod-dec-v2-manual-pdf
+          path: /tmp/aod-dec-v2-manual-1.pdf
+
+  aod-lint-strict:
+    name: Strict rpoyau/aod-lint Check over docs/manual
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout aod-dec
+        uses: actions/checkout@v4
+
+      - name: Checkout rpoyau/aod-lint
+        uses: actions/checkout@v4
+        with:
+          repository: rpoyau/aod-lint
+          path: .ci-aod-lint
+          token: ${{ secrets.AOD_LINT_TOKEN || github.token }}
+
+      - name: Build aod-lint
+        run: cargo build --release --manifest-path .ci-aod-lint/Cargo.toml
+
+      - name: Run aod-lint check --strict over every Typst file in docs/manual
+        run: |
+          set -euo pipefail
+          for f in $(find docs/manual -type f -name '*.typ' | sort); do
+            echo "Linting $f"
+            ./.ci-aod-lint/target/release/aod-lint check --strict "$f"
+          done

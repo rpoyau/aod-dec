@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod eval;
 pub mod ir;
 pub mod lexer;
+pub mod manual_verify;
 pub mod modules;
 pub mod parser;
 pub mod sim;
@@ -27,6 +28,7 @@ pub use aod_llvm::{
     LearnSessionReport, OptLevel, OrcJitSession, PerfCapability, ProfileLoadOutcome,
     RetainedProfile, UnrollHint, POLICY_SCOPE,
 };
+pub use crate::manual_verify::{verify_manual_dir, ManualVerifyOptions, ManualVerifyReport};
 pub use crate::modules::LoadOptions;
 
 use crate::checker::{check_unit, CheckedUnit};

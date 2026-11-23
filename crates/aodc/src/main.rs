@@ -12,7 +12,7 @@ use aodc::{
     compile_file_to_ir_with_options, emit_llvm_file_with_options,
     exec_ir_file_with_budget_capturing, format_x100, jit_file_with_profile_captured,
     learn_file_with_options, run_all_hw_probes, run_dec_tests_with_options,
-    run_file_with_options_capturing, LoadOptions, OptLevel,
+    run_file_with_options_capturing, verify_manual_dir, LoadOptions, ManualVerifyOptions, OptLevel,
 };
 
 fn canonicalize_allowing_new_file(path: &Path) -> std::io::Result<PathBuf> {
@@ -222,7 +222,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -516,6 +516,96 @@ fn main() -> ExitCode {
                 }
                 Ok(())
             }),
+        "manual-verify" => {
+            let mut stdlib_dir: Option<PathBuf> = None;
+            let mut registry_path: Option<PathBuf> = None;
+            let mut json_mode = false;
+            let mut positional: Vec<String> = Vec::new();
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--stdlib" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            stdlib_dir = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing directory path after --stdlib".to_string());
+                            break;
+                        }
+                    },
+                    "--registry" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            registry_path = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing file path after --registry".to_string());
+                            break;
+                        }
+                    },
+                    "--json" => {
+                        json_mode = true;
+                        idx += 1;
+                    }
+                    other => {
+                        positional.push(other.to_string());
+                        idx += 1;
+                    }
+                }
+            }
+            if let Some(e) = parse_err {
+                Err(e)
+            } else if positional.len() != 1 {
+                Err(format!("expected <manual_dir>\n{}", usage()))
+            } else {
+                let report = verify_manual_dir(
+                    Path::new(&positional[0]),
+                    &ManualVerifyOptions {
+                        stdlib_dir,
+                        registry_path,
+                    },
+                );
+                if json_mode {
+                    println!("{}", report.to_json().to_compact_ascii_json());
+                } else {
+                    println!("aodc manual-verify ({}) -> {}", positional[0], report.status);
+                    println!(
+                        "  files={} main_refs={} labels={} internal_refs={} citations={}",
+                        report.files_scanned,
+                        report.main_refs_checked,
+                        report.internal_labels,
+                        report.internal_refs_checked,
+                        report.citations_checked
+                    );
+                    println!(
+                        "  inline_pos={} inline_neg={} dec_files={} data_files={}",
+                        report.inline_positive_checked,
+                        report.inline_negative_checked,
+                        report.dec_files_checked,
+                        report.data_files_checked
+                    );
+                    println!(
+                        "  raster_violations={} aod_lint_violations={} errors={}",
+                        report.raster_violations,
+                        report.aod_lint_violations,
+                        report.errors.len()
+                    );
+                    for err in &report.errors {
+                        eprintln!("  ERROR: {err}");
+                    }
+                }
+                if report.is_ok() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "manual verification failed with {} error(s)",
+                        report.errors.len()
+                    ))
+                }
+            }
+        }
         "test" => parse_options(sub_args, true, false, false, false, false, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {

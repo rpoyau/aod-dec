@@ -13,7 +13,7 @@
 > **not** infer SI metrology or universal physical constants, and makes **zero**
 > edits to upstream `rpoyau/aod`.
 
-## Architecture (PR 1 + PR 2 — 100% `std`-only 4-Crate Rust Workspace)
+## Architecture (100% `std`-only 4-Crate Rust Workspace)
 
 - **Zero external `crates.io` dependencies** (`cargo test --workspace --offline`).
 - **Zero IEEE-754 floating-point types or literals** anywhere across all 4 crates (`aod-core`, `aod-rt`, `aod-llvm`, `aodc`).
@@ -65,6 +65,10 @@ cargo run --bin aodc -- bench tests/fixtures/v2_bench/unboxed_loop_bench.dec
 cargo run --bin aodc -- compile tests/fixtures/v2_smoke/m3_wavelet_recipient.dec -o /tmp/m3.ir.json
 cargo run --bin aodc -- exec /tmp/m3.ir.json
 
+# Verify the modular Typst manual (6 passes: Typst lexer, Main refs, zero rasters, aod-lint, 3-mode Dec, JSON parity)
+cargo run --bin aodc -- manual-verify docs/manual
+cargo run --bin aodc -- manual-verify docs/manual --json
+
 # Run Dec tests on a file or directory (including sibling .stdout and .expect_error checks)
 cargo run --bin aodc -- test --compat v1 tests/fixtures/v1_examples
 cargo run --bin aodc -- test tests/fixtures/v2_smoke
@@ -80,6 +84,24 @@ cargo run --bin aodc -- test manual_examples
   - `cells.dec` (M3 4-cube measures, quarter-symmetry unit-disk enclosures `n=1..16`, rectangle metric/coord swap, exact discrete-law moments, affine covariance, 16-step tesseract transport)
   - `metrology.dec` (native turn advances, `prop:m3-atomic-gain`, and strictly quarantined `quarantine Q_ext SiMetrology:` for $\Delta\nu_{\text{Cs}}$, Hellwig H-maser, and separate NIST-F2 uncertainty budgets)
 - **`manual_examples/`:** 6 positive fixtures (`01_dec_ledger`..`06_unbiased_chamber_sandbox` with verified sibling `.stdout`) and 6 negative controls (`negative_controls/nc01..nc06` with `.expect_error`), verified byte-identical across Exact VM, AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2`, and hermetic `DecIR v2`.
+
+## Modular M4-Aligned Typst Manual & Verification (`docs/manual/`)
+
+- **`docs/manual/`:** Modular Typst manual (`main.typ`, `refs.bib`, 7 General Mechanics chapters, 5 pure-vector native Typst figures, and 3 exact-integer JSON data files) bound read-only to vendored `/bindings/aod/aod_schema.typ` and `/bindings/aod/main_registry.json`.
+- **Six-pass `aodc manual-verify docs/manual [--json]`:** Verifies `#include`/`#import` containment & `SOURCE_BINDING.json` hashes, balanced Typst scanning, all Main registry/internal/BibTeX references, zero rasters/`@preview` packages, pure-Rust equivalents of all 4 `rpoyau/aod-lint` `TypstAstPass` rules, 3-mode (`VM`/`AOT -O2`/`ORC JIT -O2`) live execution of inline Dec blocks and all 12 `@dec-file` Manual fixtures, and live field-by-field parity of `docs/manual/data/*.json`.
+- **Zero-raster PDF auditor (`scripts/audit_pdf_zero_raster.py`):** Stdlib-only Python 3 script (zero bare `assert`s) inspecting uncompressed and `/FlateDecode`-compressed PDF streams (including `/ObjStm`), rejecting `/Subtype /Image`, `/ImageB`/`/ImageC`/`/ImageI`, inline `BI..ID..EI` images, and unresolved references while verifying `--min-pages` and byte-identical `--compare-pdf` SHA-256 determinism.
+
+### Offline vs. CI Verification Matrix
+
+| Gate | Offline Local | GitHub Actions CI |
+| :--- | :---: | :---: |
+| `RUSTFLAGS="-D warnings" cargo test --workspace --offline` (debug & `--release`) | Verified | Verified |
+| `aodc test` (`v1_examples` 10/10, `v2_smoke` 3/3, `manual_examples` 12/12) | Verified | Verified |
+| `aodc probe-hw` & `aodc learn` (honest compile-inclusive amortization) | Verified | Verified |
+| `aodc manual-verify docs/manual` & `--json` (all 6 passes live) | Verified | Verified |
+| `scripts/test_audit_pdf_zero_raster.py` (`python3` & `python3 -O`) | Verified | Verified |
+| `typst compile --root . --creation-timestamp 0` (`v0.13.1`, double-build PDF + `audit_pdf_zero_raster.py`) | Not run locally (`typst` absent offline) | Verified in `.github/workflows/ci.yml` |
+| External `rpoyau/aod-lint check --strict` over `docs/manual/**/*.typ` | Mirrored in Pass 4 offline | Verified in `.github/workflows/ci.yml` |
 
 ## Provenance & Upstream Bindings
 
