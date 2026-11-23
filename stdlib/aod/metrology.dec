@@ -1,0 +1,42 @@
+# AOD Manual M3 (PRs #45/#46) — Conditional SI Metrology Interface
+# Reference binding: rpoyau/aod@98ddfa0 (03_temporal_observation.tex, aod_temporal_metrology.py)
+#
+# All SI defining frequencies, Hellwig hydrogen maser reports, and NIST-F2 uncertainty budgets
+# are STRICTLY quarantined inside `quarantine Q_ext SiMetrology:` and CANNOT leak into native AOD.
+
+use aod::core::ratio
+use aod::qext::{ext_decimal, qext_from_ratio, qext_render}
+
+# Native observed turn advance on W = (k_0, k_1]: A(W) = C(W) + phi_1 - phi_0
+Dec observed_advance(winding: int, phi0: ratio, phi1: ratio) -> ratio:
+    return ratio(winding, 1) + phi1 - phi0
+
+# prop:m3-atomic-gain identifiability family: g_lambda(Z) = 1 + lambda * (55 - Z) / 54
+# Preserves g_lambda(55) == 1 (Cs anchor) while varying g_lambda(1) == 1 + lambda.
+Dec atomic_gain_family(z: int, lam: ratio) -> ratio:
+    return 1/1r + lam * ratio(55 - z, 54)
+
+quarantine Q_ext SiMetrology:
+    # Exact SI defining Cs-133 hyperfine frequency (Hz)
+    const DELTA_NU_CS = ext_decimal("9192631770")
+
+    # Hellwig et al. (1970) published H-maser reductions (Hz), kept separate
+    const H_HELLWIG_TABLE_IV = ext_decimal("1420405751.7691")
+    const H_HELLWIG_TABLE_VI = ext_decimal("1420405751.7667")
+
+    # Heavner et al. (2014) NIST-F2 fractional uncertainties — Aug 2013 vs Table 1 kept strictly separate!
+    const NIST_F2_AUG2013_UA = ext_decimal("0.00000000000000044")
+    const NIST_F2_AUG2013_UB = ext_decimal("0.00000000000000016")
+    const NIST_F2_TABLE1_UB = ext_decimal("0.00000000000000011")
+
+    Dec duration_seconds(a_ref: ratio) -> QExt<ratio>:
+        return qext_from_ratio(a_ref) / DELTA_NU_CS
+
+    Dec mean_frequency_hz(a_cmp: ratio, a_ref: ratio) -> QExt<ratio>:
+        return qext_from_ratio(a_cmp) * DELTA_NU_CS / qext_from_ratio(a_ref)
+
+    Dec hellwig_midpoint_hz() -> QExt<ratio>:
+        return (H_HELLWIG_TABLE_IV + H_HELLWIG_TABLE_VI) / ext_decimal("2")
+
+    Dec nist_f2_hz_uncertainty(frac_u: QExt<ratio>) -> QExt<ratio>:
+        return frac_u * DELTA_NU_CS

@@ -8,9 +8,10 @@ use std::process::ExitCode;
 use aodc::diagnostics::CompatMode;
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
-    bench_file, build_aot_file, check_file, compile_file_to_ir, emit_llvm_file,
-    exec_ir_file_with_budget_capturing, format_x100, jit_file_captured, run_dec_tests,
-    run_file_with_budget_capturing, OptLevel,
+    bench_file_with_options, build_aot_file_with_options, check_file_with_options,
+    compile_file_to_ir_with_options, emit_llvm_file_with_options,
+    exec_ir_file_with_budget_capturing, format_x100, jit_file_with_options_captured,
+    run_dec_tests_with_options, run_file_with_options_capturing, LoadOptions, OptLevel,
 };
 
 fn canonicalize_allowing_new_file(path: &Path) -> std::io::Result<PathBuf> {
@@ -72,29 +73,6 @@ fn parse_opt_level(arg: &str, next: Option<&String>) -> Result<(OptLevel, usize)
     }
 }
 
-fn parse_compat_and_rest(args: &[String]) -> Result<(CompatMode, Vec<String>), String> {
-    let mut compat = CompatMode::V2;
-    let mut rest = Vec::new();
-    let mut i = 0usize;
-    while i < args.len() {
-        if args[i] == "--compat" {
-            let val = args
-                .get(i + 1)
-                .ok_or_else(|| "missing value after --compat (expected v1 or v2)".to_string())?;
-            compat = match val.as_str() {
-                "v1" => CompatMode::V1,
-                "v2" => CompatMode::V2,
-                other => return Err(format!("unknown --compat mode {other:?} (expected v1 or v2)")),
-            };
-            i += 2;
-        } else {
-            rest.push(args[i].clone());
-            i += 1;
-        }
-    }
-    Ok((compat, rest))
-}
-
 struct ExecOptions {
     compat: CompatMode,
     opt: OptLevel,
@@ -102,6 +80,7 @@ struct ExecOptions {
     max_depth: usize,
     iters: usize,
     output: Option<String>,
+    load: LoadOptions,
     rest: Vec<String>,
 }
 
@@ -112,6 +91,7 @@ fn parse_options(
     allow_budget: bool,
     allow_output: bool,
     allow_iters: bool,
+    allow_stdlib: bool,
 ) -> Result<ExecOptions, String> {
     let mut compat = CompatMode::V2;
     let mut opt = OptLevel::O2;
@@ -119,6 +99,7 @@ fn parse_options(
     let mut max_depth = DEFAULT_MAX_DEPTH;
     let mut iters = 5usize;
     let mut output = None;
+    let mut stdlib_dir = None;
     let mut rest = Vec::new();
     let mut i = 0usize;
     while i < args.len() {
@@ -132,6 +113,12 @@ fn parse_options(
                 "v2" => CompatMode::V2,
                 other => return Err(format!("unknown --compat mode {other:?} (expected v1 or v2)")),
             };
+            i += 2;
+        } else if allow_stdlib && a == "--stdlib" {
+            let val = args
+                .get(i + 1)
+                .ok_or_else(|| "missing directory path after --stdlib".to_string())?;
+            stdlib_dir = Some(PathBuf::from(val));
             i += 2;
         } else if allow_opt && a.starts_with("-O") {
             let (parsed, adv) = parse_opt_level(a, args.get(i + 1))?;
@@ -164,6 +151,7 @@ fn parse_options(
         max_depth,
         iters,
         output,
+        load: LoadOptions { stdlib_dir },
         rest,
     })
 }
@@ -190,7 +178,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] <source.dec>\n  aodc run [--compat v1|v2] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc bench [--compat v1|v2] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc test [--compat v1|v2] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -208,45 +196,50 @@ fn main() -> ExitCode {
     let sub_args = &raw_args[1..];
 
     let result: Result<(), String> = match cmd {
-        "check" => parse_compat_and_rest(sub_args).and_then(|(compat, rest)| {
-            if rest.len() != 1 {
+        "check" => parse_options(sub_args, true, false, false, false, false, true).and_then(|opts| {
+            if opts.rest.len() != 1 {
                 return Err(format!("expected <source.dec>\n{}", usage()));
             }
-            check_file(Path::new(&rest[0]), compat).map_err(|e| e.to_string())?;
-            match compat {
+            check_file_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+                .map_err(|e| e.to_string())?;
+            match opts.compat {
                 CompatMode::V1 => println!("OK: Dec core v1"),
                 CompatMode::V2 => println!("OK: Dec v2"),
             }
             Ok(())
         }),
-        "run" => parse_options(sub_args, true, false, true, false, false).and_then(|opts| {
+        "run" => parse_options(sub_args, true, false, true, false, false, true).and_then(|opts| {
             if opts.rest.len() != 1 {
                 return Err(format!("expected <source.dec>\n{}", usage()));
             }
-            let (emits, outcome) = run_file_with_budget_capturing(
+            let (emits, outcome) = run_file_with_options_capturing(
                 Path::new(&opts.rest[0]),
                 opts.compat,
                 opts.fuel,
                 opts.max_depth,
+                &opts.load,
             )
             .map_err(|e| e.to_string())?;
             flush_emits_and_result(emits, outcome)
         }),
-        "compile" => parse_options(sub_args, true, false, false, true, false).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
-            }
-            let src_path = PathBuf::from(&opts.rest[0]);
-            let out_path = PathBuf::from(
-                opts.output
-                    .ok_or_else(|| "missing -o <out.ir.json>".to_string())?,
-            );
-            ensure_out_differs_from_src(&src_path, &out_path)?;
-            let ir_text = compile_file_to_ir(&src_path, opts.compat).map_err(|e| e.to_string())?;
-            std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
-            Ok(())
-        }),
-        "exec" => parse_options(sub_args, false, false, true, false, false).and_then(|opts| {
+        "compile" => {
+            parse_options(sub_args, true, false, false, true, false, true).and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                let src_path = PathBuf::from(&opts.rest[0]);
+                let out_path = PathBuf::from(
+                    opts.output
+                        .ok_or_else(|| "missing -o <out.ir.json>".to_string())?,
+                );
+                ensure_out_differs_from_src(&src_path, &out_path)?;
+                let ir_text = compile_file_to_ir_with_options(&src_path, opts.compat, &opts.load)
+                    .map_err(|e| e.to_string())?;
+                std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
+                Ok(())
+            })
+        }
+        "exec" => parse_options(sub_args, false, false, true, false, false, false).and_then(|opts| {
             if opts.rest.len() != 1 {
                 return Err(format!("expected <program.ir.json>\n{}", usage()));
             }
@@ -258,23 +251,26 @@ fn main() -> ExitCode {
             .map_err(|e| e.to_string())?;
             flush_emits_and_result(emits, outcome)
         }),
-        "emit-llvm" => parse_options(sub_args, true, true, false, true, false).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
-            }
-            let src_path = PathBuf::from(&opts.rest[0]);
-            if let Some(ref out) = opts.output {
-                ensure_out_differs_from_src(&src_path, Path::new(out))?;
-            }
-            let ir = emit_llvm_file(&src_path, opts.compat, opts.opt).map_err(|e| e.to_string())?;
-            if let Some(out) = opts.output {
-                std::fs::write(&out, ir).map_err(|e| format!("write error: {e}"))?;
-            } else {
-                print!("{ir}");
-            }
-            Ok(())
-        }),
-        "build" => parse_options(sub_args, true, true, false, true, false).and_then(|opts| {
+        "emit-llvm" => {
+            parse_options(sub_args, true, true, false, true, false, true).and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                let src_path = PathBuf::from(&opts.rest[0]);
+                if let Some(ref out) = opts.output {
+                    ensure_out_differs_from_src(&src_path, Path::new(out))?;
+                }
+                let ir = emit_llvm_file_with_options(&src_path, opts.compat, opts.opt, &opts.load)
+                    .map_err(|e| e.to_string())?;
+                if let Some(out) = opts.output {
+                    std::fs::write(&out, ir).map_err(|e| format!("write error: {e}"))?;
+                } else {
+                    print!("{ir}");
+                }
+                Ok(())
+            })
+        }
+        "build" => parse_options(sub_args, true, true, false, true, false, true).and_then(|opts| {
             if opts.rest.len() != 1 {
                 return Err(format!("expected <source.dec>\n{}", usage()));
             }
@@ -284,18 +280,20 @@ fn main() -> ExitCode {
                     .ok_or_else(|| "missing -o <out_exe>".to_string())?,
             );
             ensure_out_differs_from_src(&src_path, &out_path)?;
-            build_aot_file(&src_path, opts.compat, opts.opt, &out_path).map_err(|e| e.to_string())
+            build_aot_file_with_options(&src_path, opts.compat, opts.opt, &out_path, &opts.load)
+                .map_err(|e| e.to_string())
         }),
-        "jit" => parse_options(sub_args, true, true, true, false, false).and_then(|opts| {
+        "jit" => parse_options(sub_args, true, true, true, false, false, true).and_then(|opts| {
             if opts.rest.len() != 1 {
                 return Err(format!("expected <source.dec>\n{}", usage()));
             }
-            let (stdout, res) = jit_file_captured(
+            let (stdout, res) = jit_file_with_options_captured(
                 Path::new(&opts.rest[0]),
                 opts.compat,
                 opts.opt,
                 opts.fuel,
                 opts.max_depth,
+                &opts.load,
             )
             .map_err(|e| e.to_string())?;
             {
@@ -305,16 +303,17 @@ fn main() -> ExitCode {
             }
             res
         }),
-        "bench" => parse_options(sub_args, true, false, true, false, true).and_then(|opts| {
+        "bench" => parse_options(sub_args, true, false, true, false, true, true).and_then(|opts| {
             if opts.rest.len() != 1 {
                 return Err(format!("expected <source.dec>\n{}", usage()));
             }
-            let r = bench_file(
+            let r = bench_file_with_options(
                 Path::new(&opts.rest[0]),
                 opts.compat,
                 opts.iters,
                 opts.fuel,
                 opts.max_depth,
+                &opts.load,
             )
             .map_err(|e| e.to_string())?;
             println!("aodc bench ({}, iters={})", opts.rest[0], r.iters);
@@ -342,11 +341,13 @@ fn main() -> ExitCode {
             );
             Ok(())
         }),
-        "test" => parse_compat_and_rest(sub_args).and_then(|(compat, rest)| {
-            if rest.len() != 1 {
+        "test" => parse_options(sub_args, true, false, false, false, false, true).and_then(|opts| {
+            if opts.rest.len() != 1 {
                 return Err(format!("expected <file_or_dir>\n{}", usage()));
             }
-            let cases = run_dec_tests(Path::new(&rest[0]), compat).map_err(|e| e.to_string())?;
+            let cases =
+                run_dec_tests_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+                    .map_err(|e| e.to_string())?;
             if cases.is_empty() {
                 return Err("no Dec test cases discovered".to_string());
             }

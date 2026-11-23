@@ -22,22 +22,39 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 pub use aod_llvm::{OptLevel, OrcJitSession};
+pub use crate::modules::LoadOptions;
 
 use crate::checker::{check_unit, CheckedUnit};
 use crate::codegen::lower_to_llvm_ir;
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
 use crate::eval::{EvalOutput, Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::ir::{dumps_ir, loads_ir};
-use crate::modules::load_from_source;
+use crate::modules::load_from_source_with_options;
 
 static BENCH_TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 pub fn check_source(source: &str, compat: CompatMode) -> DecResult<CheckedUnit> {
-    let loaded = load_from_source(source, None, compat)?;
+    check_source_with_options(source, compat, &LoadOptions::default())
+}
+
+pub fn check_source_with_options(
+    source: &str,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    let loaded = load_from_source_with_options(source, None, compat, options)?;
     check_unit(loaded, true)
 }
 
 pub fn check_file(path: &Path, compat: CompatMode) -> DecResult<CheckedUnit> {
+    check_file_with_options(path, compat, &LoadOptions::default())
+}
+
+pub fn check_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
     let source = std::fs::read_to_string(path).map_err(|e| {
         Diagnostic::new(
             DiagnosticCode::ParseError,
@@ -45,7 +62,7 @@ pub fn check_file(path: &Path, compat: CompatMode) -> DecResult<CheckedUnit> {
         )
     })?;
     let base_dir = path.parent();
-    let loaded = load_from_source(&source, base_dir, compat)?;
+    let loaded = load_from_source_with_options(&source, base_dir, compat, options)?;
     check_unit(loaded, true)
 }
 
@@ -75,12 +92,30 @@ pub fn run_file_with_budget_capturing(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    let checked = check_file(path, compat)?;
+    run_file_with_options_capturing(path, compat, fuel, max_depth, &LoadOptions::default())
+}
+
+pub fn run_file_with_options_capturing(
+    path: &Path,
+    compat: CompatMode,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
+    let checked = check_file_with_options(path, compat, options)?;
     Ok(Evaluator::new(&checked, fuel, max_depth)?.run_main_capturing())
 }
 
 pub fn compile_file_to_ir(path: &Path, compat: CompatMode) -> DecResult<String> {
-    let checked = check_file(path, compat)?;
+    compile_file_to_ir_with_options(path, compat, &LoadOptions::default())
+}
+
+pub fn compile_file_to_ir_with_options(
+    path: &Path,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecResult<String> {
+    let checked = check_file_with_options(path, compat, options)?;
     Ok(dumps_ir(&checked))
 }
 
@@ -115,7 +150,7 @@ pub fn exec_ir_file_with_budget_capturing(
 }
 
 // ============================================================================
-// PR 2: Native LLVM 18 IR Lowering, AOT ELF Build, ORC LLJIT, & Bench APIs
+// PR 2 + PR 3: Native LLVM 18 IR Lowering, AOT ELF Build, ORC LLJIT, & Bench APIs
 // ============================================================================
 
 /// Enforce all compile-time firewalls first, lower to LLVM 18 IR, verify (`action=2`), and optimize.
@@ -127,7 +162,16 @@ pub fn emit_llvm_source(source: &str, compat: CompatMode, opt: OptLevel) -> DecR
 }
 
 pub fn emit_llvm_file(path: &Path, compat: CompatMode, opt: OptLevel) -> DecResult<String> {
-    let checked = check_file(path, compat)?;
+    emit_llvm_file_with_options(path, compat, opt, &LoadOptions::default())
+}
+
+pub fn emit_llvm_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    opt: OptLevel,
+    options: &LoadOptions,
+) -> DecResult<String> {
+    let checked = check_file_with_options(path, compat, options)?;
     let raw_ir = lower_to_llvm_ir(&checked)?;
     aod_llvm::verify_and_optimize_ir(&raw_ir, opt)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
@@ -151,7 +195,17 @@ pub fn build_aot_file(
     opt: OptLevel,
     out_exe: &Path,
 ) -> DecResult<()> {
-    let checked = check_file(path, compat)?;
+    build_aot_file_with_options(path, compat, opt, out_exe, &LoadOptions::default())
+}
+
+pub fn build_aot_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    opt: OptLevel,
+    out_exe: &Path,
+    options: &LoadOptions,
+) -> DecResult<()> {
+    let checked = check_file_with_options(path, compat, options)?;
     let raw_ir = lower_to_llvm_ir(&checked)?;
     aod_llvm::link_aot_executable(&raw_ir, opt, out_exe)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
@@ -173,7 +227,16 @@ pub fn compile_jit_file(
     compat: CompatMode,
     opt: OptLevel,
 ) -> DecResult<OrcJitSession> {
-    let checked = check_file(path, compat)?;
+    compile_jit_file_with_options(path, compat, opt, &LoadOptions::default())
+}
+
+pub fn compile_jit_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    opt: OptLevel,
+    options: &LoadOptions,
+) -> DecResult<OrcJitSession> {
+    let checked = check_file_with_options(path, compat, options)?;
     let raw_ir = lower_to_llvm_ir(&checked)?;
     OrcJitSession::compile(&raw_ir, opt)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
@@ -197,7 +260,18 @@ pub fn jit_file_captured(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
-    let session = compile_jit_file(path, compat, opt)?;
+    jit_file_with_options_captured(path, compat, opt, fuel, max_depth, &LoadOptions::default())
+}
+
+pub fn jit_file_with_options_captured(
+    path: &Path,
+    compat: CompatMode,
+    opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+) -> DecResult<(String, Result<(), String>)> {
+    let session = compile_jit_file_with_options(path, compat, opt, options)?;
     Ok(session.run_captured(fuel as i64, max_depth as i32))
 }
 
@@ -238,8 +312,6 @@ pub fn format_x100(v: u128) -> String {
     format!("{}.{:02}x", v / 100, v % 100)
 }
 
-/// Run 5-mode exact parity & steady-state timing benchmark (`VM`, `AOT -O0`, `AOT -O2`,
-/// `ORC JIT -O0`, `ORC JIT -O2`) using strictly integer `u128` microsecond timings (zero floats!).
 pub fn bench_file(
     path: &Path,
     compat: CompatMode,
@@ -247,11 +319,23 @@ pub fn bench_file(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<BenchReport> {
+    bench_file_with_options(path, compat, iters, fuel, max_depth, &LoadOptions::default())
+}
+
+/// Run 5-mode exact parity & steady-state timing benchmark (`VM`, `AOT -O0`, `AOT -O2`,
+/// `ORC JIT -O0`, `ORC JIT -O2`) using strictly integer `u128` microsecond timings (zero floats!).
+pub fn bench_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    iters: usize,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+) -> DecResult<BenchReport> {
     let iters = iters.max(1);
-    let checked = check_file(path, compat)?;
+    let checked = check_file_with_options(path, compat, options)?;
     let raw_ir = lower_to_llvm_ir(&checked)?;
 
-    // 1. Exact VM baseline (warmup + timed iterations)
     let vm_out = Evaluator::new(&checked, fuel, max_depth)?
         .run_main()?
         .to_stdout_string();
@@ -271,7 +355,6 @@ pub fn bench_file(
     }
     let vm_median_us = median_u128(vm_times);
 
-    // 2. AOT -O0 and AOT -O2
     let seq = BENCH_TMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let exe_o0 = std::env::temp_dir().join(format!("aodc_bench_{}_{}_o0", std::process::id(), seq));
     let exe_o2 = std::env::temp_dir().join(format!("aodc_bench_{}_{}_o2", std::process::id(), seq));
@@ -291,7 +374,6 @@ pub fn bench_file(
             let mut times = Vec::with_capacity(iters);
             let fuel_s = fuel.to_string();
             let depth_s = max_depth.to_string();
-            // Warmup run + parity check
             let w = Command::new(exe)
                 .args(["--fuel", &fuel_s, "--max-depth", &depth_s])
                 .output()
@@ -331,7 +413,6 @@ pub fn bench_file(
         let aot_o0_median_us = median_u128(run_aot(&exe_o0)?);
         let aot_o2_median_us = median_u128(run_aot(&exe_o2)?);
 
-        // 3. ORC LLJIT -O0 and ORC LLJIT -O2
         let t0 = Instant::now();
         let jit_o0 = OrcJitSession::compile(&raw_ir, OptLevel::O0)
             .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
@@ -394,7 +475,7 @@ pub fn bench_file(
 }
 
 // ============================================================================
-// Dec Test Runner (`P0-3`)
+// Dec Test Runner (PR 1 `P0-3` + PR 3 `P1-1` hardened `.expect_error`!)
 // ============================================================================
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -406,6 +487,14 @@ pub struct TestCaseResult {
 }
 
 pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCaseResult>> {
+    run_dec_tests_with_options(target, compat, &LoadOptions::default())
+}
+
+pub fn run_dec_tests_with_options(
+    target: &Path,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecResult<Vec<TestCaseResult>> {
     let mut files = Vec::new();
     if target.is_file() {
         files.push(target.to_path_buf());
@@ -420,6 +509,98 @@ pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCas
 
     let mut results = Vec::new();
     for file in files {
+        let sibling_stdout = file.with_extension("stdout");
+        let sibling_expect_error = file.with_extension("expect_error");
+        let has_stdout = sibling_stdout.is_file();
+        let has_expect_error = sibling_expect_error.is_file();
+
+        // P1-1: Reject ambiguous fixture having BOTH `.stdout` and `.expect_error`
+        if has_stdout && has_expect_error {
+            results.push(TestCaseResult {
+                file,
+                test_name: "expect_error".to_string(),
+                passed: false,
+                error: Some(
+                    "ambiguous fixture: both sibling .stdout and .expect_error files exist"
+                        .to_string(),
+                ),
+            });
+            continue;
+        }
+
+        // P1-1: Handle `.expect_error` BEFORE loading/checking/running so both compile-time
+        // and runtime negative controls are verified deterministically!
+        if has_expect_error {
+            let expected_raw = match std::fs::read_to_string(&sibling_expect_error) {
+                Ok(s) => s,
+                Err(e) => {
+                    results.push(TestCaseResult {
+                        file,
+                        test_name: "expect_error".to_string(),
+                        passed: false,
+                        error: Some(format!("failed reading .expect_error: {e}")),
+                    });
+                    continue;
+                }
+            };
+            let expected = expected_raw.trim();
+            if expected.is_empty() {
+                results.push(TestCaseResult {
+                    file,
+                    test_name: "expect_error".to_string(),
+                    passed: false,
+                    error: Some(
+                        ".expect_error file is empty or whitespace-only (non-empty diagnostic expectation required)"
+                            .to_string(),
+                    ),
+                });
+                continue;
+            }
+
+            let outcome = std::fs::read_to_string(&file)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::ParseError, e.to_string()))
+                .and_then(|src| {
+                    load_from_source_with_options(&src, file.parent(), compat, options)
+                })
+                .and_then(|loaded| check_unit(loaded, true))
+                .and_then(|checked| {
+                    Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)?.run_main()
+                });
+
+            match outcome {
+                Ok(_) => results.push(TestCaseResult {
+                    file,
+                    test_name: "expect_error".to_string(),
+                    passed: false,
+                    error: Some(format!(
+                        "expected failure matching {expected:?}, but program succeeded"
+                    )),
+                }),
+                Err(diag) => {
+                    let rendered = diag.to_string();
+                    let code_name = format!("{:?}", diag.code);
+                    if rendered.contains(expected) || code_name == expected {
+                        results.push(TestCaseResult {
+                            file,
+                            test_name: "expect_error".to_string(),
+                            passed: true,
+                            error: None,
+                        });
+                    } else {
+                        results.push(TestCaseResult {
+                            file,
+                            test_name: "expect_error".to_string(),
+                            passed: false,
+                            error: Some(format!(
+                                "expected error matching {expected:?}, got {rendered}"
+                            )),
+                        });
+                    }
+                }
+            }
+            continue;
+        }
+
         let source = match std::fs::read_to_string(&file) {
             Ok(s) => s,
             Err(e) => {
@@ -432,7 +613,7 @@ pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCas
                 continue;
             }
         };
-        let loaded = match load_from_source(&source, file.parent(), compat) {
+        let loaded = match load_from_source_with_options(&source, file.parent(), compat, options) {
             Ok(u) => u,
             Err(e) => {
                 results.push(TestCaseResult {
@@ -481,8 +662,7 @@ pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCas
                 .and_then(|ev| ev.run_main());
             match run_res {
                 Ok(out) => {
-                    let sibling_stdout = file.with_extension("stdout");
-                    if sibling_stdout.is_file() {
+                    if has_stdout {
                         match std::fs::read_to_string(&sibling_stdout) {
                             Ok(expected) => {
                                 let actual = out.to_stdout_string();

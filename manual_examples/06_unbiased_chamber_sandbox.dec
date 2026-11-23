@@ -1,0 +1,55 @@
+# AOD Manual Fixture 06 — Unbiased Opposing 3:3:6 Chamber Sandbox Apparatus
+# Explicitly tagged DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED, importing stdlib::aod::{ledger,boundary},
+# proving exact zero observer back-reaction across 0-, 1-, and 2-observer configurations with zero hardcoded outcomes.
+
+use aod::core::{support_pi, support_rd}
+use stdlib::aod::ledger::{boundary_audit}
+use stdlib::aod::boundary::{proton_support}
+
+chamber SandboxLab:
+    space = box([0..64, 0..64, 0..64])
+    walls = open
+
+prepare Opposing336 in SandboxLab:
+    clock ref_clk = 3
+    let sup = proton_support()
+    inject sup at (26, 32, 32) dir +X orient +1t shells 2
+    inject sup at (38, 32, 32) dir -X orient -1t shells 2
+
+observe DeclProbe:
+    sensor center_gate:
+        region = box([24..40, 24..40, 24..40])
+        capture = [returns, hinges, shedding]
+
+observe ProcProbe:
+    tracer tick_watcher(view):
+        let _c = view.carrier_count
+
+Dec main() -> int:
+    let p = proton_support()
+    assert support_pi(p) == 30 and support_rd(p, 1) == 61
+    let pre_aud = boundary_audit(27, 24)
+    assert pre_aud.x_shedding == 3
+
+    # Run identical initial preparation with 0, 1, and 2 passive observers
+    let r0 = simulate Opposing336 for 12 ticks
+    let r1 = simulate Opposing336 for 12 ticks with DeclProbe
+    let r2 = simulate Opposing336 for 12 ticks with DeclProbe, ProcProbe
+
+    # Provenance & zero observer back-reaction invariants (exact SHA-256 state hash identity)
+    assert r0.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert r0.final_state_hash == r1.final_state_hash
+    assert r0.final_state_hash == r2.final_state_hash
+    assert r0.ticks == 12 and r0.carrier_count == 2
+    assert r0.shedding_event_count >= 1 and r0.wavelet_event_count >= 1
+
+    emit r0.model_status
+    emit r0.ticks
+    emit r0.carrier_count
+    emit r0.shedding_event_count
+    emit r0.wavelet_event_count
+    emit r0.total_returns
+    emit r0.total_hinges
+    emit r0.final_state_hash
+    emit ∂r0
+    return 0

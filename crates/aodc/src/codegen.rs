@@ -197,6 +197,22 @@ impl<'a> Codegen<'a> {
         {
             return Some(format!("{base}::{ns}"));
         }
+        if let Some(ImportedSymbol::ModuleItem { module, item }) =
+            self.imports_for(mod_key).get(ns)
+        {
+            if self.qext_modules.contains(&(module.clone(), item.clone())) {
+                return Some(format!("{module}::{item}"));
+            }
+        }
+        None
+    }
+
+    fn resolve_qext_submodule_3seg(&self, mod_key: &str, ns: &str, qmod: &str) -> Option<String> {
+        if let Some(ImportedSymbol::ModuleNamespace(m)) = self.imports_for(mod_key).get(ns) {
+            if self.qext_modules.contains(&(m.clone(), qmod.to_string())) {
+                return Some(format!("{m}::{qmod}"));
+            }
+        }
         None
     }
 
@@ -274,10 +290,12 @@ impl<'a> Codegen<'a> {
         for (mk, prog) in &self.checked.unit.parsed_modules {
             self.resolve_types_in_program(mk, prog)?;
         }
-        // Pass 3: index chambers, prepares, observes, functions, consts (imported modules first
-        // so entry `const`s can reference imported `const`s cleanly in `@aod_init_consts`!)
-        for (mk, prog) in &self.checked.unit.parsed_modules {
-            self.index_items(mk, prog)?;
+        // Pass 3: index chambers, prepares, observes, functions, consts in strict post-order
+        // topological dependency order (`P0-1`) so `@aod_init_consts` always initializes dependencies first.
+        for mk in &self.checked.unit.module_load_order {
+            if let Some(prog) = self.checked.unit.parsed_modules.get(mk) {
+                self.index_items(mk, prog)?;
+            }
         }
         self.index_items("<entry>", &self.checked.unit.entry_program)?;
         Ok(())
@@ -2456,6 +2474,14 @@ impl FnBuilder {
                             return Ok(self.load_const(&cm));
                         }
                     }
+                } else if segs.len() == 3 {
+                    if let Some(qsub) =
+                        cg.resolve_qext_submodule_3seg(&self.mod_key, &segs[0], &segs[1])
+                    {
+                        if let Some(cm) = cg.consts.get(&(qsub, segs[2].clone())).cloned() {
+                            return Ok(self.load_const(&cm));
+                        }
+                    }
                 }
                 Err(Diagnostic::at_line(
                     DiagnosticCode::RuntimeError,
@@ -3397,6 +3423,14 @@ impl FnBuilder {
                             return self.emit_builtin(&canon, pos, line);
                         }
                         if let Some(ovs) = cg.fn_overloads.get(&(m, segs[1].clone())).cloned() {
+                            return self.emit_user_call(&ovs, eval_args, line);
+                        }
+                    }
+                } else if segs.len() == 3 {
+                    if let Some(qsub) =
+                        cg.resolve_qext_submodule_3seg(&self.mod_key, &segs[0], &segs[1])
+                    {
+                        if let Some(ovs) = cg.fn_overloads.get(&(qsub, segs[2].clone())).cloned() {
                             return self.emit_user_call(&ovs, eval_args, line);
                         }
                     }

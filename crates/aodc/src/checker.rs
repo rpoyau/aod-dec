@@ -205,7 +205,7 @@ impl<'a> Checker<'a> {
         }
     }
 
-    /// Resolve a `quarantine Q_ext` sibling or local submodule (`P2-3`).
+    /// Resolve a `quarantine Q_ext` local, sibling (`P2-3`), or imported (`P0-1`) submodule.
     fn resolve_qext_submodule(&self, mod_key: &str, ns: &str) -> Option<String> {
         if self
             .qext_modules
@@ -220,6 +220,23 @@ impl<'a> Checker<'a> {
                 .contains(&(base.to_string(), ns.to_string()))
         {
             return Some(format!("{base}::{ns}"));
+        }
+        if let Some(ImportedSymbol::ModuleItem { module, item }) =
+            self.imports_for(mod_key).get(ns)
+        {
+            if self.qext_modules.contains(&(module.clone(), item.clone())) {
+                return Some(format!("{module}::{item}"));
+            }
+        }
+        None
+    }
+
+    /// Resolve a 3-segment cross-module `quarantine Q_ext` submodule (`mod_ns::QMod::...`, `P0-1`).
+    fn resolve_qext_submodule_3seg(&self, mod_key: &str, ns: &str, qmod: &str) -> Option<String> {
+        if let Some(ImportedSymbol::ModuleNamespace(m)) = self.imports_for(mod_key).get(ns) {
+            if self.qext_modules.contains(&(m.clone(), qmod.to_string())) {
+                return Some(format!("{m}::{qmod}"));
+            }
         }
         None
     }
@@ -327,8 +344,10 @@ impl<'a> Checker<'a> {
             self.collect_program_items(mod_key, prog)?;
         }
 
-        for (mod_key, prog) in &self.unit.parsed_modules {
-            self.collect_program_consts(mod_key, prog)?;
+        for mod_key in &self.unit.module_load_order {
+            if let Some(prog) = self.unit.parsed_modules.get(mod_key) {
+                self.collect_program_consts(mod_key, prog)?;
+            }
         }
         self.collect_program_consts("<entry>", &self.unit.entry_program)?;
         Ok(())
@@ -2482,6 +2501,25 @@ impl<'a> Checker<'a> {
                             return Ok(c.ty.clone());
                         }
                     }
+                } else if segs.len() == 3 {
+                    // 3. Cross-module 3-segment `quarantine Q_ext` const (`mod::QMod::CONST`, `P0-1`)
+                    if let Some(qsub) =
+                        self.resolve_qext_submodule_3seg(&ctx.module_key, &segs[0], &segs[1])
+                    {
+                        if let Some(c) = self.consts.get(&(qsub, segs[2].clone())) {
+                            if c.is_qext && ctx.effect != Effect::QExt {
+                                return Err(Diagnostic::at_line(
+                                    DiagnosticCode::QExtLeakageForbidden,
+                                    expr.line,
+                                    format!(
+                                        "cannot reference QExt const {} outside quarantine Q_ext",
+                                        segs.join("::")
+                                    ),
+                                ));
+                            }
+                            return Ok(c.ty.clone());
+                        }
+                    }
                 }
                 Err(Diagnostic::at_line(
                     DiagnosticCode::TypeError,
@@ -3311,6 +3349,27 @@ impl<'a> Checker<'a> {
                             DiagnosticCode::TypeError,
                             line,
                             format!("undefined function path {}", segs.join("::")),
+                        ));
+                    }
+                } else if segs.len() == 3 {
+                    // P0-1: 3-segment cross-module `quarantine Q_ext` call (`mod::QMod::fn(...)`)
+                    if let Some(qsub) =
+                        self.resolve_qext_submodule_3seg(&ctx.module_key, &segs[0], &segs[1])
+                    {
+                        if let Some(entry) = self.functions.get(&(qsub, segs[2].clone())).cloned() {
+                            CallTarget::UserFn(entry)
+                        } else {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::TypeError,
+                                line,
+                                format!("undefined function {}", segs.join("::")),
+                            ));
+                        }
+                    } else {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("unsupported call path {}", segs.join("::")),
                         ));
                     }
                 } else {

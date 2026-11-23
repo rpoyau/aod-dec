@@ -1,0 +1,119 @@
+# AOD Manual M3 (PR #43) — Cubical 4-Cube Cell Measures, Quarter-Symmetry Disk Enclosures,
+# Exact Discrete-Law Moments, Affine Covariance, and 16-Step Tesseract Transport
+# Reference binding: rpoyau/aod@98ddfa0 (01_cell_measures.tex, 02_mapping_error.tex)
+
+use aod::core::ratio
+
+struct FourCubeCounts:
+    v0: int
+    v1: int
+    v2: int
+    v3: int
+    v4: int
+    total: int
+    euler: int
+
+struct FourCubeMeasure:
+    vol4: ratio
+    bdry3: ratio
+
+struct DiskEnclosure:
+    n: int
+    a_minus: ratio
+    a_plus: ratio
+    c_n: ratio
+    excess: ratio
+
+struct LawMoments:
+    mean: ratio
+    variance: ratio
+
+struct AffineCov:
+    var_a: ratio
+    var_b: ratio
+    cov_ab: ratio
+
+Dec four_cube_counts() -> FourCubeCounts:
+    let v0 = 16
+    let v1 = 32
+    let v2 = 24
+    let v3 = 8
+    let v4 = 1
+    let total = v0 + v1 + v2 + v3 + v4
+    let euler = v0 - v1 + v2 - v3 + v4
+    return FourCubeCounts { v0: v0, v1: v1, v2: v2, v3: v3, v4: v4, total: total, euler: euler }
+
+Dec four_cube_measure(a: ratio) -> FourCubeMeasure:
+    let a2 = a * a
+    let a3 = a2 * a
+    let a4 = a3 * a
+    return FourCubeMeasure { vol4: a4, bdry3: 8/1r * a3 }
+
+# Exact unit-disk cubical enclosure via quarter-symmetry (0..n x 0..n) x 4 (`P1-2`):
+# Inner staircase: max corner radius <= 1 ((i+1)^2 + (j+1)^2 <= n^2)
+# Outer staircase: min corner radius < 1 (i^2 + j^2 < n^2)
+# Exposed axial boundary length C_n = 8 at every resolution n >= 1.
+Dec disk_enclosure(n: int) -> DiskEnclosure:
+    assert n >= 1
+    let n2 = n * n
+    mut inner_q = 0
+    mut outer_q = 0
+    for i in 0..n:
+        let i2 = i * i
+        let ip1_2 = (i + 1) * (i + 1)
+        for j in 0..n:
+            if i2 + j * j < n2:
+                outer_q = outer_q + 1
+            if ip1_2 + (j + 1) * (j + 1) <= n2:
+                inner_q = inner_q + 1
+    let a_minus = ratio(4 * inner_q, n2)
+    let a_plus = ratio(4 * outer_q, n2)
+    let c_n = 8/1r
+    let excess = c_n - 2/1r * a_plus
+    return DiskEnclosure { n: n, a_minus: a_minus, a_plus: a_plus, c_n: c_n, excess: excess }
+
+# Rectangle boundary measure: 2 * (nx * wx + ny * wy)
+Dec rect_boundary(nx: int, ny: int, wx: ratio, wy: ratio) -> ratio:
+    return 2/1r * (ratio(nx, 1) * wx + ratio(ny, 1) * wy)
+
+Dec moments_from_atoms(vals: [ratio], probs: [ratio]) -> LawMoments:
+    let k = len(vals)
+    assert k == len(probs) and k > 0
+    mut p_sum = 0/1r
+    mut mu = 0/1r
+    for i in 0..k:
+        p_sum = p_sum + probs[i]
+        mu = mu + probs[i] * vals[i]
+    assert p_sum == 1/1r
+    mut var = 0/1r
+    for i in 0..k:
+        let d = vals[i] - mu
+        var = var + probs[i] * d * d
+    return LawMoments { mean: mu, variance: var }
+
+Dec affine_cov(a: ratio, b: ratio, var_x: ratio) -> AffineCov:
+    return AffineCov {
+        var_a: a * a * var_x,
+        var_b: b * b * var_x,
+        cov_ab: a * b * var_x
+    }
+
+# 16-step exact integer transport across all 16 Q_4 tesseract vertices conserving total mass on every step
+Dec tesseract_transport_16(init_mass: int) -> int:
+    mut cells = [init_mass, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for step in 0..16:
+        let src = step % 16
+        let bit = 1 << (step % 4)
+        let dst = src ^ bit
+        let move_amt = cells[src] // 2 + 1
+        let transfer = move_amt if move_amt <= cells[src] else cells[src]
+        cells[src] = cells[src] - transfer
+        cells[dst] = cells[dst] + transfer
+        mut sum = 0
+        for v in 0..16:
+            sum = sum + cells[v]
+        assert sum == init_mass
+    mut final_sum = 0
+    for v in 0..16:
+        final_sum = final_sum + cells[v]
+    return final_sum

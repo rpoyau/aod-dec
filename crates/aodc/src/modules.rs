@@ -7,6 +7,13 @@ use crate::ast::{Item, Program, UseDecl};
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
 use crate::parser::parse_source;
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LoadOptions {
+    /// Explicit `--stdlib <dir>` override pointing to the `stdlib/` directory itself
+    /// (containing `aod/ledger.dec`). When set, NO silent fallback is permitted (`P0-2`).
+    pub stdlib_dir: Option<PathBuf>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BundledModule {
     pub source: String,
@@ -14,7 +21,8 @@ pub struct BundledModule {
 }
 
 /// Complete hermetic compilation unit containing the entry module plus all transitively
-/// resolved filesystem modules (with exact sources & SHA-256 digests for DecIR v2 bundling).
+/// resolved filesystem/stdlib modules (with exact sources, SHA-256 digests, and
+/// post-order topological `module_load_order` for `const` initialization, `P0-1`).
 #[derive(Clone, Debug)]
 pub struct LoadedUnit {
     pub compat: CompatMode,
@@ -23,6 +31,8 @@ pub struct LoadedUnit {
     pub entry_program: Program,
     pub bundled_modules: BTreeMap<String, BundledModule>,
     pub parsed_modules: BTreeMap<String, Program>,
+    /// Post-order DFS module dependency order (dependencies strictly precede dependents, `P0-1`).
+    pub module_load_order: Vec<String>,
     /// Mapping in entry (and per module) from imported local alias -> canonical target `(module_or_builtin, symbol)`.
     pub entry_imports: BTreeMap<String, ImportedSymbol>,
     pub module_imports: BTreeMap<String, BTreeMap<String, ImportedSymbol>>,
@@ -92,22 +102,84 @@ pub fn canonical_builtin_name(namespace: &[String], item: &str) -> String {
     }
 }
 
-/// Load a source file (or in-memory source with optional base directory) and resolve all `use`
-/// declarations transitively, detecting import cycles.
+/// Resolve the `stdlib/` directory root strictly according to `P0-2` precedence:
+/// 1. Explicit `options.stdlib_dir` (`--stdlib <dir>`) -> use ONLY that path (zero silent fallback).
+/// 2. Explicit non-empty `AOD_STDLIB_DIR` env var -> use ONLY that path (zero silent fallback).
+/// 3. Upward ancestor walk (up to 6 ancestors from `base_dir`, then `current_dir`) for `<dir>/stdlib/aod/ledger.dec`.
+/// 4. Compile-time workspace fallback `<CARGO_MANIFEST_DIR>/../../stdlib` if `aod/ledger.dec` exists.
+pub fn resolve_stdlib_root(options: &LoadOptions, base_dir: Option<&Path>) -> Option<PathBuf> {
+    if let Some(ref explicit) = options.stdlib_dir {
+        return Some(explicit.clone());
+    }
+    if let Ok(env_dir) = std::env::var("AOD_STDLIB_DIR") {
+        if !env_dir.trim().is_empty() {
+            return Some(PathBuf::from(env_dir));
+        }
+    }
+
+    let mut search_starts = Vec::new();
+    if let Some(d) = base_dir {
+        search_starts.push(d.to_path_buf());
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        if !search_starts.contains(&cwd) {
+            search_starts.push(cwd);
+        }
+    }
+
+    for start in search_starts {
+        let mut cur: Option<&Path> = Some(start.as_path());
+        for _ in 0..=6 {
+            let Some(dir) = cur else { break };
+            let cand = dir.join("stdlib");
+            if cand.join("aod").join("ledger.dec").is_file() {
+                return Some(cand);
+            }
+            cur = dir.parent();
+        }
+    }
+
+    let manifest_fallback = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .map(|root| root.join("stdlib"));
+    if let Some(ref cand) = manifest_fallback {
+        if cand.join("aod").join("ledger.dec").is_file() {
+            return Some(cand.clone());
+        }
+    }
+    None
+}
+
+/// Load a source file (or in-memory source with optional base directory) with default `LoadOptions`.
 pub fn load_from_source(
     entry_source: &str,
     base_dir: Option<&Path>,
     compat: CompatMode,
 ) -> DecResult<LoadedUnit> {
+    load_from_source_with_options(entry_source, base_dir, compat, &LoadOptions::default())
+}
+
+/// Load a source file (or in-memory source with optional base directory and explicit `LoadOptions`)
+/// resolving all `use` declarations transitively, recording post-order DFS `module_load_order`.
+pub fn load_from_source_with_options(
+    entry_source: &str,
+    base_dir: Option<&Path>,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecResult<LoadedUnit> {
     let entry_program = parse_source(entry_source, compat)?;
     let entry_sha256 = Sha256::digest_hex(entry_source.as_bytes());
+    let stdlib_root = resolve_stdlib_root(options, base_dir);
 
     let mut loader = ModuleLoader {
         compat,
         base_dir: base_dir.map(Path::to_path_buf),
+        stdlib_root,
         embedded: None,
         bundled_modules: BTreeMap::new(),
         parsed_modules: BTreeMap::new(),
+        module_load_order: Vec::new(),
         module_imports: BTreeMap::new(),
         visiting: Vec::new(),
         visited: BTreeSet::new(),
@@ -122,13 +194,14 @@ pub fn load_from_source(
         entry_program,
         bundled_modules: loader.bundled_modules,
         parsed_modules: loader.parsed_modules,
+        module_load_order: loader.module_load_order,
         entry_imports,
         module_imports: loader.module_imports,
     })
 }
 
 /// Load a `LoadedUnit` strictly hermetically from embedded `entry_source` + `bundled_modules`
-/// (ZERO ambient filesystem reads, `P1-2`).
+/// (ZERO ambient filesystem reads, ZERO `AOD_STDLIB_DIR` inspection, `P0-2`, `P1-2`).
 pub fn load_hermetic(
     entry_source: &str,
     bundled_modules: &BTreeMap<String, BundledModule>,
@@ -149,9 +222,11 @@ pub fn load_hermetic(
     let mut loader = ModuleLoader {
         compat,
         base_dir: None,
+        stdlib_root: None,
         embedded: Some(bundled_modules.clone()),
         bundled_modules: BTreeMap::new(),
         parsed_modules: BTreeMap::new(),
+        module_load_order: Vec::new(),
         module_imports: BTreeMap::new(),
         visiting: Vec::new(),
         visited: BTreeSet::new(),
@@ -166,6 +241,7 @@ pub fn load_hermetic(
         entry_program,
         bundled_modules: loader.bundled_modules,
         parsed_modules: loader.parsed_modules,
+        module_load_order: loader.module_load_order,
         entry_imports,
         module_imports: loader.module_imports,
     })
@@ -174,9 +250,11 @@ pub fn load_hermetic(
 struct ModuleLoader {
     compat: CompatMode,
     base_dir: Option<PathBuf>,
+    stdlib_root: Option<PathBuf>,
     embedded: Option<BTreeMap<String, BundledModule>>,
     bundled_modules: BTreeMap<String, BundledModule>,
     parsed_modules: BTreeMap<String, Program>,
+    module_load_order: Vec<String>,
     module_imports: BTreeMap<String, BTreeMap<String, ImportedSymbol>>,
     visiting: Vec<String>,
     visited: BTreeSet<String>,
@@ -213,7 +291,7 @@ impl ModuleLoader {
             ));
         }
 
-        // Built-in `aod::*` namespace
+        // Built-in `aod::*` namespace (preserved untouched)
         if u.path[0] == "aod" {
             if let Some(items) = &u.items {
                 let allowed = builtin_namespace_items(&u.path).ok_or_else(|| {
@@ -281,7 +359,16 @@ impl ModuleLoader {
             }
         }
 
-        // Filesystem / embedded user module
+        // Reject bare `use stdlib` without at least one submodule segment (`P0-2`)
+        if u.path[0] == "stdlib" && u.path.len() < 2 {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::ModuleNotFound,
+                u.line,
+                "stdlib import requires at least one submodule segment (e.g. `use stdlib::aod::ledger`)",
+            ));
+        }
+
+        // Filesystem, stdlib, or hermetic embedded module
         if let Some(items) = &u.items {
             let mod_key = u.path.join("::");
             self.load_user_module(&mod_key, &u.path, current_mod, current_dir, u.line)?;
@@ -310,6 +397,14 @@ impl ModuleLoader {
                 imports.insert(alias, ImportedSymbol::ModuleNamespace(full_key));
             } else {
                 let parent_path = &u.path[..u.path.len() - 1];
+                if parent_path.first().map(String::as_str) == Some("stdlib") && parent_path.len() < 2
+                {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ModuleNotFound,
+                        u.line,
+                        format!("stdlib module {full_key:?} not found"),
+                    ));
+                }
                 let mod_key = parent_path.join("::");
                 let sym = u.path.last().cloned().unwrap();
                 self.load_user_module(&mod_key, parent_path, current_mod, current_dir, u.line)?;
@@ -326,6 +421,7 @@ impl ModuleLoader {
     }
 
     fn module_exists(&self, mod_key: &str, segs: &[String], current_dir: Option<&Path>) -> bool {
+        // P0-2: Check embedded hermetic bundle FIRST for ALL modules (including `stdlib::*`).
         if let Some(emb) = &self.embedded {
             return emb.contains_key(mod_key);
         }
@@ -333,6 +429,35 @@ impl ModuleLoader {
     }
 
     fn find_module_file(&self, segs: &[String], current_dir: Option<&Path>) -> Option<PathBuf> {
+        if segs.is_empty()
+            || segs
+                .iter()
+                .any(|s| s.is_empty() || s == "." || s == ".." || s.contains('/') || s.contains('\\'))
+        {
+            return None;
+        }
+
+        // Pure `.dec` stdlib namespace (`use stdlib::...`) resolves strictly under `stdlib_root` (`P0-2`)
+        if segs[0] == "stdlib" {
+            if segs.len() < 2 {
+                return None;
+            }
+            let root = self.stdlib_root.as_ref()?;
+            let mut direct = root.clone();
+            for s in &segs[1..] {
+                direct.push(s);
+            }
+            let as_file = direct.with_extension("dec");
+            if as_file.is_file() {
+                return Some(as_file);
+            }
+            let as_mod = direct.join("mod.dec");
+            if as_mod.is_file() {
+                return Some(as_mod);
+            }
+            return None;
+        }
+
         let mut search_roots = Vec::new();
         if let Some(d) = current_dir {
             search_roots.push(d.to_path_buf());
@@ -380,6 +505,7 @@ impl ModuleLoader {
             return Ok(());
         }
 
+        // P0-2: Always inspect hermetic embedded bundle FIRST (zero filesystem / env reads in `exec`).
         let (source, next_dir) = if let Some(emb) = &self.embedded {
             let m = emb.get(mod_key).ok_or_else(|| {
                 Diagnostic::at_line(
@@ -417,7 +543,9 @@ impl ModuleLoader {
         let mod_imports = self.resolve_program_uses(&program, mod_key, next_dir.as_deref())?;
         self.visiting.pop();
 
+        // Post-order DFS exit (`P0-1`): dependencies strictly precede dependents!
         self.visited.insert(mod_key.to_string());
+        self.module_load_order.push(mod_key.to_string());
         self.bundled_modules.insert(
             mod_key.to_string(),
             BundledModule {

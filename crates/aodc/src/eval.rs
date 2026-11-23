@@ -354,8 +354,10 @@ impl<'a> Evaluator<'a> {
         for (mod_key, prog) in &checked.unit.parsed_modules {
             ev.index_program(mod_key, prog)?;
         }
-        for (mod_key, prog) in &checked.unit.parsed_modules {
-            ev.eval_program_consts(mod_key, prog)?;
+        for mod_key in &checked.unit.module_load_order {
+            if let Some(prog) = checked.unit.parsed_modules.get(mod_key) {
+                ev.eval_program_consts(mod_key, prog)?;
+            }
         }
         ev.eval_program_consts("<entry>", &checked.unit.entry_program)?;
         Ok(ev)
@@ -387,6 +389,22 @@ impl<'a> Evaluator<'a> {
                 .contains(&(base.to_string(), ns.to_string()))
         {
             return Some(format!("{base}::{ns}"));
+        }
+        if let Some(ImportedSymbol::ModuleItem { module, item }) =
+            self.imports_for(mod_key).get(ns)
+        {
+            if self.qext_modules.contains(&(module.clone(), item.clone())) {
+                return Some(format!("{module}::{item}"));
+            }
+        }
+        None
+    }
+
+    fn resolve_qext_submodule_3seg(&self, mod_key: &str, ns: &str, qmod: &str) -> Option<String> {
+        if let Some(ImportedSymbol::ModuleNamespace(m)) = self.imports_for(mod_key).get(ns) {
+            if self.qext_modules.contains(&(m.clone(), qmod.to_string())) {
+                return Some(format!("{m}::{qmod}"));
+            }
         }
         None
     }
@@ -1157,6 +1175,14 @@ impl<'a> Evaluator<'a> {
                             return Ok(v.clone());
                         }
                     }
+                } else if segs.len() == 3 {
+                    if let Some(qsub) =
+                        self.resolve_qext_submodule_3seg(mod_key, &segs[0], &segs[1])
+                    {
+                        if let Some(v) = self.consts.get(&(qsub, segs[2].clone())) {
+                            return Ok(v.clone());
+                        }
+                    }
                 }
                 Err(Diagnostic::at_line(
                     DiagnosticCode::RuntimeError,
@@ -1466,6 +1492,14 @@ impl<'a> Evaluator<'a> {
                             return eval_builtin(&canon, pos, line);
                         }
                         return self.call_user_fn(&target_mod, &segs[1], vals, line);
+                    }
+                } else if segs.len() == 3 {
+                    if let Some(qsub) =
+                        self.resolve_qext_submodule_3seg(mod_key, &segs[0], &segs[1])
+                    {
+                        if self.functions.contains_key(&(qsub.clone(), segs[2].clone())) {
+                            return self.call_user_fn(&qsub, &segs[2], vals, line);
+                        }
                     }
                 }
                 Err(Diagnostic::at_line(

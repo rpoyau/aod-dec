@@ -59,10 +59,21 @@ cargo run --bin aodc -- bench tests/fixtures/v2_bench/unboxed_loop_bench.dec
 cargo run --bin aodc -- compile tests/fixtures/v2_smoke/m3_wavelet_recipient.dec -o /tmp/m3.ir.json
 cargo run --bin aodc -- exec /tmp/m3.ir.json
 
-# Run Dec tests on a file or directory (including sibling .stdout parity checks)
+# Run Dec tests on a file or directory (including sibling .stdout and .expect_error checks)
 cargo run --bin aodc -- test --compat v1 tests/fixtures/v1_examples
 cargo run --bin aodc -- test tests/fixtures/v2_smoke
+cargo run --bin aodc -- test manual_examples
 ```
+
+## Native Dec Standard Library (`stdlib/aod/*.dec`) & Executable Manual Fixtures
+
+- **`stdlib/aod/`:** Pure `.dec` modules resolved via `use stdlib::aod::...` (`--stdlib <dir>` / `AOD_STDLIB_DIR` / automatic repo discovery, hermetically bundled into `DecIR v2`):
+  - `ledger.dec` (Manual §4 D.E.C. kernels, blocked dwell/hinge slide, tunnelling clip, ADAR/SADAR, Tau missing-burden, `R02` gap)
+  - `wavelet.dec` (M3 12 Duon variants, same-current Duad seating, half-open window counts, opposing cancellation, exact cyclotomic $\mathbb{Z}_{12}$ DFT in $\mathbb{Q}[x]/(x^4 - x^2 + 1)$)
+  - `boundary.dec` (Manual §§5–6 11-bin double-slit cross-return $\delta_3$, short-window clipping, purely native `3:3:7_yro` saddle, moving boundary, Stokes cancellation)
+  - `cells.dec` (M3 4-cube measures, quarter-symmetry unit-disk enclosures `n=1..16`, rectangle metric/coord swap, exact discrete-law moments, affine covariance, 16-step tesseract transport)
+  - `metrology.dec` (native turn advances, `prop:m3-atomic-gain`, and strictly quarantined `quarantine Q_ext SiMetrology:` for $\Delta\nu_{\text{Cs}}$, Hellwig H-maser, and separate NIST-F2 uncertainty budgets)
+- **`manual_examples/`:** 6 positive fixtures (`01_dec_ledger`..`06_unbiased_chamber_sandbox` with verified sibling `.stdout`) and 6 negative controls (`negative_controls/nc01..nc06` with `.expect_error`), verified byte-identical across Exact VM, AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2`, and hermetic `DecIR v2`.
 
 ## Provenance & Upstream Bindings
 
