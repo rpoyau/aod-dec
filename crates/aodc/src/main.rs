@@ -10,8 +10,9 @@ use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
     bench_file_with_options, build_aot_file_with_options, check_file_with_options,
     compile_file_to_ir_with_options, emit_llvm_file_with_options,
-    exec_ir_file_with_budget_capturing, format_x100, jit_file_with_options_captured,
-    run_dec_tests_with_options, run_file_with_options_capturing, LoadOptions, OptLevel,
+    exec_ir_file_with_budget_capturing, format_x100, jit_file_with_profile_captured,
+    learn_file_with_options, run_all_hw_probes, run_dec_tests_with_options,
+    run_file_with_options_capturing, LoadOptions, OptLevel,
 };
 
 fn canonicalize_allowing_new_file(path: &Path) -> std::io::Result<PathBuf> {
@@ -57,7 +58,9 @@ fn parse_positive_usize(flag: &str, raw: Option<&String>) -> Result<usize, Strin
 fn parse_opt_level(arg: &str, next: Option<&String>) -> Result<(OptLevel, usize), String> {
     if let Some(rest) = arg.strip_prefix("-O") {
         if rest.is_empty() {
-            let v = next.ok_or_else(|| "missing optimization level after -O (expected 0..3)".to_string())?;
+            let v = next.ok_or_else(|| {
+                "missing optimization level after -O (expected 0..3)".to_string()
+            })?;
             let n: u8 = v
                 .parse()
                 .map_err(|_| format!("invalid optimization level {v:?} (expected 0..3)"))?;
@@ -76,14 +79,19 @@ fn parse_opt_level(arg: &str, next: Option<&String>) -> Result<(OptLevel, usize)
 struct ExecOptions {
     compat: CompatMode,
     opt: OptLevel,
+    baseline_opt: OptLevel,
     fuel: usize,
     max_depth: usize,
     iters: usize,
+    pairs: usize,
+    heldout: usize,
     output: Option<String>,
+    profile: Option<String>,
     load: LoadOptions,
     rest: Vec<String>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn parse_options(
     args: &[String],
     allow_compat: bool,
@@ -92,13 +100,19 @@ fn parse_options(
     allow_output: bool,
     allow_iters: bool,
     allow_stdlib: bool,
+    allow_profile: bool,
+    allow_learn: bool,
 ) -> Result<ExecOptions, String> {
     let mut compat = CompatMode::V2;
     let mut opt = OptLevel::O2;
+    let mut baseline_opt = OptLevel::O0;
     let mut fuel = DEFAULT_FUEL;
     let mut max_depth = DEFAULT_MAX_DEPTH;
     let mut iters = 5usize;
+    let mut pairs = 5usize;
+    let mut heldout = 5usize;
     let mut output = None;
+    let mut profile = None;
     let mut stdlib_dir = None;
     let mut rest = Vec::new();
     let mut i = 0usize;
@@ -139,6 +153,32 @@ fn parse_options(
         } else if allow_iters && a == "--iters" {
             iters = parse_positive_usize("--iters", args.get(i + 1))?;
             i += 2;
+        } else if allow_profile && a == "--profile" {
+            let v = args
+                .get(i + 1)
+                .ok_or_else(|| "missing path after --profile".to_string())?;
+            profile = Some(v.clone());
+            i += 2;
+        } else if allow_learn && a == "--baseline" {
+            let v = args
+                .get(i + 1)
+                .ok_or_else(|| "missing value after --baseline (expected O0 or O2)".to_string())?;
+            baseline_opt = match v.as_str() {
+                "O0" | "0" => OptLevel::O0,
+                "O2" | "2" => OptLevel::O2,
+                other => {
+                    return Err(format!(
+                        "invalid --baseline {other:?} (expected O0 or O2)"
+                    ));
+                }
+            };
+            i += 2;
+        } else if allow_learn && a == "--pairs" {
+            pairs = parse_positive_usize("--pairs", args.get(i + 1))?;
+            i += 2;
+        } else if allow_learn && a == "--heldout" {
+            heldout = parse_positive_usize("--heldout", args.get(i + 1))?;
+            i += 2;
         } else {
             rest.push(args[i].clone());
             i += 1;
@@ -147,10 +187,14 @@ fn parse_options(
     Ok(ExecOptions {
         compat,
         opt,
+        baseline_opt,
         fuel,
         max_depth,
         iters,
+        pairs,
+        heldout,
         output,
+        profile,
         load: LoadOptions { stdlib_dir },
         rest,
     })
@@ -178,7 +222,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -196,34 +240,36 @@ fn main() -> ExitCode {
     let sub_args = &raw_args[1..];
 
     let result: Result<(), String> = match cmd {
-        "check" => parse_options(sub_args, true, false, false, false, false, true).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
-            }
-            check_file_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+        "check" => parse_options(sub_args, true, false, false, false, false, true, false, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                check_file_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+                    .map_err(|e| e.to_string())?;
+                match opts.compat {
+                    CompatMode::V1 => println!("OK: Dec core v1"),
+                    CompatMode::V2 => println!("OK: Dec v2"),
+                }
+                Ok(())
+            }),
+        "run" => parse_options(sub_args, true, false, true, false, false, true, false, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                let (emits, outcome) = run_file_with_options_capturing(
+                    Path::new(&opts.rest[0]),
+                    opts.compat,
+                    opts.fuel,
+                    opts.max_depth,
+                    &opts.load,
+                )
                 .map_err(|e| e.to_string())?;
-            match opts.compat {
-                CompatMode::V1 => println!("OK: Dec core v1"),
-                CompatMode::V2 => println!("OK: Dec v2"),
-            }
-            Ok(())
-        }),
-        "run" => parse_options(sub_args, true, false, true, false, false, true).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
-            }
-            let (emits, outcome) = run_file_with_options_capturing(
-                Path::new(&opts.rest[0]),
-                opts.compat,
-                opts.fuel,
-                opts.max_depth,
-                &opts.load,
-            )
-            .map_err(|e| e.to_string())?;
-            flush_emits_and_result(emits, outcome)
-        }),
-        "compile" => {
-            parse_options(sub_args, true, false, false, true, false, true).and_then(|opts| {
+                flush_emits_and_result(emits, outcome)
+            }),
+        "compile" => parse_options(sub_args, true, false, false, true, false, true, false, false)
+            .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
@@ -237,22 +283,22 @@ fn main() -> ExitCode {
                     .map_err(|e| e.to_string())?;
                 std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
                 Ok(())
-            })
-        }
-        "exec" => parse_options(sub_args, false, false, true, false, false, false).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <program.ir.json>\n{}", usage()));
-            }
-            let (emits, outcome) = exec_ir_file_with_budget_capturing(
-                Path::new(&opts.rest[0]),
-                opts.fuel,
-                opts.max_depth,
-            )
-            .map_err(|e| e.to_string())?;
-            flush_emits_and_result(emits, outcome)
-        }),
-        "emit-llvm" => {
-            parse_options(sub_args, true, true, false, true, false, true).and_then(|opts| {
+            }),
+        "exec" => parse_options(sub_args, false, false, true, false, false, false, false, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <program.ir.json>\n{}", usage()));
+                }
+                let (emits, outcome) = exec_ir_file_with_budget_capturing(
+                    Path::new(&opts.rest[0]),
+                    opts.fuel,
+                    opts.max_depth,
+                )
+                .map_err(|e| e.to_string())?;
+                flush_emits_and_result(emits, outcome)
+            }),
+        "emit-llvm" => parse_options(sub_args, true, true, false, true, false, true, false, false)
+            .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
@@ -268,115 +314,245 @@ fn main() -> ExitCode {
                     print!("{ir}");
                 }
                 Ok(())
-            })
-        }
-        "build" => parse_options(sub_args, true, true, false, true, false, true).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
+            }),
+        "build" => parse_options(sub_args, true, true, false, true, false, true, false, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                let src_path = PathBuf::from(&opts.rest[0]);
+                let out_path = PathBuf::from(
+                    opts.output
+                        .ok_or_else(|| "missing -o <out_exe>".to_string())?,
+                );
+                ensure_out_differs_from_src(&src_path, &out_path)?;
+                build_aot_file_with_options(&src_path, opts.compat, opts.opt, &out_path, &opts.load)
+                    .map_err(|e| e.to_string())
+            }),
+        "jit" => parse_options(sub_args, true, true, true, false, false, true, true, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                let profile_path = opts.profile.as_deref().map(Path::new);
+                let (stdout, res, _plan, fallback_note) = jit_file_with_profile_captured(
+                    Path::new(&opts.rest[0]),
+                    opts.compat,
+                    opts.opt,
+                    opts.fuel,
+                    opts.max_depth,
+                    profile_path,
+                    &opts.load,
+                )
+                .map_err(|e| e.to_string())?;
+                if let Some(note) = fallback_note {
+                    eprintln!("aodc: profile fallback to baseline: {note}");
+                }
+                {
+                    let mut out = std::io::stdout().lock();
+                    let _ = out.write_all(stdout.as_bytes());
+                    let _ = out.flush();
+                }
+                res
+            }),
+        "bench" => parse_options(sub_args, true, false, true, false, true, true, false, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
+                }
+                let r = bench_file_with_options(
+                    Path::new(&opts.rest[0]),
+                    opts.compat,
+                    opts.iters,
+                    opts.fuel,
+                    opts.max_depth,
+                    &opts.load,
+                )
+                .map_err(|e| e.to_string())?;
+                println!("aodc bench ({}, iters={})", opts.rest[0], r.iters);
+                println!("  parity:       5/5 byte-identical (VM == AOT-O0 == AOT-O2 == JIT-O0 == JIT-O2)");
+                println!("  vm_median_us: {} us", r.vm_median_us);
+                println!(
+                    "  aot_o0:       compile={} us, median={} us",
+                    r.aot_o0_compile_us, r.aot_o0_median_us
+                );
+                println!(
+                    "  aot_o2:       compile={} us, median={} us (speedup {})",
+                    r.aot_o2_compile_us,
+                    r.aot_o2_median_us,
+                    format_x100(r.aot_o2_speedup_x100)
+                );
+                println!(
+                    "  jit_o0:       compile={} us, median={} us",
+                    r.jit_o0_compile_us, r.jit_o0_median_us
+                );
+                println!(
+                    "  jit_o2:       compile={} us, median={} us (speedup {})",
+                    r.jit_o2_compile_us,
+                    r.jit_o2_median_us,
+                    format_x100(r.jit_o2_speedup_x100)
+                );
+                Ok(())
+            }),
+        "probe-hw" => parse_options(
+            sub_args, false, false, false, true, false, false, false, false,
+        )
+        .and_then(|opts| {
+            if !opts.rest.is_empty() {
+                return Err(format!("unexpected positional arguments {:?}\n{}", opts.rest, usage()));
             }
-            let src_path = PathBuf::from(&opts.rest[0]);
-            let out_path = PathBuf::from(
-                opts.output
-                    .ok_or_else(|| "missing -o <out_exe>".to_string())?,
-            );
-            ensure_out_differs_from_src(&src_path, &out_path)?;
-            build_aot_file_with_options(&src_path, opts.compat, opts.opt, &out_path, &opts.load)
-                .map_err(|e| e.to_string())
-        }),
-        "jit" => parse_options(sub_args, true, true, true, false, false, true).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
+            let report = run_all_hw_probes().map_err(|e| e.to_string())?;
+            let json_text = format!("{}\n", report.to_json().to_compact_ascii_json());
+            if let Some(out) = opts.output {
+                std::fs::write(&out, &json_text).map_err(|e| format!("write error: {e}"))?;
             }
-            let (stdout, res) = jit_file_with_options_captured(
-                Path::new(&opts.rest[0]),
-                opts.compat,
-                opts.opt,
-                opts.fuel,
-                opts.max_depth,
-                &opts.load,
-            )
-            .map_err(|e| e.to_string())?;
-            {
-                let mut out = std::io::stdout().lock();
-                let _ = out.write_all(stdout.as_bytes());
-                let _ = out.flush();
-            }
-            res
-        }),
-        "bench" => parse_options(sub_args, true, false, true, false, true, true).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <source.dec>\n{}", usage()));
-            }
-            let r = bench_file_with_options(
-                Path::new(&opts.rest[0]),
-                opts.compat,
-                opts.iters,
-                opts.fuel,
-                opts.max_depth,
-                &opts.load,
-            )
-            .map_err(|e| e.to_string())?;
-            println!("aodc bench ({}, iters={})", opts.rest[0], r.iters);
-            println!("  parity:       5/5 byte-identical (VM == AOT-O0 == AOT-O2 == JIT-O0 == JIT-O2)");
-            println!("  vm_median_us: {} us", r.vm_median_us);
+            println!("aodc probe-hw [{}]", report.policy_scope);
             println!(
-                "  aot_o0:       compile={} us, median={} us",
-                r.aot_o0_compile_us, r.aot_o0_median_us
+                "  cpu:           {} ({}, cores={}, llvm_cpu={})",
+                report.hardware.model_name,
+                report.hardware.arch,
+                report.hardware.logical_cores,
+                report.hardware.llvm_host_cpu
+            );
+            println!("  cpu_sig:       {}", report.hardware.cpu_sig_sha256);
+            println!(
+                "  caches:        L1d={}B, L2={}B, L3={}B, line={}B",
+                report.hardware.l1d_bytes,
+                report.hardware.l2_bytes,
+                report.hardware.l3_bytes,
+                report.hardware.cache_line_bytes
             );
             println!(
-                "  aot_o2:       compile={} us, median={} us (speedup {})",
-                r.aot_o2_compile_us,
-                r.aot_o2_median_us,
-                format_x100(r.aot_o2_speedup_x100)
+                "  clocks:        {} (perf_event_open={}, paranoid={:?})",
+                report.clock_source,
+                report.perf_event_open.as_str(),
+                report.hardware.perf_event_paranoid
             );
             println!(
-                "  jit_o0:       compile={} us, median={} us",
-                r.jit_o0_compile_us, r.jit_o0_median_us
+                "  memory_tiers:  recommended_l1_working_set={}B (verified={})",
+                report.memory_tiers.recommended_l1_working_set_bytes,
+                report.memory_tiers.verified
             );
             println!(
-                "  jit_o2:       compile={} us, median={} us (speedup {})",
-                r.jit_o2_compile_us,
-                r.jit_o2_median_us,
-                format_x100(r.jit_o2_speedup_x100)
+                "  exact_arith:   i64={}*0.01ns, t32={}*0.01ns, ratio={}*0.01ns, bigint_spill={}*0.01ns (spill/fast={}x/100)",
+                report.exact_arith.i64_checked_add_ns_per_op_x100,
+                report.exact_arith.t32_checked_add_ns_per_op_x100,
+                report.exact_arith.ratio_inline_gcd_ns_per_op_x100,
+                report.exact_arith.bigint_spill_add_ns_per_op_x100,
+                report.exact_arith.spill_to_fast_ratio_x100
             );
+            println!(
+                "  branch_pred:   irregular branch={}ns vs select={}ns (prefer_branchless={})",
+                report.branch_predictor.irregular_branch_ns,
+                report.branch_predictor.irregular_select_ns,
+                report.branch_predictor.prefer_branchless_irregular
+            );
+            println!(
+                "  unroll_layout: unroll={}, native_cpu={}, soa={} (aos={}ns vs soa={}ns)",
+                report.unroll_layout.recommended_unroll.as_str(),
+                report.unroll_layout.prefer_native_cpu,
+                report.unroll_layout.prefer_soa,
+                report.unroll_layout.aos_ns,
+                report.unroll_layout.soa_ns
+            );
+            println!(
+                "  multicore:     workers={} scaling={}x/100 (recommended_workers={})",
+                report.multicore.tested_workers,
+                report.multicore.scaling_x100,
+                report.multicore.recommended_workers
+            );
+            println!("  total_ms:      {} ms", report.total_probe_ms);
             Ok(())
         }),
-        "test" => parse_options(sub_args, true, false, false, false, false, true).and_then(|opts| {
-            if opts.rest.len() != 1 {
-                return Err(format!("expected <file_or_dir>\n{}", usage()));
-            }
-            let cases =
-                run_dec_tests_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
-                    .map_err(|e| e.to_string())?;
-            if cases.is_empty() {
-                return Err("no Dec test cases discovered".to_string());
-            }
-            let mut failed = 0usize;
-            for c in &cases {
-                if c.passed {
-                    println!("PASS {} :: {}", c.file.display(), c.test_name);
-                } else {
-                    failed += 1;
-                    eprintln!(
-                        "FAIL {} :: {} -> {}",
-                        c.file.display(),
-                        c.test_name,
-                        c.error.as_deref().unwrap_or("unknown failure")
-                    );
+        "learn" => parse_options(sub_args, true, false, true, false, false, true, true, true)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <source.dec>\n{}", usage()));
                 }
-            }
-            println!(
-                "test result: {} passed; {} failed; {} total",
-                cases.len() - failed,
-                failed,
-                cases.len()
-            );
-            if failed > 0 {
-                Err(format!("{failed} test(s) failed"))
-            } else {
+                let src_path = PathBuf::from(&opts.rest[0]);
+                if let Some(ref prof_out) = opts.profile {
+                    ensure_out_differs_from_src(&src_path, Path::new(prof_out))?;
+                }
+                let (_hw, report) = learn_file_with_options(
+                    &src_path,
+                    opts.compat,
+                    opts.baseline_opt,
+                    opts.pairs,
+                    opts.heldout,
+                    opts.fuel,
+                    opts.max_depth,
+                    opts.profile.as_deref().map(Path::new),
+                    &opts.load,
+                )
+                .map_err(|e| e.to_string())?;
+                let p = &report.profile;
+                println!("aodc learn ({}) [{}]", src_path.display(), p.policy_scope);
+                println!("  decision:              {}", p.decision.as_str());
+                println!("  reason:                {}", p.reason);
+                println!("  baseline_plan:         {}", p.baseline_plan.plan_id());
+                println!("  candidate_plan:        {}", p.candidate_plan.plan_id());
+                println!("  active_plan:           {}", p.active_plan.plan_id());
+                println!(
+                    "  heldout_ci_bps:        point={} [lower95={}, upper95={}] (n={})",
+                    p.heldout_ci.point_gain_bps,
+                    p.heldout_ci.lower_95_bps,
+                    p.heldout_ci.upper_95_bps,
+                    p.heldout_pairs.len()
+                );
+                println!(
+                    "  honest_overhead_ns:    compile={} + dispatch={} = {} ns",
+                    p.cand_compile_ns, p.dispatch_overhead_ns, p.measured_overhead_ns
+                );
+                println!(
+                    "  heldout_sums_ns:       base={} vs cand={} (net_savings={} ns, break_even_calls={:?})",
+                    p.heldout_base_sum_ns,
+                    p.heldout_cand_sum_ns,
+                    p.heldout_net_savings_ns,
+                    p.break_even_calls
+                );
+                println!("  semantic_mismatches:   {}", p.semantic_mismatches);
+                if let Some(ref prof_out) = opts.profile {
+                    println!("  profile_saved:         {prof_out}");
+                }
                 Ok(())
-            }
-        }),
+            }),
+        "test" => parse_options(sub_args, true, false, false, false, false, true, false, false)
+            .and_then(|opts| {
+                if opts.rest.len() != 1 {
+                    return Err(format!("expected <file_or_dir>\n{}", usage()));
+                }
+                let cases =
+                    run_dec_tests_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+                        .map_err(|e| e.to_string())?;
+                if cases.is_empty() {
+                    return Err("no Dec test cases discovered".to_string());
+                }
+                let mut failed = 0usize;
+                for c in &cases {
+                    if c.passed {
+                        println!("PASS {} :: {}", c.file.display(), c.test_name);
+                    } else {
+                        failed += 1;
+                        eprintln!(
+                            "FAIL {} :: {} -> {}",
+                            c.file.display(),
+                            c.test_name,
+                            c.error.as_deref().unwrap_or("unknown failure")
+                        );
+                    }
+                }
+                println!(
+                    "test result: {} passed; {} failed; {} total",
+                    cases.len() - failed,
+                    failed,
+                    cases.len()
+                );
+                if failed > 0 {
+                    Err(format!("{failed} test(s) failed"))
+                } else {
+                    Ok(())
+                }
+            }),
         other => Err(format!("unknown subcommand {other:?}\n{}", usage())),
     };
 

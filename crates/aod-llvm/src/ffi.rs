@@ -35,6 +35,7 @@ pub type LLVMOrcThreadSafeModuleRef = *mut c_void;
 pub type LLVMOrcSymbolStringPoolEntryRef = *mut c_void;
 pub type LLVMOrcMaterializationUnitRef = *mut c_void;
 pub type LLVMOrcDefinitionGeneratorRef = *mut c_void;
+pub type LLVMOrcJITTargetMachineBuilderRef = *mut c_void;
 
 pub const LLVM_RETURN_STATUS_ACTION: c_uint = 2;
 pub const LLVM_RELOC_PIC: c_uint = 2;
@@ -66,7 +67,6 @@ pub struct LLVMOrcCSymbolMapPair {
     pub sym: LLVMJITEvaluatedSymbol,
 }
 
-// Compile-time layout assertions matching LLVM 18 C headers on x86-64.
 const _: () = {
     assert!(std::mem::size_of::<LLVMJITEvaluatedSymbol>() == 16);
     assert!(std::mem::size_of::<LLVMOrcCSymbolMapPair>() == 24);
@@ -134,8 +134,13 @@ pub struct LlvmApi {
         *mut *mut c_char,
     ) -> c_int,
 
-    // ORC LLJIT
+    // ORC LLJIT & TargetMachineBuilder (`P0-1`)
     pub orc_create_lljit_builder: unsafe extern "C" fn() -> LLVMOrcLLJITBuilderRef,
+    pub orc_lljit_builder_set_jtmb:
+        unsafe extern "C" fn(LLVMOrcLLJITBuilderRef, LLVMOrcJITTargetMachineBuilderRef),
+    pub orc_jtmb_create_from_tm:
+        unsafe extern "C" fn(LLVMTargetMachineRef) -> LLVMOrcJITTargetMachineBuilderRef,
+    pub orc_dispose_jtmb: unsafe extern "C" fn(LLVMOrcJITTargetMachineBuilderRef),
     pub orc_create_lljit:
         unsafe extern "C" fn(*mut LLVMOrcLLJITRef, LLVMOrcLLJITBuilderRef) -> LLVMErrorRef,
     pub orc_dispose_lljit: unsafe extern "C" fn(LLVMOrcLLJITRef) -> LLVMErrorRef,
@@ -176,7 +181,6 @@ pub struct LlvmApi {
         unsafe extern "C" fn(LLVMOrcLLJITRef, *mut u64, *const c_char) -> LLVMErrorRef,
 }
 
-// SAFETY: Loaded `libLLVM` function pointers are immutable process-global symbols.
 unsafe impl Sync for LlvmApi {}
 unsafe impl Send for LlvmApi {}
 
@@ -265,6 +269,15 @@ fn load_llvm_api_inner() -> Result<LlvmApi, String> {
             target_machine_emit_to_file: load_sym(handle, "LLVMTargetMachineEmitToFile")?,
 
             orc_create_lljit_builder: load_sym(handle, "LLVMOrcCreateLLJITBuilder")?,
+            orc_lljit_builder_set_jtmb: load_sym(
+                handle,
+                "LLVMOrcLLJITBuilderSetJITTargetMachineBuilder",
+            )?,
+            orc_jtmb_create_from_tm: load_sym(
+                handle,
+                "LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine",
+            )?,
+            orc_dispose_jtmb: load_sym(handle, "LLVMOrcDisposeJITTargetMachineBuilder")?,
             orc_create_lljit: load_sym(handle, "LLVMOrcCreateLLJIT")?,
             orc_dispose_lljit: load_sym(handle, "LLVMOrcDisposeLLJIT")?,
             orc_lljit_get_main_jit_dylib: load_sym(handle, "LLVMOrcLLJITGetMainJITDylib")?,
@@ -302,7 +315,6 @@ fn load_llvm_api_inner() -> Result<LlvmApi, String> {
         }
     };
 
-    // Initialize X86 native target once
     unsafe {
         (api.init_x86_target_info)();
         (api.init_x86_target)();
@@ -321,7 +333,16 @@ pub fn llvm_api() -> LlvmResult<&'static LlvmApi> {
     }
 }
 
-/// Convert an owned LLVM C `char*` message (freed via `LLVMDisposeMessage`) into a Rust `String`.
+/// Safe wrapper returning `(triple, host_cpu_name, host_cpu_features)` freeing all
+/// LLVM-allocated strings via `LLVMDisposeMessage` (`P0-1`: keeps `hw_info.rs` 100% safe!).
+pub fn host_llvm_target_info() -> LlvmResult<(String, String, String)> {
+    let api = llvm_api()?;
+    let triple = unsafe { take_llvm_message(api, (api.get_default_target_triple)()) };
+    let cpu = unsafe { take_llvm_message(api, (api.get_host_cpu_name)()) };
+    let features = unsafe { take_llvm_message(api, (api.get_host_cpu_features)()) };
+    Ok((triple, cpu, features))
+}
+
 pub unsafe fn take_llvm_message(api: &LlvmApi, ptr: *mut c_char) -> String {
     if ptr.is_null() {
         return String::new();
@@ -335,8 +356,6 @@ pub unsafe fn take_llvm_message(api: &LlvmApi, ptr: *mut c_char) -> String {
     s
 }
 
-/// Consume an `LLVMErrorRef` via `LLVMGetErrorMessage` and free the message via
-/// `LLVMDisposeErrorMessage` (`P0-1`: NEVER also call `LLVMConsumeError`!).
 pub unsafe fn take_llvm_error(api: &LlvmApi, err: LLVMErrorRef) -> String {
     if err.is_null() {
         return String::new();
@@ -354,8 +373,6 @@ pub unsafe fn take_llvm_error(api: &LlvmApi, err: LLVMErrorRef) -> String {
     s
 }
 
-/// Parse textual LLVM IR inside `ctx` and verify it (`LLVMReturnStatusAction = 2`).
-/// `LLVMParseIRInContext` ALWAYS takes ownership of and frees `MemBuf` (`P0-1`).
 pub unsafe fn parse_and_verify_module(
     api: &LlvmApi,
     ctx: LLVMContextRef,
@@ -375,7 +392,6 @@ pub unsafe fn parse_and_verify_module(
 
     let mut module: LLVMModuleRef = std::ptr::null_mut();
     let mut err_msg: *mut c_char = std::ptr::null_mut();
-    // SAFETY: `LLVMParseIRInContext` always owns and frees `mem_buf` on both Ok and Err (`P0-1`).
     let parse_rc = unsafe { (api.parse_ir_in_context)(ctx, mem_buf, &mut module, &mut err_msg) };
     if parse_rc != 0 || module.is_null() {
         let msg = unsafe { take_llvm_message(api, err_msg) };
@@ -400,10 +416,12 @@ pub unsafe fn parse_and_verify_module(
     Ok(module)
 }
 
-/// Create a host `LLVMTargetMachineRef` (PIC relocation) and configure the module's triple & layout.
+/// Create a host `LLVMTargetMachineRef` (PIC relocation) using either native host CPU/features
+/// or portable `x86-64` generic CPU (`P0-1`).
 pub unsafe fn create_host_target_machine(
     api: &LlvmApi,
     opt_level: u32,
+    target_cpu_native: bool,
 ) -> LlvmResult<(LLVMTargetMachineRef, CString, CString)> {
     let triple_ptr = unsafe { (api.get_default_target_triple)() };
     let triple_str = unsafe { take_llvm_message(api, triple_ptr) };
@@ -423,13 +441,24 @@ pub unsafe fn create_host_target_machine(
         let _ = unsafe { take_llvm_message(api, err_msg) };
     }
 
-    let cpu_ptr = unsafe { (api.get_host_cpu_name)() };
-    let cpu_str = unsafe { take_llvm_message(api, cpu_ptr) };
-    let cpu_c = CString::new(cpu_str).unwrap_or_else(|_| CString::new("generic").unwrap());
-
-    let feat_ptr = unsafe { (api.get_host_cpu_features)() };
-    let feat_str = unsafe { take_llvm_message(api, feat_ptr) };
-    let feat_c = CString::new(feat_str).unwrap_or_else(|_| CString::new("").unwrap());
+    let (cpu_c, feat_c) = if target_cpu_native {
+        let cpu_str = unsafe { take_llvm_message(api, (api.get_host_cpu_name)()) };
+        let feat_str = unsafe { take_llvm_message(api, (api.get_host_cpu_features)()) };
+        (
+            CString::new(cpu_str).unwrap_or_else(|_| CString::new("generic").unwrap()),
+            CString::new(feat_str).unwrap_or_else(|_| CString::new("").unwrap()),
+        )
+    } else {
+        let generic_cpu = if cfg!(target_arch = "x86_64") {
+            "x86-64"
+        } else {
+            "generic"
+        };
+        (
+            CString::new(generic_cpu).unwrap(),
+            CString::new("").unwrap(),
+        )
+    };
 
     let tm = unsafe {
         (api.create_target_machine)(
@@ -470,7 +499,6 @@ pub unsafe fn run_module_passes(
         return Err(LlvmError::new(format!("LLVMRunPasses({pipeline}) failed: {msg}")));
     }
 
-    // Post-pass verification (`P2`): verify optimized IR cleanly before AOT emission or ORC JIT.
     let mut verify_msg: *mut c_char = std::ptr::null_mut();
     let verify_rc =
         unsafe { (api.verify_module)(module, LLVM_RETURN_STATUS_ACTION, &mut verify_msg) };

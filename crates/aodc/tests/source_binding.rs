@@ -129,6 +129,7 @@ fn static_audit_zero_floats_zero_unsafe_and_zero_external_deps() {
         "crates/aod-llvm/src/ffi.rs",
         "crates/aod-llvm/src/aot.rs",
         "crates/aod-llvm/src/jit.rs",
+        "crates/aod-llvm/src/hw_probe.rs",
     ];
 
     // Verify `#![forbid(unsafe_code)]` on aod-core and aodc entrypoints

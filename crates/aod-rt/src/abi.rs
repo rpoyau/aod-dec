@@ -136,6 +136,16 @@ impl OwnedRtContext {
     pub fn error_message(&self) -> Option<&str> {
         self.state().error.as_deref()
     }
+
+    /// Safely mark this context as failed and record an error message without crossing C ABI.
+    pub fn fail_with(&mut self, msg: impl Into<String>) {
+        self.raw.failed = 1;
+        if !self.raw.inner.is_null() {
+            // SAFETY: `OwnedRtContext` owns `raw.inner` exclusively via `&mut self` until `Drop`.
+            let state = unsafe { &mut *self.raw.inner };
+            state.record_error(msg.into());
+        }
+    }
 }
 
 impl Drop for OwnedRtContext {

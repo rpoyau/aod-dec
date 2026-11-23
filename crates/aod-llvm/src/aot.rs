@@ -9,12 +9,17 @@ use crate::ffi::{
     create_host_target_machine, llvm_api, parse_and_verify_module, run_module_passes,
     take_llvm_message, LLVM_OBJECT_FILE,
 };
-use crate::{LlvmError, LlvmResult, OptLevel};
+use crate::plan::{CodegenPlan, OptLevel};
+use crate::{LlvmError, LlvmResult};
 
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// Parse, verify (`LLVMReturnStatusAction = 2`), optimize (`default<O0..O3>`), and print LLVM IR.
 pub fn verify_and_optimize_ir(ir_text: &str, opt: OptLevel) -> LlvmResult<String> {
+    verify_and_optimize_ir_with_plan(ir_text, &CodegenPlan::for_opt_level(opt))
+}
+
+/// Parse, verify, optimize (`plan.opt_level`, `plan.target_cpu_native`), post-verify, and print LLVM IR.
+pub fn verify_and_optimize_ir_with_plan(ir_text: &str, plan: &CodegenPlan) -> LlvmResult<String> {
     let api = llvm_api()?;
     let ctx = unsafe { (api.context_create)() };
     if ctx.is_null() {
@@ -24,14 +29,19 @@ pub fn verify_and_optimize_ir(ir_text: &str, opt: OptLevel) -> LlvmResult<String
     let result = (|| -> LlvmResult<String> {
         let module = unsafe { parse_and_verify_module(api, ctx, ir_text)? };
         let res = (|| -> LlvmResult<String> {
-            let (tm, triple_c, dl_c) =
-                unsafe { create_host_target_machine(api, opt.codegen_opt_level())? };
+            let (tm, triple_c, dl_c) = unsafe {
+                create_host_target_machine(
+                    api,
+                    plan.opt_level.codegen_opt_level(),
+                    plan.target_cpu_native,
+                )?
+            };
             let pass_res = (|| -> LlvmResult<String> {
                 unsafe {
                     (api.set_target)(module, triple_c.as_ptr());
                     (api.set_data_layout)(module, dl_c.as_ptr());
                 }
-                unsafe { run_module_passes(api, module, tm, opt.pass_pipeline())? };
+                unsafe { run_module_passes(api, module, tm, plan.opt_level.pass_pipeline())? };
                 let ir_ptr = unsafe { (api.print_module_to_string)(module) };
                 Ok(unsafe { take_llvm_message(api, ir_ptr) })
             })();
@@ -46,8 +56,15 @@ pub fn verify_and_optimize_ir(ir_text: &str, opt: OptLevel) -> LlvmResult<String
     result
 }
 
-/// Emit a PIC ELF object file (`.o`) from verified & optimized LLVM 18 IR.
 pub fn emit_object_file(ir_text: &str, opt: OptLevel, obj_path: &Path) -> LlvmResult<()> {
+    emit_object_file_with_plan(ir_text, &CodegenPlan::for_opt_level(opt), obj_path)
+}
+
+pub fn emit_object_file_with_plan(
+    ir_text: &str,
+    plan: &CodegenPlan,
+    obj_path: &Path,
+) -> LlvmResult<()> {
     let api = llvm_api()?;
     let obj_str = obj_path
         .to_str()
@@ -62,14 +79,19 @@ pub fn emit_object_file(ir_text: &str, opt: OptLevel, obj_path: &Path) -> LlvmRe
     let result = (|| -> LlvmResult<()> {
         let module = unsafe { parse_and_verify_module(api, ctx, ir_text)? };
         let res = (|| -> LlvmResult<()> {
-            let (tm, triple_c, dl_c) =
-                unsafe { create_host_target_machine(api, opt.codegen_opt_level())? };
+            let (tm, triple_c, dl_c) = unsafe {
+                create_host_target_machine(
+                    api,
+                    plan.opt_level.codegen_opt_level(),
+                    plan.target_cpu_native,
+                )?
+            };
             let emit_res = (|| -> LlvmResult<()> {
                 unsafe {
                     (api.set_target)(module, triple_c.as_ptr());
                     (api.set_data_layout)(module, dl_c.as_ptr());
                 }
-                unsafe { run_module_passes(api, module, tm, opt.pass_pipeline())? };
+                unsafe { run_module_passes(api, module, tm, plan.opt_level.pass_pipeline())? };
                 let mut err_msg: *mut c_char = std::ptr::null_mut();
                 let rc = unsafe {
                     (api.target_machine_emit_to_file)(
@@ -102,9 +124,7 @@ pub fn emit_object_file(ir_text: &str, opt: OptLevel, obj_path: &Path) -> LlvmRe
     result
 }
 
-/// Locate static runtime archive `libaod_rt.a` reliably across CLI and `cargo test` (`P1-1`).
 pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
-    // 1. Explicit env var override
     if let Ok(p) = std::env::var("AOD_RT_LIB") {
         let pb = PathBuf::from(&p);
         if pb.is_file() {
@@ -113,7 +133,6 @@ pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
     }
 
     let mut candidates: Vec<PathBuf> = Vec::new();
-    // 2. Relative to current executable (`target/{debug|release}/aodc` or `target/{debug|release}/deps/<test>`)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             candidates.push(dir.join("libaod_rt.a"));
@@ -129,7 +148,6 @@ pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
         }
     }
 
-    // 3. Relative to workspace root (`CARGO_MANIFEST_DIR` -> `../../target/{profile}/libaod_rt.a`)
     let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
@@ -168,9 +186,15 @@ pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
     )))
 }
 
-/// Emit a PIC `.o` file and link a standalone native ELF executable against `libaod_rt.a`
-/// with ZERO runtime dependency on `libLLVM`, `libpython`, or `libgmp` (`AC-11`, `P1-1`).
 pub fn link_aot_executable(ir_text: &str, opt: OptLevel, out_exe: &Path) -> LlvmResult<()> {
+    link_aot_executable_with_plan(ir_text, &CodegenPlan::for_opt_level(opt), out_exe)
+}
+
+pub fn link_aot_executable_with_plan(
+    ir_text: &str,
+    plan: &CodegenPlan,
+    out_exe: &Path,
+) -> LlvmResult<()> {
     let rt_lib = find_aod_rt_lib()?;
     let seq = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let obj_path = std::env::temp_dir().join(format!(
@@ -180,7 +204,7 @@ pub fn link_aot_executable(ir_text: &str, opt: OptLevel, out_exe: &Path) -> Llvm
     ));
 
     let link_res = (|| -> LlvmResult<()> {
-        emit_object_file(ir_text, opt, &obj_path)?;
+        emit_object_file_with_plan(ir_text, plan, &obj_path)?;
 
         let linker = ["clang", "cc"]
             .into_iter()
@@ -190,7 +214,9 @@ pub fn link_aot_executable(ir_text: &str, opt: OptLevel, out_exe: &Path) -> Llvm
                     .output()
                     .is_ok_and(|o| o.status.success())
             })
-            .ok_or_else(|| LlvmError::new("neither `clang` nor `cc` found on PATH to link AOT ELF"))?;
+            .ok_or_else(|| {
+                LlvmError::new("neither `clang` nor `cc` found on PATH to link AOT ELF")
+            })?;
 
         let output = Command::new(linker)
             .arg(&obj_path)
@@ -202,9 +228,7 @@ pub fn link_aot_executable(ir_text: &str, opt: OptLevel, out_exe: &Path) -> Llvm
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(LlvmError::new(format!(
-                "{linker} linking failed:\n{stderr}"
-            )));
+            return Err(LlvmError::new(format!("{linker} linking failed:\n{stderr}")));
         }
         Ok(())
     })();

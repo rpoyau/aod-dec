@@ -2,7 +2,7 @@
 
 //! `aodc`: Dec v2 frontend, compile-time firewalls, hermetic `DecIR` v1/v2 serializer &
 //! verifier, exact reference evaluator, unboxed-first safe textual LLVM 18 IR lowering,
-//! AOT ELF / ORC LLJIT execution, and CLI.
+//! AOT ELF / ORC LLJIT execution, hardware discovery & zero-float learner, and CLI.
 
 pub mod ast;
 pub mod checker;
@@ -21,11 +21,16 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-pub use aod_llvm::{OptLevel, OrcJitSession};
+use aod_core::sha256::Sha256;
+pub use aod_llvm::{
+    run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo, HwProbeReport, LearnDecision,
+    LearnSessionReport, OptLevel, OrcJitSession, PerfCapability, ProfileLoadOutcome,
+    RetainedProfile, UnrollHint, POLICY_SCOPE,
+};
 pub use crate::modules::LoadOptions;
 
 use crate::checker::{check_unit, CheckedUnit};
-use crate::codegen::lower_to_llvm_ir;
+use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
 use crate::eval::{EvalOutput, Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::ir::{dumps_ir, loads_ir};
@@ -150,14 +155,21 @@ pub fn exec_ir_file_with_budget_capturing(
 }
 
 // ============================================================================
-// PR 2 + PR 3: Native LLVM 18 IR Lowering, AOT ELF Build, ORC LLJIT, & Bench APIs
+// PR 2 + PR 3 + PR 4: Native LLVM 18 Lowering, AOT ELF, ORC LLJIT, & Learner
 // ============================================================================
 
-/// Enforce all compile-time firewalls first, lower to LLVM 18 IR, verify (`action=2`), and optimize.
 pub fn emit_llvm_source(source: &str, compat: CompatMode, opt: OptLevel) -> DecResult<String> {
+    emit_llvm_source_with_plan(source, compat, &CodegenPlan::for_opt_level(opt))
+}
+
+pub fn emit_llvm_source_with_plan(
+    source: &str,
+    compat: CompatMode,
+    plan: &CodegenPlan,
+) -> DecResult<String> {
     let checked = check_source(source, compat)?;
-    let raw_ir = lower_to_llvm_ir(&checked)?;
-    aod_llvm::verify_and_optimize_ir(&raw_ir, opt)
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
+    aod_llvm::verify_and_optimize_ir_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
@@ -171,9 +183,18 @@ pub fn emit_llvm_file_with_options(
     opt: OptLevel,
     options: &LoadOptions,
 ) -> DecResult<String> {
+    emit_llvm_file_with_plan(path, compat, &CodegenPlan::for_opt_level(opt), options)
+}
+
+pub fn emit_llvm_file_with_plan(
+    path: &Path,
+    compat: CompatMode,
+    plan: &CodegenPlan,
+    options: &LoadOptions,
+) -> DecResult<String> {
     let checked = check_file_with_options(path, compat, options)?;
-    let raw_ir = lower_to_llvm_ir(&checked)?;
-    aod_llvm::verify_and_optimize_ir(&raw_ir, opt)
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
+    aod_llvm::verify_and_optimize_ir_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
@@ -206,8 +227,9 @@ pub fn build_aot_file_with_options(
     options: &LoadOptions,
 ) -> DecResult<()> {
     let checked = check_file_with_options(path, compat, options)?;
-    let raw_ir = lower_to_llvm_ir(&checked)?;
-    aod_llvm::link_aot_executable(&raw_ir, opt, out_exe)
+    let plan = CodegenPlan::for_opt_level(opt);
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, &plan)?;
+    aod_llvm::link_aot_executable_with_plan(&raw_ir, &plan, out_exe)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
@@ -216,9 +238,17 @@ pub fn compile_jit_source(
     compat: CompatMode,
     opt: OptLevel,
 ) -> DecResult<OrcJitSession> {
+    compile_jit_source_with_plan(source, compat, &CodegenPlan::for_opt_level(opt))
+}
+
+pub fn compile_jit_source_with_plan(
+    source: &str,
+    compat: CompatMode,
+    plan: &CodegenPlan,
+) -> DecResult<OrcJitSession> {
     let checked = check_source(source, compat)?;
-    let raw_ir = lower_to_llvm_ir(&checked)?;
-    OrcJitSession::compile(&raw_ir, opt)
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
+    OrcJitSession::compile_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
@@ -236,9 +266,18 @@ pub fn compile_jit_file_with_options(
     opt: OptLevel,
     options: &LoadOptions,
 ) -> DecResult<OrcJitSession> {
+    compile_jit_file_with_plan(path, compat, &CodegenPlan::for_opt_level(opt), options)
+}
+
+pub fn compile_jit_file_with_plan(
+    path: &Path,
+    compat: CompatMode,
+    plan: &CodegenPlan,
+    options: &LoadOptions,
+) -> DecResult<OrcJitSession> {
     let checked = check_file_with_options(path, compat, options)?;
-    let raw_ir = lower_to_llvm_ir(&checked)?;
-    OrcJitSession::compile(&raw_ir, opt)
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
+    OrcJitSession::compile_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
@@ -250,6 +289,17 @@ pub fn jit_source_captured(
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
     let session = compile_jit_source(source, compat, opt)?;
+    Ok(session.run_captured(fuel as i64, max_depth as i32))
+}
+
+pub fn jit_source_with_plan_captured(
+    source: &str,
+    compat: CompatMode,
+    plan: &CodegenPlan,
+    fuel: usize,
+    max_depth: usize,
+) -> DecResult<(String, Result<(), String>)> {
+    let session = compile_jit_source_with_plan(source, compat, plan)?;
     Ok(session.run_captured(fuel as i64, max_depth as i32))
 }
 
@@ -275,6 +325,108 @@ pub fn jit_file_with_options_captured(
     Ok(session.run_captured(fuel as i64, max_depth as i32))
 }
 
+pub fn compute_profile_bindings(
+    checked: &CheckedUnit,
+    compat: CompatMode,
+    fuel: usize,
+    max_depth: usize,
+) -> (String, String) {
+    let ir_json = dumps_ir(checked);
+    let kernel_ir_sha256 = Sha256::digest_hex(ir_json.as_bytes());
+    let workload_desc = format!("compat={compat:?};fuel={fuel};max_depth={max_depth}");
+    let workload_sha256 = Sha256::digest_hex(workload_desc.as_bytes());
+    (kernel_ir_sha256, workload_sha256)
+}
+
+/// Execute via ORC LLJIT honoring an optional validated `RetainedProfile` (falling back safely
+/// to `fallback_opt` on any corruption, tampering, or CPU/IR/workload mismatch!).
+#[allow(clippy::too_many_arguments)]
+pub fn jit_file_with_profile_captured(
+    path: &Path,
+    compat: CompatMode,
+    fallback_opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    profile_path: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
+    let checked = check_file_with_options(path, compat, options)?;
+    let fallback_plan = CodegenPlan::for_opt_level(fallback_opt);
+
+    let (chosen_plan, note) = if let Some(pp) = profile_path {
+        let hw = HostHardwareInfo::discover()
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+        let (kernel_sha, workload_sha) = compute_profile_bindings(&checked, compat, fuel, max_depth);
+        match RetainedProfile::load_validated(pp, &hw.cpu_sig_sha256, &kernel_sha, &workload_sha) {
+            ProfileLoadOutcome::Loaded(prof) => (prof.active_plan, None),
+            ProfileLoadOutcome::FallbackToBaseline { reason } => (fallback_plan, Some(reason)),
+        }
+    } else {
+        (fallback_plan, None)
+    };
+
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, &chosen_plan)?;
+    let session = OrcJitSession::compile_with_plan(&raw_ir, &chosen_plan)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+    let (stdout, res) = session.run_captured(fuel as i64, max_depth as i32);
+    Ok((stdout, res, chosen_plan, note))
+}
+
+/// Run CPU discovery + 5 live JIT probes + semantically-guarded, honest cost-inclusive learning
+/// session on `path`, optionally persisting the resulting rollback-safe `RetainedProfile` atomically.
+#[allow(clippy::too_many_arguments)]
+pub fn learn_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    baseline_opt: OptLevel,
+    training_pairs: usize,
+    heldout_pairs: usize,
+    fuel: usize,
+    max_depth: usize,
+    profile_out: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<(HwProbeReport, LearnSessionReport)> {
+    let checked = check_file_with_options(path, compat, options)?;
+    let hw_report = run_all_hw_probes()
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+    let (kernel_ir_sha256, workload_sha256) =
+        compute_profile_bindings(&checked, compat, fuel, max_depth);
+
+    let baseline_plan = match baseline_opt {
+        OptLevel::O0 => CodegenPlan::baseline_o0(),
+        OptLevel::O2 => CodegenPlan::baseline_o2(),
+        other => CodegenPlan::for_opt_level(other),
+    };
+
+    let report = aod_llvm::run_learn_session(
+        &hw_report,
+        baseline_plan,
+        kernel_ir_sha256,
+        workload_sha256,
+        fuel as i64,
+        max_depth as i32,
+        training_pairs,
+        heldout_pairs,
+        |plan| {
+            let t0 = Instant::now();
+            let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan).map_err(|e| e.to_string())?;
+            let sess = OrcJitSession::compile_with_plan(&raw_ir, plan).map_err(|e| e.to_string())?;
+            let compile_ns = t0.elapsed().as_nanos().max(1) as u64;
+            Ok((sess, compile_ns))
+        },
+    )
+    .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+
+    if let Some(p) = profile_out {
+        report
+            .profile
+            .save_atomic(p)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+    }
+
+    Ok((hw_report, report))
+}
+
 /// Zero-float integer timing & parity benchmark report across all 5 execution modes (`AC-15`).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BenchReport {
@@ -288,7 +440,6 @@ pub struct BenchReport {
     pub jit_o0_median_us: u128,
     pub jit_o2_compile_us: u128,
     pub jit_o2_median_us: u128,
-    /// Integer fixed-point speedup ratios scaled by 100 (e.g. `1250` = `12.50x`, ZERO floats!).
     pub aot_o2_speedup_x100: u128,
     pub jit_o2_speedup_x100: u128,
     pub parity_ok: bool,
@@ -322,8 +473,6 @@ pub fn bench_file(
     bench_file_with_options(path, compat, iters, fuel, max_depth, &LoadOptions::default())
 }
 
-/// Run 5-mode exact parity & steady-state timing benchmark (`VM`, `AOT -O0`, `AOT -O2`,
-/// `ORC JIT -O0`, `ORC JIT -O2`) using strictly integer `u128` microsecond timings (zero floats!).
 pub fn bench_file_with_options(
     path: &Path,
     compat: CompatMode,
@@ -514,7 +663,6 @@ pub fn run_dec_tests_with_options(
         let has_stdout = sibling_stdout.is_file();
         let has_expect_error = sibling_expect_error.is_file();
 
-        // P1-1: Reject ambiguous fixture having BOTH `.stdout` and `.expect_error`
         if has_stdout && has_expect_error {
             results.push(TestCaseResult {
                 file,
@@ -528,8 +676,6 @@ pub fn run_dec_tests_with_options(
             continue;
         }
 
-        // P1-1: Handle `.expect_error` BEFORE loading/checking/running so both compile-time
-        // and runtime negative controls are verified deterministically!
         if has_expect_error {
             let expected_raw = match std::fs::read_to_string(&sibling_expect_error) {
                 Ok(s) => s,

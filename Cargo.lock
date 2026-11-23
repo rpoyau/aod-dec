@@ -10,6 +10,7 @@ version = "2.0.0-alpha.1"
 name = "aod-llvm"
 version = "2.0.0-alpha.1"
 dependencies = [
+ "aod-core",
  "aod-rt",
 ]
 

@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use aod_core::bigint::BigInt;
+use aod_llvm::{CodegenPlan, UnrollHint};
 
 use crate::ast::{
     AssignTarget, BinaryOp, CallArg, ChamberDecl, DecArm, DecArmParam, DecFnDecl, DecFnKind,
@@ -13,9 +14,18 @@ use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{builtin_namespace_items, canonical_builtin_name, ImportedSymbol};
 use crate::types::Type;
 
-/// Lower a verified `CheckedUnit` into safe, unboxed-first textual LLVM 18 IR (`#![forbid(unsafe_code)]`).
+/// Lower a verified `CheckedUnit` using the default baseline `CodegenPlan`.
 pub fn lower_to_llvm_ir(checked: &CheckedUnit) -> DecResult<String> {
-    let mut cg = Codegen::new(checked);
+    lower_to_llvm_ir_with_plan(checked, &CodegenPlan::baseline_o2())
+}
+
+/// Lower a verified `CheckedUnit` into safe textual LLVM 18 IR parameterized by `CodegenPlan`
+/// (`#![forbid(unsafe_code)]`, `P0-3`).
+pub fn lower_to_llvm_ir_with_plan(
+    checked: &CheckedUnit,
+    plan: &CodegenPlan,
+) -> DecResult<String> {
+    let mut cg = Codegen::new(checked, *plan);
     cg.index_all()?;
     cg.emit_all()
 }
@@ -122,6 +132,7 @@ struct FnOverload {
 
 struct Codegen<'a> {
     checked: &'a CheckedUnit,
+    plan: CodegenPlan,
     structs: BTreeMap<(String, String), StructMeta>,
     enums: BTreeMap<(String, String), EnumMeta>,
     chambers: BTreeMap<(String, String), ChamberDecl>,
@@ -136,14 +147,18 @@ struct Codegen<'a> {
     obs_callbacks: BTreeMap<(String, String, String), String>,
     /// Deduplicated UTF-8 byte constants: `bytes -> (global_name, byte_len)`.
     str_pool: BTreeMap<Vec<u8>, (String, usize)>,
+    /// Unique self-referential `!llvm.loop` metadata nodes emitted at module tail (`P0-3`).
+    loop_md_defs: Vec<String>,
+    next_md_id: usize,
     fn_defs: String,
     next_id: usize,
 }
 
 impl<'a> Codegen<'a> {
-    fn new(checked: &'a CheckedUnit) -> Self {
+    fn new(checked: &'a CheckedUnit, plan: CodegenPlan) -> Self {
         Self {
             checked,
+            plan,
             structs: BTreeMap::new(),
             enums: BTreeMap::new(),
             chambers: BTreeMap::new(),
@@ -155,9 +170,27 @@ impl<'a> Codegen<'a> {
             fn_overloads: BTreeMap::new(),
             obs_callbacks: BTreeMap::new(),
             str_pool: BTreeMap::new(),
+            loop_md_defs: Vec::new(),
+            next_md_id: 0,
             fn_defs: String::new(),
             next_id: 0,
         }
+    }
+
+    /// Allocate a unique self-referential `!N = distinct !{!N, !M}` loop metadata attachment (`P0-3`).
+    fn alloc_loop_unroll_md(&mut self) -> Option<String> {
+        let hint_body = match self.plan.unroll_hint {
+            UnrollHint::Default => return None,
+            UnrollHint::Unroll4 => "!{!\"llvm.loop.unroll.count\", i32 4}",
+            UnrollHint::Disable => "!{!\"llvm.loop.unroll.disable\"}",
+        };
+        let loop_id = self.next_md_id;
+        let hint_id = self.next_md_id + 1;
+        self.next_md_id += 2;
+        self.loop_md_defs
+            .push(format!("!{loop_id} = distinct !{{!{loop_id}, !{hint_id}}}"));
+        self.loop_md_defs.push(format!("!{hint_id} = {hint_body}"));
+        Some(format!(", !llvm.loop !{loop_id}"))
     }
 
     fn compat(&self) -> CompatMode {
@@ -756,6 +789,13 @@ impl<'a> Codegen<'a> {
 
         ir.push('\n');
         ir.push_str(&self.fn_defs);
+        if !self.loop_md_defs.is_empty() {
+            ir.push('\n');
+            for md in &self.loop_md_defs {
+                ir.push_str(md);
+                ir.push('\n');
+            }
+        }
         Ok(ir)
     }
 
@@ -1599,6 +1639,54 @@ impl FnBuilder {
                 elifs,
                 else_body,
             } => {
+                // Sound P0-3 branchless `select` lowering for pure single-statement `if c: v = a else: v = b`
+                if cg.plan.branchless_select
+                    && elifs.is_empty()
+                    && then_body.len() == 1
+                    && else_body.len() == 1
+                {
+                    if let (
+                        StmtKind::Assign {
+                            target: AssignTarget::Ident(tv),
+                            value: te,
+                        },
+                        StmtKind::Assign {
+                            target: AssignTarget::Ident(ev),
+                            value: ee,
+                        },
+                    ) = (&then_body[0].kind, &else_body[0].kind)
+                    {
+                        if tv == ev
+                            && self.is_pure_select_safe(cg, te)
+                            && self.is_pure_select_safe(cg, ee)
+                        {
+                            if let Some(slot) = self.lookup_var(tv) {
+                                let lt = LlvmTy::from_dec(&slot.dec_ty);
+                                if lt != LlvmTy::Void {
+                                    let cv = self.emit_expr(cg, cond)?;
+                                    let tv_val = self.emit_expr(cg, te)?;
+                                    let ev_val = self.emit_expr(cg, ee)?;
+                                    let sel = self.fresh_reg();
+                                    self.line(&format!(
+                                        "  {sel} = select i1 {}, {} {}, {} {}",
+                                        cv.reg,
+                                        lt.ir(),
+                                        tv_val.reg,
+                                        lt.ir(),
+                                        ev_val.reg
+                                    ));
+                                    self.line(&format!(
+                                        "  store {} {sel}, ptr {}",
+                                        lt.ir(),
+                                        slot.alloca
+                                    ));
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                }
+
                 let merge_lbl = self.fresh_label("if_merge");
                 let mut cur_cond = cond;
                 let mut cur_then = then_body;
@@ -1850,7 +1938,8 @@ impl FnBuilder {
                     self.line(&format!("  {cur2} = load i64, ptr {idx_slot}"));
                     self.line(&format!("  {next} = add nsw i64 {cur2}, 1"));
                     self.line(&format!("  store i64 {next}, ptr {idx_slot}"));
-                    self.line(&format!("  br label %{cond_lbl}"));
+                    let md_suffix = cg.alloc_loop_unroll_md().unwrap_or_default();
+                    self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
                     self.terminated = true;
 
                     self.start_block(&end_lbl);
@@ -1977,7 +2066,8 @@ impl FnBuilder {
                 self.loop_stack.pop();
                 self.pop_scope();
                 if !self.terminated {
-                    self.line(&format!("  br label %{cond_lbl}"));
+                    let md_suffix = cg.alloc_loop_unroll_md().unwrap_or_default();
+                    self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
                     self.terminated = true;
                 }
                 self.start_block(&end_lbl);
@@ -2685,9 +2775,39 @@ impl FnBuilder {
                 }
                 let lv = self.emit_expr(cg, left)?;
                 let rv = self.emit_expr(cg, right)?;
-                self.emit_binary(*op, lv, rv)
+                self.emit_binary(cg, *op, lv, rv)
             }
             ExprKind::Ternary { cond, yes, no } => {
+                // Sound P0-3 branchless `select` lowering when both arms pass strict whitelist
+                if cg.plan.branchless_select
+                    && self.is_pure_select_safe(cg, yes)
+                    && self.is_pure_select_safe(cg, no)
+                {
+                    let cv = self.emit_expr(cg, cond)?;
+                    let yv = self.emit_expr(cg, yes)?;
+                    let nv = self.emit_expr(cg, no)?;
+                    let lt = yv.llvm_ty();
+                    if lt != LlvmTy::Void {
+                        let sel = self.fresh_reg();
+                        self.line(&format!(
+                            "  {sel} = select i1 {}, {} {}, {} {}",
+                            cv.reg,
+                            lt.ir(),
+                            yv.reg,
+                            lt.ir(),
+                            nv.reg
+                        ));
+                        return Ok(Val {
+                            reg: sel,
+                            dec_ty: yv.dec_ty,
+                        });
+                    }
+                    return Ok(Val {
+                        reg: String::new(),
+                        dec_ty: yv.dec_ty,
+                    });
+                }
+
                 let cv = self.emit_expr(cg, cond)?;
                 let y_lbl = self.fresh_label("tern_yes");
                 let n_lbl = self.fresh_label("tern_no");
@@ -3016,7 +3136,75 @@ impl FnBuilder {
         }
     }
 
-    fn emit_binary(&mut self, op: BinaryOp, lv: Val, rv: Val) -> DecResult<Val> {
+    /// Strict P0-3 pure-expression whitelist for sound branchless `select` lowering.
+    /// NEVER permits trapping, spilling, allocating, or side-effecting expressions to be evaluated eagerly!
+    fn peek_pure_type(&self, cg: &Codegen<'_>, expr: &Expr) -> Option<Type> {
+        match &expr.kind {
+            ExprKind::IntLit(n) if n.to_i64().is_some() => Some(Type::Int),
+            ExprKind::BoolLit(_) => Some(Type::Bool),
+            ExprKind::TritLit(_) => Some(Type::T1),
+            ExprKind::RatioLit(r) if r.num().to_i64().is_some() && r.den().to_i64().is_some() => {
+                Some(Type::Ratio)
+            }
+            ExprKind::Ident(name) => {
+                if let Some(slot) = self.lookup_var(name) {
+                    return Some(slot.dec_ty.unwrap_read_only().clone());
+                }
+                if let Some(cm) = cg.consts.get(&(self.mod_key.clone(), name.clone())) {
+                    return Some(cm.dec_ty.unwrap_read_only().clone());
+                }
+                let base = cg.base_module_of(&self.mod_key).to_string();
+                if let Some(cm) = cg.consts.get(&(base, name.clone())) {
+                    return Some(cm.dec_ty.unwrap_read_only().clone());
+                }
+                if let Some(ImportedSymbol::ModuleItem { module, item }) =
+                    cg.imports_for(&self.mod_key).get(name)
+                {
+                    if let Some(cm) = cg.consts.get(&(module.clone(), item.clone())) {
+                        return Some(cm.dec_ty.unwrap_read_only().clone());
+                    }
+                }
+                None
+            }
+            ExprKind::Unary { op, operand } => {
+                let t = self.peek_pure_type(cg, operand)?;
+                match op {
+                    UnaryOp::Pos => Some(t),
+                    UnaryOp::Not if t == Type::Bool => Some(Type::Bool),
+                    UnaryOp::Neg if matches!(t, Type::T1 | Type::T32) => Some(t),
+                    _ => None,
+                }
+            }
+            ExprKind::Binary { op, left, right } => {
+                let lt = self.peek_pure_type(cg, left)?;
+                let rt = self.peek_pure_type(cg, right)?;
+                if lt != rt {
+                    return None;
+                }
+                match op {
+                    BinaryOp::Eq
+                    | BinaryOp::NotEq
+                    | BinaryOp::Lt
+                    | BinaryOp::LtEq
+                    | BinaryOp::Gt
+                    | BinaryOp::GtEq
+                        if matches!(lt, Type::Bool | Type::T1 | Type::T32 | Type::Q4) =>
+                    {
+                        Some(Type::Bool)
+                    }
+                    BinaryOp::Mul if lt == Type::T1 => Some(Type::T1),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn is_pure_select_safe(&self, cg: &Codegen<'_>, expr: &Expr) -> bool {
+        self.peek_pure_type(cg, expr).is_some()
+    }
+
+    fn emit_binary(&mut self, cg: &Codegen<'_>, op: BinaryOp, lv: Val, rv: Val) -> DecResult<Val> {
         let ty = lv.dec_ty.unwrap_read_only().clone();
         match ty {
             Type::Int => match op {
@@ -3110,10 +3298,39 @@ impl FnBuilder {
                 Ok(v)
             }
             Type::Ratio => match op {
-                BinaryOp::Add => self.emit_ratio_helper("@__aod_ratio_add", &lv.reg, &rv.reg),
-                BinaryOp::Sub => self.emit_ratio_helper("@__aod_ratio_sub", &lv.reg, &rv.reg),
-                BinaryOp::Mul => self.emit_ratio_helper("@__aod_ratio_mul", &lv.reg, &rv.reg),
-                BinaryOp::Div => self.emit_ratio_helper("@__aod_ratio_div", &lv.reg, &rv.reg),
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
+                    if cg.plan.inline_ratio_fastpath {
+                        let helper = match op {
+                            BinaryOp::Add => "@__aod_ratio_add",
+                            BinaryOp::Sub => "@__aod_ratio_sub",
+                            BinaryOp::Mul => "@__aod_ratio_mul",
+                            BinaryOp::Div => "@__aod_ratio_div",
+                            _ => unreachable!(),
+                        };
+                        self.emit_ratio_helper(helper, &lv.reg, &rv.reg)
+                    } else {
+                        let rt_fn = match op {
+                            BinaryOp::Add => "@aod_rt_ratio_add",
+                            BinaryOp::Sub => "@aod_rt_ratio_sub",
+                            BinaryOp::Mul => "@aod_rt_ratio_mul",
+                            BinaryOp::Div => "@aod_rt_ratio_div",
+                            _ => unreachable!(),
+                        };
+                        let pa = self.store_temp_ratio(&lv.reg);
+                        let pb = self.store_temp_ratio(&rv.reg);
+                        let out = self.alloc_temp("%DecRatio");
+                        self.line(&format!(
+                            "  call void {rt_fn}(ptr %ctx, ptr {pa}, ptr {pb}, ptr {out})"
+                        ));
+                        self.emit_fail_return_check();
+                        let r = self.fresh_reg();
+                        self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::Ratio,
+                        })
+                    }
+                }
                 BinaryOp::Eq
                 | BinaryOp::NotEq
                 | BinaryOp::Lt

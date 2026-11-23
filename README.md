@@ -17,12 +17,12 @@
 
 - **Zero external `crates.io` dependencies** (`cargo test --workspace --offline`).
 - **Zero IEEE-754 floating-point types or literals** anywhere across all 4 crates (`aod-core`, `aod-rt`, `aod-llvm`, `aodc`).
-- **Strict `unsafe` quarantine:** `#![forbid(unsafe_code)]` on `aod-core` and `aodc`; `unsafe` strictly limited to the 4 C ABI / LLVM 18 FFI files (`aod-rt/src/abi.rs`, `aod-llvm/src/{ffi.rs,aot.rs,jit.rs}`).
+- **Strict `unsafe` quarantine:** `#![forbid(unsafe_code)]` on `aod-core` and `aodc`; `unsafe` strictly limited to the 5 C ABI / LLVM 18 / hardware probe files (`aod-rt/src/abi.rs`, `aod-llvm/src/{ffi.rs,aot.rs,jit.rs,hw_probe.rs}`).
 - **Four acyclic crates (`aod-core` → `aod-rt` → `aod-llvm` → `aodc`):**
   - [`crates/aod-core`](crates/aod-core): arbitrary-precision `BigInt`, canonical exact `Ratio`, quarantined `qext::QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, pure-`std` FIPS 180-4 `Sha256`, strict float-free `JsonValue`, `SupportForm`, v1-exact `Trace`/`Fusion`/`Coupling` dual JSON witness primitives, complete M3 `F01`–`F07` `wavelet` & `RecipientLattice`, and Manual §4 D.E.C. `ledger`.
   - [`crates/aod-rt`](crates/aod-rt): `rlib` + `staticlib` (`libaod_rt.a`) owning the shared sandbox chamber engine, safe 1-based `RtArena` with `max_entries` cap, deep-copy/copy-on-write container semantics, exact cold-spill math, and panic-safe flat C ABI (`#[unsafe(no_mangle)]` + `catch_unwind`).
-  - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), standalone PIC AOT ELF emitter/linker (zero runtime dependency on `libLLVM`, `libpython`, or `libgmp`), and in-process ORC LLJIT session (`OrcJitSession`).
-  - [`crates/aodc`](crates/aodc): Dec v1 & v2 frontend (`struct`, `enum`, exhaustive `match`, deterministic `map[K, V]`, multi-arm pattern dispatch), all 5 compile-time firewalls, hermetic `DecIR v1`/`v2` verifier, exact reference VM, unboxed-first safe textual LLVM 18 IR lowering (`src/codegen.rs`), and CLI.
+  - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), parameterized `CodegenPlan`, CPU microarchitecture discovery (`hw_info`), 5 live self-verifying ORC LLJIT tick/click micro-probes (`hw_probe`), zero-float paired percentile bootstrap & rollback-safe `RetainedProfile` learner (`learner`, tagged `COMPILER_EXECUTION_POLICY_NOT_PHYSICAL_AOD_LAW`), standalone PIC AOT ELF emitter/linker, and in-process ORC LLJIT session (`OrcJitSession`).
+  - [`crates/aodc`](crates/aodc): Dec v1 & v2 frontend (`struct`, `enum`, exhaustive `match`, deterministic `map[K, V]`, multi-arm pattern dispatch), all 5 compile-time firewalls, hermetic `DecIR v1`/`v2` verifier, exact reference VM, parameterized unboxed-first safe textual LLVM 18 IR lowering (`src/codegen.rs`), and CLI.
 
 ## Compile-Time Firewalls
 
@@ -49,8 +49,14 @@ cargo run --bin aodc -- emit-llvm -O2 tests/fixtures/v2_bench/unboxed_loop_bench
 cargo run --bin aodc -- build -O2 tests/fixtures/v2_bench/unboxed_loop_bench.dec -o /tmp/unboxed_bench
 /tmp/unboxed_bench --fuel 100000 --max-depth 128
 
-# Execute in-process via LLVM 18 ORC LLJIT
-cargo run --bin aodc -- jit -O2 tests/fixtures/v2_bench/unboxed_loop_bench.dec
+# Execute in-process via LLVM 18 ORC LLJIT (optionally with validated retained profile)
+cargo run --bin aodc -- jit -O2 [--profile /tmp/prof.json] tests/fixtures/v2_bench/unboxed_loop_bench.dec
+
+# Discover host CPU microarchitecture and run 5 live self-verifying JIT micro-probes
+cargo run --bin aodc -- probe-hw [--output /tmp/hw_report.json]
+
+# Learn a semantically-guarded, honest compile-inclusive JIT execution policy profile
+cargo run --bin aodc -- learn --baseline O0 --fuel 2000000 --pairs 6 --heldout 8 --profile /tmp/prof.json tests/fixtures/v2_bench/learn_amortized_bench.dec
 
 # Run 5-mode exact parity & steady-state speedup benchmark (VM, AOT -O0/-O2, ORC JIT -O0/-O2)
 cargo run --bin aodc -- bench tests/fixtures/v2_bench/unboxed_loop_bench.dec
