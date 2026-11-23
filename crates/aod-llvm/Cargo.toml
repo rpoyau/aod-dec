@@ -1,0 +1,12 @@
+[package]
+name = "aod-llvm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "std-only LLVM 18 C API dlopen FFI, AOT ELF emitter/linker, and in-process ORC LLJIT session for AOD/Dec v2."
+
+[dependencies]
+aod-rt = { path = "../aod-rt" }
+
+[lints]
+workspace = true

@@ -114,21 +114,63 @@ fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
 fn static_audit_zero_floats_zero_unsafe_and_zero_external_deps() {
     let root = repo_root();
     let mut rs_files = Vec::new();
-    collect_rs_files(&root.join("crates/aod-core/src"), &mut rs_files);
-    collect_rs_files(&root.join("crates/aodc/src"), &mut rs_files);
+    for crate_src in [
+        "crates/aod-core/src",
+        "crates/aod-rt/src",
+        "crates/aod-llvm/src",
+        "crates/aodc/src",
+    ] {
+        collect_rs_files(&root.join(crate_src), &mut rs_files);
+    }
     assert!(!rs_files.is_empty());
+
+    let allowlisted_unsafe = [
+        "crates/aod-rt/src/abi.rs",
+        "crates/aod-llvm/src/ffi.rs",
+        "crates/aod-llvm/src/aot.rs",
+        "crates/aod-llvm/src/jit.rs",
+    ];
+
+    // Verify `#![forbid(unsafe_code)]` on aod-core and aodc entrypoints
+    for forbid_file in [
+        "crates/aod-core/src/lib.rs",
+        "crates/aodc/src/lib.rs",
+        "crates/aodc/src/main.rs",
+    ] {
+        let content = std::fs::read_to_string(root.join(forbid_file)).unwrap();
+        assert!(
+            content.contains("#![forbid(unsafe_code)]"),
+            "{forbid_file} must declare #![forbid(unsafe_code)]"
+        );
+    }
+
+    // Verify `#![deny(unsafe_code)]` on aod-rt and aod-llvm roots
+    for deny_file in ["crates/aod-rt/src/lib.rs", "crates/aod-llvm/src/lib.rs"] {
+        let content = std::fs::read_to_string(root.join(deny_file)).unwrap();
+        assert!(
+            content.contains("#![deny(unsafe_code)]"),
+            "{deny_file} must declare #![deny(unsafe_code)]"
+        );
+    }
 
     // Build forbidden float token strings dynamically so this test file itself stays clean.
     let f32_tok = ["f", "32"].concat();
     let f64_tok = ["f", "64"].concat();
+    let unsafe_tok = ["un", "safe"].concat();
+
     for path in rs_files {
+        let rel = path
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let is_unsafe_allowed = allowlisted_unsafe.contains(&rel.as_str());
         let content = std::fs::read_to_string(&path).unwrap();
         for (line_idx, line) in content.lines().enumerate() {
             let trimmed = line.trim();
             if trimmed.starts_with("//") {
                 continue;
             }
-            // Tokenize ASCII identifiers and verify none is f32 or f64
             let mut ident = String::new();
             for ch in trimmed.chars().chain(std::iter::once(' ')) {
                 if ch.is_ascii_alphanumeric() || ch == '_' {
@@ -137,29 +179,47 @@ fn static_audit_zero_floats_zero_unsafe_and_zero_external_deps() {
                     if ident == f32_tok || ident == f64_tok {
                         panic!(
                             "forbidden float type token `{ident}` found in {}:{}",
-                            path.display(),
+                            rel,
+                            line_idx + 1
+                        );
+                    }
+                    if !is_unsafe_allowed
+                        && ident == unsafe_tok
+                        && !trimmed.contains("unsafe_code")
+                    {
+                        panic!(
+                            "forbidden `{unsafe_tok}` token outside allowlisted FFI files in {}:{}",
+                            rel,
                             line_idx + 1
                         );
                     }
                     ident.clear();
                 }
             }
-            if trimmed.contains("unsafe {") || trimmed.starts_with("unsafe fn") {
-                panic!(
-                    "forbidden unsafe block found in {}:{}",
-                    path.display(),
-                    line_idx + 1
-                );
-            }
         }
     }
 
-    // Verify Cargo.toml files contain zero external crates.io dependencies
-    let core_toml = std::fs::read_to_string(root.join("crates/aod-core/Cargo.toml")).unwrap();
-    let deps_section = core_toml.split("[dependencies]").nth(1).unwrap();
-    let before_next = deps_section.split('[').next().unwrap();
-    assert!(
-        before_next.trim().is_empty(),
-        "aod-core must have zero dependencies, found: {before_next}"
-    );
+    // Verify ALL 4 crate Cargo.toml manifests contain zero external crates.io dependencies
+    let allowed_local = ["aod-core", "aod-rt", "aod-llvm"];
+    for manifest in [
+        "crates/aod-core/Cargo.toml",
+        "crates/aod-rt/Cargo.toml",
+        "crates/aod-llvm/Cargo.toml",
+        "crates/aodc/Cargo.toml",
+    ] {
+        let text = std::fs::read_to_string(root.join(manifest)).unwrap();
+        let deps_section = text.split("[dependencies]").nth(1).unwrap();
+        let before_next = deps_section.split('[').next().unwrap();
+        for line in before_next.lines() {
+            let t = line.trim();
+            if t.is_empty() || t.starts_with('#') {
+                continue;
+            }
+            let dep_name = t.split('=').next().unwrap().trim();
+            assert!(
+                allowed_local.contains(&dep_name) && t.contains("path ="),
+                "external dependency `{t}` forbidden in {manifest}"
+            );
+        }
+    }
 }

@@ -1,0 +1,16 @@
+[package]
+name = "aod-rt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared exact runtime, deterministic sandbox chamber engine, arena, and hardened C ABI (libaod_rt.a) for AOD/Dec v2."
+
+[lib]
+name = "aod_rt"
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+aod-core = { path = "../aod-core" }
+
+[lints]
+workspace = true

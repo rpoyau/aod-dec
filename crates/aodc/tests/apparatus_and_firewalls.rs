@@ -279,6 +279,47 @@ Dec main() -> int:
             .code,
         DiagnosticCode::ObserverMutationForbidden
     );
+
+    // 11. AC-03 PR 1 Polish: positional `Struct(ro)` cannot strip `ReadOnly<T>`
+    let pos_struct_strip_ro = r#"
+struct Inner { x: int }
+struct Wrap { inner: Inner }
+
+Dec take_ro(ro: ReadOnly<Inner>) -> int:
+    let w = Wrap(ro)
+    return w.inner.x
+
+Dec main() -> int:
+    return 0
+"#;
+    assert_eq!(
+        check_source(pos_struct_strip_ro, CompatMode::V2)
+            .unwrap_err()
+            .code,
+        DiagnosticCode::ObserverMutationForbidden
+    );
+
+    // 12. AC-03 PR 1 Polish: positional `Enum::Var(ro)` cannot strip `ReadOnly<T>`
+    let pos_enum_strip_ro = r#"
+struct Inner { x: int }
+enum Boxed { Hold(Inner) }
+
+Dec take_ro(ro: ReadOnly<Inner>) -> int:
+    let b = Boxed::Hold(ro)
+    match b:
+        Boxed::Hold(v):
+            return v.x
+    return 0
+
+Dec main() -> int:
+    return 0
+"#;
+    assert_eq!(
+        check_source(pos_enum_strip_ro, CompatMode::V2)
+            .unwrap_err()
+            .code,
+        DiagnosticCode::ObserverMutationForbidden
+    );
 }
 
 #[test]

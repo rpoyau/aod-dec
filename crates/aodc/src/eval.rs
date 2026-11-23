@@ -354,10 +354,10 @@ impl<'a> Evaluator<'a> {
         for (mod_key, prog) in &checked.unit.parsed_modules {
             ev.index_program(mod_key, prog)?;
         }
-        ev.eval_program_consts("<entry>", &checked.unit.entry_program)?;
         for (mod_key, prog) in &checked.unit.parsed_modules {
             ev.eval_program_consts(mod_key, prog)?;
         }
+        ev.eval_program_consts("<entry>", &checked.unit.entry_program)?;
         Ok(ev)
     }
 

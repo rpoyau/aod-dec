@@ -1,0 +1,20 @@
+# Unboxed exact compute benchmark (`P1-2`, `AC-05`, `AC-15`):
+# - Fits comfortably within DEFAULT_FUEL = 100_000 for Exact VM parity.
+# - Exercises exact `int`, `t32`, and bounded-denominator `ratio` arithmetic in a tight loop
+#   whose hot path stays 100% inline unboxed at LLVM -O2 (zero hot-path aod_rt_int_*/aod_rt_ratio_* calls).
+
+Dec run_unboxed_kernel(n: int) -> int:
+    mut acc = 0
+    mut tern = t32(0)
+    mut r = 0/1r
+    for i in 0..n:
+        acc = acc + (i % 17)
+        tern = tern + t32((i % 19) - 9)
+        r = r + ratio(i % 15, 8)
+    emit acc
+    emit tern
+    emit r
+    return 0
+
+Dec main() -> int:
+    return run_unboxed_kernel(3600)

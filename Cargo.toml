@@ -1,9 +1,11 @@
 [workspace]
+resolver = "2"
 members = [
     "crates/aod-core",
+    "crates/aod-rt",
+    "crates/aod-llvm",
     "crates/aodc",
 ]
-resolver = "2"
 
 [workspace.package]
 version = "2.0.0-alpha.1"
@@ -11,5 +13,4 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
 warnings = "deny"

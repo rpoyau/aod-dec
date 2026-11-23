@@ -58,12 +58,14 @@ struct CheckContext {
     observer_local_floor: usize,
 }
 
-/// Verified compilation unit ready for IR serialization and deterministic evaluation.
+/// Verified compilation unit ready for IR serialization, LLVM lowering, and exact evaluation.
 #[derive(Clone, Debug)]
 pub struct CheckedUnit {
     pub unit: LoadedUnit,
     pub main_return_type: Option<Type>,
     pub test_functions: Vec<String>,
+    /// Single source of truth for exact verified types of all module & `quarantine Q_ext` `const`s.
+    pub const_types: BTreeMap<(String, String), Type>,
 }
 
 /// Exhaustively typecheck every module, struct, enum, function, overload arm, apparatus block,
@@ -145,10 +147,17 @@ pub fn check_unit(unit: LoadedUnit, require_main: bool) -> DecResult<CheckedUnit
         ));
     }
 
+    let const_types: BTreeMap<(String, String), Type> = checker
+        .consts
+        .into_iter()
+        .map(|(k, entry)| (k, entry.ty))
+        .collect();
+
     Ok(CheckedUnit {
         unit,
         main_return_type: main_ret,
         test_functions,
+        const_types,
     })
 }
 
@@ -318,10 +327,10 @@ impl<'a> Checker<'a> {
             self.collect_program_items(mod_key, prog)?;
         }
 
-        self.collect_program_consts("<entry>", &self.unit.entry_program)?;
         for (mod_key, prog) in &self.unit.parsed_modules {
             self.collect_program_consts(mod_key, prog)?;
         }
+        self.collect_program_consts("<entry>", &self.unit.entry_program)?;
         Ok(())
     }
 
@@ -3048,7 +3057,23 @@ impl<'a> Checker<'a> {
                         ));
                     }
                     for ((_, actual), expected) in evaluated_args.iter().zip(payload_tys) {
-                        if !types_compatible_with_annotation(actual.unwrap_read_only(), expected) {
+                        if !types_compatible_with_annotation(actual, expected) {
+                            if actual.is_read_only()
+                                && !expected.is_read_only()
+                                && types_compatible_with_annotation(
+                                    actual.unwrap_read_only(),
+                                    expected,
+                                )
+                            {
+                                return Err(Diagnostic::at_line(
+                                    DiagnosticCode::ObserverMutationForbidden,
+                                    line,
+                                    format!(
+                                        "cannot strip ReadOnly from {actual} in enum variant {}",
+                                        segs.join("::")
+                                    ),
+                                ));
+                            }
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::ImplicitCoercionForbidden,
                                 line,
@@ -3085,7 +3110,20 @@ impl<'a> Checker<'a> {
                     .collect();
                 let ordered = resolve_single_arm_args(&param_defs, &evaluated_args, line)?;
                 for ((fname, fty), actual) in sdef.fields.iter().zip(ordered) {
-                    if !types_compatible_with_annotation(actual.unwrap_read_only(), fty) {
+                    if !types_compatible_with_annotation(&actual, fty) {
+                        if actual.is_read_only()
+                            && !fty.is_read_only()
+                            && types_compatible_with_annotation(actual.unwrap_read_only(), fty)
+                        {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::ObserverMutationForbidden,
+                                line,
+                                format!(
+                                    "cannot strip ReadOnly from {actual} in struct {} field {fname}",
+                                    sdef.name
+                                ),
+                            ));
+                        }
                         return Err(Diagnostic::at_line(
                             DiagnosticCode::ImplicitCoercionForbidden,
                             line,

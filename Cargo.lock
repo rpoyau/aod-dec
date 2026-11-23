@@ -7,8 +7,24 @@ name = "aod-core"
 version = "2.0.0-alpha.1"
 
 [[package]]
+name = "aod-llvm"
+version = "2.0.0-alpha.1"
+dependencies = [
+ "aod-rt",
+]
+
+[[package]]
+name = "aod-rt"
+version = "2.0.0-alpha.1"
+dependencies = [
+ "aod-core",
+]
+
+[[package]]
 name = "aodc"
 version = "2.0.0-alpha.1"
 dependencies = [
  "aod-core",
+ "aod-llvm",
+ "aod-rt",
 ]

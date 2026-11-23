@@ -2,6 +2,7 @@ use aod_core::bigint::BigInt;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
 use aod_core::ternary::{Addr8, T1};
+pub use aod_rt::sim::{AxisDir, ProbeKind, WallPolicy as WallPolicyAst};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum TritLiteral {
@@ -9,57 +10,6 @@ pub enum TritLiteral {
     One,
     Hinge0H,
     Dwell0D,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum AxisDir {
-    PosX,
-    NegX,
-    PosY,
-    NegY,
-    PosZ,
-    NegZ,
-}
-
-impl AxisDir {
-    pub fn delta(self) -> [i64; 3] {
-        match self {
-            AxisDir::PosX => [1, 0, 0],
-            AxisDir::NegX => [-1, 0, 0],
-            AxisDir::PosY => [0, 1, 0],
-            AxisDir::NegY => [0, -1, 0],
-            AxisDir::PosZ => [0, 0, 1],
-            AxisDir::NegZ => [0, 0, -1],
-        }
-    }
-
-    pub fn reflect(self) -> Self {
-        match self {
-            AxisDir::PosX => AxisDir::NegX,
-            AxisDir::NegX => AxisDir::PosX,
-            AxisDir::PosY => AxisDir::NegY,
-            AxisDir::NegY => AxisDir::PosY,
-            AxisDir::PosZ => AxisDir::NegZ,
-            AxisDir::NegZ => AxisDir::PosZ,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            AxisDir::PosX => "+X",
-            AxisDir::NegX => "-X",
-            AxisDir::PosY => "+Y",
-            AxisDir::NegY => "-Y",
-            AxisDir::PosZ => "+Z",
-            AxisDir::NegZ => "-Z",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum WallPolicyAst {
-    Open,
-    Closed,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -225,12 +175,6 @@ pub struct PrepareDecl {
     pub clocks: Vec<ClockDecl>,
     pub injections: Vec<InjectDecl>,
     pub line: usize,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum ProbeKind {
-    Tracer,
-    Sensor,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
