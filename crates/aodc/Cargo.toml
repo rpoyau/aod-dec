@@ -1,0 +1,12 @@
+[package]
+name = "aodc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Dec v2 compiler, compile-time firewall checker, hermetic DecIR verifier, sandbox chamber simulator, and CLI."
+
+[dependencies]
+aod-core = { path = "../aod-core" }
+
+[lints]
+workspace = true

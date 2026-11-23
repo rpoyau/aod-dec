@@ -1,0 +1,203 @@
+{
+  "schema_version": 2,
+  "project": "rpoyau/aod-dec",
+  "release_line": "v2/native-reference-engine",
+  "scope": "Downstream exact Dec v2 compiler, std-only Rust mathematical core, M3 wavelet/recipient lattice implementation, compile-time firewalls, and declared deterministic sandbox model; zero edits to upstream rpoyau/aod.",
+  "upstream_bindings": [
+    {
+      "id": "S0@98ddfa0",
+      "stage": "S0",
+      "repository": "rpoyau/aod",
+      "ref_name": "m3-manual-si-alignment",
+      "canonical_version": "v41.02",
+      "commit": "98ddfa0ebb38293adfa99c8c11da5a15cdd9eea3",
+      "tree": "b4a667e3809e4a145580686d439811834b936343",
+      "reference_verifiers": [
+        {
+          "upstream_path": "manual/scripts/aod_manual_wavelet_si_alignment.py",
+          "sha256": "aab7da3d5e552f9fcdb04814f01253c19fb8a39120316db7e9032fca5330629d"
+        }
+      ],
+      "numbers_resolved_from": "S1b@cea71a7/typst/lib/main_registry.json",
+      "equations": [
+        { "label": "eq:first-anchor", "number": "3", "display": "(3)" },
+        { "label": "eq:hinge-grammar", "number": "5", "display": "(5)" },
+        { "label": "eq:atomic-h1", "number": "8", "display": "(8)" },
+        { "label": "eq:closure-trace", "number": "12", "display": "(12)" },
+        { "label": "eq:closure-certificate", "number": "13", "display": "(13)" },
+        { "label": "eq:closure-phase", "number": "16", "display": "(16)" },
+        { "label": "eq:return-identity", "number": "20", "display": "(20)" },
+        { "label": "eq:beat-reclosure", "number": "21", "display": "(21)" },
+        { "label": "eq:closure-phase-window", "number": "23", "display": "(23)" },
+        { "label": "eq:wave-identity", "number": "24", "display": "(24)" },
+        { "label": "eq:duon-current", "number": "30", "display": "(30)" },
+        { "label": "eq:branch-hinge-rd", "number": "31", "display": "(31)" },
+        { "label": "eq:branch-hinge-rd-symmetric", "number": "32", "display": "(32)" },
+        { "label": "eq:duad-same-current", "number": "33", "display": "(33)" },
+        { "label": "eq:curling-support-model", "number": "36", "display": "(36)" },
+        { "label": "eq:key-proposed-admitted-trace", "number": "38", "display": "(38)" },
+        { "label": "eq:fold-outer-closure", "number": "42", "display": "(42)" },
+        { "label": "eq:expose-inner-lineage", "number": "43", "display": "(43)" },
+        { "label": "eq:single-hinge-symmetric-fixture", "number": "51", "display": "(51)" },
+        { "label": "eq:aod-wavelet-continuation", "number": "57", "display": "(57)" },
+        { "label": "eq:wavelet-overlap-dedup", "number": "58", "display": "(58)" },
+        { "label": "eq:wavelet-cancellation-retention", "number": "59", "display": "(59)" },
+        { "label": "eq:window-clipped-rho", "number": "64", "display": "(64)" },
+        { "label": "eq:cadence-ratio", "number": "65", "display": "(65)" },
+        { "label": "eq:relational-time", "number": "68", "display": "(68)" },
+        { "label": "eq:wavelet-reference-timing", "number": "69", "display": "(69)" },
+        { "label": "eq:hinge-saturation", "number": "74", "display": "(74)" },
+        { "label": "eq:hinge-saturation-weighted", "number": "75", "display": "(75)" },
+        { "label": "eq:hinge-saturation-branch-continuation", "number": "76", "display": "(76)" },
+        { "label": "eq:flux-types", "number": "77", "display": "(77)" },
+        { "label": "eq:b-scoped-channel-pressure", "number": "83", "display": "(83)" },
+        { "label": "eq:b-scoped-stokes", "number": "88", "display": "(88)" },
+        { "label": "eq:moving-boundary", "number": "94", "display": "(94)" },
+        { "label": "eq:duonic-pressure", "number": "97", "display": "(97)" },
+        { "label": "eq:sadar-orientation-antisymmetry", "number": "101", "display": "(101)" },
+        { "label": "eq:burden-overhang", "number": "110", "display": "(110)" },
+        { "label": "eq:closure-residual", "number": "112", "display": "(112)" },
+        { "label": "eq:shedding-excess", "number": "113", "display": "(113)" },
+        { "label": "eq:shed-continuation-witness", "number": "116", "display": "(116)" },
+        { "label": "eq:recipient-event-lattice", "number": "117", "display": "(117)" },
+        { "label": "eq:m3-support-measure", "number": "168", "display": "(168)" },
+        { "label": "eq:m3-cubical-boundary", "number": "169", "display": "(169)" },
+        { "label": "eq:m3-chain-map", "number": "170", "display": "(170)" },
+        { "label": "eq:m3-composed-bound", "number": "171", "display": "(171)" },
+        { "label": "eq:m3-finite-law", "number": "172", "display": "(172)" },
+        { "label": "eq:m3-linear-covariance", "number": "173", "display": "(173)" },
+        { "label": "eq:m3-observation-map", "number": "174", "display": "(174)" },
+        { "label": "eq:m3-conditional-si-anchor", "number": "175", "display": "(175)" },
+        { "label": "eq:m3-cs133-tau-interface", "number": "176", "display": "(176)" },
+        { "label": "eq:odd-support-index", "number": "179", "display": "(179)" }
+      ]
+    },
+    {
+      "id": "S1b@cea71a7",
+      "stage": "S1b",
+      "repository": "rpoyau/aod",
+      "ref_name": "m4-typst-s1b-vector-figures",
+      "canonical_version": "v41.02",
+      "commit": "cea71a76f26c08b603866e746867b3982da6c88e",
+      "tree": "49cccab0bbe29403051a0c63cc2c971824d16791",
+      "vendored_files": [
+        {
+          "upstream_path": "typst/lib/main_registry.json",
+          "local_path": "bindings/aod/main_registry.json",
+          "sha256": "e9044676f91fdcaeffa8f1a1d21d605358a0923ec9fd6788146822b6d496c884"
+        },
+        {
+          "upstream_path": "typst/lib/aod_schema.typ",
+          "local_path": "bindings/aod/aod_schema.typ",
+          "sha256": "4e6861360657c906ab18499afd1c114b87c8521ead1df471ddc28ab8e9c44d46"
+        }
+      ]
+    }
+  ],
+  "historical_bindings": [
+    {
+      "id": "aod-dec-v1@2bc927c",
+      "repository": "rpoyau/aod-dec",
+      "ref_name": "origin/codex/sparc-field-window",
+      "canonical_version": "v40.01r10",
+      "source_commit": "2bc927c6718def4df14e4c9af69b9d52c23008df",
+      "source_tree": "0478fa50cb4200a3e7832c86bfa6c03c7de00378",
+      "original_file_sha256": "e5acb188c5597afd69cb95c41f49b1b7fed1b6d8d1f043ea9f1d4939734a1535",
+      "original_record": {
+        "date": "2026-11-13",
+        "scope": "Repair of attached ternary Dec prototype; downstream executable specialization; no Main ontology edits",
+        "base_zip_sha256": "b0ded69f0cf117933596306227cbb14d21735be9d2ba52d259c622cf9d7532c4",
+        "sources": {
+          "aod-dec-dev.zip": "b0ded69f0cf117933596306227cbb14d21735be9d2ba52d259c622cf9d7532c4",
+          "09-source.zip": "a178a5bf06d51c8ab8852e9cabfb6c5eb61456f70739d7391582c08c524f34c7",
+          "01-afc-main.zip": "24587c1ddd7dd5b7673795adf97954a3b40e6480fef54a9d8917e6d77ac0b950",
+          "02-general-mechanics-1.0.5.0.zip": "5d9171e1b4518d975ad3486aaa6d09a781cc60877a950cc0a23da157c37c4736",
+          "11-AOD_M1_CLOSURE_WAVE_RELATIONAL_TIME_SINGLE_PLAN.md": "d3ed657888a6a3c63b13dd34b92a38557189aaccda81775144598267c053859c"
+        },
+        "authority": "Supplied AOD v40.01r10 with owner M1 closure-wave plan, scoped AF/AFC requirements; no implied current GitHub binding",
+        "implementation_choices": [
+          "Python exact reference VM and deterministic IR",
+          "32 balanced ternary digits on binary host",
+          "Finite Q4 trace and structural hinge specialization",
+          "Explicit outer closure for fusion proposals",
+          "Coupled recurrence comparisons without SI scale"
+        ]
+      }
+    }
+  ],
+  "frozen_v1_regression_manifest": {
+    "manifest_path": "tests/fixtures/v1_examples/MANIFEST.txt",
+    "examples": [
+      {
+        "name": "awareness_response.dec",
+        "source_path": "tests/fixtures/v1_examples/awareness_response.dec",
+        "stdout_path": "tests/fixtures/v1_examples/awareness_response.stdout",
+        "src_sha256": "62b117a1f6d7e58dcf175d4dc3c20d76ade511baae9f597255b8dec93ec47500",
+        "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      {
+        "name": "boundary_coefficients.dec",
+        "source_path": "tests/fixtures/v1_examples/boundary_coefficients.dec",
+        "stdout_path": "tests/fixtures/v1_examples/boundary_coefficients.stdout",
+        "src_sha256": "3f913d98d96a91825c8447b0e8475ae1cbcebbee440bf960fab424ea43b378db",
+        "stdout_sha256": "877a8799041017f1719854e4e295c6dca56cd1cf1b1914d1bfed9281f7fc2686"
+      },
+      {
+        "name": "chiral_core_collision.dec",
+        "source_path": "tests/fixtures/v1_examples/chiral_core_collision.dec",
+        "stdout_path": "tests/fixtures/v1_examples/chiral_core_collision.stdout",
+        "src_sha256": "e7483a2b5274b523e9246a24a0bb7f25034933069484aacb05ba396fa5fc2ba0",
+        "stdout_sha256": "1b9bd2a046071488932210931c31b29966b0e0a851274c37c012537e22d5f2b1"
+      },
+      {
+        "name": "closure.dec",
+        "source_path": "tests/fixtures/v1_examples/closure.dec",
+        "stdout_path": "tests/fixtures/v1_examples/closure.stdout",
+        "src_sha256": "68a58121e7ad796f15c5671a9974e92f879babecfebb83ef2fdeaa5f3614c931",
+        "stdout_sha256": "223a2a8f5fa6002e4a1a5679d38c05355d6e9a9595ccd770c3051306dbc01bde"
+      },
+      {
+        "name": "coupling.dec",
+        "source_path": "tests/fixtures/v1_examples/coupling.dec",
+        "stdout_path": "tests/fixtures/v1_examples/coupling.stdout",
+        "src_sha256": "c162acf7baa463f80be0428e2d0275db6bfebe54a8c967f4e6c5e38ed81db8f7",
+        "stdout_sha256": "ba9dff43308c0e7692b2257fb78c6ca4e5c9bb94fa7cab28b512633e30a9145e"
+      },
+      {
+        "name": "fusion.dec",
+        "source_path": "tests/fixtures/v1_examples/fusion.dec",
+        "stdout_path": "tests/fixtures/v1_examples/fusion.stdout",
+        "src_sha256": "d6769bf948b34e00e51f9f622220a5f0d1d6d32d947fa5c9c2601c2459a76bae",
+        "stdout_sha256": "adf580d7eabbb6757191e9fac04cb9fc74e4b05436dc4811828baa24ccf7d612"
+      },
+      {
+        "name": "region_current.dec",
+        "source_path": "tests/fixtures/v1_examples/region_current.dec",
+        "stdout_path": "tests/fixtures/v1_examples/region_current.stdout",
+        "src_sha256": "dffbe018457fc797e8a746ef81d33b91efebc390186b3d8e7726d3ef351770f7",
+        "stdout_sha256": "1f54a37cdefe3639269a93163db9b20cc5127e6f06a268db0db50ac6ccce028e"
+      },
+      {
+        "name": "ternary.dec",
+        "source_path": "tests/fixtures/v1_examples/ternary.dec",
+        "stdout_path": "tests/fixtures/v1_examples/ternary.stdout",
+        "src_sha256": "d009e7bcbe71a4f8cd8622e35d58beffaf493c52caf7b17dc2d6cca50587e6e2",
+        "stdout_sha256": "967947265cf2e0b0674b06fbb1df80cbe2a103b522606a822074d157ecd4ac98"
+      },
+      {
+        "name": "tesseract_cell_jitter.dec",
+        "source_path": "tests/fixtures/v1_examples/tesseract_cell_jitter.dec",
+        "stdout_path": "tests/fixtures/v1_examples/tesseract_cell_jitter.stdout",
+        "src_sha256": "8cea2237a1b9983d0f7daca874abc4fbbe2032f59e4c756a202e70959c06a00c",
+        "stdout_sha256": "83e47542d5330d5cc0653d43deff97732af4dc778ada67203f916e3bde293a41"
+      },
+      {
+        "name": "weights.dec",
+        "source_path": "tests/fixtures/v1_examples/weights.dec",
+        "stdout_path": "tests/fixtures/v1_examples/weights.stdout",
+        "src_sha256": "f59230c9a4abe5f99a5d054e7622bcc3f5905ef2d7b01de5e2208c9bcaa83054",
+        "stdout_sha256": "55e5fe60ec6242ace4bdf6fb7329a5c5ac2ceda4f25f29c94f525f4892e04466"
+      }
+    ]
+  }
+}

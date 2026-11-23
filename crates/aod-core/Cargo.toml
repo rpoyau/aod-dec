@@ -1,0 +1,11 @@
+[package]
+name = "aod-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Exact, std-only, float-free Alpha-Omega Dynamics (AOD) mathematical core and M3 wavelet/ledger primitives."
+
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,0 +1,17 @@
+# Balanced ternary arithmetic with explicit constructors and exact ratios.
+Dec add(a, b) -> c:
+    (t32 a, t32 b) -> t32 c:
+        c = a + b
+    (ratio a, ratio b) -> ratio c:
+        c = a + b
+
+Dec main() -> result:
+    () -> t32 result:
+        t32 x = add(t32(1), t32(1))
+        assert x == t32(2)
+        assert unpack(pack(x)) == x
+        emit x
+        ratio r = add(ratio(1, 4000000000), ratio(1, 4000000000))
+        assert r == ratio(1, 2000000000)
+        emit r
+        result = t32(0)
