@@ -1854,7 +1854,19 @@ fn run_pass5_executable_dec(
 
         // 2. `// @dec-file: <rel_path>` directives (strict containment inside `canon_repo`, `P0-4`)
         for (line_no, rel) in &sf.dec_file_refs {
-            let candidate = canon_repo.join(rel);
+            let rel_path = Path::new(rel);
+            if rel_path.is_absolute()
+                || rel_path
+                    .components()
+                    .any(|c| matches!(c, std::path::Component::ParentDir))
+            {
+                rep.errors.push(format!(
+                    "{}:{line_no}: @dec-file target {rel:?} escapes repository root",
+                    sf.path.display()
+                ));
+                continue;
+            }
+            let candidate = canon_repo.join(rel_path);
             let canon = match std::fs::canonicalize(&candidate) {
                 Ok(p) if p.is_file() => p,
                 Ok(p) => {

@@ -71,10 +71,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Latin Modern and DejaVu fonts
+      - name: Install Latin Modern, DejaVu fonts, and poppler-utils
         run: |
           sudo apt-get update
-          sudo apt-get install -y fonts-lmodern fonts-dejavu-core curl xz-utils
+          sudo apt-get install -y fonts-lmodern fonts-dejavu-core poppler-utils curl xz-utils
 
       - name: Install pinned SHA-256-verified Typst v0.15.1
         run: |
@@ -97,6 +97,9 @@ jobs:
             --min-pages 6 \
             --compare-pdf /tmp/aod-dec-v2-manual-2.pdf \
             /tmp/aod-dec-v2-manual-1.pdf
+          IMAGE_COUNT="$(pdfimages -list /tmp/aod-dec-v2-manual-1.pdf | tail -n +3 | wc -l)"
+          echo "pdfimages embedded raster count: ${IMAGE_COUNT}"
+          test "${IMAGE_COUNT}" -eq 0
 
       - name: Upload verified PDF artifact
         uses: actions/upload-artifact@v4
@@ -118,13 +121,16 @@ jobs:
           path: .ci-aod-lint
           token: ${{ secrets.AOD_LINT_TOKEN || github.token }}
 
-      - name: Build aod-lint
-        run: cargo build --release --manifest-path .ci-aod-lint/Cargo.toml
+      - name: Build aod-lint outside aod-dec workspace
+        run: |
+          rm -rf /tmp/aod-lint
+          mv .ci-aod-lint /tmp/aod-lint
+          cargo build --release --manifest-path /tmp/aod-lint/Cargo.toml
 
       - name: Run aod-lint check --strict over every Typst file in docs/manual
         run: |
           set -euo pipefail
           for f in $(find docs/manual -type f -name '*.typ' | sort); do
             echo "Linting $f"
-            ./.ci-aod-lint/target/release/aod-lint check --strict "$f"
+            /tmp/aod-lint/target/release/aod-lint check --strict "$f"
           done

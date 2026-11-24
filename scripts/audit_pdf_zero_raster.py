@@ -15,7 +15,6 @@ from pathlib import Path
 
 STREAM_RE = re.compile(rb"stream\r?\n(.*?)\r?\n?endstream", re.DOTALL)
 SUBTYPE_IMAGE_RE = re.compile(rb"/Subtype\s*/Image(?![A-Za-z0-9_])")
-IMAGE_PROCSET_RE = re.compile(rb"/Image[BCI](?![A-Za-z0-9_])")
 INLINE_IMAGE_RE = re.compile(
     rb"(?<![A-Za-z0-9_/])BI\s.*?[\s/]ID[\s\r\n].*?(?<![A-Za-z0-9_/])EI(?![A-Za-z0-9_])",
     re.DOTALL,
@@ -161,8 +160,6 @@ def audit_pdf(
         tag = "root" if idx == 0 else f"stream[{idx}]"
         if SUBTYPE_IMAGE_RE.search(stripped):
             raster_hits.append(f"{tag}: /Subtype /Image XObject detected")
-        if IMAGE_PROCSET_RE.search(stripped):
-            raster_hits.append(f"{tag}: /ImageB|/ImageC|/ImageI ProcSet token detected")
         if idx > 0 and INLINE_IMAGE_RE.search(stripped):
             raster_hits.append(f"{tag}: inline raster image BI..ID..EI detected")
 

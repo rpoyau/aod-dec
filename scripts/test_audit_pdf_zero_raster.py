@@ -82,7 +82,7 @@ class AuditPdfZeroRasterTests(unittest.TestCase):
             self.assertGreater(summary["raster_violations"], 0)
             self.assertTrue(any("/Subtype /Image" in e for e in errs))
 
-    def test_flate_inline_image_and_procset_rejected(self) -> None:
+    def test_flate_inline_image_rejected_and_boilerplate_procset_allowed(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             p1 = Path(td) / "inline.pdf"
             inline_stream = b"q BI /W 2 /H 2 /BPC 8 /CS /G ID \x00\xff\xff\x00 EI Q"
@@ -91,16 +91,18 @@ class AuditPdfZeroRasterTests(unittest.TestCase):
             self.assertFalse(ok1)
             self.assertTrue(any("inline raster" in e for e in errs1))
 
+            # Typst 0.15.1 (pdf-writer) emits the deprecated ISO 32000-1 /ProcSet boilerplate
+            # array even on pure-vector PDFs with zero /Subtype /Image XObjects.
             p2 = Path(td) / "procset.pdf"
             p2.write_bytes(
                 make_synthetic_pdf(
                     pages=2,
-                    extra_uncompressed=b"<< /ProcSet [/PDF /Text /ImageC] >>",
+                    extra_uncompressed=b"<< /ProcSet [/PDF /Text /ImageB /ImageC /ImageI] >>",
                 )
             )
-            ok2, errs2, _ = auditor.audit_pdf(p2, min_pages=1)
-            self.assertFalse(ok2)
-            self.assertTrue(any("/ImageB|/ImageC|/ImageI" in e for e in errs2))
+            ok2, errs2, summary2 = auditor.audit_pdf(p2, min_pages=1)
+            self.assertTrue(ok2, f"boilerplate /ProcSet without /Subtype /Image must pass, got {errs2}")
+            self.assertEqual(summary2["raster_violations"], 0)
 
     def test_unresolved_reference_markers_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as td:
