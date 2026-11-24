@@ -206,3 +206,54 @@ fn sha256_nist_vectors_and_strict_json_python_parity() {
         Err(CoreError::FloatForbidden(_))
     ));
 }
+
+#[test]
+fn phase_d1_t9_superpose_radix_and_bytes_primitives() {
+    use aod_core::ternary::{render_bytes_literal, T9};
+
+    assert_eq!(
+        BigInt::parse_hex_underscored("FF_00").unwrap(),
+        BigInt::from_u64(0xFF00)
+    );
+    assert_eq!(
+        BigInt::parse_binary_underscored("1010_0101").unwrap(),
+        BigInt::from_u64(0xA5)
+    );
+    for bad_hex in ["", "_1", "1_", "1__2", "1G"] {
+        assert!(BigInt::parse_hex_underscored(bad_hex).is_err());
+    }
+    for bad_bin in ["", "_0", "0_", "1__0", "102"] {
+        assert!(BigInt::parse_binary_underscored(bad_bin).is_err());
+    }
+
+    let hi = T9::new(9841).unwrap();
+    let lo = T9::new(-9841).unwrap();
+    assert!(T9::new(9842).is_err());
+    assert!(T9::new(-9842).is_err());
+    assert_eq!(T9::unpack(hi.pack() as u64).unwrap(), hi);
+    assert_eq!(T9::unpack(lo.pack() as u64).unwrap(), lo);
+    assert!(T9::unpack(1 << 18).is_err());
+    assert!(matches!(
+        T9::unpack(0b11),
+        Err(CoreError::InvalidTritEncoding(3))
+    ));
+
+    assert_eq!(T1::POS.superpose_cancel(T1::NEG), T1::ZERO);
+    assert_eq!(T1::POS.superpose_cancel(T1::POS), T1::POS);
+    assert_eq!(T1::NEG.superpose_cancel(T1::NEG), T1::NEG);
+
+    let a32 = T32::new(1 + 3 + 9).unwrap();
+    let b32 = T32::new(-1 + 3 - 27).unwrap();
+    assert_eq!(a32.superpose_cancel(b32), T32::new(-15).unwrap());
+
+    assert_eq!(Addr8::from_u64_min2(0).render(), "00_8");
+    assert_eq!(Addr8::from_u64_min2(7).render(), "07_8");
+    assert_eq!(Addr8::from_u64_min2(8).render(), "10_8");
+    assert_eq!(Addr8::from_u64_min2(64).render(), "100_8");
+
+    assert_eq!(
+        render_bytes_literal(b"A\0\n\r\t\\\"'\xff"),
+        "b\"A\\0\\n\\r\\t\\\\\\\"'\\xff\""
+    );
+}
+

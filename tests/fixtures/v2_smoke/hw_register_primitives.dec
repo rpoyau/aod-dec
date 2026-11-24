@@ -1,0 +1,141 @@
+# Phase D1 Wave-Hardware Register Substrate Smoke Fixture (`Null`, `u8`, `b64`, `t9`, `bytes`,
+# `array[T, N]`, `0x`/`0b`, `q4` bitwise/Hamming, `superpose_cancel`, `select`, and audit helpers).
+
+use aod::core
+use aod::core::{
+    u8, b64, t9, unpack_t9, bitnot, popcnt, is_hamming1, popcnt_xor, superpose_cancel,
+    bytes, slice_bytes, concat_bytes, sha256_bytes, hex_bytes, array, array_set, select,
+    verify_sheddic_route, verify_frg_cross_return
+}
+use aod::qext::{ext_decimal, qext_render}
+
+const HEADER_MAGIC: array[u8, 4] = [u8(0x41), u8(0x4F), u8(0x44), u8(0x32)]
+
+struct WaveRegFrame:
+    vac: Null
+    lanes: array[u8, 4]
+    word: b64
+    phase9: t9
+
+enum GateSlot:
+    Empty(Null)
+    Active(b64)
+
+Dec match_null(x: Null) -> int:
+    match x:
+        null:
+            return 1
+
+Dec match_bytes(tag) -> out:
+    (bytes b"AOD\x02") -> int out:
+        out = 42
+    (bytes _) -> int out:
+        out = -1
+
+Dec sum_ro_frame(ro: ReadOnly<WaveRegFrame>) -> int:
+    let ro_lanes: ReadOnly<array[u8, 4]> = ro.lanes
+    return int(ro_lanes[0]) + int(ro_lanes[1]) + int(ro_lanes[2]) + int(ro_lanes[3]) + len(ro_lanes)
+
+Dec make_pair(a: u8, b: u8) -> array[u8, 2]:
+    return [a, b]
+
+Dec main() -> int:
+    # 1. Ontological Null (`null`)
+    let z: Null = null
+    assert z == null
+    assert match_null(z) == 1
+    let g = GateSlot::Empty(null)
+    match g:
+        GateSlot::Empty(null):
+            assert true
+        GateSlot::Active(_):
+            assert false
+
+    # 2. Exact u8 & hex/binary literals (`0x`, `0b`)
+    let b_hi = u8(0xAA)
+    let b_lo = u8(0b0101_0101)
+    assert (b_hi ^ b_lo) == u8(0xFF)
+    assert (b_hi & b_lo) == u8(0)
+    assert (u8(200) // u8(7)) == u8(28) and (u8(200) % u8(7)) == u8(4)
+    assert (u8(6) / u8(8)) == 3/4r
+    assert (u8(0b0001_0101) << 2) == u8(0b0101_0100)
+    assert (u8(0x80) >> u8(7)) == u8(1)
+
+    # 3. Exact 64-bit register word `b64` + `t32` packed lane round-trip
+    let w0 = b64(0xAAAA_AAAA_AAAA_AAAA)
+    assert popcnt(w0) == 32
+    assert bitnot(b64(0)) == b64(0xFFFF_FFFF_FFFF_FFFF)
+    assert (b64(1) << 63) > b64(0x7FFF_FFFF_FFFF_FFFF)
+    let all_neg = t32(w0)
+    assert b64(all_neg) == w0
+    assert t32(b64(t32(-926510094425920))) == t32(-926510094425920)
+
+    # 4. Balanced 9-trit `t9` in [-9841, +9841] + 18-bit pack/unpack
+    let p_max = t9(9841)
+    let p_min = -p_max
+    assert int(p_min) == -9841
+    assert unpack_t9(pack(p_max)) == p_max
+    assert unpack_t9(b64(p_min)) == p_min
+    assert (t9(-7) // t9(3)) == t9(-3) and (t9(-7) % t9(3)) == t9(2)
+
+    # 5. Hypercube `q4` bitwise & Gray-code Hamming-1 adjacency + `superpose_cancel`
+    let c0 = q4(0b0101)
+    let c1 = q4(0b0111)
+    assert (c0 ^ c1) == q4(0b0010) and is_hamming1(c0, c1)
+    assert popcnt_xor(q4(0b0000), q4(0b1111)) == 4
+    assert superpose_cancel(+1t, -1t) == 0t
+    assert superpose_cancel(+1t, +1t) == +1t
+    let wave_pos = t32(1 + 3 + 9)
+    let wave_neg = t32(-1 + 3 - 27)
+    # Lane 0 (+1, -1) -> 0; lane 1 (+1, +1) -> +1 (3); lane 2 (+1, 0) -> +1 (9); lane 3 (0, -1) -> -1 (-27) => -15
+    assert superpose_cancel(wave_pos, wave_neg) == t32(-15)
+
+    # 6. Exact immutable `bytes` (`b"..."`, LE `b64`, `addr8`, SHA-256, hex)
+    let raw = b"AOD\x02"
+    assert len(raw) == 4 and raw[0] == u8(65) and raw[3] == u8(2)
+    assert match_bytes(raw) == 42
+    assert bytes([u8(65), u8(79), u8(68), u8(2)]) == raw
+    assert concat_bytes(slice_bytes(raw, 0, 3), b"\x02") == raw
+    assert bytes(b64(0x0102030405060708)) == b"\x08\x07\x06\x05\x04\x03\x02\x01"
+    assert bytes(00_8) == b"00_8"
+    let abc_sha_hex = hex_bytes(sha256_bytes(bytes("abc")))
+    assert abc_sha_hex == b"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+    # 7. Fixed-size `array[T, N]`, copy-on-write `array_set`, `ReadOnly` & `map` key
+    let a0 = HEADER_MAGIC
+    let a1 = array_set(a0, 3, u8(0x39))
+    assert a0[3] == u8(0x32) and a1[3] == u8(0x39)
+    assert array(10, 20, 30)[1] == 20
+    let frame = WaveRegFrame { vac: null, lanes: [u8(1), u8(2), u8(3), u8(4)], word: w0, phase9: t9(81) }
+    assert sum_ro_frame(frame) == 14
+    mut lut: map[array[u8, 2], int] = {[u8(1), u8(2)]: 12}
+    lut[make_pair(u8(3), u8(4))] = 34
+    assert aod::core::contains(lut, [u8(3), u8(4)]) and lut[[u8(1), u8(2)]] == 12
+
+    # 8. Polymorphic branchless `select` (unqualified, `aod::core::select`, `core::select`, and `Q_ext`)
+    let s1 = select(true, t9(27), t9(-27))
+    let s2 = aod::core::select(false, [u8(9), u8(9)], make_pair(u8(5), u8(6)))
+    let s3 = core::select(true, b"ok", b"no")
+    assert s1 == t9(27) and s2 == array(u8(5), u8(6)) and s3 == b"ok"
+
+    # 9. Sheddic enclosure route & FRG cross-return identity helpers
+    assert verify_sheddic_route(3, u8(6))
+    assert not verify_sheddic_route(3, u8(7))
+    assert verify_frg_cross_return(65536, 65600, 64)
+    assert not verify_frg_cross_return(65536, 65600, 63)
+
+    quarantine Q_ext:
+        let qa = ext_decimal("1.25")
+        let qb = ext_decimal("2.50")
+        let qsel = select(true, qb, qa)
+        emit qext_render(qsel)
+
+    emit z
+    emit b_hi ^ b_lo
+    emit w0
+    emit p_max
+    emit superpose_cancel(wave_pos, wave_neg)
+    emit raw
+    emit a1
+    emit abc_sha_hex
+    return 0

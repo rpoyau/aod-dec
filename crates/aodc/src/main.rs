@@ -9,8 +9,9 @@ use aod_core::json::{parse_strict_json, JsonValue};
 use aodc::diagnostics::CompatMode;
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
-    audit_pdf_file, bench_file_with_options, build_aot_file_with_options, check_file_with_options,
-    collect_guarded_roots, compile_file_to_ir_with_options, emit_llvm_file_with_options,
+    audit_dec_file_with_options, audit_pdf_file, bench_file_with_options,
+    build_aot_file_with_options, check_file_with_options, collect_guarded_roots,
+    compile_file_to_ir_with_options, emit_llvm_file_with_options,
     eval_operation, exec_ir_file_with_budget_capturing, format_x100,
     jit_file_with_profile_and_parallel_captured, learn_file_with_options,
     read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_options,
@@ -260,7 +261,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc audit-dec [--compat v1|v2] [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -509,6 +510,20 @@ fn main() -> ExitCode {
                 report.multicore.tested_workers,
                 report.multicore.scaling_x100,
                 report.multicore.recommended_workers
+            );
+            println!(
+                "  frg_ring_gate: E4(RD={})={} C6(RD={})={} C8(RD={}, T_sync={}): t0={} tx={} r_e={} handoffs={} (op_certified={})",
+                report.frg_ring_gate.tier0_e4.rd_cadence,
+                report.frg_ring_gate.tier0_e4.verified,
+                report.frg_ring_gate.tier1_c6.rd_cadence,
+                report.frg_ring_gate.tier1_c6.verified,
+                report.frg_ring_gate.tier2_c8.rd_cadence,
+                report.frg_ring_gate.t_sync,
+                report.frg_ring_gate.t_zero,
+                report.frg_ring_gate.t_cross,
+                report.frg_ring_gate.r_e,
+                report.frg_ring_gate.inter_thread_handoffs,
+                report.frg_ring_gate.op_certified
             );
             println!("  total_ms:      {} ms", report.total_probe_ms);
             Ok(())
@@ -1203,6 +1218,160 @@ fn main() -> ExitCode {
                     Err(CliErr::fail(format!(
                         "PDF audit failed with {} error(s)",
                         report.errors.len()
+                    )))
+                }
+            }
+        }
+        "audit-dec" => {
+            let mut compat = CompatMode::V2;
+            let mut saw_compat = false;
+            let mut stdlib_dir: Option<PathBuf> = None;
+            let mut report_path: Option<PathBuf> = None;
+            let mut json_mode = false;
+            let mut positional: Vec<String> = Vec::new();
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--compat" => {
+                        if saw_compat {
+                            parse_err = Some("duplicate flag --compat".to_string());
+                            break;
+                        }
+                        saw_compat = true;
+                        match sub_args.get(idx + 1).map(String::as_str) {
+                            Some("v1") => {
+                                compat = CompatMode::V1;
+                                idx += 2;
+                            }
+                            Some("v2") => {
+                                compat = CompatMode::V2;
+                                idx += 2;
+                            }
+                            Some(other) => {
+                                parse_err = Some(format!(
+                                    "unsupported --compat mode {other:?} (expected v1 or v2)"
+                                ));
+                                break;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing mode after --compat (expected v1 or v2)".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--stdlib" => {
+                        if stdlib_dir.is_some() {
+                            parse_err = Some("duplicate flag --stdlib".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                stdlib_dir = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing directory path after --stdlib".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--report" => {
+                        if report_path.is_some() {
+                            parse_err = Some("duplicate flag --report".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                report_path = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err = Some("missing file path after --report".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--json" => {
+                        json_mode = true;
+                        idx += 1;
+                    }
+                    other if other.starts_with('-') => {
+                        parse_err =
+                            Some(format!("unknown flag {other:?} for audit-dec\n{}", usage()));
+                        break;
+                    }
+                    other => {
+                        positional.push(other.to_string());
+                        idx += 1;
+                    }
+                }
+            }
+            if let Some(e) = parse_err {
+                Err(CliErr::usage(e))
+            } else if positional.len() != 1 {
+                Err(CliErr::usage(format!(
+                    "expected exactly one <source.dec>\n{}",
+                    usage()
+                )))
+            } else {
+                let src_path = Path::new(&positional[0]);
+                // P1-2: Pre-execution `--report` validation BEFORE reading `<source.dec>`!
+                let validated_report = if let Some(ref raw_rp) = report_path {
+                    let mut explicit: Vec<&Path> = vec![src_path];
+                    if let Some(ref sd) = stdlib_dir {
+                        explicit.push(sd.as_path());
+                    }
+                    let guarded = collect_guarded_roots(raw_rp, &explicit);
+                    match validate_runtime_output_path(raw_rp, &guarded) {
+                        Ok(p) => Some(p),
+                        Err(err) => {
+                            eprintln!("aodc: {err}");
+                            return ExitCode::from(2);
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                let load_opts = LoadOptions {
+                    stdlib_dir,
+                    ..LoadOptions::default()
+                };
+                let report = audit_dec_file_with_options(src_path, compat, &load_opts);
+                let json_val = report.to_json();
+                if let Some(ref rp) = validated_report {
+                    let pretty = json_val.to_pretty_utf8_json();
+                    if let Err(err) = write_report_atomic(rp, pretty.as_bytes()) {
+                        eprintln!("aodc: {err}");
+                        return ExitCode::from(1);
+                    }
+                }
+                if json_mode {
+                    println!("{}", json_val.to_compact_ascii_json());
+                } else {
+                    println!(
+                        "aodc audit-dec ({}) -> {} ({}/6 hooks, anchor={} -> {}, crossings={}, dwell={})",
+                        report.source_name,
+                        report.status,
+                        report.hooks_passed(),
+                        report.live_walk.initial_anchor.render(),
+                        report.live_walk.final_anchor.render(),
+                        report.live_walk.committed_crossings,
+                        report.live_walk.dwell_burned
+                    );
+                    for err in &report.errors {
+                        eprintln!("  ERROR: {err}");
+                    }
+                }
+                if report.passed() {
+                    Ok(())
+                } else {
+                    Err(CliErr::fail(format!(
+                        "audit-dec failed ({}/6 hooks passed)",
+                        report.hooks_passed()
                     )))
                 }
             }

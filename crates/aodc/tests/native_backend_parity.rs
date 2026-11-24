@@ -141,6 +141,7 @@ fn ac07_all_3_v2_smoke_fixtures_parity_vm_aot_jit() {
         "opposing_336_chamber.dec",
         "m3_wavelet_recipient.dec",
         "qext_post_freeze.dec",
+        "hw_register_primitives.dec",
     ] {
         let path = smoke_dir.join(name);
         let expected = run_file(&path, CompatMode::V2).unwrap().to_stdout_string();

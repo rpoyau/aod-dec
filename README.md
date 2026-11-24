@@ -19,10 +19,10 @@
 - **Zero IEEE-754 floating-point types or literals** anywhere across all 4 crates (`aod-core`, `aod-rt`, `aod-llvm`, `aodc`).
 - **Strict `unsafe` quarantine:** `#![forbid(unsafe_code)]` on `aod-core` and `aodc`; `unsafe` strictly limited to the 5 C ABI / LLVM 18 / hardware probe files (`aod-rt/src/abi.rs`, `aod-llvm/src/{ffi.rs,aot.rs,jit.rs,hw_probe.rs}`).
 - **Four acyclic crates (`aod-core` → `aod-rt` → `aod-llvm` → `aodc`):**
-  - [`crates/aod-core`](crates/aod-core): arbitrary-precision `BigInt`, canonical exact `Ratio`, quarantined `qext::QExtRatio` (including one-way `round_half_even` & `format_fixed`), checked `T1`/`T32`/`Q4`/`Addr8`, pure-`std` FIPS 180-4 `Sha256`, strict float-free `JsonValue`, `SupportForm`, v1-exact `Trace`/`Fusion`/`Coupling` dual JSON witness primitives, complete M3 `F01`–`F07` `wavelet` & `RecipientLattice`, Manual §4 D.E.C. `ledger`, and the shared Stage 2 exact reference kernel & 30-vector verifier (`s2_kernel`, `s2_vectors`).
-  - [`crates/aod-rt`](crates/aod-rt): `rlib` + `staticlib` (`libaod_rt.a`) owning the shared sandbox chamber engine, safe 1-based `RtArena` with `max_entries` cap, deep-copy/copy-on-write container semantics, exact cold-spill math, and panic-safe flat C ABI (`#[unsafe(no_mangle)]` + `catch_unwind`).
-  - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), parameterized `CodegenPlan`, CPU microarchitecture discovery (`hw_info`), 5 live self-verifying ORC LLJIT tick/click micro-probes (`hw_probe`), zero-float paired percentile bootstrap & rollback-safe `RetainedProfile` learner (`learner`, tagged `COMPILER_EXECUTION_POLICY_NOT_PHYSICAL_AOD_LAW`), standalone PIC AOT ELF emitter/linker, and in-process ORC LLJIT session (`OrcJitSession`).
-  - [`crates/aodc`](crates/aodc): Dec v1 & v2 frontend (`struct`, `enum`, exhaustive `match`, deterministic `map[K, V]`, multi-arm pattern dispatch), all 5 compile-time firewalls, hermetic `DecIR v1`/`v2` verifier, exact reference VM, parameterized unboxed-first safe textual LLVM 18 IR lowering (`src/codegen.rs`), and CLI.
+  - [`crates/aod-core`](crates/aod-core): arbitrary-precision `BigInt` (decimal, `0x` hex, and `0b` binary parsers), canonical exact `Ratio`, quarantined `qext::QExtRatio` (including one-way `round_half_even` & `format_fixed`), checked `T1`/`T9`/`T32`/`Q4`/`Addr8` (including branchless 32-lane `superpose_cancel` & canonical `render_bytes_literal`), pure-`std` FIPS 180-4 `Sha256`, strict float-free `JsonValue`, `SupportForm`, v1-exact `Trace`/`Fusion`/`Coupling` dual JSON witness primitives, complete M3 `F01`–`F07` `wavelet` & `RecipientLattice`, Manual §4 D.E.C. `ledger`, and the shared Stage 2 exact reference kernel & 30-vector verifier (`s2_kernel`, `s2_vectors`).
+  - [`crates/aod-rt`](crates/aod-rt): `rlib` + `staticlib` (`libaod_rt.a`) owning the shared sandbox chamber engine, safe 1-based `RtArena` with `max_entries` cap, deep-copy/copy-on-write container semantics (`List`, `Array`, `Bytes`, `Map`, `Struct`, `Enum`, `Tuple`), exact cold-spill math, and panic-safe flat C ABI (`#[unsafe(no_mangle)]` + `catch_unwind`).
+  - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), parameterized `CodegenPlan`, CPU microarchitecture discovery (`hw_info`), 6 live self-verifying ORC LLJIT tick/click micro-probes (`hw_probe`, including the barrier-synchronized 2-thread shared-cache-line `frg_ring_gate` cross-return probe & 3-state `Op_e` certification), zero-float paired percentile bootstrap & rollback-safe `RetainedProfile` learner (`learner`, tagged `COMPILER_EXECUTION_POLICY_NOT_PHYSICAL_AOD_LAW`), standalone PIC AOT ELF emitter/linker, and in-process ORC LLJIT session (`OrcJitSession`).
+  - [`crates/aodc`](crates/aodc): Dec v1 & v2 frontend (`Null`/`null`, `u8`, `b64`, `t9`, `bytes`/`b"..."`, `array[T, N]`, `0x`/`0b` integer literals, `q4` bitwise/Hamming, `superpose_cancel`, polymorphic eager `select`, `struct`, `enum`, exhaustive `match`, deterministic `map[K, V]`, multi-arm pattern dispatch), all 5 compile-time firewalls, live-walk byte scanner & 6-hook `.dec` auditor (`src/dec_audit.rs`, `aod.dec.audit.v1`), hermetic `DecIR v1`/`v2` verifier, exact reference VM, parameterized unboxed-first safe textual LLVM 18 IR lowering (`src/codegen.rs`), and CLI.
 
 ## Compile-Time Firewalls
 
@@ -52,8 +52,11 @@ cargo run --bin aodc -- build -O2 tests/fixtures/v2_bench/unboxed_loop_bench.dec
 # Execute in-process via LLVM 18 ORC LLJIT (optionally with validated retained profile)
 cargo run --bin aodc -- jit -O2 [--profile /tmp/prof.json] tests/fixtures/v2_bench/unboxed_loop_bench.dec
 
-# Discover host CPU microarchitecture and run 5 live self-verifying JIT micro-probes
+# Discover host CPU microarchitecture and run 6 live self-verifying JIT micro-probes (including frg_ring_gate)
 cargo run --bin aodc -- probe-hw [--output /tmp/hw_report.json]
+
+# Run the live-walk scanner & 6-hook native Dec auditor (aod.dec.audit.v1)
+cargo run --bin aodc -- audit-dec [--report /tmp/dec_audit.json] [--json] manual_examples/03_short_window_boundary.dec
 
 # Learn a semantically-guarded, honest compile-inclusive JIT execution policy profile
 cargo run --bin aodc -- learn --baseline O0 --fuel 2000000 --pairs 6 --heldout 8 --profile /tmp/prof.json tests/fixtures/v2_bench/learn_amortized_bench.dec
@@ -120,10 +123,11 @@ cargo run --bin aodc -- test manual_examples
 | Gate | Offline Local | GitHub Actions CI |
 | :--- | :---: | :---: |
 | `RUSTFLAGS="-D warnings" cargo test --workspace --offline` (debug & `--release`) | Verified | Verified |
-| `aodc test` (`v1_examples` 10/10, `v2_smoke` 3/3, `manual_examples` 18/18) | Verified | Verified |
+| `aodc test` (`v1_examples` 10/10, `v2_smoke` 4/4, `manual_examples` 18/18) | Verified | Verified |
+| `aodc audit-dec --json` (live-walk scanner + 6 hooks `aod.dec.audit.v1` on `manual_examples/01..11.dec` & `hw_register_primitives.dec`) | Verified | Verified |
 | `aodc manual-data --check` & `--json` (zero-LLVM Exact VM parity on `docs/manual/data/*.json`) | Verified | Verified |
 | `aodc verify-s2 --s4-report` & `aodc eval-op` (30/30 S2 vectors + 90-tick `S4@e013401` CSV, debug == release `cmp`) | Verified | Verified |
-| `aodc probe-hw` & `aodc learn` (Hardware Learner v2, `PROFILE_VERSION = 2`, `--parallel-observers`) | Verified | Verified |
+| `aodc probe-hw` & `aodc learn` (6 JIT probes incl. `frg_ring_gate`, `PROFILE_VERSION = 2`, `--parallel-observers`) | Verified | Verified |
 | `aodc manual-verify docs/manual` & `--json` (all 6 passes live, `dec_files_checked: 18`) | Verified | Verified |
 | Pure-Rust `aodc audit-pdf` unit/CLI suite (`tests/pdf_audit.rs`) & zero-Python repo/CI guard | Verified | Verified |
 | `typst compile --root . --creation-timestamp 0` (SHA-256-verified `v0.15.1`, double-build PDF + `aodc audit-pdf` + `pdfimages`) | Not run locally (`typst` absent offline) | Verified in `.github/workflows/ci.yml` |

@@ -54,6 +54,13 @@ jobs:
       - name: Run live hardware discovery & JIT micro-probes
         run: ./target/release/aodc probe-hw
 
+      - name: Audit positive Dec fixtures via 6-hook native auditor (aodc audit-dec --json)
+        run: |
+          for f in manual_examples/*.dec; do
+            ./target/release/aodc audit-dec --json "$f"
+          done
+          ./target/release/aodc audit-dec --json tests/fixtures/v2_smoke/hw_register_primitives.dec
+
       - name: Verify live docs/manual/data/*.json parity via zero-LLVM Exact VM (aodc manual-data --check)
         run: |
           ./target/release/aodc manual-data --check

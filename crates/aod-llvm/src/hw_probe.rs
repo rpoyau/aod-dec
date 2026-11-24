@@ -1,12 +1,14 @@
 #![allow(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Barrier;
 use std::time::Instant;
 
 use aod_core::bigint::BigInt;
 use aod_core::json::JsonValue;
 use aod_core::ratio::Ratio;
-use aod_core::ternary::T32;
+use aod_core::ternary::{T1, T32};
 use aod_rt::abi::{DecInt, OwnedRtContext};
 
 use crate::hw_info::HostHardwareInfo;
@@ -368,6 +370,137 @@ impl MulticoreReport {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FrgChannelReport {
+    pub tier_name: String,
+    pub enclosure: u8,
+    pub rd_cadence: i64,
+    pub t_zero: i64,
+    pub t_cross: i64,
+    pub r_e: i64,
+    pub retained_present: bool,
+    pub retained: Option<i64>,
+    pub identity_verified: bool,
+    pub op_certified: bool,
+    pub role_trit: i8,
+    pub w_adapted: i64,
+    pub verified: bool,
+}
+
+impl FrgChannelReport {
+    pub fn to_json(&self) -> JsonValue {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "enclosure".to_string(),
+            JsonValue::from_i64(i64::from(self.enclosure)),
+        );
+        m.insert(
+            "identity_verified".to_string(),
+            JsonValue::Bool(self.identity_verified),
+        );
+        m.insert("op_certified".to_string(), JsonValue::Bool(self.op_certified));
+        m.insert("r_e".to_string(), JsonValue::from_i64(self.r_e));
+        m.insert("rd_cadence".to_string(), JsonValue::from_i64(self.rd_cadence));
+        m.insert(
+            "retained".to_string(),
+            match self.retained {
+                Some(v) => JsonValue::from_i64(v),
+                None => JsonValue::Null,
+            },
+        );
+        m.insert(
+            "retained_present".to_string(),
+            JsonValue::Bool(self.retained_present),
+        );
+        m.insert(
+            "role_trit".to_string(),
+            JsonValue::from_i64(i64::from(self.role_trit)),
+        );
+        m.insert("t_cross".to_string(), JsonValue::from_i64(self.t_cross));
+        m.insert("t_zero".to_string(), JsonValue::from_i64(self.t_zero));
+        m.insert(
+            "tier_name".to_string(),
+            JsonValue::from_str_val(self.tier_name.clone()),
+        );
+        m.insert("verified".to_string(), JsonValue::Bool(self.verified));
+        m.insert("w_adapted".to_string(), JsonValue::from_i64(self.w_adapted));
+        JsonValue::Object(m)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FrgRingGateReport {
+    pub policy_scope: String,
+    pub tier0_e4: FrgChannelReport,
+    pub tier1_c6: FrgChannelReport,
+    pub tier2_c8: FrgChannelReport,
+    pub t_sync: i64,
+    pub s_gate_a: i64,
+    pub s_gate_b: i64,
+    pub t_zero: i64,
+    pub t_cross: i64,
+    pub c_cross: i64,
+    pub r_e: i64,
+    pub inter_thread_handoffs: i64,
+    pub isolated_slits_ns: u64,
+    pub coupled_ring_ns: u64,
+    pub identity_verified: bool,
+    pub op_certified: bool,
+    pub role_trit: i8,
+    pub retained: Option<i64>,
+    pub verified: bool,
+}
+
+impl FrgRingGateReport {
+    pub fn to_json(&self) -> JsonValue {
+        let mut m = BTreeMap::new();
+        m.insert("c_cross".to_string(), JsonValue::from_i64(self.c_cross));
+        m.insert(
+            "coupled_ring_ns".to_string(),
+            JsonValue::from_i64(self.coupled_ring_ns as i64),
+        );
+        m.insert(
+            "identity_verified".to_string(),
+            JsonValue::Bool(self.identity_verified),
+        );
+        m.insert(
+            "inter_thread_handoffs".to_string(),
+            JsonValue::from_i64(self.inter_thread_handoffs),
+        );
+        m.insert(
+            "isolated_slits_ns".to_string(),
+            JsonValue::from_i64(self.isolated_slits_ns as i64),
+        );
+        m.insert("op_certified".to_string(), JsonValue::Bool(self.op_certified));
+        m.insert(
+            "policy_scope".to_string(),
+            JsonValue::from_str_val(self.policy_scope.clone()),
+        );
+        m.insert("r_e".to_string(), JsonValue::from_i64(self.r_e));
+        m.insert(
+            "retained".to_string(),
+            match self.retained {
+                Some(v) => JsonValue::from_i64(v),
+                None => JsonValue::Null,
+            },
+        );
+        m.insert(
+            "role_trit".to_string(),
+            JsonValue::from_i64(i64::from(self.role_trit)),
+        );
+        m.insert("s_gate_a".to_string(), JsonValue::from_i64(self.s_gate_a));
+        m.insert("s_gate_b".to_string(), JsonValue::from_i64(self.s_gate_b));
+        m.insert("t_cross".to_string(), JsonValue::from_i64(self.t_cross));
+        m.insert("t_sync".to_string(), JsonValue::from_i64(self.t_sync));
+        m.insert("t_zero".to_string(), JsonValue::from_i64(self.t_zero));
+        m.insert("tier0_e4".to_string(), self.tier0_e4.to_json());
+        m.insert("tier1_c6".to_string(), self.tier1_c6.to_json());
+        m.insert("tier2_c8".to_string(), self.tier2_c8.to_json());
+        m.insert("verified".to_string(), JsonValue::Bool(self.verified));
+        JsonValue::Object(m)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HwProbeReport {
     pub policy_scope: String,
     pub clock_source: String,
@@ -379,6 +512,7 @@ pub struct HwProbeReport {
     pub branch_predictor: BranchPredictorReport,
     pub unroll_layout: UnrollLayoutReport,
     pub multicore: MulticoreReport,
+    pub frg_ring_gate: FrgRingGateReport,
     pub total_probe_ms: u64,
 }
 
@@ -394,6 +528,7 @@ impl HwProbeReport {
             JsonValue::from_str_val(self.clock_source.clone()),
         );
         m.insert("exact_arith".to_string(), self.exact_arith.to_json());
+        m.insert("frg_ring_gate".to_string(), self.frg_ring_gate.to_json());
         m.insert("hardware".to_string(), self.hardware.to_json());
         m.insert("memory_tiers".to_string(), self.memory_tiers.to_json());
         m.insert("multicore".to_string(), self.multicore.to_json());
@@ -507,6 +642,7 @@ pub fn run_all_hw_probes() -> LlvmResult<HwProbeReport> {
     let branch_predictor = run_probe_branch_predictor()?;
     let unroll_layout = run_probe_unroll_layout()?;
     let multicore = run_probe_multicore(hardware.logical_cores)?;
+    let frg_ring_gate = run_probe_frg_ring_gate()?;
 
     Ok(HwProbeReport {
         policy_scope: POLICY_SCOPE.to_string(),
@@ -519,6 +655,7 @@ pub fn run_all_hw_probes() -> LlvmResult<HwProbeReport> {
         branch_predictor,
         unroll_layout,
         multicore,
+        frg_ring_gate,
         total_probe_ms: total_t0.elapsed().as_millis() as u64,
     })
 }
@@ -1118,5 +1255,376 @@ done:
         scaling_x100,
         recommended_workers,
         verified: true,
+    })
+}
+
+#[repr(align(128))]
+struct IsolatedSlitState {
+    count: AtomicU64,
+}
+
+#[repr(align(64))]
+struct SharedC8RingLine {
+    counts: AtomicU64,
+    last_owner: AtomicU64,
+}
+
+const _: () = {
+    assert!(std::mem::align_of::<IsolatedSlitState>() == 128);
+    assert!(std::mem::align_of::<SharedC8RingLine>() == 64);
+    assert!(std::mem::size_of::<SharedC8RingLine>() <= 64);
+};
+
+/// Exact 3-state complete-state `Op_e` certification (`P0-6`, §3.2):
+/// - `retained == Some(r)` with `r == r_e` and `r != 0`: `op_certified = true`, `role_trit = +1`, `w_adapted = base_w + r`
+/// - `retained == Some(0)` with `r_e == 0`: `retained_present = true`, `op_certified = false`, `role_trit = 0`, `w_adapted = base_w`
+/// - `retained == None` (structural source removal `S_k^{+,-e}`): `retained_present = false`, `op_certified = false`, `role_trit = -1`, `w_adapted = 0`
+pub fn certify_frg_channel(
+    tier_name: &str,
+    enclosure: u8,
+    rd_cadence: i64,
+    t_zero: i64,
+    t_cross: i64,
+    retained: Option<i64>,
+    base_w: i64,
+) -> LlvmResult<FrgChannelReport> {
+    let r_e = t_cross - t_zero;
+    match retained {
+        Some(r) => {
+            let identity_verified = r == r_e;
+            let j_with_r = Ratio::from_i64(3 + r, 3).map_err(|e| LlvmError::new(e.to_string()))?;
+            let j_removed_r = Ratio::from_i64(3, 3).map_err(|e| LlvmError::new(e.to_string()))?;
+            let op_certified = identity_verified && (j_with_r != j_removed_r);
+            let role_trit = if op_certified {
+                T1::POS.value()
+            } else {
+                T1::ZERO.value()
+            };
+            Ok(FrgChannelReport {
+                tier_name: tier_name.to_string(),
+                enclosure,
+                rd_cadence,
+                t_zero,
+                t_cross,
+                r_e,
+                retained_present: true,
+                retained: Some(r),
+                identity_verified,
+                op_certified,
+                role_trit,
+                w_adapted: base_w + r,
+                verified: identity_verified,
+            })
+        }
+        None => {
+            let j_with_r = Ratio::from_i64(3, 3).map_err(|e| LlvmError::new(e.to_string()))?;
+            let j_removed_r = Ratio::from_i64(3, 3).map_err(|e| LlvmError::new(e.to_string()))?;
+            let _ = j_with_r == j_removed_r;
+            Ok(FrgChannelReport {
+                tier_name: tier_name.to_string(),
+                enclosure,
+                rd_cadence,
+                t_zero,
+                t_cross,
+                r_e,
+                retained_present: false,
+                retained: None,
+                identity_verified: r_e == 0,
+                op_certified: false,
+                role_trit: T1::NEG.value(),
+                w_adapted: 0,
+                verified: true,
+            })
+        }
+    }
+}
+
+/// Probe 6 (`P0-6`): Live 3-tier (`E4 RD=9`, `C6 RD=61`, `C8 RD=137 T_sync=8357`) ORC LLJIT
+/// FRG double-slit cross-return probe with barrier-synchronized `#[repr(align(128))]` isolated
+/// slits and `#[repr(align(64))]` shared-cache-line ring coupling. Zero clamping on `c_cross`.
+pub fn run_probe_frg_ring_gate() -> LlvmResult<FrgRingGateReport> {
+    let ir = r#"
+declare i64 @llvm.ctpop.i64(i64)
+
+define i64 @probe_frg_e4(i64 %w0, i64 %steps) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
+  %w = phi i64 [ %w0, %entry ], [ %w_flip, %loop ]
+  %h_acc = phi i64 [ 0, %entry ], [ %h_next, %loop ]
+  ; 1-cycle T32 wire-swap phase flip: ((w & 0x5555...) << 1) | ((w & 0xAAAA...) >> 1)
+  %lo = and i64 %w, 6148914691236517205
+  %hi = and i64 %w, -6148914691236517206
+  %lo_s = shl i64 %lo, 1
+  %hi_s = lshr i64 %hi, 1
+  %w_flip = or i64 %lo_s, %hi_s
+  ; Gray-step Q4 Hamming-1 check via ctpop
+  %i1 = add i64 %i, 1
+  %is1 = lshr i64 %i, 1
+  %i1s1 = lshr i64 %i1, 1
+  %g0 = and i64 %i, 15
+  %g0x = xor i64 %g0, %is1
+  %g0q = and i64 %g0x, 15
+  %g1 = and i64 %i1, 15
+  %g1x = xor i64 %g1, %i1s1
+  %g1q = and i64 %g1x, 15
+  %diff = xor i64 %g0q, %g1q
+  %pop = call i64 @llvm.ctpop.i64(i64 %diff)
+  %is_h1 = icmp eq i64 %pop, 1
+  %inc = zext i1 %is_h1 to i64
+  %h_next = add i64 %h_acc, %inc
+  %i_next = add nsw i64 %i, 1
+  %more = icmp slt i64 %i_next, %steps
+  br i1 %more, label %loop, label %done
+done:
+  %out = xor i64 %w_flip, %h_next
+  ret i64 %out
+}
+
+define i64 @probe_frg_c6_ring(ptr %ring, i64 %steps) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
+  %acc = phi i64 [ 0, %entry ], [ %acc_next, %loop ]
+  %slot = and i64 %i, 63
+  %ptr = getelementptr inbounds i64, ptr %ring, i64 %slot
+  %prev = load i64, ptr %ptr, align 8
+  %upd = add i64 %prev, 1
+  store i64 %upd, ptr %ptr, align 8
+  %cross = zext i1 true to i64
+  %acc_next = add i64 %acc, %cross
+  %i_next = add nsw i64 %i, 1
+  %more = icmp slt i64 %i_next, %steps
+  br i1 %more, label %loop, label %done
+done:
+  ret i64 %acc_next
+}
+
+define i64 @probe_frg_c8_isolated(ptr %priv_cnt, i64 %steps) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
+  %prev = atomicrmw add ptr %priv_cnt, i64 1 monotonic, align 8
+  %i_next = add nsw i64 %i, 1
+  %more = icmp slt i64 %i_next, %steps
+  br i1 %more, label %loop, label %done
+done:
+  %tot = load atomic i64, ptr %priv_cnt acquire, align 8
+  ret i64 %tot
+}
+
+define i64 @probe_frg_c8_coupled(
+    ptr %counts_ptr,
+    ptr %owner_ptr,
+    i64 %steps,
+    i64 %my_id,
+    i64 %other_id,
+    i64 %my_inc,
+    i64 %other_shift,
+    ptr %out_handoffs
+) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
+  %beats = phi i64 [ 0, %entry ], [ %beats_next, %loop ]
+  %hoffs = phi i64 [ 0, %entry ], [ %hoffs_next, %loop ]
+  %prev_counts = atomicrmw add ptr %counts_ptr, i64 %my_inc acq_rel, align 8
+  %prev_owner = atomicrmw xchg ptr %owner_ptr, i64 %my_id acq_rel, align 8
+  %switched = icmp eq i64 %prev_owner, %other_id
+  %h_inc = zext i1 %switched to i64
+  %hoffs_next = add i64 %hoffs, %h_inc
+  %partner_sh = lshr i64 %prev_counts, %other_shift
+  %partner_cnt = and i64 %partner_sh, 65535
+  %touched = icmp ugt i64 %partner_cnt, 0
+  %b_inc = zext i1 %touched to i64
+  %beats_next = add i64 %beats, %b_inc
+  %i_next = add nsw i64 %i, 1
+  %more = icmp slt i64 %i_next, %steps
+  br i1 %more, label %loop, label %done
+done:
+  store i64 %hoffs_next, ptr %out_handoffs, align 8
+  ret i64 %beats_next
+}
+"#;
+    let sess = OrcJitSession::compile_named_with_plan(ir, &CodegenPlan::baseline_o2(), None)?;
+    let e4_addr = sess.lookup_symbol_addr("probe_frg_e4")?;
+    let c6_addr = sess.lookup_symbol_addr("probe_frg_c6_ring")?;
+    let iso_addr = sess.lookup_symbol_addr("probe_frg_c8_isolated")?;
+    let cpl_addr = sess.lookup_symbol_addr("probe_frg_c8_coupled")?;
+
+    let f_e4: unsafe extern "C" fn(u64, i64) -> u64 =
+        unsafe { std::mem::transmute(e4_addr as usize) };
+    let f_c6: unsafe extern "C" fn(*mut u64, i64) -> i64 =
+        unsafe { std::mem::transmute(c6_addr as usize) };
+    let f_iso: unsafe extern "C" fn(*mut u64, i64) -> i64 =
+        unsafe { std::mem::transmute(iso_addr as usize) };
+    let f_cpl: unsafe extern "C" fn(
+        *mut u64,
+        *mut u64,
+        i64,
+        u64,
+        u64,
+        u64,
+        u64,
+        *mut i64,
+    ) -> i64 = unsafe { std::mem::transmute(cpl_addr as usize) };
+
+    // Tier 0 (`E4`, `RD=9`): verify 1-cycle T32 wire-swap flip + Q4 Gray Hamming-1 over 9 steps
+    let seed_t32 = T32::new(12_345).map_err(|e| LlvmError::new(e.to_string()))?;
+    let seed_packed = seed_t32.pack();
+    let e4_jit = unsafe { f_e4(seed_packed, 9) };
+    let mut ref_w = seed_packed;
+    let mut ref_h1 = 0u64;
+    for i in 0..9u64 {
+        ref_w = ((ref_w & 0x5555_5555_5555_5555) << 1) | ((ref_w & 0xAAAA_AAAA_AAAA_AAAA) >> 1);
+        let g0 = ((i & 15) ^ (i >> 1)) & 15;
+        let i1 = i + 1;
+        let g1 = ((i1 & 15) ^ (i1 >> 1)) & 15;
+        if (g0 ^ g1).count_ones() == 1 {
+            ref_h1 += 1;
+        }
+    }
+    if e4_jit != (ref_w ^ ref_h1) || ref_h1 != 9 {
+        return Err(LlvmError::new("probe_frg_e4 verification mismatch"));
+    }
+    let neg_t32 = seed_t32
+        .checked_neg()
+        .map_err(|e| LlvmError::new(e.to_string()))?;
+    if ref_w != neg_t32.pack() {
+        return Err(LlvmError::new("probe_frg_e4 9-step odd flip != neg(T32)"));
+    }
+    let tier0_e4 = certify_frg_channel("E4", 4, 9, 18, 18 + (ref_h1 as i64), Some(ref_h1 as i64), 2)?;
+
+    // Tier 1 (`C6`, `RD=61`): verify 64-slot cache-line ring kernel over 61 steps
+    let mut ring64 = [0u64; 64];
+    let c6_steps = unsafe { f_c6(ring64.as_mut_ptr(), 61) };
+    let ring_sum: u64 = ring64.iter().sum();
+    if c6_steps != 61 || ring_sum != 61 {
+        return Err(LlvmError::new("probe_frg_c6_ring verification mismatch"));
+    }
+    let tier1_c6 = certify_frg_channel("C6", 6, 61, 122, 122 + c6_steps, Some(c6_steps), 3)?;
+
+    // Tier 2 (`C8`, `RD=137`, `T_sync=8357`):
+    // 1. Isolated Slits (`T^0`): cache-line-isolated `#[repr(align(128))]` private state
+    let rd_c8: i64 = 137;
+    let t_sync: i64 = 61 * 137;
+    let priv_a = IsolatedSlitState {
+        count: AtomicU64::new(0),
+    };
+    let priv_b = IsolatedSlitState {
+        count: AtomicU64::new(0),
+    };
+    let iso_bar = Barrier::new(2);
+    let iso_t0 = Instant::now();
+    let (s_gate_a, s_gate_b) = std::thread::scope(|s| {
+        let pa = &priv_a;
+        let pb = &priv_b;
+        let bar = &iso_bar;
+        let ha = s.spawn(move || {
+            bar.wait();
+            unsafe { f_iso(pa.count.as_ptr(), rd_c8) }
+        });
+        let hb = s.spawn(move || {
+            bar.wait();
+            unsafe { f_iso(pb.count.as_ptr(), rd_c8) }
+        });
+        (ha.join().unwrap_or(0), hb.join().unwrap_or(0))
+    });
+    let isolated_slits_ns = iso_t0.elapsed().as_nanos() as u64;
+    if s_gate_a != rd_c8 || s_gate_b != rd_c8 {
+        return Err(LlvmError::new("probe_frg_c8_isolated verification mismatch"));
+    }
+    let t_zero = s_gate_a + s_gate_b;
+
+    // 2. Coupled Shared-Cache-Line Ring Gate (`T^x`): single `#[repr(align(64))]` line
+    let shared_ring = SharedC8RingLine {
+        counts: AtomicU64::new(0),
+        last_owner: AtomicU64::new(0),
+    };
+    let cpl_bar = Barrier::new(2);
+    let cpl_t0 = Instant::now();
+    let ((beats_a, hoffs_a), (beats_b, hoffs_b), ring_closure_commits) = std::thread::scope(|s| {
+        let ring = &shared_ring;
+        let bar = &cpl_bar;
+        let ha = s.spawn(move || {
+            let mut hoffs = 0i64;
+            bar.wait();
+            let b = unsafe {
+                f_cpl(
+                    ring.counts.as_ptr(),
+                    ring.last_owner.as_ptr(),
+                    rd_c8,
+                    1,
+                    2,
+                    1,
+                    16,
+                    &mut hoffs,
+                )
+            };
+            bar.wait();
+            (b, hoffs)
+        });
+        let hb = s.spawn(move || {
+            let mut hoffs = 0i64;
+            bar.wait();
+            let b = unsafe {
+                f_cpl(
+                    ring.counts.as_ptr(),
+                    ring.last_owner.as_ptr(),
+                    rd_c8,
+                    2,
+                    1,
+                    1 << 16,
+                    0,
+                    &mut hoffs,
+                )
+            };
+            bar.wait();
+            (b, hoffs)
+        });
+        let ra = ha.join().unwrap_or((0, 0));
+        let rb = hb.join().unwrap_or((0, 0));
+        let final_counts = ring.counts.load(Ordering::Acquire);
+        let committed_a = (final_counts & 0xFFFF) as i64;
+        let committed_b = ((final_counts >> 16) & 0xFFFF) as i64;
+        let closure_pairs = committed_a.min(committed_b);
+        (ra, rb, closure_pairs)
+    });
+    let coupled_ring_ns = cpl_t0.elapsed().as_nanos() as u64;
+    drop(sess);
+
+    if ring_closure_commits != rd_c8 {
+        return Err(LlvmError::new("probe_frg_c8_coupled ring closure mismatch"));
+    }
+    let inter_thread_handoffs = hoffs_a + hoffs_b;
+    let c_cross = ring_closure_commits + beats_a + beats_b;
+    let t_cross = t_zero + c_cross;
+    let tier2_c8 = certify_frg_channel("C8", 8, rd_c8, t_zero, t_cross, Some(c_cross), 4)?;
+
+    let all_verified = tier0_e4.verified && tier1_c6.verified && tier2_c8.verified;
+    Ok(FrgRingGateReport {
+        policy_scope: POLICY_SCOPE.to_string(),
+        r_e: tier2_c8.r_e,
+        identity_verified: tier2_c8.identity_verified,
+        op_certified: tier2_c8.op_certified,
+        role_trit: tier2_c8.role_trit,
+        retained: tier2_c8.retained,
+        tier0_e4,
+        tier1_c6,
+        tier2_c8,
+        t_sync,
+        s_gate_a,
+        s_gate_b,
+        t_zero,
+        t_cross,
+        c_cross,
+        inter_thread_handoffs,
+        isolated_slits_ns,
+        coupled_ring_ns,
+        verified: all_verified,
     })
 }

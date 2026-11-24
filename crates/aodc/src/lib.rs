@@ -7,6 +7,7 @@
 pub mod ast;
 pub mod checker;
 pub mod codegen;
+pub mod dec_audit;
 pub mod diagnostics;
 pub mod eval;
 pub mod ir;
@@ -36,9 +37,14 @@ pub use aod_core::s4_report::{
 };
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
-    recommend_candidates, run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo,
-    HwPlanHints, HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession,
-    PerfCapability, ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+    certify_frg_channel, recommend_candidates, run_all_hw_probes, run_probe_frg_ring_gate,
+    BootstrapCi, CodegenPlan, FrgChannelReport, FrgRingGateReport, HostHardwareInfo, HwPlanHints,
+    HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession, PerfCapability,
+    ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+};
+pub use crate::dec_audit::{
+    audit_dec_source_with_options, failed_read_audit_report, lex_live_walk, verify_frg_identity,
+    verify_sheddic_route, DecAuditReport, HookAuditResult, LiveWalkSummary, DEC_AUDIT_SCHEMA,
 };
 pub use crate::manual_data::{
     run_manual_data, validate_manual_data_output_dir, ManualDataOptions, ManualDataReport,
@@ -80,6 +86,37 @@ pub fn check_source_with_options(
 
 pub fn check_file(path: &Path, compat: CompatMode) -> DecResult<CheckedUnit> {
     check_file_with_options(path, compat, &LoadOptions::default())
+}
+
+pub fn audit_dec_source(source: &str, compat: CompatMode) -> DecAuditReport {
+    audit_dec_source_with_options(source, "<memory>", None, compat, LoadOptions::default())
+}
+
+pub fn audit_dec_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecAuditReport {
+    let bytes = match read_bounded_regular_file(path, "source", crate::parser::MAX_SOURCE_BYTES) {
+        Ok(b) => b,
+        Err(err) => return failed_read_audit_report(&path.to_string_lossy(), &err),
+    };
+    let source = match String::from_utf8(bytes) {
+        Ok(s) => s,
+        Err(_) => {
+            return failed_read_audit_report(
+                &path.to_string_lossy(),
+                "source: file is not valid UTF-8",
+            );
+        }
+    };
+    audit_dec_source_with_options(
+        &source,
+        &path.to_string_lossy(),
+        path.parent(),
+        compat,
+        options.clone(),
+    )
 }
 
 pub fn check_file_with_options(

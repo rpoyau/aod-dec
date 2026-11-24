@@ -9,7 +9,7 @@ use crate::ast::{
     UseDecl, WallPolicyAst,
 };
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
-use crate::lexer::{tokenize, Token, TokenKind};
+use crate::lexer::{tokenize_with_compat, Token, TokenKind};
 
 pub const MAX_SOURCE_BYTES: usize = 1_000_000;
 
@@ -20,7 +20,7 @@ pub fn parse_source(source: &str, compat: CompatMode) -> DecResult<Program> {
             "source exceeds the 1 MB core limit",
         ));
     }
-    let tokens = tokenize(source)?;
+    let tokens = tokenize_with_compat(source, compat)?;
     let mut parser = Parser {
         tokens,
         pos: 0,
@@ -433,6 +433,55 @@ impl Parser {
             return Ok(TypeExpr::List(Box::new(inner)));
         }
         let name = self.expect_ident("type name")?;
+        if name == "array" && self.check(&TokenKind::LBracket) {
+            if self.compat == CompatMode::V1 {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::ParseError,
+                    line,
+                    "array[T, N] is not in --compat v1",
+                ));
+            }
+            self.advance();
+            let elem_ty = self.parse_type_expr_inner()?;
+            self.expect(&TokenKind::Comma, "',' in array[T, N]")?;
+            if self.check(&TokenKind::Minus) {
+                self.advance();
+                if matches!(self.peek().kind, TokenKind::IntLit(_)) {
+                    self.advance();
+                }
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::TypeError,
+                    line,
+                    "array[T, N] length N must satisfy 1 <= N <= 65536",
+                ));
+            }
+            let len_usize = match &self.peek().kind {
+                TokenKind::IntLit(n) => {
+                    let n_val = n.clone();
+                    self.advance();
+                    n_val
+                        .to_u64()
+                        .and_then(|v| usize::try_from(v).ok())
+                        .filter(|&v| (1..=65_536).contains(&v))
+                        .ok_or_else(|| {
+                            Diagnostic::at_line(
+                                DiagnosticCode::TypeError,
+                                line,
+                                format!("array[T, N] length N must satisfy 1 <= N <= 65536, got {n_val}"),
+                            )
+                        })?
+                }
+                other => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        format!("expected compile-time integer literal N in array[T, N], got {other:?}"),
+                    ));
+                }
+            };
+            self.expect(&TokenKind::RBracket, "']' in array[T, N]")?;
+            return Ok(TypeExpr::Array(Box::new(elem_ty), len_usize));
+        }
         if name == "map" && self.check(&TokenKind::LBracket) {
             if self.compat == CompatMode::V1 {
                 return Err(Diagnostic::at_line(
@@ -520,7 +569,8 @@ impl Parser {
 
         let mut arrow_ident: Option<String> = None;
         let mut arrow_type: Option<TypeExpr> = None;
-        if self.check(&TokenKind::Arrow) {
+        let has_arrow = self.check(&TokenKind::Arrow);
+        if has_arrow {
             self.advance();
             if self.check(&TokenKind::LParen) && self.peek_n(1).kind == TokenKind::RParen {
                 self.advance();
@@ -613,6 +663,7 @@ impl Parser {
                 name,
                 kind: DecFnKind::SingleArm {
                     params: typed_params,
+                    has_arrow,
                     return_type,
                     body,
                 },
@@ -745,10 +796,12 @@ impl Parser {
 
         // Check for pure pattern params: `_`, `Enum::Var(...)`, literals, `+`/`-` literals, or bare ident before `,`/`)`
         let is_pure_pattern = match &self.peek().kind {
-            TokenKind::IntLit(_)
+            TokenKind::Null
+            | TokenKind::IntLit(_)
             | TokenKind::True
             | TokenKind::False
             | TokenKind::StrLit(_)
+            | TokenKind::BytesLit(_)
             | TokenKind::RatioLit(_)
             | TokenKind::Addr8Lit(_)
             | TokenKind::SupportLit(_)
@@ -793,6 +846,17 @@ impl Parser {
                 self.advance();
                 Ok(Pattern::Wildcard)
             }
+            TokenKind::Null => {
+                if self.compat == CompatMode::V1 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        "`null` is not in --compat v1",
+                    ));
+                }
+                self.advance();
+                Ok(Pattern::NullLit)
+            }
             TokenKind::True => {
                 self.advance();
                 Ok(Pattern::BoolLit(true))
@@ -804,6 +868,17 @@ impl Parser {
             TokenKind::StrLit(s) => {
                 self.advance();
                 Ok(Pattern::StrLit(s))
+            }
+            TokenKind::BytesLit(bs) => {
+                if self.compat == CompatMode::V1 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        "byte literals are not in --compat v1",
+                    ));
+                }
+                self.advance();
+                Ok(Pattern::BytesLit(bs))
             }
             TokenKind::IntLit(n) => {
                 self.advance();
@@ -2143,6 +2218,20 @@ impl Parser {
         let tok = self.peek().clone();
         let line = tok.line;
         match tok.kind {
+            TokenKind::Null => {
+                if self.compat == CompatMode::V1 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        "`null` is not in --compat v1",
+                    ));
+                }
+                self.advance();
+                Ok(Expr {
+                    kind: ExprKind::NullLit,
+                    line,
+                })
+            }
             TokenKind::IntLit(n) => {
                 self.advance();
                 Ok(Expr {
@@ -2168,6 +2257,20 @@ impl Parser {
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::StrLit(s),
+                    line,
+                })
+            }
+            TokenKind::BytesLit(bs) => {
+                if self.compat == CompatMode::V1 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        "byte literals are not in --compat v1",
+                    ));
+                }
+                self.advance();
+                Ok(Expr {
+                    kind: ExprKind::BytesLit(bs),
                     line,
                 })
             }

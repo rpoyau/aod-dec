@@ -71,6 +71,7 @@ pub enum TypeExpr {
     Unit,
     Named(String),
     List(Box<TypeExpr>),
+    Array(Box<TypeExpr>, usize),
     Map(Box<TypeExpr>, Box<TypeExpr>),
     Tuple(Vec<TypeExpr>),
     ReadOnly(Box<TypeExpr>),
@@ -87,9 +88,11 @@ pub struct TypedParam {
 pub enum Pattern {
     Wildcard,
     Binding(String),
+    NullLit,
     IntLit(BigInt),
     BoolLit(bool),
     StrLit(String),
+    BytesLit(Vec<u8>),
     TritLit(T1),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
@@ -129,6 +132,7 @@ pub enum DecFnKind {
     },
     SingleArm {
         params: Vec<TypedParam>,
+        has_arrow: bool,
         return_type: TypeExpr,
         body: Vec<Stmt>,
     },
@@ -334,9 +338,11 @@ pub struct Expr {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExprKind {
+    NullLit,
     IntLit(BigInt),
     BoolLit(bool),
     StrLit(String),
+    BytesLit(Vec<u8>),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
     SupportLit(SupportForm),
@@ -344,6 +350,7 @@ pub enum ExprKind {
     Ident(String),
     Path(Vec<String>),
     List(Vec<Expr>),
+    ArrayLit(Vec<Expr>),
     MapLit(Vec<(Expr, Expr)>),
     StructLit {
         path: Vec<String>,

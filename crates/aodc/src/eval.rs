@@ -5,8 +5,9 @@ use aod_core::bigint::BigInt;
 use aod_core::ledger::{probability, SadarPromotion};
 use aod_core::qext::{parse_decimal_exact, QExtRatio};
 use aod_core::ratio::Ratio;
+use aod_core::sha256::Sha256;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, Q4, T1, T32};
+use aod_core::ternary::{render_bytes_literal, Addr8, Q4, T1, T32, T9};
 use aod_core::wavelet::{
     declare_synthetic_lineage_registry, deduplicated_return_count, native_cadence_ratio,
     AdmittedClosureRecord, M3ClosureTrace, RecipientContext, RecipientLattice, RecipientOutcome,
@@ -35,10 +36,15 @@ pub const DEFAULT_MAX_DEPTH: usize = 128;
 /// Deterministic totally-ordered map key backing `Value::Map(BTreeMap<MapKey, Value>)`.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum MapKey {
+    Null,
     Int(BigInt),
+    U8(u8),
+    B64(u64),
     Bool(bool),
     Str(String),
+    Bytes(Vec<u8>),
     T1(T1),
+    T9(T9),
     T32(T32),
     Q4(Q4),
     Ratio(Ratio),
@@ -51,15 +57,21 @@ pub enum MapKey {
         payloads: Vec<MapKey>,
     },
     Tuple(Vec<MapKey>),
+    Array(Vec<MapKey>),
 }
 
 impl MapKey {
     pub fn from_value(v: &Value, line: usize) -> DecResult<Self> {
         match v {
+            Value::Null => Ok(MapKey::Null),
             Value::Int(n) => Ok(MapKey::Int(n.clone())),
+            Value::U8(b) => Ok(MapKey::U8(*b)),
+            Value::B64(w) => Ok(MapKey::B64(*w)),
             Value::Bool(b) => Ok(MapKey::Bool(*b)),
             Value::Str(s) => Ok(MapKey::Str(s.clone())),
+            Value::Bytes(bs) => Ok(MapKey::Bytes(bs.clone())),
             Value::T1(t) => Ok(MapKey::T1(*t)),
+            Value::T9(t) => Ok(MapKey::T9(*t)),
             Value::T32(t) => Ok(MapKey::T32(*t)),
             Value::Q4(q) => Ok(MapKey::Q4(*q)),
             Value::Ratio(r) => Ok(MapKey::Ratio(r.clone())),
@@ -84,6 +96,13 @@ impl MapKey {
                 }
                 Ok(MapKey::Tuple(tk))
             }
+            Value::Array(elems) => {
+                let mut ak = Vec::with_capacity(elems.len());
+                for e in elems {
+                    ak.push(Self::from_value(e, line)?);
+                }
+                Ok(MapKey::Array(ak))
+            }
             other => Err(Diagnostic::at_line(
                 DiagnosticCode::RuntimeError,
                 line,
@@ -94,10 +113,15 @@ impl MapKey {
 
     pub fn to_value(&self) -> Value {
         match self {
+            MapKey::Null => Value::Null,
             MapKey::Int(n) => Value::Int(n.clone()),
+            MapKey::U8(b) => Value::U8(*b),
+            MapKey::B64(w) => Value::B64(*w),
             MapKey::Bool(b) => Value::Bool(*b),
             MapKey::Str(s) => Value::Str(s.clone()),
+            MapKey::Bytes(bs) => Value::Bytes(bs.clone()),
             MapKey::T1(t) => Value::T1(*t),
+            MapKey::T9(t) => Value::T9(*t),
             MapKey::T32(t) => Value::T32(*t),
             MapKey::Q4(q) => Value::Q4(*q),
             MapKey::Ratio(r) => Value::Ratio(r.clone()),
@@ -115,6 +139,7 @@ impl MapKey {
                 payloads: payloads.iter().map(MapKey::to_value).collect(),
             })),
             MapKey::Tuple(elems) => Value::Tuple(elems.iter().map(MapKey::to_value).collect()),
+            MapKey::Array(elems) => Value::Array(elems.iter().map(MapKey::to_value).collect()),
         }
     }
 }
@@ -137,10 +162,15 @@ pub struct EnumValue {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
     Unit,
+    Null,
     Int(BigInt),
+    U8(u8),
+    B64(u64),
     Bool(bool),
     Str(String),
+    Bytes(Vec<u8>),
     T1(T1),
+    T9(T9),
     T32(T32),
     Q4(Q4),
     Ratio(Ratio),
@@ -159,6 +189,7 @@ pub enum Value {
     Struct(Box<StructValue>),
     Enum(Box<EnumValue>),
     List(Vec<Value>),
+    Array(Vec<Value>),
     Map(Box<BTreeMap<MapKey, Value>>),
     Tuple(Vec<Value>),
     QExtRatio(QExtRatio),
@@ -170,10 +201,15 @@ impl Value {
     pub fn type_of(&self) -> Type {
         match self {
             Value::Unit => Type::Unit,
+            Value::Null => Type::Null,
             Value::Int(_) => Type::Int,
+            Value::U8(_) => Type::U8,
+            Value::B64(_) => Type::B64,
             Value::Bool(_) => Type::Bool,
             Value::Str(_) => Type::Str,
+            Value::Bytes(_) => Type::Bytes,
             Value::T1(_) => Type::T1,
+            Value::T9(_) => Type::T9,
             Value::T32(_) => Type::T32,
             Value::Q4(_) => Type::Q4,
             Value::Ratio(_) => Type::Ratio,
@@ -201,6 +237,10 @@ impl Value {
                 let elem = items.first().map(Value::type_of).unwrap_or(Type::Unknown);
                 Type::List(Box::new(elem))
             }
+            Value::Array(items) => {
+                let elem = items.first().map(Value::type_of).unwrap_or(Type::Unknown);
+                Type::Array(Box::new(elem), items.len())
+            }
             Value::Map(m) => match m.iter().next() {
                 Some((k, v)) => Type::Map(Box::new(k.to_value().type_of()), Box::new(v.type_of())),
                 None => Type::Map(Box::new(Type::Unknown), Box::new(Type::Unknown)),
@@ -212,14 +252,19 @@ impl Value {
         }
     }
 
-    /// Exact v1/v2 deterministic rendering matching `dec_core.py:486-494` byte-for-byte.
+    /// Exact v1/v2 deterministic rendering matching `dec_core.py:486-494` and `RtValue::render`.
     pub fn render(&self) -> String {
         match self {
             Value::Unit => "()".to_string(),
+            Value::Null => "null".to_string(),
             Value::Int(n) => n.to_decimal_string(),
+            Value::U8(b) => format!("u8({b})"),
+            Value::B64(w) => format!("b64(0x{w:016x})"),
             Value::Bool(b) => if *b { "true" } else { "false" }.to_string(),
             Value::Str(s) => s.clone(),
+            Value::Bytes(bs) => render_bytes_literal(bs),
             Value::T1(v) => v.render_v1(),
+            Value::T9(v) => v.render(),
             Value::T32(v) => v.render_v1(),
             Value::Q4(v) => v.render_v1(),
             Value::Ratio(r) => r.render_v1(),
@@ -268,7 +313,7 @@ impl Value {
                     format!("{}::{}({})", ev.name, ev.variant, inner.join(", "))
                 }
             }
-            Value::List(items) => {
+            Value::List(items) | Value::Array(items) => {
                 let inner: Vec<String> = items.iter().map(Value::render).collect();
                 format!("[{}]", inner.join(", "))
             }
@@ -684,9 +729,11 @@ impl<'a> Evaluator<'a> {
                 bindings.insert(name.clone(), val.clone());
                 true
             }
+            Pattern::NullLit => matches!(val, Value::Null),
             Pattern::IntLit(n) => matches!(val, Value::Int(v) if v == n),
             Pattern::BoolLit(b) => matches!(val, Value::Bool(v) if v == b),
             Pattern::StrLit(s) => matches!(val, Value::Str(v) if v == s),
+            Pattern::BytesLit(bs) => matches!(val, Value::Bytes(v) if v == bs),
             Pattern::TritLit(t) => matches!(val, Value::T1(v) if v == t),
             Pattern::RatioLit(r) => matches!(val, Value::Ratio(v) if v == r),
             Pattern::Addr8Lit(a) => matches!(val, Value::Addr8(v) if v == a),
@@ -1178,10 +1225,12 @@ impl<'a> Evaluator<'a> {
     ) -> DecResult<Value> {
         self.tick()?;
         match &expr.kind {
+            ExprKind::NullLit => Ok(Value::Null),
             ExprKind::IntLit(n) => Ok(Value::Int(n.clone())),
             ExprKind::BoolLit(b) => Ok(Value::Bool(*b)),
             ExprKind::StrLit(s) => Ok(Value::Str(s.clone())),
-            ExprKind::RatioLit(r) => Ok(Value::Ratio(r.clone())),
+            ExprKind::BytesLit(bs) => Ok(Value::Bytes(bs.clone())),
+            ExprKind::RatioLit(rat) => Ok(Value::Ratio(rat.clone())),
             ExprKind::Addr8Lit(a) => Ok(Value::Addr8(a.clone())),
             ExprKind::SupportLit(s) => Ok(Value::Support(s.clone())),
             ExprKind::TritLit(TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D) => {
@@ -1293,6 +1342,13 @@ impl<'a> Evaluator<'a> {
                     vals.push(self.eval_expr(it, mod_key, scopes)?);
                 }
                 Ok(Value::List(vals))
+            }
+            ExprKind::ArrayLit(items) => {
+                let mut vals = Vec::with_capacity(items.len());
+                for it in items {
+                    vals.push(self.eval_expr(it, mod_key, scopes)?);
+                }
+                Ok(Value::Array(vals))
             }
             ExprKind::Tuple(elems) => {
                 if elems.is_empty() {
@@ -1412,6 +1468,28 @@ impl<'a> Evaluator<'a> {
                 let bv = self.eval_expr(base, mod_key, scopes)?;
                 let iv = self.eval_expr(index, mod_key, scopes)?;
                 match bv {
+                    Value::Bytes(bs) => {
+                        let idx = extract_i64(iv, expr.line)?;
+                        if idx < 0 || (idx as usize) >= bs.len() {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::RuntimeError,
+                                expr.line,
+                                format!("bytes index {idx} out of bounds"),
+                            ));
+                        }
+                        Ok(Value::U8(bs[idx as usize]))
+                    }
+                    Value::Array(items) => {
+                        let idx = extract_i64(iv, expr.line)?;
+                        if idx < 0 || (idx as usize) >= items.len() {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::RuntimeError,
+                                expr.line,
+                                format!("array index {idx} out of bounds"),
+                            ));
+                        }
+                        Ok(items[idx as usize].clone())
+                    }
                     Value::List(items) => {
                         let idx = extract_i64(iv, expr.line)?;
                         if idx < 0 || (idx as usize) >= items.len() {
@@ -1436,7 +1514,7 @@ impl<'a> Evaluator<'a> {
                     _ => Err(Diagnostic::at_line(
                         DiagnosticCode::RuntimeError,
                         expr.line,
-                        "indexing requires list or map",
+                        "indexing requires bytes, array, list, or map",
                     )),
                 }
             }
@@ -1960,15 +2038,23 @@ impl<'a> Evaluator<'a> {
 
 fn runtime_val_matches_type(val: &Value, expected: &Type) -> bool {
     let actual = val.type_of();
-    if &actual == expected {
+    runtime_type_matches(&actual, expected)
+}
+
+fn runtime_type_matches(actual: &Type, expected: &Type) -> bool {
+    let expected = expected.unwrap_read_only();
+    if actual == expected {
         return true;
     }
-    match (&actual, expected) {
-        (Type::List(a), Type::List(_)) if **a == Type::Unknown => true,
-        (Type::Map(ak, av), Type::Map(_, _))
-            if **ak == Type::Unknown && **av == Type::Unknown =>
-        {
-            true
+    match (actual, expected) {
+        (Type::List(a), Type::List(e)) => **a == Type::Unknown || runtime_type_matches(a, e),
+        (Type::Array(a, an), Type::Array(e, en)) if an == en => runtime_type_matches(a, e),
+        (Type::Map(ak, av), Type::Map(ek, ev)) => {
+            (**ak == Type::Unknown && **av == Type::Unknown)
+                || (ak == ek && runtime_type_matches(av, ev))
+        }
+        (Type::Tuple(as_), Type::Tuple(es)) if as_.len() == es.len() => {
+            as_.iter().zip(es).all(|(a, e)| runtime_type_matches(a, e))
         }
         _ => false,
     }
@@ -1998,13 +2084,16 @@ fn eval_unary(op: UnaryOp, val: Value, line: usize) -> DecResult<Value> {
         (
             UnaryOp::Pos,
             v @ (Value::Int(_)
+            | Value::U8(_)
             | Value::T1(_)
+            | Value::T9(_)
             | Value::T32(_)
             | Value::Ratio(_)
             | Value::QExtRatio(_)),
         ) => Ok(v),
         (UnaryOp::Neg, Value::Int(n)) => Ok(Value::Int(-n)),
         (UnaryOp::Neg, Value::T1(t)) => Ok(Value::T1(t.checked_neg())),
+        (UnaryOp::Neg, Value::T9(t)) => Ok(Value::T9(t.checked_neg())),
         (UnaryOp::Neg, Value::T32(t)) => t
             .checked_neg()
             .map(Value::T32)
@@ -2048,6 +2137,202 @@ fn eval_binary(op: BinaryOp, left: Value, right: Value, line: usize) -> DecResul
     }
 
     match (left, right) {
+        (Value::U8(a), Value::Int(b)) => {
+            let s = b
+                .to_u64()
+                .filter(|&v| v < 8)
+                .ok_or_else(|| {
+                    Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("u8 shift count {b} out of range 0..8"),
+                    )
+                })? as u32;
+            match op {
+                BinaryOp::Shl => Ok(Value::U8(a << s)),
+                BinaryOp::Shr => Ok(Value::U8(a >> s)),
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "unsupported (u8, int) operator",
+                )),
+            }
+        }
+        (Value::B64(a), Value::Int(b)) => {
+            let s = b
+                .to_u64()
+                .filter(|&v| v < 64)
+                .ok_or_else(|| {
+                    Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("b64 shift count {b} out of range 0..64"),
+                    )
+                })? as u32;
+            match op {
+                BinaryOp::Shl => Ok(Value::B64(a << s)),
+                BinaryOp::Shr => Ok(Value::B64(a >> s)),
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "unsupported (b64, int) operator",
+                )),
+            }
+        }
+        (Value::U8(a), Value::U8(b)) => match op {
+            BinaryOp::Add => a.checked_add(b).map(Value::U8).ok_or_else(|| {
+                Diagnostic::at_line(DiagnosticCode::RuntimeError, line, "u8 addition overflow")
+            }),
+            BinaryOp::Sub => a.checked_sub(b).map(Value::U8).ok_or_else(|| {
+                Diagnostic::at_line(DiagnosticCode::RuntimeError, line, "u8 subtraction underflow")
+            }),
+            BinaryOp::Mul => a.checked_mul(b).map(Value::U8).ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "u8 multiplication overflow",
+                )
+            }),
+            BinaryOp::Div => Ratio::from_i64(a as i64, b as i64)
+                .map(Value::Ratio)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::FloorDiv => {
+                if b == 0 {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        "division by zero",
+                    ))
+                } else {
+                    Ok(Value::U8(a / b))
+                }
+            }
+            BinaryOp::Mod => {
+                if b == 0 {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        "division by zero",
+                    ))
+                } else {
+                    Ok(Value::U8(a % b))
+                }
+            }
+            BinaryOp::BitAnd => Ok(Value::U8(a & b)),
+            BinaryOp::BitOr => Ok(Value::U8(a | b)),
+            BinaryOp::BitXor => Ok(Value::U8(a ^ b)),
+            BinaryOp::Shl => {
+                if b >= 8 {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("u8 shift count {b} out of range 0..8"),
+                    ))
+                } else {
+                    Ok(Value::U8(a << (b as u32)))
+                }
+            }
+            BinaryOp::Shr => {
+                if b >= 8 {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("u8 shift count {b} out of range 0..8"),
+                    ))
+                } else {
+                    Ok(Value::U8(a >> (b as u32)))
+                }
+            }
+            BinaryOp::Lt => Ok(Value::Bool(a < b)),
+            BinaryOp::LtEq => Ok(Value::Bool(a <= b)),
+            BinaryOp::Gt => Ok(Value::Bool(a > b)),
+            BinaryOp::GtEq => Ok(Value::Bool(a >= b)),
+            _ => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "unsupported u8 operator",
+            )),
+        },
+        (Value::B64(a), Value::B64(b)) => match op {
+            BinaryOp::BitAnd => Ok(Value::B64(a & b)),
+            BinaryOp::BitOr => Ok(Value::B64(a | b)),
+            BinaryOp::BitXor => Ok(Value::B64(a ^ b)),
+            BinaryOp::Shl => {
+                if b >= 64 {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("b64 shift count {b} out of range 0..64"),
+                    ))
+                } else {
+                    Ok(Value::B64(a << (b as u32)))
+                }
+            }
+            BinaryOp::Shr => {
+                if b >= 64 {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("b64 shift count {b} out of range 0..64"),
+                    ))
+                } else {
+                    Ok(Value::B64(a >> (b as u32)))
+                }
+            }
+            BinaryOp::Lt => Ok(Value::Bool(a < b)),
+            BinaryOp::LtEq => Ok(Value::Bool(a <= b)),
+            BinaryOp::Gt => Ok(Value::Bool(a > b)),
+            BinaryOp::GtEq => Ok(Value::Bool(a >= b)),
+            _ => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "unsupported b64 operator",
+            )),
+        },
+        (Value::T9(a), Value::T9(b)) => match op {
+            BinaryOp::Add => a
+                .checked_add(b)
+                .map(Value::T9)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::Sub => a
+                .checked_sub(b)
+                .map(Value::T9)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::Mul => a
+                .checked_mul(b)
+                .map(Value::T9)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::Div => Ratio::from_i64(a.value() as i64, b.value() as i64)
+                .map(Value::Ratio)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::FloorDiv => a
+                .checked_div_floor(b)
+                .map(Value::T9)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::Mod => a
+                .checked_rem_floor(b)
+                .map(Value::T9)
+                .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
+            BinaryOp::Lt => Ok(Value::Bool(a < b)),
+            BinaryOp::LtEq => Ok(Value::Bool(a <= b)),
+            BinaryOp::Gt => Ok(Value::Bool(a > b)),
+            BinaryOp::GtEq => Ok(Value::Bool(a >= b)),
+            _ => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "unsupported t9 operator",
+            )),
+        },
+        (Value::Q4(a), Value::Q4(b)) => match op {
+            BinaryOp::BitAnd => Ok(Value::Q4(a.bitand(b))),
+            BinaryOp::BitOr => Ok(Value::Q4(a.bitor(b))),
+            BinaryOp::BitXor => Ok(Value::Q4(a.bitxor(b))),
+            _ => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "unsupported q4 operator",
+            )),
+        },
         (Value::Int(a), Value::Int(b)) => match op {
             BinaryOp::Add => Ok(Value::Int(&a + &b)),
             BinaryOp::Sub => Ok(Value::Int(&a - &b)),
@@ -2316,12 +2601,93 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
     let err = |e: aod_core::error::CoreError| {
         Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())
     };
+    if name == "array" {
+        if args.is_empty() {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "array(...) requires at least 1 argument",
+            ));
+        }
+        return Ok(Value::Array(args));
+    }
+
     match (name, args.as_slice()) {
         ("t1", [Value::Int(n)]) => T1::from_bigint(n).map(Value::T1).map_err(err),
+        ("t1", [Value::T1(v)]) => Ok(Value::T1(*v)),
+
+        ("t9", [Value::Int(n)]) => T9::from_bigint(n).map(Value::T9).map_err(err),
+        ("t9", [Value::T1(v)]) => T9::new(v.value() as i64).map(Value::T9).map_err(err),
+        ("t9", [Value::U8(v)]) => T9::new(*v as i64).map(Value::T9).map_err(err),
+        ("t9", [Value::T9(v)]) => Ok(Value::T9(*v)),
+        ("t9", [Value::T32(v)]) => {
+            let n = i64::try_from(v.value()).map_err(|_| {
+                Diagnostic::at_line(DiagnosticCode::RuntimeError, line, "t9 overflow")
+            })?;
+            T9::new(n).map(Value::T9).map_err(err)
+        }
+
         ("t32", [Value::Int(n)]) => T32::from_bigint(n).map(Value::T32).map_err(err),
+        ("t32", [Value::T1(v)]) => T32::new(v.value() as i128).map(Value::T32).map_err(err),
+        ("t32", [Value::U8(v)]) => T32::new(*v as i128).map(Value::T32).map_err(err),
+        ("t32", [Value::T9(v)]) => T32::new(v.value() as i128).map(Value::T32).map_err(err),
+        ("t32", [Value::T32(v)]) => Ok(Value::T32(*v)),
+        ("t32", [Value::B64(bits)]) => T32::unpack(*bits).map(Value::T32).map_err(err),
+
         ("q4", [Value::Int(n)]) => Q4::from_bigint(n).map(Value::Q4).map_err(err),
+        ("q4", [Value::U8(v)]) => Q4::new(*v).map(Value::Q4).map_err(err),
+        ("q4", [Value::Q4(v)]) => Ok(Value::Q4(*v)),
+
+        ("u8", [Value::Int(n)]) => n
+            .to_u64()
+            .and_then(|v| u8::try_from(v).ok())
+            .map(Value::U8)
+            .ok_or_else(|| {
+                Diagnostic::at_line(DiagnosticCode::RuntimeError, line, format!("u8 overflow: {n}"))
+            }),
+        ("u8", [Value::U8(v)]) => Ok(Value::U8(*v)),
+        ("u8", [Value::Bool(b)]) => Ok(Value::U8(u8::from(*b))),
+        ("u8", [Value::Q4(q)]) => Ok(Value::U8(q.value())),
+        ("u8", [Value::T9(t)]) => u8::try_from(t.value()).map(Value::U8).map_err(|_| {
+            Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("u8 overflow: {}", t.value()),
+            )
+        }),
+        ("u8", [Value::T32(t)]) => u8::try_from(t.value()).map(Value::U8).map_err(|_| {
+            Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("u8 overflow: {}", t.value()),
+            )
+        }),
+        ("u8", [Value::B64(w)]) => u8::try_from(*w).map(Value::U8).map_err(|_| {
+            Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("u8 overflow: {w}"),
+            )
+        }),
+
+        ("b64", [Value::Int(n)]) => n.to_u64().map(Value::B64).ok_or_else(|| {
+            Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("b64 overflow: {n}"),
+            )
+        }),
+        ("b64", [Value::U8(v)]) => Ok(Value::B64(*v as u64)),
+        ("b64", [Value::Q4(q)]) => Ok(Value::B64(q.value() as u64)),
+        ("b64", [Value::B64(w)]) => Ok(Value::B64(*w)),
+        ("b64", [Value::T32(t)]) => Ok(Value::B64(t.pack())),
+        ("b64", [Value::T9(t)]) => Ok(Value::B64(t.pack() as u64)),
+
         ("int", [Value::Int(n)]) => Ok(Value::Int(n.clone())),
+        ("int", [Value::U8(v)]) => Ok(Value::Int(BigInt::from_u64(*v as u64))),
+        ("int", [Value::B64(w)]) => Ok(Value::Int(BigInt::from_u64(*w))),
         ("int", [Value::T1(v)]) => Ok(Value::Int(BigInt::from_i64(v.value() as i64))),
+        ("int", [Value::T9(v)]) => Ok(Value::Int(BigInt::from_i64(v.value() as i64))),
         ("int", [Value::T32(v)]) => Ok(Value::Int(BigInt::from_i128(v.value()))),
         ("int", [Value::Q4(v)]) => Ok(Value::Int(BigInt::from_u64(v.value() as u64))),
         ("int", [Value::Ratio(r)]) => r.to_int_exact().map(Value::Int).map_err(err),
@@ -2330,8 +2696,116 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
         }
         ("ratio", [Value::Int(a)]) => Ok(Value::Ratio(Ratio::from_int(a.clone()))),
         ("pack", [Value::T32(v)]) => Ok(Value::Int(BigInt::from_u64(v.pack()))),
+        ("pack", [Value::T9(v)]) => Ok(Value::Int(BigInt::from_u64(v.pack() as u64))),
         ("unpack", [Value::Int(bits)]) => T32::unpack_bigint(bits).map(Value::T32).map_err(err),
+        ("unpack_t9", [Value::Int(bits)]) => T9::unpack_bigint(bits).map(Value::T9).map_err(err),
+        ("unpack_t9", [Value::B64(bits)]) => T9::unpack(*bits).map(Value::T9).map_err(err),
         ("neg", [v]) => eval_unary(UnaryOp::Neg, v.clone(), line),
+        ("bitnot", [Value::B64(w)]) => Ok(Value::B64(!*w)),
+        ("popcnt", [Value::B64(w)]) => Ok(Value::Int(BigInt::from_u64(w.count_ones() as u64))),
+        ("is_hamming1", [Value::Q4(a), Value::Q4(b)]) => Ok(Value::Bool(a.is_hamming1(*b))),
+        ("popcnt_xor", [Value::Q4(a), Value::Q4(b)]) => {
+            Ok(Value::Int(BigInt::from_u64(a.popcnt_xor(*b) as u64)))
+        }
+        ("superpose_cancel", [Value::T1(a), Value::T1(b)]) => Ok(Value::T1(a.superpose_cancel(*b))),
+        ("superpose_cancel", [Value::T32(a), Value::T32(b)]) => {
+            Ok(Value::T32(a.superpose_cancel(*b)))
+        }
+
+        ("bytes", [Value::List(items)]) => {
+            let mut out = Vec::with_capacity(items.len());
+            for it in items {
+                match it {
+                    Value::U8(b) => out.push(*b),
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::RuntimeError,
+                            line,
+                            format!("bytes([u8]) expected u8 element, got {}", other.type_of()),
+                        ));
+                    }
+                }
+            }
+            Ok(Value::Bytes(out))
+        }
+        ("bytes", [Value::Str(s)]) => Ok(Value::Bytes(s.as_bytes().to_vec())),
+        ("bytes", [Value::Bytes(bs)]) => Ok(Value::Bytes(bs.clone())),
+        ("bytes", [Value::B64(w)]) => Ok(Value::Bytes(w.to_le_bytes().to_vec())),
+        ("bytes", [Value::Addr8(a)]) => Ok(Value::Bytes(a.render().into_bytes())),
+        ("slice_bytes", [Value::Bytes(bs), Value::Int(s), Value::Int(e)]) => {
+            let si = s.to_i64().ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("slice_bytes start {s} out of bounds"),
+                )
+            })?;
+            let ei = e.to_i64().ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("slice_bytes end {e} out of bounds"),
+                )
+            })?;
+            if si < 0 || ei < si || (ei as usize) > bs.len() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("slice_bytes({si}, {ei}) out of bounds for length {}", bs.len()),
+                ));
+            }
+            Ok(Value::Bytes(bs[(si as usize)..(ei as usize)].to_vec()))
+        }
+        ("concat_bytes", [Value::Bytes(a), Value::Bytes(b)]) => {
+            let mut out = Vec::with_capacity(a.len() + b.len());
+            out.extend_from_slice(a);
+            out.extend_from_slice(b);
+            Ok(Value::Bytes(out))
+        }
+        ("sha256_bytes", [Value::Bytes(bs)]) => Ok(Value::Bytes(Sha256::digest(bs).to_vec())),
+        ("hex_bytes", [Value::Bytes(bs)]) => {
+            const HEX: &[u8; 16] = b"0123456789abcdef";
+            let mut out = Vec::with_capacity(bs.len() * 2);
+            for &b in bs {
+                out.push(HEX[(b >> 4) as usize]);
+                out.push(HEX[(b & 0x0f) as usize]);
+            }
+            Ok(Value::Bytes(out))
+        }
+        ("array_set", [Value::Array(items), Value::Int(idx), val]) => {
+            let i = idx.to_i64().ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("array index {idx} out of bounds"),
+                )
+            })?;
+            if i < 0 || (i as usize) >= items.len() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("array index {i} out of bounds"),
+                ));
+            }
+            let mut cloned = items.clone();
+            cloned[i as usize] = val.clone();
+            Ok(Value::Array(cloned))
+        }
+        ("select", [Value::Bool(c), a, b]) | ("select", [Value::QExtBool(c), a, b]) => {
+            if *c {
+                Ok(a.clone())
+            } else {
+                Ok(b.clone())
+            }
+        }
+        ("verify_sheddic_route" | "audit_sheddic_route", [Value::Int(xs), Value::U8(enc)]) => {
+            Ok(Value::Bool(
+                !xs.is_positive() || (*enc >= 2 && enc.is_multiple_of(2)),
+            ))
+        }
+        ("verify_frg_cross_return", [Value::Int(t0), Value::Int(tx), Value::Int(cx)]) => {
+            Ok(Value::Bool(&(tx - t0) == cx))
+        }
 
         ("trace", [Value::Str(sc), Value::Str(lin), Value::Q4(st)]) => {
             Trace::new(sc.clone(), lin.clone(), *st)
@@ -2419,7 +2893,10 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
         }
         ("boundary_of", [v]) => eval_unary(UnaryOp::Boundary, v.clone(), line),
         ("len", [Value::Str(s)]) => Ok(Value::Int(BigInt::from_u64(s.chars().count() as u64))),
-        ("len", [Value::List(xs)]) => Ok(Value::Int(BigInt::from_u64(xs.len() as u64))),
+        ("len", [Value::Bytes(bs)]) => Ok(Value::Int(BigInt::from_u64(bs.len() as u64))),
+        ("len", [Value::List(xs)]) | ("len", [Value::Array(xs)]) => {
+            Ok(Value::Int(BigInt::from_u64(xs.len() as u64)))
+        }
         ("len", [Value::Map(m)]) => Ok(Value::Int(BigInt::from_u64(m.len() as u64))),
         ("contains", [Value::Map(m), key_val]) => {
             let k = MapKey::from_value(key_val, line)?;

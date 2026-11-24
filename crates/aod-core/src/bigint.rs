@@ -246,6 +246,60 @@ impl BigInt {
         Self::parse_decimal(&cleaned)
     }
 
+    /// Strict hexadecimal integer parser for digits after `0x`/`0X`:
+    /// enforces `[0-9a-fA-F](_?[0-9a-fA-F])*` (rejects empty, leading/trailing `_`, or `__`).
+    pub fn parse_hex_underscored(digits: &str) -> CoreResult<Self> {
+        Self::parse_radix_underscored(digits, 16, "hexadecimal")
+    }
+
+    /// Strict binary integer parser for digits after `0b`/`0B`:
+    /// enforces `[01](_?[01])*` (rejects empty, leading/trailing `_`, or `__`).
+    pub fn parse_binary_underscored(digits: &str) -> CoreResult<Self> {
+        Self::parse_radix_underscored(digits, 2, "binary")
+    }
+
+    fn parse_radix_underscored(digits: &str, radix: u32, label: &str) -> CoreResult<Self> {
+        if digits.is_empty() {
+            return Err(CoreError::DomainError(format!("empty {label} literal")));
+        }
+        let bytes = digits.as_bytes();
+        if bytes[0] == b'_' || bytes[bytes.len() - 1] == b'_' {
+            return Err(CoreError::DomainError(format!(
+                "leading or trailing underscore in {label} literal: {digits}"
+            )));
+        }
+        let mut limbs: Vec<u32> = Vec::new();
+        let mut prev_underscore = false;
+        for &b in bytes {
+            if b == b'_' {
+                if prev_underscore {
+                    return Err(CoreError::DomainError(format!(
+                        "consecutive underscores in {label} literal: {digits}"
+                    )));
+                }
+                prev_underscore = true;
+                continue;
+            }
+            prev_underscore = false;
+            let d: u32 = match (radix, b) {
+                (2, b'0'..=b'1') => (b - b'0') as u32,
+                (16, b'0'..=b'9') => (b - b'0') as u32,
+                (16, b'a'..=b'f') => (b - b'a' + 10) as u32,
+                (16, b'A'..=b'F') => (b - b'A' + 10) as u32,
+                _ => {
+                    return Err(CoreError::DomainError(format!(
+                        "invalid {label} digit {:?} in {digits}",
+                        b as char
+                    )));
+                }
+            };
+            mul_add_small(&mut limbs, radix, d);
+        }
+        let mut out = Self { neg: false, limbs };
+        out.normalize();
+        Ok(out)
+    }
+
     pub fn to_decimal_string(&self) -> String {
         if self.is_zero() {
             return "0".to_string();

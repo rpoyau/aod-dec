@@ -37,6 +37,7 @@ enum LlvmTy {
     Void,
     I1,
     I8,
+    I16,
     I64,
     DecInt,
     DecRatio,
@@ -49,8 +50,9 @@ impl LlvmTy {
             Type::Unit => LlvmTy::Void,
             Type::Bool => LlvmTy::I1,
             Type::QExt(inner) if **inner == Type::Bool => LlvmTy::I1,
-            Type::T1 | Type::Q4 => LlvmTy::I8,
-            Type::T32 => LlvmTy::I64,
+            Type::Null | Type::U8 | Type::T1 | Type::Q4 => LlvmTy::I8,
+            Type::T9 => LlvmTy::I16,
+            Type::B64 | Type::T32 => LlvmTy::I64,
             Type::Int => LlvmTy::DecInt,
             Type::Ratio => LlvmTy::DecRatio,
             _ => LlvmTy::Handle,
@@ -62,6 +64,7 @@ impl LlvmTy {
             LlvmTy::Void => "void",
             LlvmTy::I1 => "i1",
             LlvmTy::I8 => "i8",
+            LlvmTy::I16 => "i16",
             LlvmTy::I64 | LlvmTy::Handle => "i64",
             LlvmTy::DecInt => "%DecInt",
             LlvmTy::DecRatio => "%DecRatio",
@@ -72,7 +75,7 @@ impl LlvmTy {
         match self {
             LlvmTy::Void => "",
             LlvmTy::I1 => "false",
-            LlvmTy::I8 => "0",
+            LlvmTy::I8 | LlvmTy::I16 => "0",
             LlvmTy::I64 | LlvmTy::Handle => "0",
             LlvmTy::DecInt => "zeroinitializer",
             LlvmTy::DecRatio => "{ i8 0, i64 0, i64 1 }",
@@ -532,6 +535,7 @@ impl<'a> Codegen<'a> {
                 params,
                 return_type,
                 body,
+                ..
             } => {
                 let mut param_types = Vec::with_capacity(params.len());
                 let mut param_names = Vec::with_capacity(params.len());
@@ -665,9 +669,11 @@ impl<'a> Codegen<'a> {
     fn infer_pattern_type(&self, mod_key: &str, pat: &Pattern) -> Option<Type> {
         match pat {
             Pattern::Wildcard | Pattern::Binding(_) => None,
+            Pattern::NullLit => Some(Type::Null),
             Pattern::IntLit(_) => Some(Type::Int),
             Pattern::BoolLit(_) => Some(Type::Bool),
             Pattern::StrLit(_) => Some(Type::Str),
+            Pattern::BytesLit(_) => Some(Type::Bytes),
             Pattern::TritLit(_) => Some(Type::T1),
             Pattern::RatioLit(_) => Some(Type::Ratio),
             Pattern::Addr8Lit(_) => Some(Type::Addr8),
@@ -1022,11 +1028,14 @@ impl<'a> Codegen<'a> {
             s.push_str("  %bad1 = icmp ne i8 %f1, 0\n");
             s.push_str("  br i1 %bad1, label %done, label %emit_ret\nemit_ret:\n");
             match main_ret.unwrap_read_only() {
+                Type::Null => s.push_str("  call void @aod_rt_emit_null(ptr %ctx)\n"),
                 Type::Int => {
                     s.push_str("  %tmp_i = alloca %DecInt, align 8\n");
                     s.push_str("  store %DecInt %res, ptr %tmp_i\n");
                     s.push_str("  call void @aod_rt_emit_int(ptr %ctx, ptr %tmp_i)\n");
                 }
+                Type::U8 => s.push_str("  call void @aod_rt_emit_u8(ptr %ctx, i8 %res)\n"),
+                Type::B64 => s.push_str("  call void @aod_rt_emit_b64(ptr %ctx, i64 %res)\n"),
                 Type::Bool => {
                     s.push_str("  %b8 = zext i1 %res to i8\n");
                     s.push_str("  call void @aod_rt_emit_bool(ptr %ctx, i8 %b8)\n");
@@ -1036,6 +1045,7 @@ impl<'a> Codegen<'a> {
                     s.push_str("  call void @aod_rt_emit_qext_bool(ptr %ctx, i8 %b8)\n");
                 }
                 Type::T1 => s.push_str("  call void @aod_rt_emit_t1(ptr %ctx, i8 %res)\n"),
+                Type::T9 => s.push_str("  call void @aod_rt_emit_t9(ptr %ctx, i16 %res)\n"),
                 Type::T32 => s.push_str("  call void @aod_rt_emit_t32(ptr %ctx, i64 %res)\n"),
                 Type::Q4 => s.push_str("  call void @aod_rt_emit_q4(ptr %ctx, i8 %res)\n"),
                 Type::Ratio => {
@@ -1306,11 +1316,32 @@ impl FnBuilder {
                 self.line(&format!("  {r} = call i64 @aod_rt_val_unit(ptr %ctx)"));
                 r
             }
+            Type::Null => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 @aod_rt_val_null(ptr %ctx)"));
+                r
+            }
             Type::Int => {
                 let p = self.store_temp_int(&v.reg);
                 let r = self.fresh_reg();
                 self.line(&format!(
                     "  {r} = call i64 @aod_rt_val_from_int(ptr %ctx, ptr {p})"
+                ));
+                r
+            }
+            Type::U8 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_val_from_u8(ptr %ctx, i8 {})",
+                    v.reg
+                ));
+                r
+            }
+            Type::B64 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_val_from_b64(ptr %ctx, i64 {})",
+                    v.reg
                 ));
                 r
             }
@@ -1336,6 +1367,14 @@ impl FnBuilder {
                 let r = self.fresh_reg();
                 self.line(&format!(
                     "  {r} = call i64 @aod_rt_val_from_t1(ptr %ctx, i8 {})",
+                    v.reg
+                ));
+                r
+            }
+            Type::T9 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_val_from_t9(ptr %ctx, i16 {})",
                     v.reg
                 ));
                 r
@@ -1371,6 +1410,14 @@ impl FnBuilder {
     fn unbox_handle_to_val(&mut self, h_reg: &str, target_ty: &Type) -> Val {
         let reg = match target_ty.unwrap_read_only() {
             Type::Unit => String::new(),
+            Type::Null => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i8 @aod_rt_val_to_null(ptr %ctx, i64 {h_reg})"
+                ));
+                self.emit_fail_return_check();
+                r
+            }
             Type::Int => {
                 let out = self.alloc_temp("%DecInt");
                 self.line(&format!(
@@ -1379,6 +1426,22 @@ impl FnBuilder {
                 self.emit_fail_return_check();
                 let r = self.fresh_reg();
                 self.line(&format!("  {r} = load %DecInt, ptr {out}"));
+                r
+            }
+            Type::U8 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i8 @aod_rt_val_to_u8(ptr %ctx, i64 {h_reg})"
+                ));
+                self.emit_fail_return_check();
+                r
+            }
+            Type::B64 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_val_to_b64(ptr %ctx, i64 {h_reg})"
+                ));
+                self.emit_fail_return_check();
                 r
             }
             Type::Bool => {
@@ -1405,6 +1468,14 @@ impl FnBuilder {
                 let r = self.fresh_reg();
                 self.line(&format!(
                     "  {r} = call i8 @aod_rt_val_to_t1(ptr %ctx, i64 {h_reg})"
+                ));
+                self.emit_fail_return_check();
+                r
+            }
+            Type::T9 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i16 @aod_rt_val_to_t9(ptr %ctx, i64 {h_reg})"
                 ));
                 self.emit_fail_return_check();
                 r
@@ -1449,6 +1520,22 @@ impl FnBuilder {
         self.line(&format!(
             "  {r} = call i64 @aod_rt_str_new(ptr %ctx, ptr {g}, i64 {len})"
         ));
+        self.emit_fail_return_check();
+        r
+    }
+
+    fn emit_bytes_handle(&mut self, cg: &mut Codegen<'_>, bytes: &[u8]) -> String {
+        let r = self.fresh_reg();
+        if bytes.is_empty() {
+            self.line(&format!(
+                "  {r} = call i64 @aod_rt_bytes_new(ptr %ctx, ptr null, i64 0)"
+            ));
+        } else {
+            let (g, len) = cg.intern_bytes(bytes);
+            self.line(&format!(
+                "  {r} = call i64 @aod_rt_bytes_new(ptr %ctx, ptr {g}, i64 {len})"
+            ));
+        }
         self.emit_fail_return_check();
         r
     }
@@ -1602,9 +1689,21 @@ impl FnBuilder {
             StmtKind::Emit(expr) => {
                 let v = self.emit_expr(cg, expr)?;
                 match v.dec_ty.unwrap_read_only() {
+                    Type::Null => {
+                        self.line("  call void @aod_rt_emit_null(ptr %ctx)");
+                    }
                     Type::Int => {
                         let p = self.store_temp_int(&v.reg);
                         self.line(&format!("  call void @aod_rt_emit_int(ptr %ctx, ptr {p})"));
+                    }
+                    Type::U8 => {
+                        self.line(&format!("  call void @aod_rt_emit_u8(ptr %ctx, i8 {})", v.reg));
+                    }
+                    Type::B64 => {
+                        self.line(&format!(
+                            "  call void @aod_rt_emit_b64(ptr %ctx, i64 {})",
+                            v.reg
+                        ));
                     }
                     Type::Bool => {
                         let b8 = self.fresh_reg();
@@ -1620,6 +1719,12 @@ impl FnBuilder {
                     }
                     Type::T1 => {
                         self.line(&format!("  call void @aod_rt_emit_t1(ptr %ctx, i8 {})", v.reg));
+                    }
+                    Type::T9 => {
+                        self.line(&format!(
+                            "  call void @aod_rt_emit_t9(ptr %ctx, i16 {})",
+                            v.reg
+                        ));
                     }
                     Type::T32 => {
                         self.line(&format!(
@@ -2254,6 +2359,7 @@ impl FnBuilder {
                 self.scopes.last_mut().unwrap().insert(name.clone(), slot);
                 Ok("true".to_string())
             }
+            Pattern::NullLit => Ok("true".to_string()),
             Pattern::IntLit(n) => {
                 let lit = self.emit_bigint_lit(cg, n);
                 let cmp = self.fresh_reg();
@@ -2285,6 +2391,18 @@ impl FnBuilder {
                 let eq8 = self.fresh_reg();
                 self.line(&format!(
                     "  {eq8} = call i8 @aod_rt_handle_eq(ptr %ctx, i64 {}, i64 {sh})",
+                    val.reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = icmp ne i8 {eq8}, 0"));
+                Ok(r)
+            }
+            Pattern::BytesLit(bs) => {
+                let bh = self.emit_bytes_handle(cg, bs);
+                let eq8 = self.fresh_reg();
+                self.line(&format!(
+                    "  {eq8} = call i8 @aod_rt_handle_eq(ptr %ctx, i64 {}, i64 {bh})",
                     val.reg
                 ));
                 self.emit_fail_return_check();
@@ -2475,6 +2593,10 @@ impl FnBuilder {
 
     fn emit_expr(&mut self, cg: &mut Codegen<'_>, expr: &Expr) -> DecResult<Val> {
         match &expr.kind {
+            ExprKind::NullLit => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::Null,
+            }),
             ExprKind::IntLit(n) => Ok(self.emit_bigint_lit(cg, n)),
             ExprKind::BoolLit(b) => Ok(Val {
                 reg: if *b { "true" } else { "false" }.to_string(),
@@ -2485,6 +2607,13 @@ impl FnBuilder {
                 Ok(Val {
                     reg: h,
                     dec_ty: Type::Str,
+                })
+            }
+            ExprKind::BytesLit(bs) => {
+                let h = self.emit_bytes_handle(cg, bs);
+                Ok(Val {
+                    reg: h,
+                    dec_ty: Type::Bytes,
                 })
             }
             ExprKind::RatioLit(rat) => Ok(self.emit_ratio_lit(cg, rat)),
@@ -2621,6 +2750,22 @@ impl FnBuilder {
                 Ok(Val {
                     reg: h,
                     dec_ty: Type::List(Box::new(elem_ty)),
+                })
+            }
+            ExprKind::ArrayLit(items) => {
+                let mut elem_ty = Type::Unknown;
+                let mut handles = Vec::with_capacity(items.len());
+                for it in items {
+                    let v = self.emit_expr(cg, it)?;
+                    if elem_ty == Type::Unknown {
+                        elem_ty = v.dec_ty.clone();
+                    }
+                    handles.push(self.box_val_to_handle(&v));
+                }
+                let h = self.emit_handle_array_call("aod_rt_array_new", &handles);
+                Ok(Val {
+                    reg: h,
+                    dec_ty: Type::Array(Box::new(elem_ty), items.len()),
                 })
             }
             ExprKind::Tuple(elems) => {
@@ -2882,7 +3027,10 @@ impl FnBuilder {
             }
             ExprKind::Field { base, name } => {
                 let bv = self.emit_expr(cg, base)?;
-                let field_ty = self.resolve_field_type(cg, &bv.dec_ty, name, expr.line)?;
+                let mut field_ty = self.resolve_field_type(cg, &bv.dec_ty, name, expr.line)?;
+                if bv.dec_ty.is_read_only() && field_ty.needs_readonly_propagation() {
+                    field_ty = field_ty.wrap_read_only();
+                }
                 let (fg, flen) = cg.intern_bytes(name.as_bytes());
                 let fh = self.fresh_reg();
                 self.line(&format!(
@@ -2895,7 +3043,36 @@ impl FnBuilder {
             ExprKind::Index { base, index } => {
                 let bv = self.emit_expr(cg, base)?;
                 let iv = self.emit_expr(cg, index)?;
+                let is_ro = bv.dec_ty.is_read_only();
                 match bv.dec_ty.unwrap_read_only().clone() {
+                    Type::Bytes => {
+                        let ip = self.store_temp_int(&iv.reg);
+                        let r = self.fresh_reg();
+                        self.line(&format!(
+                            "  {r} = call i8 @aod_rt_bytes_get(ptr %ctx, i64 {}, ptr {ip})",
+                            bv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::U8,
+                        })
+                    }
+                    Type::Array(elem_ty, _) => {
+                        let ip = self.store_temp_int(&iv.reg);
+                        let eh = self.fresh_reg();
+                        self.line(&format!(
+                            "  {eh} = call i64 @aod_rt_array_get(ptr %ctx, i64 {}, ptr {ip})",
+                            bv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        let out_ty = if is_ro && elem_ty.needs_readonly_propagation() {
+                            (*elem_ty).clone().wrap_read_only()
+                        } else {
+                            (*elem_ty).clone()
+                        };
+                        Ok(self.unbox_handle_to_val(&eh, &out_ty))
+                    }
                     Type::List(elem_ty) => {
                         let ip = self.store_temp_int(&iv.reg);
                         let eh = self.fresh_reg();
@@ -2904,7 +3081,12 @@ impl FnBuilder {
                             bv.reg
                         ));
                         self.emit_fail_return_check();
-                        Ok(self.unbox_handle_to_val(&eh, &elem_ty))
+                        let out_ty = if is_ro {
+                            (*elem_ty).clone().wrap_read_only()
+                        } else {
+                            (*elem_ty).clone()
+                        };
+                        Ok(self.unbox_handle_to_val(&eh, &out_ty))
                     }
                     Type::Map(_, v_ty) => {
                         let kh = self.box_val_to_handle(&iv);
@@ -2914,7 +3096,12 @@ impl FnBuilder {
                             bv.reg
                         ));
                         self.emit_fail_return_check();
-                        Ok(self.unbox_handle_to_val(&vh, &v_ty))
+                        let out_ty = if is_ro {
+                            (*v_ty).clone().wrap_read_only()
+                        } else {
+                            (*v_ty).clone()
+                        };
+                        Ok(self.unbox_handle_to_val(&vh, &out_ty))
                     }
                     other => Err(Diagnostic::at_line(
                         DiagnosticCode::RuntimeError,
@@ -3109,6 +3296,14 @@ impl FnBuilder {
                     dec_ty: Type::T1,
                 })
             }
+            (UnaryOp::Neg, Type::T9) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = sub nsw i16 0, {}", v.reg));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::T9,
+                })
+            }
             (UnaryOp::Neg, Type::T32) => {
                 let r = self.fresh_reg();
                 self.line(&format!("  {r} = sub i64 0, {}", v.reg));
@@ -3168,6 +3363,7 @@ impl FnBuilder {
     /// NEVER permits trapping, spilling, allocating, or side-effecting expressions to be evaluated eagerly!
     fn peek_pure_type(&self, cg: &Codegen<'_>, expr: &Expr) -> Option<Type> {
         match &expr.kind {
+            ExprKind::NullLit => Some(Type::Null),
             ExprKind::IntLit(n) if n.to_i64().is_some() => Some(Type::Int),
             ExprKind::BoolLit(_) => Some(Type::Bool),
             ExprKind::TritLit(_) => Some(Type::T1),
@@ -3199,7 +3395,7 @@ impl FnBuilder {
                 match op {
                     UnaryOp::Pos => Some(t),
                     UnaryOp::Not if t == Type::Bool => Some(Type::Bool),
-                    UnaryOp::Neg if matches!(t, Type::T1 | Type::T32) => Some(t),
+                    UnaryOp::Neg if matches!(t, Type::T1 | Type::T9 | Type::T32) => Some(t),
                     _ => None,
                 }
             }
@@ -3216,11 +3412,26 @@ impl FnBuilder {
                     | BinaryOp::LtEq
                     | BinaryOp::Gt
                     | BinaryOp::GtEq
-                        if matches!(lt, Type::Bool | Type::T1 | Type::T32 | Type::Q4) =>
+                        if matches!(
+                            lt,
+                            Type::Null
+                                | Type::Bool
+                                | Type::U8
+                                | Type::B64
+                                | Type::T1
+                                | Type::T9
+                                | Type::T32
+                                | Type::Q4
+                        ) =>
                     {
                         Some(Type::Bool)
                     }
                     BinaryOp::Mul if lt == Type::T1 => Some(Type::T1),
+                    BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor
+                        if matches!(lt, Type::U8 | Type::B64 | Type::Q4) =>
+                    {
+                        Some(lt)
+                    }
                     _ => None,
                 }
             }
@@ -3234,7 +3445,166 @@ impl FnBuilder {
 
     fn emit_binary(&mut self, cg: &Codegen<'_>, op: BinaryOp, lv: Val, rv: Val) -> DecResult<Val> {
         let ty = lv.dec_ty.unwrap_read_only().clone();
+        let r_ty = rv.dec_ty.unwrap_read_only().clone();
         match ty {
+            Type::Null => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, false)),
+            Type::U8 => match op {
+                BinaryOp::Add => self.emit_u8_helper("@__aod_u8_add", &lv.reg, &rv.reg),
+                BinaryOp::Sub => self.emit_u8_helper("@__aod_u8_sub", &lv.reg, &rv.reg),
+                BinaryOp::Mul => self.emit_u8_helper("@__aod_u8_mul", &lv.reg, &rv.reg),
+                BinaryOp::FloorDiv => self.emit_u8_helper("@__aod_u8_div", &lv.reg, &rv.reg),
+                BinaryOp::Mod => self.emit_u8_helper("@__aod_u8_rem", &lv.reg, &rv.reg),
+                BinaryOp::Div => {
+                    let n = self.fresh_reg();
+                    let d = self.fresh_reg();
+                    self.line(&format!("  {n} = zext i8 {} to i128", lv.reg));
+                    self.line(&format!("  {d} = zext i8 {} to i128", rv.reg));
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 {n}, i128 {d})"
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Ratio,
+                    })
+                }
+                BinaryOp::BitAnd => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = and i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                BinaryOp::BitOr => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = or i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                BinaryOp::BitXor => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                BinaryOp::Shl | BinaryOp::Shr => {
+                    let sh8 = if r_ty == Type::Int {
+                        let sh64 = self.fresh_reg();
+                        self.line(&format!(
+                            "  {sh64} = call i64 @__aod_int_to_shift(ptr %ctx, %DecInt {}, i64 8)",
+                            rv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        let s8 = self.fresh_reg();
+                        self.line(&format!("  {s8} = trunc i64 {sh64} to i8"));
+                        s8
+                    } else {
+                        let helper = if op == BinaryOp::Shl {
+                            "@__aod_u8_shl"
+                        } else {
+                            "@__aod_u8_shr"
+                        };
+                        return self.emit_u8_helper(helper, &lv.reg, &rv.reg);
+                    };
+                    let ir_op = if op == BinaryOp::Shl { "shl" } else { "lshr" };
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = {ir_op} i8 {}, {sh8}", lv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                _ => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, false)),
+            },
+            Type::B64 => match op {
+                BinaryOp::BitAnd => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = and i64 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                BinaryOp::BitOr => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = or i64 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                BinaryOp::BitXor => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i64 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                BinaryOp::Shl | BinaryOp::Shr => {
+                    if r_ty == Type::Int {
+                        let sh64 = self.fresh_reg();
+                        self.line(&format!(
+                            "  {sh64} = call i64 @__aod_int_to_shift(ptr %ctx, %DecInt {}, i64 64)",
+                            rv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        let ir_op = if op == BinaryOp::Shl { "shl" } else { "lshr" };
+                        let r = self.fresh_reg();
+                        self.line(&format!("  {r} = {ir_op} i64 {}, {sh64}", lv.reg));
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::B64,
+                        })
+                    } else {
+                        let helper = if op == BinaryOp::Shl {
+                            "@__aod_b64_shl"
+                        } else {
+                            "@__aod_b64_shr"
+                        };
+                        let r = self.fresh_reg();
+                        self.line(&format!(
+                            "  {r} = call i64 {helper}(ptr %ctx, i64 {}, i64 {})",
+                            lv.reg, rv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::B64,
+                        })
+                    }
+                }
+                _ => Ok(self.emit_scalar_cmp("i64", op, &lv.reg, &rv.reg, false)),
+            },
+            Type::T9 => match op {
+                BinaryOp::Add => self.emit_t9_helper("@__aod_t9_add", &lv.reg, &rv.reg),
+                BinaryOp::Sub => self.emit_t9_helper("@__aod_t9_sub", &lv.reg, &rv.reg),
+                BinaryOp::Mul => self.emit_t9_helper("@__aod_t9_mul", &lv.reg, &rv.reg),
+                BinaryOp::FloorDiv => self.emit_t9_helper("@__aod_t9_div_floor", &lv.reg, &rv.reg),
+                BinaryOp::Mod => self.emit_t9_helper("@__aod_t9_rem_floor", &lv.reg, &rv.reg),
+                BinaryOp::Div => {
+                    let n = self.fresh_reg();
+                    let d = self.fresh_reg();
+                    self.line(&format!("  {n} = sext i16 {} to i128", lv.reg));
+                    self.line(&format!("  {d} = sext i16 {} to i128", rv.reg));
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 {n}, i128 {d})"
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Ratio,
+                    })
+                }
+                _ => Ok(self.emit_scalar_cmp("i16", op, &lv.reg, &rv.reg, true)),
+            },
             Type::Int => match op {
                 BinaryOp::Add => self.emit_int_helper("@__aod_int_add", &lv.reg, &rv.reg),
                 BinaryOp::Sub => self.emit_int_helper("@__aod_int_sub", &lv.reg, &rv.reg),
@@ -3318,7 +3688,33 @@ impl FnBuilder {
                 }
                 _ => Ok(self.emit_scalar_cmp("i64", op, &lv.reg, &rv.reg, true)),
             },
-            Type::Q4 => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, false)),
+            Type::Q4 => match op {
+                BinaryOp::BitAnd => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = and i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Q4,
+                    })
+                }
+                BinaryOp::BitOr => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = or i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Q4,
+                    })
+                }
+                BinaryOp::BitXor => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Q4,
+                    })
+                }
+                _ => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, false)),
+            },
             Type::Bool => Ok(self.emit_scalar_cmp("i1", op, &lv.reg, &rv.reg, false)),
             Type::QExt(ref inner) if **inner == Type::Bool => {
                 let mut v = self.emit_scalar_cmp("i1", op, &lv.reg, &rv.reg, false);
@@ -3412,7 +3808,7 @@ impl FnBuilder {
                 _ => unreachable!(),
             },
             _ => {
-                // Arena handle equality (`Str`, `Addr8`, `Support`, `Struct`, `Enum`, `List`, `Map`, `Tuple`, `QExt<Str>`, ...)
+                // Arena handle equality (`Str`, `Bytes`, `Addr8`, `Support`, `Struct`, `Enum`, `List`, `Array`, `Map`, `Tuple`, `QExt<Str>`, ...)
                 let eq8 = self.fresh_reg();
                 self.line(&format!(
                     "  {eq8} = call i8 @aod_rt_handle_eq(ptr %ctx, i64 {}, i64 {})",
@@ -3433,6 +3829,28 @@ impl FnBuilder {
                 })
             }
         }
+    }
+
+    fn emit_u8_helper(&mut self, helper: &str, a: &str, b: &str) -> DecResult<Val> {
+        let r = self.fresh_reg();
+        self.line(&format!("  {r} = call i8 {helper}(ptr %ctx, i8 {a}, i8 {b})"));
+        self.emit_fail_return_check();
+        Ok(Val {
+            reg: r,
+            dec_ty: Type::U8,
+        })
+    }
+
+    fn emit_t9_helper(&mut self, helper: &str, a: &str, b: &str) -> DecResult<Val> {
+        let r = self.fresh_reg();
+        self.line(&format!(
+            "  {r} = call i16 {helper}(ptr %ctx, i16 {a}, i16 {b})"
+        ));
+        self.emit_fail_return_check();
+        Ok(Val {
+            reg: r,
+            dec_ty: Type::T9,
+        })
     }
 
     fn emit_int_helper(&mut self, helper: &str, a: &str, b: &str) -> DecResult<Val> {
@@ -3711,11 +4129,10 @@ impl FnBuilder {
                 .iter()
                 .find(|o| {
                     o.param_types.len() == arg_tys.len()
-                        && o.param_types.iter().zip(&arg_tys).all(|(p, a)| {
-                            p.unwrap_read_only() == a
-                                || matches!((a, p.unwrap_read_only()), (Type::List(ax), Type::List(_)) if **ax == Type::Unknown)
-                                || matches!((a, p.unwrap_read_only()), (Type::Map(ak, av), Type::Map(_, _)) if **ak == Type::Unknown && **av == Type::Unknown)
-                        })
+                        && o.param_types
+                            .iter()
+                            .zip(&arg_tys)
+                            .all(|(p, a)| codegen_types_match(a, p.unwrap_read_only()))
                 })
                 .ok_or_else(|| {
                     Diagnostic::at_line(
@@ -3772,45 +4189,324 @@ impl FnBuilder {
     }
 
     fn emit_builtin(&mut self, name: &str, args: Vec<Val>, line: usize) -> DecResult<Val> {
+        if name == "array" {
+            let mut handles = Vec::with_capacity(args.len());
+            for v in &args {
+                handles.push(self.box_val_to_handle(v));
+            }
+            let h = self.emit_handle_array_call("aod_rt_array_new", &handles);
+            return Ok(Val {
+                reg: h,
+                dec_ty: Type::Array(Box::new(args[0].dec_ty.clone()), args.len()),
+            });
+        }
+
         match (name, args.as_slice()) {
-            ("t1", [a]) => {
-                let p = self.store_temp_int(&a.reg);
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = call i8 @aod_rt_int_to_t1(ptr %ctx, ptr {p})"));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
+            ("t1", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::T1 => Ok(Val {
+                    reg: a.reg.clone(),
                     dec_ty: Type::T1,
-                })
-            }
-            ("t32", [a]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @__aod_int_to_t32(ptr %ctx, %DecInt {})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
+                }),
+                _ => {
+                    let p = self.store_temp_int(&a.reg);
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = call i8 @aod_rt_int_to_t1(ptr %ctx, ptr {p})"));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T1,
+                    })
+                }
+            },
+            ("t9", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::T9 => Ok(Val {
+                    reg: a.reg.clone(),
+                    dec_ty: Type::T9,
+                }),
+                Type::T1 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = sext i8 {} to i16", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T9,
+                    })
+                }
+                Type::U8 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = zext i8 {} to i16", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T9,
+                    })
+                }
+                Type::T32 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i16 @__aod_i64_to_t9(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T9,
+                    })
+                }
+                _ => {
+                    let p = self.store_temp_int(&a.reg);
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i16 @aod_rt_int_to_t9(ptr %ctx, ptr {p})"
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T9,
+                    })
+                }
+            },
+            ("t32", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::T32 => Ok(Val {
+                    reg: a.reg.clone(),
                     dec_ty: Type::T32,
-                })
-            }
-            ("q4", [a]) => {
-                let p = self.store_temp_int(&a.reg);
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = call i8 @aod_rt_int_to_q4(ptr %ctx, ptr {p})"));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
+                }),
+                Type::T1 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = sext i8 {} to i64", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T32,
+                    })
+                }
+                Type::U8 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = zext i8 {} to i64", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T32,
+                    })
+                }
+                Type::T9 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = sext i16 {} to i64", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T32,
+                    })
+                }
+                Type::B64 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i64 @__aod_b64_to_t32(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T32,
+                    })
+                }
+                _ => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i64 @__aod_int_to_t32(ptr %ctx, %DecInt {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T32,
+                    })
+                }
+            },
+            ("q4", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::Q4 => Ok(Val {
+                    reg: a.reg.clone(),
                     dec_ty: Type::Q4,
-                })
-            }
+                }),
+                Type::U8 => {
+                    let ext = self.fresh_reg();
+                    let p = self.alloc_temp("%DecInt");
+                    let di = self.fresh_reg();
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {ext} = zext i8 {} to i64", a.reg));
+                    self.line(&format!(
+                        "  {di} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {ext}, 1"
+                    ));
+                    self.line(&format!("  store %DecInt {di}, ptr {p}"));
+                    self.line(&format!("  {r} = call i8 @aod_rt_int_to_q4(ptr %ctx, ptr {p})"));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Q4,
+                    })
+                }
+                _ => {
+                    let p = self.store_temp_int(&a.reg);
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = call i8 @aod_rt_int_to_q4(ptr %ctx, ptr {p})"));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Q4,
+                    })
+                }
+            },
+            ("u8", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::U8 => Ok(Val {
+                    reg: a.reg.clone(),
+                    dec_ty: Type::U8,
+                }),
+                Type::Bool => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = zext i1 {} to i8", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                Type::Q4 => Ok(Val {
+                    reg: a.reg.clone(),
+                    dec_ty: Type::U8,
+                }),
+                Type::T9 => {
+                    let ext = self.fresh_reg();
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {ext} = sext i16 {} to i64", a.reg));
+                    self.line(&format!(
+                        "  {r} = call i8 @__aod_i64_to_u8(ptr %ctx, i64 {ext})"
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                Type::T32 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i8 @__aod_i64_to_u8(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                Type::B64 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i8 @__aod_u64_to_u8(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+                _ => {
+                    let p = self.store_temp_int(&a.reg);
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = call i8 @aod_rt_int_to_u8(ptr %ctx, ptr {p})"));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::U8,
+                    })
+                }
+            },
+            ("b64", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::B64 => Ok(Val {
+                    reg: a.reg.clone(),
+                    dec_ty: Type::B64,
+                }),
+                Type::U8 | Type::Q4 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = zext i8 {} to i64", a.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                Type::T32 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i64 @__aod_t32_pack_u64(i64 {})",
+                        a.reg
+                    ));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                Type::T9 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_t9_pack(ptr %ctx, i16 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                _ => {
+                    let p = self.store_temp_int(&a.reg);
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_int_to_b64(ptr %ctx, ptr {p})"
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+            },
             ("int", [a]) => match a.dec_ty.unwrap_read_only() {
                 Type::Int => Ok(a.clone()),
+                Type::U8 => {
+                    let ext = self.fresh_reg();
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {ext} = zext i8 {} to i64", a.reg));
+                    self.line(&format!(
+                        "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {ext}, 1"
+                    ));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
+                Type::B64 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call %DecInt @__aod_u64_to_int(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
                 Type::T1 => {
                     let ext = self.fresh_reg();
                     let r = self.fresh_reg();
                     self.line(&format!("  {ext} = sext i8 {} to i64", a.reg));
+                    self.line(&format!(
+                        "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {ext}, 1"
+                    ));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
+                Type::T9 => {
+                    let ext = self.fresh_reg();
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {ext} = sext i16 {} to i64", a.reg));
                     self.line(&format!(
                         "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {ext}, 1"
                     ));
@@ -3890,18 +4586,36 @@ impl FnBuilder {
                     dec_ty: Type::Ratio,
                 })
             }
-            ("pack", [a]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call %DecInt @__aod_t32_pack(ptr %ctx, i64 {})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
+            ("pack", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::T9 => {
+                    let raw = self.fresh_reg();
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {raw} = call i64 @aod_rt_t9_pack(ptr %ctx, i16 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    self.line(&format!(
+                        "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {raw}, 1"
+                    ));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
+                _ => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call %DecInt @__aod_t32_pack(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
+            },
             ("unpack", [a]) => {
                 let r = self.fresh_reg();
                 self.line(&format!(
@@ -3914,7 +4628,206 @@ impl FnBuilder {
                     dec_ty: Type::T32,
                 })
             }
+            ("unpack_t9", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::B64 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i16 @aod_rt_t9_unpack_b64(ptr %ctx, i64 {})",
+                        a.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T9,
+                    })
+                }
+                _ => {
+                    let p = self.store_temp_int(&a.reg);
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i16 @aod_rt_t9_unpack_int(ptr %ctx, ptr {p})"
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T9,
+                    })
+                }
+            },
             ("neg", [a]) => self.emit_unary(UnaryOp::Neg, a.clone()),
+            ("bitnot", [a]) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = xor i64 {}, -1", a.reg));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::B64,
+                })
+            }
+            ("popcnt", [a]) => {
+                let c = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {c} = call i64 @llvm.ctpop.i64(i64 {})", a.reg));
+                self.line(&format!(
+                    "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {c}, 1"
+                ));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                })
+            }
+            ("is_hamming1", [a, b]) => {
+                let x = self.fresh_reg();
+                let c = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {x} = xor i8 {}, {}", a.reg, b.reg));
+                self.line(&format!("  {c} = call i8 @llvm.ctpop.i8(i8 {x})"));
+                self.line(&format!("  {r} = icmp eq i8 {c}, 1"));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                })
+            }
+            ("popcnt_xor", [a, b]) => {
+                let x = self.fresh_reg();
+                let c = self.fresh_reg();
+                let c64 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {x} = xor i8 {}, {}", a.reg, b.reg));
+                self.line(&format!("  {c} = call i8 @llvm.ctpop.i8(i8 {x})"));
+                self.line(&format!("  {c64} = zext i8 {c} to i64"));
+                self.line(&format!(
+                    "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {c64}, 1"
+                ));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                })
+            }
+            ("superpose_cancel", [a, b]) => match a.dec_ty.unwrap_read_only() {
+                Type::T1 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i8 @aod_rt_t1_superpose_cancel(ptr %ctx, i8 {}, i8 {})",
+                        a.reg, b.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T1,
+                    })
+                }
+                _ => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = call i64 @__aod_t32_superpose_cancel(ptr %ctx, i64 {}, i64 {})",
+                        a.reg, b.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T32,
+                    })
+                }
+            },
+            ("bytes", [a]) => match a.dec_ty.unwrap_read_only() {
+                Type::Bytes => Ok(Val {
+                    reg: a.reg.clone(),
+                    dec_ty: Type::Bytes,
+                }),
+                Type::Str => self.emit_handle1("aod_rt_bytes_from_str", &a.reg, Type::Bytes),
+                Type::B64 => self.emit_handle1("aod_rt_bytes_from_b64", &a.reg, Type::Bytes),
+                Type::Addr8 => self.emit_handle1("aod_rt_bytes_from_addr8", &a.reg, Type::Bytes),
+                _ => self.emit_handle1("aod_rt_bytes_from_list", &a.reg, Type::Bytes),
+            },
+            ("slice_bytes", [b, s, e]) => {
+                let sp = self.store_temp_int(&s.reg);
+                let ep = self.store_temp_int(&e.reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_slice(ptr %ctx, i64 {}, ptr {sp}, ptr {ep})",
+                    b.reg
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                })
+            }
+            ("concat_bytes", [a, b]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_concat(ptr %ctx, i64 {}, i64 {})",
+                    a.reg, b.reg
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                })
+            }
+            ("sha256_bytes", [a]) => self.emit_handle1("aod_rt_bytes_sha256", &a.reg, Type::Bytes),
+            ("hex_bytes", [a]) => self.emit_handle1("aod_rt_bytes_hex", &a.reg, Type::Bytes),
+            ("array_set", [arr, idx, val]) => {
+                let ip = self.store_temp_int(&idx.reg);
+                let vh = self.box_val_to_handle(val);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, ptr {ip}, i64 {vh})",
+                    arr.reg
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: arr.dec_ty.clone(),
+                })
+            }
+            ("select", [cond, a, b]) => {
+                let lt = a.llvm_ty();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = select i1 {}, {} {}, {} {}",
+                    cond.reg,
+                    lt.ir(),
+                    a.reg,
+                    lt.ir(),
+                    b.reg
+                ));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: a.dec_ty.clone(),
+                })
+            }
+            ("verify_sheddic_route" | "audit_sheddic_route", [xs, enc]) => {
+                let xp = self.store_temp_int(&xs.reg);
+                let b8 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {b8} = call i8 @aod_rt_verify_sheddic_route(ptr %ctx, ptr {xp}, i8 {})",
+                    enc.reg
+                ));
+                self.emit_fail_return_check();
+                self.line(&format!("  {r} = icmp ne i8 {b8}, 0"));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                })
+            }
+            ("verify_frg_cross_return", [t0, tx, cx]) => {
+                let p0 = self.store_temp_int(&t0.reg);
+                let px = self.store_temp_int(&tx.reg);
+                let pc = self.store_temp_int(&cx.reg);
+                let b8 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {b8} = call i8 @aod_rt_verify_frg_cross_return(ptr %ctx, ptr {p0}, ptr {px}, ptr {pc})"
+                ));
+                self.emit_fail_return_check();
+                self.line(&format!("  {r} = icmp ne i8 {b8}, 0"));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                })
+            }
             ("boundary_of", [a]) => self.emit_unary(UnaryOp::Boundary, a.clone()),
             ("len", [a]) => {
                 let out = self.alloc_temp("%DecInt");
@@ -4498,6 +5411,24 @@ fn escape_llvm_bytes(bytes: &[u8]) -> String {
     out
 }
 
+fn codegen_types_match(actual: &Type, expected: &Type) -> bool {
+    if actual == expected {
+        return true;
+    }
+    match (actual, expected) {
+        (Type::List(a), Type::List(e)) => **a == Type::Unknown || codegen_types_match(a, e),
+        (Type::Array(a, an), Type::Array(e, en)) if an == en => codegen_types_match(a, e),
+        (Type::Map(ak, av), Type::Map(ek, ev)) => {
+            (**ak == Type::Unknown && **av == Type::Unknown)
+                || (ak == ek && codegen_types_match(av, ev))
+        }
+        (Type::Tuple(as_), Type::Tuple(es)) if as_.len() == es.len() => {
+            as_.iter().zip(es).all(|(a, e)| codegen_types_match(a, e))
+        }
+        _ => false,
+    }
+}
+
 /// LLVM 18 module preamble: exact C ABI types, LLVM overflow/cttz/ctpop intrinsics,
 /// `aod_rt_*` declarations, and unboxed-first inline arithmetic helpers (`P0-1`, `P0-3`).
 const LLVM_MODULE_PREAMBLE: &str = r#"; ModuleID = 'aod_dec_v2'
@@ -4511,6 +5442,8 @@ declare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64)
 declare { i128, i1 } @llvm.sadd.with.overflow.i128(i128, i128)
 declare { i128, i1 } @llvm.ssub.with.overflow.i128(i128, i128)
 declare i128 @llvm.cttz.i128(i128, i1 immarg)
+declare i64 @llvm.ctpop.i64(i64)
+declare i8 @llvm.ctpop.i8(i8)
 
 declare i32 @aod_rt_cli_parse_args(i32, ptr, ptr)
 declare i32 @aod_rt_ctx_finish(ptr)
@@ -4536,6 +5469,16 @@ declare i32 @aod_rt_int_cmp(ptr, ptr, ptr)
 declare i8 @aod_rt_int_to_t1(ptr, ptr)
 declare i64 @aod_rt_int_to_t32(ptr, ptr)
 declare i8 @aod_rt_int_to_q4(ptr, ptr)
+declare i8 @aod_rt_int_to_u8(ptr, ptr)
+declare i64 @aod_rt_int_to_b64(ptr, ptr)
+declare i16 @aod_rt_int_to_t9(ptr, ptr)
+declare i64 @aod_rt_int_to_shift(ptr, ptr, i64)
+declare i64 @aod_rt_t9_pack(ptr, i16)
+declare i16 @aod_rt_t9_unpack_b64(ptr, i64)
+declare i16 @aod_rt_t9_unpack_int(ptr, ptr)
+declare i8 @aod_rt_t1_superpose_cancel(ptr, i8, i8)
+declare i8 @aod_rt_verify_sheddic_route(ptr, ptr, i8)
+declare i8 @aod_rt_verify_frg_cross_return(ptr, ptr, ptr, ptr)
 declare i64 @aod_rt_t32_unpack_bigint(ptr, ptr)
 
 declare void @aod_rt_ratio_reduce_i128(ptr, i64, i64, i64, i64, ptr)
@@ -4548,10 +5491,14 @@ declare void @aod_rt_ratio_div(ptr, ptr, ptr, ptr)
 declare i32 @aod_rt_ratio_cmp(ptr, ptr, ptr)
 declare void @aod_rt_ratio_to_int_exact(ptr, ptr, ptr)
 
+declare void @aod_rt_emit_null(ptr)
 declare void @aod_rt_emit_int(ptr, ptr)
+declare void @aod_rt_emit_u8(ptr, i8)
+declare void @aod_rt_emit_b64(ptr, i64)
 declare void @aod_rt_emit_bool(ptr, i8)
 declare void @aod_rt_emit_qext_bool(ptr, i8)
 declare void @aod_rt_emit_t1(ptr, i8)
+declare void @aod_rt_emit_t9(ptr, i16)
 declare void @aod_rt_emit_t32(ptr, i64)
 declare void @aod_rt_emit_q4(ptr, i8)
 declare void @aod_rt_emit_ratio(ptr, ptr)
@@ -4560,14 +5507,22 @@ declare void @aod_rt_emit_handle(ptr, i64)
 declare i64 @aod_rt_str_new(ptr, ptr, i64)
 declare i8 @aod_rt_handle_eq(ptr, i64, i64)
 declare i64 @aod_rt_val_unit(ptr)
+declare i64 @aod_rt_val_null(ptr)
+declare i8 @aod_rt_val_to_null(ptr, i64)
 declare i64 @aod_rt_val_from_int(ptr, ptr)
 declare void @aod_rt_val_to_int(ptr, i64, ptr)
+declare i64 @aod_rt_val_from_u8(ptr, i8)
+declare i8 @aod_rt_val_to_u8(ptr, i64)
+declare i64 @aod_rt_val_from_b64(ptr, i64)
+declare i64 @aod_rt_val_to_b64(ptr, i64)
 declare i64 @aod_rt_val_from_bool(ptr, i8)
 declare i8 @aod_rt_val_to_bool(ptr, i64)
 declare i64 @aod_rt_val_from_qext_bool(ptr, i8)
 declare i8 @aod_rt_val_to_qext_bool(ptr, i64)
 declare i64 @aod_rt_val_from_t1(ptr, i8)
 declare i8 @aod_rt_val_to_t1(ptr, i64)
+declare i64 @aod_rt_val_from_t9(ptr, i16)
+declare i16 @aod_rt_val_to_t9(ptr, i64)
 declare i64 @aod_rt_val_from_t32(ptr, i64)
 declare i64 @aod_rt_val_to_t32(ptr, i64)
 declare i64 @aod_rt_val_from_q4(ptr, i8)
@@ -4629,6 +5584,19 @@ declare i64 @aod_rt_list_get(ptr, i64, ptr)
 declare i64 @aod_rt_list_set(ptr, i64, ptr, i64)
 declare i64 @aod_rt_list_len_raw(ptr, i64)
 declare void @aod_rt_len(ptr, i64, ptr)
+declare i64 @aod_rt_bytes_new(ptr, ptr, i64)
+declare i64 @aod_rt_bytes_from_list(ptr, i64)
+declare i64 @aod_rt_bytes_from_str(ptr, i64)
+declare i64 @aod_rt_bytes_from_b64(ptr, i64)
+declare i64 @aod_rt_bytes_from_addr8(ptr, i64)
+declare i8 @aod_rt_bytes_get(ptr, i64, ptr)
+declare i64 @aod_rt_bytes_slice(ptr, i64, ptr, ptr)
+declare i64 @aod_rt_bytes_concat(ptr, i64, i64)
+declare i64 @aod_rt_bytes_sha256(ptr, i64)
+declare i64 @aod_rt_bytes_hex(ptr, i64)
+declare i64 @aod_rt_array_new(ptr, ptr, i64)
+declare i64 @aod_rt_array_get(ptr, i64, ptr)
+declare i64 @aod_rt_array_set(ptr, i64, ptr, i64)
 declare i64 @aod_rt_tuple_new(ptr, ptr, i64)
 declare i64 @aod_rt_tuple_get(ptr, i64, i64)
 declare i64 @aod_rt_map_new(ptr, ptr, ptr, i64)
@@ -4653,7 +5621,10 @@ declare i64 @aod_rt_sim_run(ptr, i64, ptr)
 declare i64 @aod_rt_sim_run_ex(ptr, i64, ptr, i8)
 
 @.err_t1 = private unnamed_addr constant [17 x i8] c"t1 out of bounds\00", align 1
+@.err_t9 = private unnamed_addr constant [17 x i8] c"t9 out of bounds\00", align 1
 @.err_t32 = private unnamed_addr constant [18 x i8] c"t32 out of bounds\00", align 1
+@.err_u8 = private unnamed_addr constant [17 x i8] c"u8 out of bounds\00", align 1
+@.err_shift = private unnamed_addr constant [20 x i8] c"shift out of bounds\00", align 1
 @.err_div0 = private unnamed_addr constant [17 x i8] c"division by zero\00", align 1
 @.err_neg_pack = private unnamed_addr constant [30 x i8] c"packed t32 cannot be negative\00", align 1
 @.err_bad_lane = private unnamed_addr constant [30 x i8] c"invalid balanced trit code 11\00", align 1
@@ -5581,5 +6552,337 @@ step_ok:
   br i1 %done, label %ret_ok, label %loop
 ret_ok:
   ret i64 %acc_next
+}
+
+; ==================== Phase D1 Wave-Register LLVM Helpers ====================
+
+define internal i64 @__aod_t32_pack_u64(i64 %v0) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
+  %n = phi i64 [ %v0, %entry ], [ %n_next, %loop ]
+  %bits = phi i64 [ 0, %entry ], [ %bits_next, %loop ]
+  %r0 = srem i64 %n, 3
+  %r_neg = icmp slt i64 %r0, 0
+  %r_plus = add i64 %r0, 3
+  %rem = select i1 %r_neg, i64 %r_plus, i64 %r0
+  %is2 = icmp eq i64 %rem, 2
+  %digit = select i1 %is2, i64 -1, i64 %rem
+  %sh = shl i64 %i, 1
+  %shifted = shl i64 %rem, %sh
+  %bits_next = or i64 %bits, %shifted
+  %n_sub = sub i64 %n, %digit
+  %n_next = sdiv i64 %n_sub, 3
+  %i_next = add i64 %i, 1
+  %done = icmp eq i64 %i_next, 32
+  br i1 %done, label %after, label %loop
+after:
+  ret i64 %bits_next
+}
+
+define internal i64 @__aod_b64_to_t32(ptr %ctx, i64 %bits) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i_next, %step_ok ]
+  %acc = phi i64 [ 0, %entry ], [ %acc_next, %step_ok ]
+  %pow = phi i64 [ 1, %entry ], [ %pow_next, %step_ok ]
+  %sh = shl i64 %i, 1
+  %shifted = lshr i64 %bits, %sh
+  %lane = and i64 %shifted, 3
+  %bad = icmp eq i64 %lane, 3
+  br i1 %bad, label %fail_lane, label %step_ok
+fail_lane:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_bad_lane, i64 29)
+  ret i64 0
+step_ok:
+  %is2 = icmp eq i64 %lane, 2
+  %digit = select i1 %is2, i64 -1, i64 %lane
+  %term = mul i64 %digit, %pow
+  %acc_next = add i64 %acc, %term
+  %pow_next = mul i64 %pow, 3
+  %i_next = add i64 %i, 1
+  %done = icmp eq i64 %i_next, 32
+  br i1 %done, label %ret_ok, label %loop
+ret_ok:
+  ret i64 %acc_next
+}
+
+define internal i64 @__aod_t32_superpose_cancel(ptr %ctx, i64 %a, i64 %b) {
+entry:
+  %pa = call i64 @__aod_t32_pack_u64(i64 %a)
+  %pb = call i64 @__aod_t32_pack_u64(i64 %b)
+  %or_ab = or i64 %pa, %pb
+  %crest = and i64 %or_ab, 6148914691236517205
+  %tr_pre = and i64 %or_ab, -6148914691236517206
+  %trough = lshr i64 %tr_pre, 1
+  %cancel = and i64 %crest, %trough
+  %c_shl = shl i64 %cancel, 1
+  %c_both = or i64 %cancel, %c_shl
+  %clear_mask = xor i64 %c_both, -1
+  %out_bits = and i64 %or_ab, %clear_mask
+  %res = call i64 @__aod_b64_to_t32(ptr %ctx, i64 %out_bits)
+  ret i64 %res
+}
+
+define internal %DecInt @__aod_u64_to_int(ptr %ctx, i64 %w) alwaysinline {
+entry:
+  %pout = alloca %DecInt, align 8
+  %fits_i64 = icmp sge i64 %w, 0
+  br i1 %fits_i64, label %inline_ok, label %spill
+inline_ok:
+  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %w, 1
+  ret %DecInt %r
+spill:
+  call void @aod_rt_int_from_u64(ptr %ctx, i64 %w, ptr %pout)
+  %res = load %DecInt, ptr %pout
+  ret %DecInt %res
+}
+
+define internal i8 @__aod_i64_to_u8(ptr %ctx, i64 %v) alwaysinline {
+entry:
+  %lo = icmp sge i64 %v, 0
+  %hi = icmp sle i64 %v, 255
+  %ok = and i1 %lo, %hi
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = trunc i64 %v to i8
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_u8, i64 16)
+  ret i8 0
+}
+
+define internal i8 @__aod_u64_to_u8(ptr %ctx, i64 %v) alwaysinline {
+entry:
+  %ok = icmp ule i64 %v, 255
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = trunc i64 %v to i8
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_u8, i64 16)
+  ret i8 0
+}
+
+define internal i16 @__aod_i64_to_t9(ptr %ctx, i64 %v) alwaysinline {
+entry:
+  %lo = icmp sge i64 %v, -9841
+  %hi = icmp sle i64 %v, 9841
+  %ok = and i1 %lo, %hi
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = trunc i64 %v to i16
+  ret i16 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_t9, i64 16)
+  ret i16 0
+}
+
+define internal i64 @__aod_int_to_shift(ptr %ctx, %DecInt %a, i64 %limit) alwaysinline {
+entry:
+  %pa = alloca %DecInt, align 8
+  %ta = extractvalue %DecInt %a, 0
+  %va = extractvalue %DecInt %a, 1
+  %is_inline = icmp eq i8 %ta, 0
+  %non_neg = icmp sge i64 %va, 0
+  %in_lim = icmp slt i64 %va, %limit
+  %ok1 = and i1 %is_inline, %non_neg
+  %fast = and i1 %ok1, %in_lim
+  br i1 %fast, label %ret_ok, label %cold
+ret_ok:
+  ret i64 %va
+cold:
+  store %DecInt %a, ptr %pa
+  %r = call i64 @aod_rt_int_to_shift(ptr %ctx, ptr %pa, i64 %limit)
+  ret i64 %r
+}
+
+define internal i8 @__aod_u8_add(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %wa = zext i8 %a to i64
+  %wb = zext i8 %b to i64
+  %s = add i64 %wa, %wb
+  %ok = icmp ule i64 %s, 255
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = trunc i64 %s to i8
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_u8, i64 16)
+  ret i8 0
+}
+
+define internal i8 @__aod_u8_sub(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %wa = zext i8 %a to i64
+  %wb = zext i8 %b to i64
+  %d = sub i64 %wa, %wb
+  %ok = icmp sge i64 %d, 0
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = trunc i64 %d to i8
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_u8, i64 16)
+  ret i8 0
+}
+
+define internal i8 @__aod_u8_mul(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %wa = zext i8 %a to i64
+  %wb = zext i8 %b to i64
+  %p = mul i64 %wa, %wb
+  %ok = icmp ule i64 %p, 255
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = trunc i64 %p to i8
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_u8, i64 16)
+  ret i8 0
+}
+
+define internal i8 @__aod_u8_div(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %z = icmp eq i8 %b, 0
+  br i1 %z, label %div0, label %ok
+div0:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_div0, i64 16)
+  ret i8 0
+ok:
+  %r = udiv i8 %a, %b
+  ret i8 %r
+}
+
+define internal i8 @__aod_u8_rem(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %z = icmp eq i8 %b, 0
+  br i1 %z, label %div0, label %ok
+div0:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_div0, i64 16)
+  ret i8 0
+ok:
+  %r = urem i8 %a, %b
+  ret i8 %r
+}
+
+define internal i8 @__aod_u8_shl(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %ok = icmp ult i8 %b, 8
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = shl i8 %a, %b
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_shift, i64 19)
+  ret i8 0
+}
+
+define internal i8 @__aod_u8_shr(ptr %ctx, i8 %a, i8 %b) alwaysinline {
+entry:
+  %ok = icmp ult i8 %b, 8
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = lshr i8 %a, %b
+  ret i8 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_shift, i64 19)
+  ret i8 0
+}
+
+define internal i64 @__aod_b64_shl(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ok = icmp ult i64 %b, 64
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = shl i64 %a, %b
+  ret i64 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_shift, i64 19)
+  ret i64 0
+}
+
+define internal i64 @__aod_b64_shr(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ok = icmp ult i64 %b, 64
+  br i1 %ok, label %ret_ok, label %fail
+ret_ok:
+  %r = lshr i64 %a, %b
+  ret i64 %r
+fail:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_shift, i64 19)
+  ret i64 0
+}
+
+define internal i16 @__aod_t9_add(ptr %ctx, i16 %a, i16 %b) alwaysinline {
+entry:
+  %wa = sext i16 %a to i64
+  %wb = sext i16 %b to i64
+  %s = add nsw i64 %wa, %wb
+  %r = call i16 @__aod_i64_to_t9(ptr %ctx, i64 %s)
+  ret i16 %r
+}
+
+define internal i16 @__aod_t9_sub(ptr %ctx, i16 %a, i16 %b) alwaysinline {
+entry:
+  %wa = sext i16 %a to i64
+  %wb = sext i16 %b to i64
+  %d = sub nsw i64 %wa, %wb
+  %r = call i16 @__aod_i64_to_t9(ptr %ctx, i64 %d)
+  ret i16 %r
+}
+
+define internal i16 @__aod_t9_mul(ptr %ctx, i16 %a, i16 %b) alwaysinline {
+entry:
+  %wa = sext i16 %a to i64
+  %wb = sext i16 %b to i64
+  %p = mul nsw i64 %wa, %wb
+  %r = call i16 @__aod_i64_to_t9(ptr %ctx, i64 %p)
+  ret i16 %r
+}
+
+define internal i16 @__aod_t9_div_floor(ptr %ctx, i16 %a, i16 %b) alwaysinline {
+entry:
+  %z = icmp eq i16 %b, 0
+  br i1 %z, label %div0, label %fast
+div0:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_div0, i64 16)
+  ret i16 0
+fast:
+  %wa = sext i16 %a to i64
+  %wb = sext i16 %b to i64
+  %q = sdiv i64 %wa, %wb
+  %rem = srem i64 %wa, %wb
+  %rnz = icmp ne i64 %rem, 0
+  %x = xor i64 %wa, %wb
+  %ds = icmp slt i64 %x, 0
+  %adj = and i1 %rnz, %ds
+  %qm1 = sub i64 %q, 1
+  %qf = select i1 %adj, i64 %qm1, i64 %q
+  %r = call i16 @__aod_i64_to_t9(ptr %ctx, i64 %qf)
+  ret i16 %r
+}
+
+define internal i16 @__aod_t9_rem_floor(ptr %ctx, i16 %a, i16 %b) alwaysinline {
+entry:
+  %z = icmp eq i16 %b, 0
+  br i1 %z, label %div0, label %fast
+div0:
+  call void @aod_rt_fail(ptr %ctx, ptr @.err_div0, i64 16)
+  ret i16 0
+fast:
+  %wa = sext i16 %a to i64
+  %wb = sext i16 %b to i64
+  %rem = srem i64 %wa, %wb
+  %rnz = icmp ne i64 %rem, 0
+  %x = xor i64 %rem, %wb
+  %ds = icmp slt i64 %x, 0
+  %adj = and i1 %rnz, %ds
+  %rp = add i64 %rem, %wb
+  %rf = select i1 %adj, i64 %rp, i64 %rem
+  %r = call i16 @__aod_i64_to_t9(ptr %ctx, i64 %rf)
+  ret i16 %r
 }
 "#;

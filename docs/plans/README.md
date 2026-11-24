@@ -11,8 +11,9 @@ This directory preserves the complete orchestration plans, subagent role definit
   - **PR 7 (`d74651f` — Phase A):** 100% Zero-Python purification, pure-Rust RFC 1950/1951 `aodc audit-pdf`, permanent zero-Python repo/CI guard.
   - **PR 8 (`8dc236c` — Phase B):** Stage 4 (`S4@e013401`, `rpoyau/aod` PR `#53`) convergence, 90-tick `cycle_shedding_trace`, `aodc eval-op`, `aod.s4.rust.report.v1`.
   - **PR 9 (`1e5f224` — Phase C):** `stdlib/aod/apparatus.dec`, zero-LLVM `aodc manual-data --check`, `CodegenPlan` v2 + parallel read-only observers (`97/97` tests debug & release, 3/3 CI green).
-- **Immediate Next Step (`Phase D1 / PR 10` Ready for Implementer):**
-  - Execute **[`dec_wave_purification_plan.md`](dec_wave_purification_plan.md)** starting with **`Phase D1 (PR 10)`**, whose Reviewer-approved (`R02 APPROVE`) specification is at **[`bundles/pr10_request_bundle.md`](bundles/pr10_request_bundle.md)**.
+  - **PR 10 (Phase D1):** Wave-hardware register & sequence primitives (`Null`/`u8`/`b64`/`t9`/`bytes`/`array[T, N]`, OR-based `superpose_cancel`, eager `select`), `aodc audit-dec` (6 §5.17 hooks), and 2-thread shared-cache-line FRG double-slit probe (`14/14` ACs PASS, `111/111` tests debug & release, Final Review PASS).
+- **Immediate Next Step (`Phase D2 / PR 11`):**
+  - Execute **`Phase D2 (PR 11)`** of **[`dec_wave_purification_plan.md`](dec_wave_purification_plan.md)** (pure indented `dec <name>:` signature matrices, positional `Struct(...)`, `map[(k, v)]`, AFC Scope/Window sequence operators, and `SyntaxDiscipline::PureWaveV2`).
 
 ---
 
@@ -29,8 +30,7 @@ This directory preserves the complete orchestration plans, subagent role definit
 3. **Subagent Role Specifications (`agents/`):**
    - [`agents/planner.md`](agents/planner.md), [`agents/reviewer.md`](agents/reviewer.md), [`agents/implementer.md`](agents/implementer.md), [`agents/validator.md`](agents/validator.md).
 4. **Milestone Request & Verification Bundles (`bundles/`):**
-   - Completed & verified: `pr1` through `pr9` (`pr{N}_request_bundle.md` + `pr{N}_verification_bundle.md`).
-   - Ready for Phase D1 implementation (`R02 APPROVE`): [`bundles/pr10_request_bundle.md`](bundles/pr10_request_bundle.md).
+   - Completed & verified: `pr1` through `pr10` (`pr{N}_request_bundle.md` + `pr{N}_verification_bundle.md`).
 
 ---
 
