@@ -1,0 +1,15 @@
+# PR 1 Independent Verification Bundle (R04 — Final) — `rpoyau/aod-dec` (`v2/native-reference-engine`)
+
+**Overall Verdict:** **PASS — 23/23 Acceptance Criteria Verified (`AC-01`..`AC-23`), 0 FAIL**
+
+- `RUSTFLAGS="-D warnings" cargo test --workspace --offline`: **31/31 PASS**, 0 warnings.
+- `RUSTFLAGS="-D warnings" cargo test --workspace --release --offline`: **31/31 PASS**, 0 warnings.
+- `RUSTFLAGS="-D warnings" cargo build --release --offline`: **PASS**.
+- Static scan across all 24 `.rs` files in `crates/aod-core/src` & `crates/aodc/src`: `f32/f64=0`, `unsafe=0`, `float_lits=0`, `#![forbid(unsafe_code)]`, 0 external crates.
+- **`AC-01`..`AC-13`:** All verified PASS (`SOURCE_BINDING.json` 50/50 expanded equations + verbatim historical v1 record, `BigInt`, native `Ratio` vs quarantined `qext::parse_decimal_exact`, `T1`/`T32`/`Q4`/`Addr8`, SHA-256 + strict JSON, `SupportForm`, dual v1 `Trace` JSON / `Fusion` / `Coupling` / 12 `DuonVariant`s / `seat_duad`, M3 `F01`–`F07` wavelets & `RecipientLattice`, Manual §4 D.E.C. ledger).
+- **`AC-14` (`P1-A` Option B):** Full `struct` (indented + brace, positional/named/brace construction, mut field update, immutable `let` & `QExt` field rejections), `enum` + exhaustive `match` (unit/payload variants, guards, non-exhaustive/guarded-only/literal-only & `QExt` rejections), deterministic `map[K, V]` (`BTreeMap`, identical sorted iteration across opposite insertion orders, `len`/`contains`, `QExt` & non-orderable key rejections), multi-arm literal/enum/wildcard/guard pattern dispatch, `+1t`/`0t`/`-1t`, `--compat v1` rejections, and hermetic `DecIR v2` compile+exec round-trip ALL PASS.
+- **`AC-15`:** 50/50 exact SHA-256 stdout matches across all 10 frozen `v1_examples/*.dec` × 5 CLI modes; `aodc test --compat v1`: `10 passed; 0 failed`.
+- **`AC-16` (`P0-2` + `P2-1`):** `opposing_336_chamber.dec` emits `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED`, deterministic hash `77813d3d...9a`, bit-for-bit identical across 0/1/4 observers, 0 hardcoded targets; all 6 `P2-1` clamping probes (`clock 0/-3`, `shells 0/-2`, `orient 0t/0`) fail explicitly with `RuntimeError`.
+- **`AC-17` (`P1-3` + R04 fix):** All hostile `ReadOnly<T>` probes (`Probe B` `take_ro -> mutator`, `Probe C` `ReadOnly<map>`, `Probe D` `observe -> take_ro -> mutator`, `Probe F` `main -> mut_list(run.final_snapshot.carriers)`, `Probe G3` wildcard+mutating multi-arm, `Probe G` pattern binding mut, `Probe I` `ReadOnly -> SingleArm`) rejected cleanly with `ObserverMutationForbidden`/`TypeError`; positive covariant widening (`Probes G2, H`) passes.
+- **`AC-18` (`P0-1`, `P0-A`, `P2-2`, `P2-3`):** 1-hop/2-hop/multi-arm `observe -> main() -> quarantine Q_ext:` rejected with `QExtLeakageForbidden`; `ReadOnly<QExt<ratio>>` (no space) parses cleanly and fails with `QExtLeakageForbidden`; sibling `ModA`/`ModB` quarantine resolution passes (`Q_ext(8/1)\n0\n`); `qext_post_freeze.dec` passes (`Q_ext(1/1)\n4/5\n0\n`).
+- **`AC-19`..`AC-23`:** All hostile literal/coercion/tampered-IR/budget probes PASS; `--fuel`/`--max-depth` preserve prior `emit` stdout; `git -C /home/antigravity/rpoyau/aod status --short` is empty (`""`).

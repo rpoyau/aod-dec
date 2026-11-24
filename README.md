@@ -132,3 +132,10 @@ cargo run --bin aodc -- test manual_examples
 ## Provenance & Upstream Bindings
 
 All upstream AOD commit/tree hashes, equation numbers (`S0@98ddfa0` resolved against vendored read-only `bindings/aod/main_registry.json` from `S1b@cea71a7`), the Stage 2 golden-vector draft binding (`S2@3122c94`, upstream PR `#51`, `m4-s2-reference-engine`, explicitly tagged `DRAFT_CANDIDATE_UNDER_S2_REVIEW` with `RC-020` preserving `UNRESOLVED_PROVENANCE_QUARANTINED`), the Stage 4 Rust exact-core convergence draft binding (`S4@e013401`, upstream PR `#53`, `m4-s4-rust-exact-core`, explicitly tagged `DRAFT_CANDIDATE_UNDER_S4_REVIEW` with vendored CRLF `wavelet_shedding_simulation.csv`), verbatim historical v1 `v40.01r10` provenance, and the 10 frozen v1 regression hashes are recorded in [`SOURCE_BINDING.json`](SOURCE_BINDING.json).
+
+## First-Principles Derivation, Active Plans, & Reference Archive
+
+- **[`docs/FIRST_PRINCIPLES_DERIVATION.md`](docs/FIRST_PRINCIPLES_DERIVATION.md):** Nine-step first-principles derivation showing how explicit signature combinatorics, register encodings, Landauer erasure avoidance, closed-loop memory, double-slit concurrency, balanced ternary trits, and exact ratios converge directly onto AFC and Alpha-Omega Dynamics.
+- **[`docs/plans/`](docs/plans/README.md):** Session continuity index, Reviewer-approved **[First-Principles Wave-Language Purification Plan (`Phase D1` → `D2` → `D3`)](docs/plans/dec_wave_purification_plan.md)**, milestone tracker ([`orchestration_status.md`](docs/plans/orchestration_status.md)), subagent role definitions (`docs/plans/agents/`), and all PR 1–PR 10 Request & Verification Bundles (including [`bundles/pr10_request_bundle.md`](docs/plans/bundles/pr10_request_bundle.md)).
+- **[`reference/aod-dec-dev/`](reference/aod-dec-dev/):** Byte-for-byte SHA-256-verified archive (`sha256sum -c SHA256SUMS`) of the original Stage-0/Stage-1/Stage-2 self-hosting bootstrap kit and `dec/00..05+kernel.dec` modules.
+

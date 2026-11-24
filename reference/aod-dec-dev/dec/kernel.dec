@@ -1,0 +1,57 @@
+# Alpha-Omega Dynamics (AOD) & Axiomatic Fundamentalism Calculus (AFC)
+# Self-Hosted Kernel & Syscall Ring-Gate Specification
+# Anchor: a_0 = 00_8 | Scope: B = (d_T F, omega)
+
+struct ratio {
+    num: t32,
+    den: t32
+}
+
+struct syscall_gate {
+    nr: t32,
+    arg1: b64,
+    arg2: b64,
+    arg3: b64,
+    ret_click: t32
+}
+
+# 1. Tick/Click Kernel Boundary Gate (User <-> Kernel Ring Gate)
+Dec ring_syscall(nr, a1, a2, a3) -> gate:
+    (t32 nr, b64 a1, b64 a2, b64 a3) -> syscall_gate gate:
+        t32 y_click = __linux_syscall3(nr, a1, a2, a3)
+        gate = syscall_gate(nr, a1, a2, a3, y_click)
+
+# 2. 1-Cycle Balanced Ternary Phase Inversion (32 Trits in b64)
+Dec neg(wave) -> shifted:
+    (t32 wave) -> t32 shifted:
+        b64 raw = b64(wave)
+        shifted = t32(((raw & 0x5555555555555555) << 1) | ((raw & 0xAAAAAAAAAAAAAAAA) >> 1))
+
+# 3. Atomic Q4 Hamming-1 Step & Retained-Start Monon Closure
+Dec step_walk(v_curr, v_next, sigma, dwell_m) -> (v_out, sigma_out, closed):
+    (q4 v_curr, q4 v_next, 0, t32 dwell_m) -> (q4 v_out, t1 sigma_out, u8 closed):
+        v_out = v_curr
+        sigma_out = 0
+        closed = 0
+
+    (q4 v_curr, q4 v_next, t1 sigma, 0) -> (q4 v_out, t1 sigma_out, u8 closed):
+        assert __popcnt_xor(v_curr, v_next) == 1
+        v_out = v_next
+        sigma_out = neg(sigma)
+        closed = 1
+
+# 4. Hinge Slide (3 -> 2 Role Projection onto Binary CPU Branches)
+Dec hinge_slide(w_neg1, w_neg2, w_dwell, w_pos) -> (p_returned, p_outgoing, z_slide):
+    (t32 w_neg1, t32 w_neg2, 0, t32 w_pos) -> (ratio p_returned, ratio p_outgoing, t32 z_slide):
+        z_slide = w_neg1 + w_neg2 + w_pos
+        p_returned = ratio(w_neg1 + w_neg2, z_slide)
+        p_outgoing = ratio(w_pos, z_slide)
+
+# 5. Short-Window Clipping, Overhang Q^D, & Sheddic Route Audit (1:2:9yro & 3:3:7yro)
+Dec audit_shedding(rd_support, window_w, c_close, target_path) -> (rho_w, p_d, q_d, x_shed, path_out):
+    (t32 rd_support, t32 window_w, t32 c_close, u8 target_path) -> (t32 rho_w, t32 p_d, t32 q_d, t32 x_shed, u8 path_out):
+        rho_w = min_t32(rd_support, window_w)
+        q_d = 3 * max_t32(0, rd_support - window_w)
+        p_d = 3 * rho_w
+        x_shed = max_t32(0, p_d - c_close)
+        path_out = select_u8(x_shed > 0, target_path, 0)

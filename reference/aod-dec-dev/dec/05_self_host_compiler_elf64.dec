@@ -1,0 +1,64 @@
+# 05_self_host_compiler_elf64.dec
+# Self-Hosted Live-Walk Lexer, AO_mu Triad Parser, Hardware Tick/Click Learner, & ELF64 Emitter
+
+struct lex_cursor {
+    octal_addr: t32,
+    byte_pos: t32,
+    prev_class: t1,
+    token_count: t32,
+    dwell_m: t32
+}
+
+struct ao_sig_triad {
+    octal_anchor: t32,
+    pi_alpha_t1: u8,
+    pi_alpha_t2: u8,
+    h_mu_hinge: u8,
+    pi_omega_ret: u8,
+    adm_cert: u8
+}
+
+struct tick_click_probe {
+    chan_id: u8,
+    x_emitted: t32,
+    y_returned: t32,
+    rho_d_measured: t32,
+    lag_lambda: t32,
+    phi_ind: t32,
+    phi_rec: t32
+}
+
+struct learned_channel {
+    chan_id: u8,
+    cut_ke: t32,
+    r_e: t32,
+    op_certified: u8,
+    role_label: t1,
+    w_adapted: t32,
+    shed_route: u8
+}
+
+Dec lex_step_walk(cur, prev_byte, next_byte, next_class) -> cur_next:
+    (lex_cursor cur, u8 prev_byte, u8 next_byte, 0) -> lex_cursor cur_next:
+        cur_next = lex_cursor(cur.octal_addr, cur.byte_pos + 1, 0, cur.token_count, cur.dwell_m + 1)
+
+    (lex_cursor cur, u8 prev_byte, u8 next_byte, t1 next_class) -> lex_cursor cur_next:
+        assert (next_class == +1) | (next_class == -1)
+        u8 changed = u8(prev_byte != next_byte)
+        cur_next = lex_cursor(cur.octal_addr + t32(changed), cur.byte_pos + 1, next_class, cur.token_count + t32(changed), 0)
+
+Dec parse_dec_triad(addr, in_t1, in_t2, arrow_tok, out_t3) -> triad:
+    (t32 addr, u8 in_t1, u8 in_t2, 1, u8 out_t3) -> ao_sig_triad triad:
+        u8 valid_types = u8((in_t1 > 0) & (in_t2 > 0) & (out_t3 > 0))
+        triad = ao_sig_triad(addr, in_t1, in_t2, 1, out_t3, valid_types)
+
+    (t32 addr, u8 in_t1, u8 in_t2, 0, u8 out_t3) -> ao_sig_triad triad:
+        triad = ao_sig_triad(addr, in_t1, in_t2, 0, out_t3, 0)
+
+Dec probe_and_retain(probe, cut_k, base_weight) -> learned:
+    (tick_click_probe probe, t32 cut_k, t32 base_weight) -> learned_channel learned:
+        assert probe.rho_d_measured > 0
+        t32 r_val = probe.phi_rec - probe.phi_ind
+        t32 w_new = max_t32(1, base_weight + r_val - probe.lag_lambda)
+        u8 route = select_u8(probe.rho_d_measured <= 9, 6, select_u8(probe.rho_d_measured <= 61, 8, 10))
+        learned = learned_channel(probe.chan_id, cut_k, r_val, 0, 0, w_new, route)
