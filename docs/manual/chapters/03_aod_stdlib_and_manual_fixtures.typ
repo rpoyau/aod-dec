@@ -5,7 +5,7 @@
 = Native Dec Standard Library and Executable Manual Fixtures <sec:stdlib>
 
 #aod-paragraph("Setup.")
-Six pure Dec modules under `stdlib/aod/` expose executable Manual calculations through the `use stdlib::aod::*`
+Seven pure Dec modules under `stdlib/aod/` expose executable Manual calculations through the `use stdlib::aod::*`
 namespace, resolved with strict root precedence (`--stdlib <dir>`, then `AOD_STDLIB_DIR`, then automatic
 upward discovery, with zero silent fallback on explicit override) and bundled hermetically into `DecIR v2`.
 Module constants initialize in post-order DFS topological dependency order so intra-stdlib dependencies
@@ -27,6 +27,7 @@ AOT, and ORC LLJIT.
     [`stdlib::aod::cells`], [`04_cell_measures_tesseract.dec`], [4-cube `(16,32,24,8,1)`, `V_4=81/16` & `B_3=27`, quarter-symmetry disk enclosures `n=1..16`, rectangle swap `10->8->10`, exact discrete-law moments (`T`, `F`, `Rf`, `U`), affine covariance, 16-step tesseract transport.],
     [`stdlib::aod::metrology`], [`05_conditional_si_metrology.dec`, `09_s2_higgs_and_quarantined_lensing.dec`], [Native turn advances, `prop:m3-atomic-gain` (`lambda=0` vs `1`), quarantined `SiMetrology` (`1/4596315885`, Hellwig midpoint, separate NIST-F2 budgets), and quarantined `DisplayQuarantine` (post-freeze Higgs GeV map, LHC 6-dp half-even display/residuals, half-ULP enclosure).],
     [`stdlib::aod::sectors`], [`07_s2_sparc_and_shedding.dec`, `08_s2_awareness_stokes_octants.dec`, `09_s2_higgs_and_quarantined_lensing.dec`, `10_s4_cycle_shedding_90tick.dec`], [Strictly native parameterized S2/S4 sectors: SPARC G0 bins (`RC-015`/`RC-016`), cycle shedding (`RC-014`) and full 90-tick `S4@e013401` trace (`102`-digit exact denominator), awareness/mindfulness (`RC-009`/`RC-010`), Stokes cut (`RC-008`), MSB-x vs LSB-x octants (`RC-012`/`RC-013`), dimensionless Higgs scoring (`RC-011`), SWELLS/Tau `UNRESOLVED_PROVENANCE_QUARANTINED` guard (`RC-020`), and MAP-21 18-digit exact variance (`RC-024`).],
+    [`stdlib::aod::apparatus`], [`11_apparatus_opposing_sensors.dec`], [Strictly pure native unbiased apparatus builders (`chamber_box`, `concentric_shell_box`, `symmetric_opposing_336`), passive `ReadOnly<ChamberView>` snapshot projection (`read_passive_snapshot`), blind summary (`summarize_blind_run`), and 0/1/2/4-observer SHA-256 invariance verifier (`verify_multi_observer_invariance`), with zero `Q_ext` and zero hardcoded physical targets.],
     bottomrule,
   ),
 )<tab:stdlib-modules>

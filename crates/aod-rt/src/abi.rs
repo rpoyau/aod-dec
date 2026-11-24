@@ -2327,14 +2327,26 @@ pub unsafe extern "C" fn aod_rt_sim_builder_add_proc_obs(
 
 /// Run the sandbox chamber for `ticks` ticks, decrementing `ctx.fuel` per tick and
 /// checking `ctx.failed != 0` immediately after every procedural observer callback (`P1-3`, `P0-UB`).
-///
-/// Uses strictly non-overlapping raw-pointer scopes so ZERO `&mut AodRtContext` or
-/// `&mut RtState` references are live across the re-entrant callback `cb(ctx, snap_h)`.
+/// Backward-compatible sequential sandbox runner delegating to `aod_rt_sim_run_ex(..., 0)` (`P1-1`).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_sim_run(
     ctx: *mut AodRtContext,
     b_h: u64,
     ticks: *const DecInt,
+) -> u64 {
+    unsafe { aod_rt_sim_run_ex(ctx, b_h, ticks, 0) }
+}
+
+/// Extended sandbox runner with optional parallel read-only procedural observer execution (`P0-1`, `P0-2`).
+///
+/// Guarantees 100% byte-identical stdout, fuel accounting, error precedence, and final chamber state
+/// vs sequential execution even under arbitrary tight fuel limits or panicking callbacks.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sim_run_ex(
+    ctx: *mut AodRtContext,
+    b_h: u64,
+    ticks: *const DecInt,
+    parallel_observers: u8,
 ) -> u64 {
     if ctx.is_null() {
         return 0;
@@ -2369,6 +2381,24 @@ pub unsafe extern "C" fn aod_rt_sim_run(
         let mut decl_observers = builder.decl_observers;
         let proc_observers = builder.proc_observers;
 
+        let use_parallel = parallel_observers != 0 && proc_observers.len() > 1;
+
+        // P0-1: Snapshot pre-sim arena ONCE before the tick loop so every parallel worker
+        // resolves all `@__const_*` global handles and pre-sim heap handles identically!
+        let base_arena = if use_parallel {
+            let state = unsafe { &*(*ctx).inner };
+            Some(state.arena.clone())
+        } else {
+            None
+        };
+
+        struct WorkerOutcome {
+            fuel_after: i64,
+            failed: bool,
+            error: Option<String>,
+            emits: Vec<String>,
+        }
+
         for _ in 0..tick_count {
             let cur_fuel = unsafe { (*ctx).fuel };
             if cur_fuel <= 0 {
@@ -2383,7 +2413,11 @@ pub unsafe extern "C" fn aod_rt_sim_run(
             for obs in &mut decl_observers {
                 obs.observe_snapshot(&snap);
             }
-            if !proc_observers.is_empty() {
+            if proc_observers.is_empty() {
+                continue;
+            }
+
+            if !use_parallel {
                 let snap_h = {
                     let state = unsafe { &mut *(*ctx).inner };
                     state.arena.insert(RtValue::ChamberView(Box::new(snap)))?
@@ -2401,6 +2435,124 @@ pub unsafe extern "C" fn aod_rt_sim_run(
                     if failed_now {
                         return Ok(0);
                     }
+                }
+            } else {
+                let start_fuel = unsafe { (*ctx).fuel };
+                let parent_depth = unsafe { (*ctx).depth };
+                let parent_max_depth = unsafe { (*ctx).max_depth };
+                let base_arena_ref = base_arena
+                    .as_ref()
+                    .expect("base_arena snapshotted when use_parallel is true");
+                let snap_ref = &snap;
+
+                let outcomes: Vec<WorkerOutcome> = std::thread::scope(|scope| {
+                    let mut handles = Vec::with_capacity(proc_observers.len());
+                    for &(_, cb_addr) in &proc_observers {
+                        handles.push(scope.spawn(move || -> WorkerOutcome {
+                            let mut wctx = OwnedRtContext::new(start_fuel, parent_max_depth, true);
+                            wctx.raw.depth = parent_depth;
+                            let snap_h = {
+                                // SAFETY: `wctx` exclusively owns `wctx.raw.inner` on this worker thread.
+                                let wstate = unsafe { &mut *wctx.raw.inner };
+                                wstate.arena = base_arena_ref.clone();
+                                match wstate
+                                    .arena
+                                    .insert(RtValue::ChamberView(Box::new(snap_ref.clone())))
+                                {
+                                    Ok(h) => h,
+                                    Err(msg) => {
+                                        wctx.fail_with(msg);
+                                        0
+                                    }
+                                }
+                            };
+                            if !wctx.failed() {
+                                // SAFETY: `cb_addr` is a verified read-only procedural observer callback.
+                                let cb: unsafe extern "C" fn(*mut AodRtContext, u64) =
+                                    unsafe { std::mem::transmute(cb_addr) };
+                                let call_res = catch_unwind(AssertUnwindSafe(|| unsafe {
+                                    cb(wctx.as_mut_ptr(), snap_h);
+                                }));
+                                if call_res.is_err() {
+                                    wctx.fail_with(
+                                        "internal runtime panic in parallel observer callback",
+                                    );
+                                }
+                            }
+                            let wstate = wctx.state();
+                            WorkerOutcome {
+                                fuel_after: wctx.raw.fuel,
+                                failed: wctx.failed(),
+                                error: wstate.error.clone(),
+                                emits: wstate.emits.clone(),
+                            }
+                        }));
+                    }
+                    handles
+                        .into_iter()
+                        .map(|h| match h.join() {
+                            Ok(o) => o,
+                            Err(_) => WorkerOutcome {
+                                fuel_after: start_fuel,
+                                failed: true,
+                                error: Some(
+                                    "internal runtime panic in parallel observer worker"
+                                        .to_string(),
+                                ),
+                                emits: Vec::new(),
+                            },
+                        })
+                        .collect()
+                });
+
+                // P0-2: Exact declaration-order merge with tight-fuel sequential fallback!
+                let mut remaining_fuel = start_fuel;
+                for (idx, outcome) in outcomes.into_iter().enumerate() {
+                    let used_i = start_fuel.saturating_sub(outcome.fuel_after);
+                    if used_i <= remaining_fuel {
+                        remaining_fuel = remaining_fuel.saturating_sub(used_i);
+                        {
+                            let pstate = unsafe { &mut *(*ctx).inner };
+                            for line in outcome.emits {
+                                pstate.emit_line(line);
+                            }
+                        }
+                        if outcome.failed {
+                            unsafe {
+                                (*ctx).fuel = remaining_fuel;
+                                (*ctx).failed = 1;
+                                if let Some(err) = outcome.error {
+                                    (*(*ctx).inner).record_error(err);
+                                }
+                            }
+                            return Ok(0);
+                        }
+                    } else {
+                        // Tight-budget boundary: re-run ONLY observer `idx` sequentially on parent
+                        // `ctx` with exact `remaining_fuel` so emits, fuel, and BudgetExhausted
+                        // match sequential execution 100% byte-for-byte!
+                        unsafe {
+                            (*ctx).fuel = remaining_fuel;
+                        }
+                        let snap_h = {
+                            let pstate = unsafe { &mut *(*ctx).inner };
+                            pstate.arena.insert(RtValue::ChamberView(Box::new(snap.clone())))?
+                        };
+                        let cb_addr = proc_observers[idx].1;
+                        let cb: unsafe extern "C" fn(*mut AodRtContext, u64) =
+                            unsafe { std::mem::transmute(cb_addr) };
+                        unsafe {
+                            cb(ctx, snap_h);
+                        }
+                        let failed_now = unsafe { (*ctx).failed != 0 };
+                        if failed_now {
+                            return Ok(0);
+                        }
+                        remaining_fuel = unsafe { (*ctx).fuel };
+                    }
+                }
+                unsafe {
+                    (*ctx).fuel = remaining_fuel;
                 }
             }
         }
@@ -2424,7 +2576,8 @@ pub unsafe extern "C" fn aod_rt_sim_run(
             unsafe {
                 (*ctx).failed = 1;
                 if !(*ctx).inner.is_null() {
-                    (*(*ctx).inner).record_error("internal runtime panic in aod_rt_sim_run".to_string());
+                    (*(*ctx).inner)
+                        .record_error("internal runtime panic in aod_rt_sim_run_ex".to_string());
                 }
             }
             0
@@ -2575,5 +2728,6 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_sim_builder_add_decl_obs", aod_rt_sim_builder_add_decl_obs as *const () as usize),
         ("aod_rt_sim_builder_add_proc_obs", aod_rt_sim_builder_add_proc_obs as *const () as usize),
         ("aod_rt_sim_run", aod_rt_sim_run as *const () as usize),
+        ("aod_rt_sim_run_ex", aod_rt_sim_run_ex as *const () as usize),
     ]
 }

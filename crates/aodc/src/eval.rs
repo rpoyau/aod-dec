@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use aod_core::bigint::BigInt;
 use aod_core::ledger::{probability, SadarPromotion};
@@ -317,12 +318,8 @@ enum ControlFlow {
     Continue,
 }
 
-pub struct Evaluator<'a> {
+struct EvalProgram<'a> {
     checked: &'a CheckedUnit,
-    fuel: usize,
-    max_depth: usize,
-    depth: usize,
-    emits: Vec<String>,
     structs: BTreeMap<(String, String), StructDecl>,
     enums: BTreeMap<(String, String), EnumDecl>,
     functions: BTreeMap<(String, String), DecFnDecl>,
@@ -333,22 +330,34 @@ pub struct Evaluator<'a> {
     qext_modules: BTreeSet<(String, String)>,
 }
 
+pub struct Evaluator<'a> {
+    program: Arc<EvalProgram<'a>>,
+    fuel: usize,
+    max_depth: usize,
+    depth: usize,
+    emits: Vec<String>,
+    parallel_observers: bool,
+}
+
 impl<'a> Evaluator<'a> {
     pub fn new(checked: &'a CheckedUnit, fuel: usize, max_depth: usize) -> DecResult<Self> {
         let mut ev = Self {
-            checked,
+            program: Arc::new(EvalProgram {
+                checked,
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
+                functions: BTreeMap::new(),
+                consts: BTreeMap::new(),
+                chambers: BTreeMap::new(),
+                prepares: BTreeMap::new(),
+                observes: BTreeMap::new(),
+                qext_modules: BTreeSet::new(),
+            }),
             fuel,
             max_depth,
             depth: 0,
             emits: Vec::new(),
-            structs: BTreeMap::new(),
-            enums: BTreeMap::new(),
-            functions: BTreeMap::new(),
-            consts: BTreeMap::new(),
-            chambers: BTreeMap::new(),
-            prepares: BTreeMap::new(),
-            observes: BTreeMap::new(),
-            qext_modules: BTreeSet::new(),
+            parallel_observers: false,
         };
         ev.index_program("<entry>", &checked.unit.entry_program)?;
         for (mod_key, prog) in &checked.unit.parsed_modules {
@@ -363,9 +372,16 @@ impl<'a> Evaluator<'a> {
         Ok(ev)
     }
 
+    /// Enable or disable parallel execution of multiple read-only procedural observers (`P0-1`/`P0-2`).
+    pub fn with_parallel_observers(mut self, enabled: bool) -> Self {
+        self.parallel_observers = enabled;
+        self
+    }
+
     fn base_module_of<'b>(&self, mod_key: &'b str) -> &'b str {
         if let Some((parent, leaf)) = mod_key.rsplit_once("::") {
             if self
+                .program
                 .qext_modules
                 .contains(&(parent.to_string(), leaf.to_string()))
             {
@@ -377,6 +393,7 @@ impl<'a> Evaluator<'a> {
 
     fn resolve_qext_submodule(&self, mod_key: &str, ns: &str) -> Option<String> {
         if self
+            .program
             .qext_modules
             .contains(&(mod_key.to_string(), ns.to_string()))
         {
@@ -385,6 +402,7 @@ impl<'a> Evaluator<'a> {
         let base = self.base_module_of(mod_key);
         if base != mod_key
             && self
+                .program
                 .qext_modules
                 .contains(&(base.to_string(), ns.to_string()))
         {
@@ -393,7 +411,11 @@ impl<'a> Evaluator<'a> {
         if let Some(ImportedSymbol::ModuleItem { module, item }) =
             self.imports_for(mod_key).get(ns)
         {
-            if self.qext_modules.contains(&(module.clone(), item.clone())) {
+            if self
+                .program
+                .qext_modules
+                .contains(&(module.clone(), item.clone()))
+            {
                 return Some(format!("{module}::{item}"));
             }
         }
@@ -402,7 +424,11 @@ impl<'a> Evaluator<'a> {
 
     fn resolve_qext_submodule_3seg(&self, mod_key: &str, ns: &str, qmod: &str) -> Option<String> {
         if let Some(ImportedSymbol::ModuleNamespace(m)) = self.imports_for(mod_key).get(ns) {
-            if self.qext_modules.contains(&(m.clone(), qmod.to_string())) {
+            if self
+                .program
+                .qext_modules
+                .contains(&(m.clone(), qmod.to_string()))
+            {
                 return Some(format!("{m}::{qmod}"));
             }
         }
@@ -410,39 +436,41 @@ impl<'a> Evaluator<'a> {
     }
 
     fn index_program(&mut self, mod_key: &str, prog: &Program) -> DecResult<()> {
+        let p = Arc::get_mut(&mut self.program)
+            .expect("Evaluator::index_program runs exclusively during initialization");
         for item in &prog.items {
             match item {
                 Item::Struct(s) => {
-                    self.structs
+                    p.structs
                         .insert((mod_key.to_string(), s.name.clone()), s.clone());
                 }
                 Item::Enum(e) => {
-                    self.enums
+                    p.enums
                         .insert((mod_key.to_string(), e.name.clone()), e.clone());
                 }
                 Item::DecFn(f) => {
-                    self.functions
+                    p.functions
                         .insert((mod_key.to_string(), f.name.clone()), f.clone());
                 }
                 Item::Chamber(c) => {
-                    self.chambers
+                    p.chambers
                         .insert((mod_key.to_string(), c.name.clone()), c.clone());
                 }
-                Item::Prepare(p) => {
-                    self.prepares
-                        .insert((mod_key.to_string(), p.name.clone()), p.clone());
+                Item::Prepare(pr) => {
+                    p.prepares
+                        .insert((mod_key.to_string(), pr.name.clone()), pr.clone());
                 }
                 Item::Observe(o) => {
-                    self.observes
+                    p.observes
                         .insert((mod_key.to_string(), o.name.clone()), o.clone());
                 }
                 Item::QuarantineMod(qm) => {
-                    self.qext_modules
+                    p.qext_modules
                         .insert((mod_key.to_string(), qm.name.clone()));
                     let sub_key = format!("{mod_key}::{}", qm.name);
                     for sub in &qm.items {
                         if let Item::DecFn(f) = sub {
-                            self.functions
+                            p.functions
                                 .insert((sub_key.clone(), f.name.clone()), f.clone());
                         }
                     }
@@ -459,14 +487,20 @@ impl<'a> Evaluator<'a> {
             match item {
                 Item::Const(c) => {
                     let v = self.eval_expr(&c.value, mod_key, &scopes)?;
-                    self.consts.insert((mod_key.to_string(), c.name.clone()), v);
+                    Arc::get_mut(&mut self.program)
+                        .expect("const initialization runs exclusively")
+                        .consts
+                        .insert((mod_key.to_string(), c.name.clone()), v);
                 }
                 Item::QuarantineMod(qm) => {
                     let sub_key = format!("{mod_key}::{}", qm.name);
                     for sub in &qm.items {
                         if let Item::Const(c) = sub {
                             let v = self.eval_expr(&c.value, &sub_key, &scopes)?;
-                            self.consts.insert((sub_key.clone(), c.name.clone()), v);
+                            Arc::get_mut(&mut self.program)
+                                .expect("const initialization runs exclusively")
+                                .consts
+                                .insert((sub_key.clone(), c.name.clone()), v);
                         }
                     }
                 }
@@ -509,25 +543,34 @@ impl<'a> Evaluator<'a> {
     fn imports_for(&self, mod_key: &str) -> &BTreeMap<String, ImportedSymbol> {
         let base = self.base_module_of(mod_key);
         if base == "<entry>" {
-            &self.checked.unit.entry_imports
+            &self.program.checked.unit.entry_imports
         } else {
-            self.checked
+            self.program
+                .checked
                 .unit
                 .module_imports
                 .get(base)
-                .unwrap_or(&self.checked.unit.entry_imports)
+                .unwrap_or(&self.program.checked.unit.entry_imports)
         }
     }
 
     fn lookup_user_type(&self, mod_key: &str, name: &str) -> Option<Type> {
         let base = self.base_module_of(mod_key);
-        if self.structs.contains_key(&(base.to_string(), name.to_string())) {
+        if self
+            .program
+            .structs
+            .contains_key(&(base.to_string(), name.to_string()))
+        {
             return Some(Type::Struct {
                 module: base.to_string(),
                 name: name.to_string(),
             });
         }
-        if self.enums.contains_key(&(base.to_string(), name.to_string())) {
+        if self
+            .program
+            .enums
+            .contains_key(&(base.to_string(), name.to_string()))
+        {
             return Some(Type::Enum {
                 module: base.to_string(),
                 name: name.to_string(),
@@ -536,13 +579,21 @@ impl<'a> Evaluator<'a> {
         if let Some(ImportedSymbol::ModuleItem { module, item }) =
             self.imports_for(mod_key).get(name)
         {
-            if self.structs.contains_key(&(module.clone(), item.clone())) {
+            if self
+                .program
+                .structs
+                .contains_key(&(module.clone(), item.clone()))
+            {
                 return Some(Type::Struct {
                     module: module.clone(),
                     name: item.clone(),
                 });
             }
-            if self.enums.contains_key(&(module.clone(), item.clone())) {
+            if self
+                .program
+                .enums
+                .contains_key(&(module.clone(), item.clone()))
+            {
                 return Some(Type::Enum {
                     module: module.clone(),
                     name: item.clone(),
@@ -559,7 +610,11 @@ impl<'a> Evaluator<'a> {
     ) -> Option<(String, String, String)> {
         let (emod, ename, vname) = if path.len() == 2 {
             let base = self.base_module_of(mod_key);
-            if self.enums.contains_key(&(base.to_string(), path[0].clone())) {
+            if self
+                .program
+                .enums
+                .contains_key(&(base.to_string(), path[0].clone()))
+            {
                 (base.to_string(), path[0].clone(), path[1].clone())
             } else if let Some(ImportedSymbol::ModuleItem { module, item }) =
                 self.imports_for(mod_key).get(&path[0])
@@ -579,7 +634,7 @@ impl<'a> Evaluator<'a> {
         } else {
             return None;
         };
-        let ed = self.enums.get(&(emod.clone(), ename.clone()))?;
+        let ed = self.program.enums.get(&(emod.clone(), ename.clone()))?;
         if ed.variants.iter().any(|v| v.name == vname) {
             Some((emod, ename, vname))
         } else {
@@ -590,13 +645,17 @@ impl<'a> Evaluator<'a> {
     fn resolve_struct_decl(&self, mod_key: &str, path: &[String]) -> Option<(String, StructDecl)> {
         if path.len() == 1 {
             let base = self.base_module_of(mod_key);
-            if let Some(s) = self.structs.get(&(base.to_string(), path[0].clone())) {
+            if let Some(s) = self
+                .program
+                .structs
+                .get(&(base.to_string(), path[0].clone()))
+            {
                 return Some((base.to_string(), s.clone()));
             }
             if let Some(ImportedSymbol::ModuleItem { module, item }) =
                 self.imports_for(mod_key).get(&path[0])
             {
-                if let Some(s) = self.structs.get(&(module.clone(), item.clone())) {
+                if let Some(s) = self.program.structs.get(&(module.clone(), item.clone())) {
                     return Some((module.clone(), s.clone()));
                 }
             }
@@ -604,7 +663,7 @@ impl<'a> Evaluator<'a> {
             if let Some(ImportedSymbol::ModuleNamespace(m)) =
                 self.imports_for(mod_key).get(&path[0])
             {
-                if let Some(s) = self.structs.get(&(m.clone(), path[1].clone())) {
+                if let Some(s) = self.program.structs.get(&(m.clone(), path[1].clone())) {
                     return Some((m.clone(), s.clone()));
                 }
             }
@@ -687,7 +746,11 @@ impl<'a> Evaluator<'a> {
                 "call depth limit exceeded",
             ));
         }
-        let decl = match self.functions.get(&(mod_key.to_string(), name.to_string())) {
+        let decl = match self
+            .program
+            .functions
+            .get(&(mod_key.to_string(), name.to_string()))
+        {
             Some(d) => d.clone(),
             None => {
                 self.depth -= 1;
@@ -717,7 +780,7 @@ impl<'a> Evaluator<'a> {
                             DecArmParam::TypedVar { ty, name } => {
                                 let expected = Type::resolve_with(
                                     ty,
-                                    self.checked.unit.compat,
+                                    self.program.checked.unit.compat,
                                     arm.line,
                                     &|n| self.lookup_user_type(mod_key, n),
                                 )?;
@@ -730,7 +793,7 @@ impl<'a> Evaluator<'a> {
                             DecArmParam::TypedPattern { ty, pattern } => {
                                 let expected = Type::resolve_with(
                                     ty,
-                                    self.checked.unit.compat,
+                                    self.program.checked.unit.compat,
                                     arm.line,
                                     &|n| self.lookup_user_type(mod_key, n),
                                 )?;
@@ -1131,19 +1194,23 @@ impl<'a> Evaluator<'a> {
                         return Ok(v.clone());
                     }
                 }
-                if let Some(v) = self.consts.get(&(mod_key.to_string(), name.clone())) {
+                if let Some(v) = self
+                    .program
+                    .consts
+                    .get(&(mod_key.to_string(), name.clone()))
+                {
                     return Ok(v.clone());
                 }
                 let base = self.base_module_of(mod_key).to_string();
                 if base != mod_key {
-                    if let Some(v) = self.consts.get(&(base, name.clone())) {
+                    if let Some(v) = self.program.consts.get(&(base, name.clone())) {
                         return Ok(v.clone());
                     }
                 }
                 if let Some(ImportedSymbol::ModuleItem { module, item }) =
                     self.imports_for(mod_key).get(name).cloned()
                 {
-                    if let Some(v) = self.consts.get(&(module, item)) {
+                    if let Some(v) = self.program.consts.get(&(module, item)) {
                         return Ok(v.clone());
                     }
                 }
@@ -1164,14 +1231,14 @@ impl<'a> Evaluator<'a> {
                 }
                 if segs.len() == 2 {
                     if let Some(qsub) = self.resolve_qext_submodule(mod_key, &segs[0]) {
-                        if let Some(v) = self.consts.get(&(qsub, segs[1].clone())) {
+                        if let Some(v) = self.program.consts.get(&(qsub, segs[1].clone())) {
                             return Ok(v.clone());
                         }
                     }
                     if let Some(ImportedSymbol::ModuleNamespace(target_mod)) =
                         self.imports_for(mod_key).get(&segs[0]).cloned()
                     {
-                        if let Some(v) = self.consts.get(&(target_mod, segs[1].clone())) {
+                        if let Some(v) = self.program.consts.get(&(target_mod, segs[1].clone())) {
                             return Ok(v.clone());
                         }
                     }
@@ -1179,7 +1246,7 @@ impl<'a> Evaluator<'a> {
                     if let Some(qsub) =
                         self.resolve_qext_submodule_3seg(mod_key, &segs[0], &segs[1])
                     {
-                        if let Some(v) = self.consts.get(&(qsub, segs[2].clone())) {
+                        if let Some(v) = self.program.consts.get(&(qsub, segs[2].clone())) {
                             return Ok(v.clone());
                         }
                     }
@@ -1440,6 +1507,7 @@ impl<'a> Evaluator<'a> {
         match &callee.kind {
             ExprKind::Ident(name) => {
                 if self
+                    .program
                     .functions
                     .contains_key(&(mod_key.to_string(), name.clone()))
                 {
@@ -1447,6 +1515,7 @@ impl<'a> Evaluator<'a> {
                 }
                 if base_mod != mod_key
                     && self
+                        .program
                         .functions
                         .contains_key(&(base_mod.clone(), name.clone()))
                 {
@@ -1478,7 +1547,11 @@ impl<'a> Evaluator<'a> {
                     }
                 } else if segs.len() == 2 {
                     if let Some(qsub) = self.resolve_qext_submodule(mod_key, &segs[0]) {
-                        if self.functions.contains_key(&(qsub.clone(), segs[1].clone())) {
+                        if self
+                            .program
+                            .functions
+                            .contains_key(&(qsub.clone(), segs[1].clone()))
+                        {
                             return self.call_user_fn(&qsub, &segs[1], vals, line);
                         }
                     }
@@ -1497,7 +1570,11 @@ impl<'a> Evaluator<'a> {
                     if let Some(qsub) =
                         self.resolve_qext_submodule_3seg(mod_key, &segs[0], &segs[1])
                     {
-                        if self.functions.contains_key(&(qsub.clone(), segs[2].clone())) {
+                        if self
+                            .program
+                            .functions
+                            .contains_key(&(qsub.clone(), segs[2].clone()))
+                        {
                             return self.call_user_fn(&qsub, &segs[2], vals, line);
                         }
                     }
@@ -1525,6 +1602,7 @@ impl<'a> Evaluator<'a> {
         line: usize,
     ) -> DecResult<Value> {
         let prep = self
+            .program
             .prepares
             .get(&(mod_key.to_string(), prepare_name.to_string()))
             .cloned()
@@ -1536,6 +1614,7 @@ impl<'a> Evaluator<'a> {
                 )
             })?;
         let chamber = self
+            .program
             .chambers
             .get(&(mod_key.to_string(), prep.chamber.clone()))
             .cloned()
@@ -1658,6 +1737,7 @@ impl<'a> Evaluator<'a> {
 
         for obs_name in observer_names {
             let obs = self
+                .program
                 .observes
                 .get(&(mod_key.to_string(), obs_name.clone()))
                 .cloned()
@@ -1703,6 +1783,7 @@ impl<'a> Evaluator<'a> {
 
         let mut state = ChamberState::new(&chamber.name, space, chamber.walls, carriers, clocks);
         let mut procedural_outputs: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let use_parallel = self.parallel_observers && proc_probes.len() > 1;
 
         for _ in 0..ticks {
             self.tick()?;
@@ -1713,19 +1794,120 @@ impl<'a> Evaluator<'a> {
             for obs in &mut decl_observers {
                 obs.observe_snapshot(&snap);
             }
-            for (pname, param_name, body) in &proc_probes {
-                let mut pscope = BTreeMap::new();
-                pscope.insert(param_name.clone(), Value::ChamberView(Box::new(snap.clone())));
-                let mut pscopes = vec![pscope];
-                match self.eval_block(body, mod_key, &mut pscopes)? {
-                    ControlFlow::Return(v) if v != Value::Unit => {
-                        procedural_outputs
-                            .entry(pname.clone())
-                            .or_default()
-                            .push(v.render());
+            if proc_probes.is_empty() {
+                continue;
+            }
+            if !use_parallel {
+                for (pname, param_name, body) in &proc_probes {
+                    let mut pscope = BTreeMap::new();
+                    pscope.insert(param_name.clone(), Value::ChamberView(Box::new(snap.clone())));
+                    let mut pscopes = vec![pscope];
+                    match self.eval_block(body, mod_key, &mut pscopes)? {
+                        ControlFlow::Return(v) if v != Value::Unit => {
+                            procedural_outputs
+                                .entry(pname.clone())
+                                .or_default()
+                                .push(v.render());
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
+            } else {
+                // P0-1 & P0-2: Lightweight scoped parallel observer workers sharing `&Arc<EvalProgram>`
+                // (zero per-tick AST cloning) with exact sequential-equivalent fuel & error merge.
+                let start_fuel = self.fuel;
+                let parent_depth = self.depth;
+                let parent_max_depth = self.max_depth;
+                let prog_ref = &self.program;
+                let snap_ref = &snap;
+
+                let outcomes: Vec<(usize, Vec<String>, DecResult<ControlFlow>)> =
+                    std::thread::scope(|scope| {
+                        let mut handles = Vec::with_capacity(proc_probes.len());
+                        for (_, param_name, body) in &proc_probes {
+                            let w_prog = Arc::clone(prog_ref);
+                            let p_name = param_name.as_str();
+                            let body_slice = body.as_slice();
+                            handles.push(scope.spawn(move || {
+                                let mut worker = Evaluator {
+                                    program: w_prog,
+                                    fuel: start_fuel,
+                                    max_depth: parent_max_depth,
+                                    depth: parent_depth,
+                                    emits: Vec::new(),
+                                    parallel_observers: false,
+                                };
+                                let mut pscope = BTreeMap::new();
+                                pscope.insert(
+                                    p_name.to_string(),
+                                    Value::ChamberView(Box::new(snap_ref.clone())),
+                                );
+                                let mut pscopes = vec![pscope];
+                                let res = worker.eval_block(body_slice, mod_key, &mut pscopes);
+                                (worker.fuel, worker.emits, res)
+                            }));
+                        }
+                        handles
+                            .into_iter()
+                            .map(|h| {
+                                h.join().unwrap_or_else(|_| {
+                                    (
+                                        start_fuel,
+                                        Vec::new(),
+                                        Err(Diagnostic::at_line(
+                                            DiagnosticCode::RuntimeError,
+                                            line,
+                                            "parallel observer worker panicked",
+                                        )),
+                                    )
+                                })
+                            })
+                            .collect()
+                    });
+
+                let mut remaining_fuel = start_fuel;
+                for (idx, (fuel_after, w_emits, w_res)) in outcomes.into_iter().enumerate() {
+                    let used_i = start_fuel.saturating_sub(fuel_after);
+                    let (pname, param_name, body) = &proc_probes[idx];
+                    if used_i <= remaining_fuel {
+                        remaining_fuel = remaining_fuel.saturating_sub(used_i);
+                        self.emits.extend(w_emits);
+                        match w_res {
+                            Ok(ControlFlow::Return(v)) if v != Value::Unit => {
+                                procedural_outputs
+                                    .entry(pname.clone())
+                                    .or_default()
+                                    .push(v.render());
+                            }
+                            Ok(_) => {}
+                            Err(err) => {
+                                self.fuel = remaining_fuel;
+                                return Err(err);
+                            }
+                        }
+                    } else {
+                        // Tight-budget boundary (`P0-2`): re-run ONLY observer `idx` sequentially
+                        // with exact `remaining_fuel` so emits, fuel, and BudgetExhausted match!
+                        self.fuel = remaining_fuel;
+                        let mut pscope = BTreeMap::new();
+                        pscope.insert(
+                            param_name.clone(),
+                            Value::ChamberView(Box::new(snap.clone())),
+                        );
+                        let mut pscopes = vec![pscope];
+                        match self.eval_block(body, mod_key, &mut pscopes)? {
+                            ControlFlow::Return(v) if v != Value::Unit => {
+                                procedural_outputs
+                                    .entry(pname.clone())
+                                    .or_default()
+                                    .push(v.render());
+                            }
+                            _ => {}
+                        }
+                        remaining_fuel = self.fuel;
+                    }
+                }
+                self.fuel = remaining_fuel;
             }
         }
 

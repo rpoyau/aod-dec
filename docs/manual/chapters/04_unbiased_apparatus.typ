@@ -67,6 +67,10 @@ DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED
 #aod-paragraph("Falsification.")
 Any observer side effect that alters carrier positions, counts, shedding events, or the final SHA-256
 digest immediately breaks `r0.final_state_hash == r1.final_state_hash == r2.final_state_hash` in
-`06_unbiased_chamber_sandbox.dec` and causes `aodc manual-verify` Pass 6 to fail:
+`06_unbiased_chamber_sandbox.dec` (verified live by `aodc manual-data --check` and `aodc manual-verify` Pass 6)
+as well as the four-observer concentric shell invariance check in `11_apparatus_opposing_sensors.dec` (built
+from pure native helpers in `stdlib::aod::apparatus` and verified byte-identical across sequential and
+`--parallel-observers` execution):
 
 // @dec-file: manual_examples/06_unbiased_chamber_sandbox.dec
+// @dec-file: manual_examples/11_apparatus_opposing_sensors.dec

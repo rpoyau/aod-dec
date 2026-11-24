@@ -412,7 +412,7 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
     assert_eq!(r_ok.len(), 1);
     assert!(!r_ok[0].passed, "unexpected Ok(_) on .expect_error must FAIL");
 
-    // 4. AC-13 / PR 8 P1-3: `aodc test manual_examples` -> 17 passed; 0 failed; 17 total (exit 0)
+    // 4. AC-13 / PR 9 P1-3: `aodc test manual_examples` -> 18 passed; 0 failed; 18 total (exit 0)
     let cli = Command::new(aodc_bin())
         .arg("test")
         .arg(root.join("manual_examples"))
@@ -426,7 +426,7 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
     );
     let stdout = String::from_utf8_lossy(&cli.stdout);
     assert!(
-        stdout.contains("test result: 17 passed; 0 failed; 17 total"),
+        stdout.contains("test result: 18 passed; 0 failed; 18 total"),
         "unexpected test summary:\n{stdout}"
     );
 

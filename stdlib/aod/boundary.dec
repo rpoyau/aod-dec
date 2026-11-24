@@ -10,6 +10,17 @@ struct Delta3:
     sign: t1
     mag: int
 
+struct DoubleSlitBin:
+    k: int
+    s: int
+    t0: int
+    cx: int
+    tx: int
+    obs: int
+    delta: int
+    sign: t1
+    mag: int
+
 struct DoubleSlitSummary:
     sum_t0: int
     sum_cx: int
@@ -37,11 +48,45 @@ Dec delta3_of(pred: int, obs: int) -> Delta3:
         return Delta3 { sign: -1t, mag: -d }
     return Delta3 { sign: 0t, mag: 0 }
 
-# Canonical 11-bin Dimonhexon double-slit cross-return fixture (Manual Table 1)
-Dec double_slit_eval() -> DoubleSlitSummary:
+Dec double_slit_bin_at(k: int, s: int, cx: int, ob: int) -> DoubleSlitBin:
+    let t0 = s + s
+    let tx = t0 + cx
+    let d = tx - ob
+    let d3 = delta3_of(tx, ob)
+    return DoubleSlitBin {
+        k: k,
+        s: s,
+        t0: t0,
+        cx: cx,
+        tx: tx,
+        obs: ob,
+        delta: d,
+        sign: d3.sign,
+        mag: d3.mag
+    }
+
+# Canonical 11-bin Dimonhexon double-slit cross-return bins (Manual Table 1, single source of truth)
+Dec double_slit_bins() -> [DoubleSlitBin]:
     let s_bins = [4, 9, 16, 25, 31, 35, 31, 25, 16, 9, 4]
     let cx_bins = [0, -8, -12, 8, 18, 26, 18, 8, -12, -8, 0]
     let obs_bins = [8, 11, 19, 59, 79, 95, 80, 58, 21, 10, 8]
+    return [
+        double_slit_bin_at(-5, s_bins[0], cx_bins[0], obs_bins[0]),
+        double_slit_bin_at(-4, s_bins[1], cx_bins[1], obs_bins[1]),
+        double_slit_bin_at(-3, s_bins[2], cx_bins[2], obs_bins[2]),
+        double_slit_bin_at(-2, s_bins[3], cx_bins[3], obs_bins[3]),
+        double_slit_bin_at(-1, s_bins[4], cx_bins[4], obs_bins[4]),
+        double_slit_bin_at(0, s_bins[5], cx_bins[5], obs_bins[5]),
+        double_slit_bin_at(1, s_bins[6], cx_bins[6], obs_bins[6]),
+        double_slit_bin_at(2, s_bins[7], cx_bins[7], obs_bins[7]),
+        double_slit_bin_at(3, s_bins[8], cx_bins[8], obs_bins[8]),
+        double_slit_bin_at(4, s_bins[9], cx_bins[9], obs_bins[9]),
+        double_slit_bin_at(5, s_bins[10], cx_bins[10], obs_bins[10])
+    ]
+
+# Canonical 11-bin Dimonhexon double-slit cross-return summary (derived from double_slit_bins)
+Dec double_slit_eval() -> DoubleSlitSummary:
+    let bins = double_slit_bins()
     mut sum_t0 = 0
     mut sum_cx = 0
     mut sum_tx = 0
@@ -51,21 +96,16 @@ Dec double_slit_eval() -> DoubleSlitSummary:
     mut center_sign = 0t
     mut center_mag = 0
     for i in 0..11:
-        let t0 = s_bins[i] + s_bins[i]
-        let cx = cx_bins[i]
-        let tx = t0 + cx
-        let ob = obs_bins[i]
-        let d = tx - ob
-        let d3 = delta3_of(tx, ob)
-        sum_t0 = sum_t0 + t0
-        sum_cx = sum_cx + cx
-        sum_tx = sum_tx + tx
-        sum_obs = sum_obs + ob
-        sum_delta = sum_delta + d
-        sum_mag = sum_mag + d3.mag
+        let b = bins[i]
+        sum_t0 = sum_t0 + b.t0
+        sum_cx = sum_cx + b.cx
+        sum_tx = sum_tx + b.tx
+        sum_obs = sum_obs + b.obs
+        sum_delta = sum_delta + b.delta
+        sum_mag = sum_mag + b.mag
         if i == 5:
-            center_sign = d3.sign
-            center_mag = d3.mag
+            center_sign = b.sign
+            center_mag = b.mag
     return DoubleSlitSummary {
         sum_t0: sum_t0,
         sum_cx: sum_cx,

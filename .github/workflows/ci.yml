@@ -54,6 +54,11 @@ jobs:
       - name: Run live hardware discovery & JIT micro-probes
         run: ./target/release/aodc probe-hw
 
+      - name: Verify live docs/manual/data/*.json parity via zero-LLVM Exact VM (aodc manual-data --check)
+        run: |
+          ./target/release/aodc manual-data --check
+          ./target/release/aodc manual-data --check --json
+
       - name: Run 6-pass manual verifier (human + strict JSON)
         run: |
           ./target/release/aodc manual-verify docs/manual

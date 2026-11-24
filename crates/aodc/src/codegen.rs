@@ -25,6 +25,8 @@ pub fn lower_to_llvm_ir_with_plan(
     checked: &CheckedUnit,
     plan: &CodegenPlan,
 ) -> DecResult<String> {
+    plan.validate()
+        .map_err(|msg| Diagnostic::new(DiagnosticCode::RuntimeError, msg))?;
     let mut cg = Codegen::new(checked, *plan);
     cg.index_all()?;
     cg.emit_all()
@@ -177,19 +179,45 @@ impl<'a> Codegen<'a> {
         }
     }
 
-    /// Allocate a unique self-referential `!N = distinct !{!N, !M}` loop metadata attachment (`P0-3`).
-    fn alloc_loop_unroll_md(&mut self) -> Option<String> {
-        let hint_body = match self.plan.unroll_hint {
-            UnrollHint::Default => return None,
-            UnrollHint::Unroll4 => "!{!\"llvm.loop.unroll.count\", i32 4}",
-            UnrollHint::Disable => "!{!\"llvm.loop.unroll.disable\"}",
-        };
+    /// Allocate a single combined self-referential `!N = distinct !{!N, !M1, ...}` loop metadata
+    /// attachment across active hints (`unroll_hint`, `vectorize_loops`, `interleave_count`),
+    /// returning `None` when no hint is active (preserving baseline IR byte-for-byte, `P0-4`).
+    fn alloc_loop_hint_md(&mut self) -> Option<String> {
+        let mut bodies: Vec<String> = Vec::new();
+        match self.plan.unroll_hint {
+            UnrollHint::Default => {}
+            UnrollHint::Unroll4 => {
+                bodies.push("!{!\"llvm.loop.unroll.count\", i32 4}".to_string());
+            }
+            UnrollHint::Disable => {
+                bodies.push("!{!\"llvm.loop.unroll.disable\"}".to_string());
+            }
+        }
+        if self.plan.vectorize_loops {
+            bodies.push("!{!\"llvm.loop.vectorize.enable\", i1 true}".to_string());
+        }
+        if matches!(self.plan.interleave_count, 2 | 4) {
+            bodies.push(format!(
+                "!{{!\"llvm.loop.interleave.count\", i32 {}}}",
+                self.plan.interleave_count
+            ));
+        }
+        if bodies.is_empty() {
+            return None;
+        }
         let loop_id = self.next_md_id;
-        let hint_id = self.next_md_id + 1;
-        self.next_md_id += 2;
+        self.next_md_id += 1;
+        let mut refs = vec![format!("!{loop_id}")];
+        let mut child_defs = Vec::with_capacity(bodies.len());
+        for body in bodies {
+            let cid = self.next_md_id;
+            self.next_md_id += 1;
+            refs.push(format!("!{cid}"));
+            child_defs.push(format!("!{cid} = {body}"));
+        }
         self.loop_md_defs
-            .push(format!("!{loop_id} = distinct !{{!{loop_id}, !{hint_id}}}"));
-        self.loop_md_defs.push(format!("!{hint_id} = {hint_body}"));
+            .push(format!("!{loop_id} = distinct !{{{}}}", refs.join(", ")));
+        self.loop_md_defs.extend(child_defs);
         Some(format!(", !llvm.loop !{loop_id}"))
     }
 
@@ -1938,7 +1966,7 @@ impl FnBuilder {
                     self.line(&format!("  {cur2} = load i64, ptr {idx_slot}"));
                     self.line(&format!("  {next} = add nsw i64 {cur2}, 1"));
                     self.line(&format!("  store i64 {next}, ptr {idx_slot}"));
-                    let md_suffix = cg.alloc_loop_unroll_md().unwrap_or_default();
+                    let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
                     self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
                     self.terminated = true;
 
@@ -2066,7 +2094,7 @@ impl FnBuilder {
                 self.loop_stack.pop();
                 self.pop_scope();
                 if !self.terminated {
-                    let md_suffix = cg.alloc_loop_unroll_md().unwrap_or_default();
+                    let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
                     self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
                     self.terminated = true;
                 }
@@ -4440,8 +4468,9 @@ impl FnBuilder {
 
         let tp = self.store_temp_int(&ticks_val.reg);
         let sim_h = self.fresh_reg();
+        let par_flag = u8::from(cg.plan.parallel_observers);
         self.line(&format!(
-            "  {sim_h} = call i64 @aod_rt_sim_run(ptr %ctx, i64 {b_h}, ptr {tp})"
+            "  {sim_h} = call i64 @aod_rt_sim_run_ex(ptr %ctx, i64 {b_h}, ptr {tp}, i8 {par_flag})"
         ));
         self.emit_fail_return_check();
         Ok(Val {
@@ -4621,6 +4650,7 @@ declare void @aod_rt_sim_builder_add_carrier(ptr, i64, i64, ptr, ptr, ptr, i8, i
 declare void @aod_rt_sim_builder_add_decl_obs(ptr, i64, i8, i64, i64)
 declare void @aod_rt_sim_builder_add_proc_obs(ptr, i64, i64, ptr)
 declare i64 @aod_rt_sim_run(ptr, i64, ptr)
+declare i64 @aod_rt_sim_run_ex(ptr, i64, ptr, i8)
 
 @.err_t1 = private unnamed_addr constant [17 x i8] c"t1 out of bounds\00", align 1
 @.err_t32 = private unnamed_addr constant [18 x i8] c"t32 out of bounds\00", align 1

@@ -48,6 +48,6 @@ pub use hw_probe::{probe_perf_event_open, read_rdtscp, run_all_hw_probes, HwProb
 pub use jit::OrcJitSession;
 pub use learner::{
     paired_bootstrap_ci_bps, run_learn_session, BootstrapCi, LearnDecision, LearnSessionReport,
-    ProfileLoadOutcome, RetainedProfile,
+    ProfileLoadOutcome, RetainedProfile, PROFILE_VERSION,
 };
-pub use plan::{recommend_candidates, CodegenPlan, OptLevel, UnrollHint, POLICY_SCOPE};
+pub use plan::{recommend_candidates, CodegenPlan, HwPlanHints, OptLevel, UnrollHint, POLICY_SCOPE};

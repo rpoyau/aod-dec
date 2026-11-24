@@ -9,9 +9,9 @@ use aod_core::sha256::Sha256;
 
 use crate::hw_probe::HwProbeReport;
 use crate::jit::OrcJitSession;
-use crate::plan::{recommend_candidates, CodegenPlan, POLICY_SCOPE};
+use crate::plan::{recommend_candidates, CodegenPlan, HwPlanHints, POLICY_SCOPE};
 
-pub const PROFILE_VERSION: u32 = 1;
+pub const PROFILE_VERSION: u32 = 2;
 pub const MAX_PROFILE_BYTES: u64 = 1_048_576; // 1 MiB strict pre-read limit (`P1-1`)
 pub const MAX_SAMPLES: usize = 32;
 pub const MIN_PAIRS: usize = 5;
@@ -669,13 +669,21 @@ where
         baseline_stdout.push('\n');
     }
 
-    // 2. Hardware-guided candidate list
-    let candidates = recommend_candidates(
-        hw_report.branch_predictor.prefer_branchless_irregular,
-        hw_report.unroll_layout.recommended_unroll,
-        hw_report.unroll_layout.prefer_native_cpu,
-        &baseline_plan,
-    );
+    // 2. Hardware-guided candidate list (v2: vectorization, interleave, SoA, parallel observers)
+    let hints = HwPlanHints {
+        prefer_branchless: hw_report.branch_predictor.prefer_branchless_irregular,
+        recommended_unroll: hw_report.unroll_layout.recommended_unroll,
+        prefer_native_cpu: hw_report.unroll_layout.prefer_native_cpu,
+        has_avx2: hw_report
+            .hardware
+            .isa_flags
+            .get("avx2")
+            .copied()
+            .unwrap_or(false),
+        prefer_soa: hw_report.unroll_layout.prefer_soa,
+        recommended_workers: hw_report.multicore.recommended_workers,
+    };
+    let candidates = recommend_candidates(&hints, &baseline_plan);
 
     let mut evaluated = Vec::new();
     let mut best_cand: Option<(CodegenPlan, OrcJitSession, u64, Vec<(u64, u64)>, BootstrapCi)> =

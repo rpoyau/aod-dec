@@ -137,6 +137,7 @@ Dec main() -> int:
         unroll_hint: UnrollHint::Unroll4,
         target_cpu_native: true,
         inline_ratio_fastpath: true,
+        ..CodegenPlan::baseline_o2()
     };
     let (jit_out, jit_res) = jit_source_with_plan_captured(
         lazy_trap_src,
@@ -169,6 +170,7 @@ Dec main() -> int:
             unroll_hint: hint,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            ..CodegenPlan::baseline_o2()
         };
         let raw_ir = lower_to_llvm_ir_with_plan(&checked, &p).unwrap();
         assert!(raw_ir.contains("distinct !{"), "missing distinct loop md");
@@ -185,6 +187,7 @@ Dec main() -> int:
         unroll_hint: UnrollHint::Default,
         target_cpu_native: false,
         inline_ratio_fastpath: false,
+        ..CodegenPlan::baseline_o0()
     };
     let checked_r = aodc::check_source(ratio_src, CompatMode::V2).unwrap();
     let raw_r = lower_to_llvm_ir_with_plan(&checked_r, &no_inline_plan).unwrap();
@@ -280,7 +283,7 @@ fn ac11_ac12_ac13_retained_profile_atomic_roundtrip_and_hostile_tamper_fallbacks
     };
 
     let mut prof = RetainedProfile {
-        profile_version: 1,
+        profile_version: aodc::PROFILE_VERSION,
         policy_scope: POLICY_SCOPE.to_string(),
         cpu_sig_sha256: hw.cpu_sig_sha256.clone(),
         kernel_ir_sha256: k_sha.clone(),
@@ -568,6 +571,7 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
         unroll_hint: UnrollHint::Default,
         target_cpu_native: true,
         inline_ratio_fastpath: true,
+        ..CodegenPlan::baseline_o2()
     };
     let plan_br = CodegenPlan {
         opt_level: OptLevel::O2,
@@ -575,6 +579,7 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
         unroll_hint: UnrollHint::Default,
         target_cpu_native: true,
         inline_ratio_fastpath: true,
+        ..CodegenPlan::baseline_o2()
     };
     let raw_sel = lower_to_llvm_ir_with_plan(&checked, &plan_sel).unwrap();
     let raw_br = lower_to_llvm_ir_with_plan(&checked, &plan_br).unwrap();
@@ -659,7 +664,7 @@ fn p0_nullfn_no_entry_session_returns_clean_error_and_p2_negative_json_rejected(
     let neg_path = tmp.join("neg_fields.json");
     let base_plan = CodegenPlan::baseline_o0();
     let mut prof = RetainedProfile {
-        profile_version: 1,
+        profile_version: aodc::PROFILE_VERSION,
         policy_scope: POLICY_SCOPE.to_string(),
         cpu_sig_sha256: hw.cpu_sig_sha256.clone(),
         kernel_ir_sha256: k_sha.clone(),
@@ -701,7 +706,7 @@ fn p0_nullfn_no_entry_session_returns_clean_error_and_p2_negative_json_rejected(
 
     for (from, to, expected_substr) in [
         ("\"semantic_mismatches\":0", "\"semantic_mismatches\":-1", "semantic_mismatches"),
-        ("\"profile_version\":1", "\"profile_version\":-1", "profile_version"),
+        ("\"profile_version\":2", "\"profile_version\":-1", "profile_version"),
         ("\"heldout_base_sum_ns\":500", "\"heldout_base_sum_ns\":-5", "heldout_base_sum_ns"),
         ("\"resamples\":2000", "\"resamples\":-1", "resamples"),
     ] {

@@ -951,6 +951,7 @@ done:
         unroll_hint: UnrollHint::Disable,
         target_cpu_native: false,
         inline_ratio_fastpath: true,
+        ..CodegenPlan::baseline_o2()
     };
     let plan_gen_u4 = CodegenPlan {
         opt_level: OptLevel::O2,
@@ -958,6 +959,7 @@ done:
         unroll_hint: UnrollHint::Unroll4,
         target_cpu_native: false,
         inline_ratio_fastpath: true,
+        ..CodegenPlan::baseline_o2()
     };
     let plan_nat_u4 = CodegenPlan {
         opt_level: OptLevel::O2,
@@ -965,6 +967,7 @@ done:
         unroll_hint: UnrollHint::Unroll4,
         target_cpu_native: true,
         inline_ratio_fastpath: true,
+        ..CodegenPlan::baseline_o2()
     };
 
     let s_sc = OrcJitSession::compile_named_with_plan(&ir_no_unroll, &plan_gen_no, None)?;

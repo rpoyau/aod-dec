@@ -1,13 +1,13 @@
 {
+  "carrier_count": 2,
+  "final_state_hash": "ecaa97d8719459d69913923f9653f1c2a6df208a34bfe9a5f3d43145e376d4c5",
   "fixture": "manual_examples/06_unbiased_chamber_sandbox.dec",
   "model_status": "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED",
-  "ticks": 12,
-  "carrier_count": 2,
-  "shedding_event_count": 1,
-  "wavelet_event_count": 1,
-  "total_returns": 8,
-  "total_hinges": 8,
-  "final_state_hash": "ecaa97d8719459d69913923f9653f1c2a6df208a34bfe9a5f3d43145e376d4c5",
+  "observer_back_reaction_bytes_changed": 0,
   "observer_configs_verified": 3,
-  "observer_back_reaction_bytes_changed": 0
+  "shedding_event_count": 1,
+  "ticks": 12,
+  "total_hinges": 8,
+  "total_returns": 8,
+  "wavelet_event_count": 1
 }

@@ -65,9 +65,17 @@ cargo run --bin aodc -- bench tests/fixtures/v2_bench/unboxed_loop_bench.dec
 cargo run --bin aodc -- compile tests/fixtures/v2_smoke/m3_wavelet_recipient.dec -o /tmp/m3.ir.json
 cargo run --bin aodc -- exec /tmp/m3.ir.json
 
+# Regenerate or verify docs/manual/data/*.json strictly via Exact Reference VM (zero LLVM)
+cargo run --bin aodc -- manual-data
+cargo run --bin aodc -- manual-data --check --json
+
 # Verify the modular Typst manual (6 passes: Typst lexer, Main refs, zero rasters, aod-lint, 3-mode Dec, JSON parity)
 cargo run --bin aodc -- manual-verify docs/manual
 cargo run --bin aodc -- manual-verify docs/manual --json
+
+# Run multi-observer sandbox apparatus sequentially or with parallel read-only observer threads
+cargo run --bin aodc -- run --parallel-observers manual_examples/11_apparatus_opposing_sensors.dec
+cargo run --bin aodc -- jit -O2 --parallel-observers manual_examples/11_apparatus_opposing_sensors.dec
 
 # Verify all 30 Stage 2 (S2@3122c94) vectors + 90-tick S4@e013401 convergence + canonical aod.s4.rust.report.v1
 cargo run --bin aodc -- verify-s2
@@ -89,19 +97,21 @@ cargo run --bin aodc -- test manual_examples
 
 ## Native Dec Standard Library (`stdlib/aod/*.dec`) & Executable Manual Fixtures
 
-- **`stdlib/aod/`:** Pure `.dec` modules resolved via `use stdlib::aod::...` (`--stdlib <dir>` / `AOD_STDLIB_DIR` / automatic repo discovery, hermetically bundled into `DecIR v2`):
+- **`stdlib/aod/`:** Seven pure `.dec` modules resolved via `use stdlib::aod::...` (`--stdlib <dir>` / `AOD_STDLIB_DIR` / automatic repo discovery, hermetically bundled into `DecIR v2`):
   - `ledger.dec` (Manual §4 D.E.C. kernels, blocked dwell/hinge slide, tunnelling clip, ADAR/SADAR, Tau missing-burden, `R02` gap)
   - `wavelet.dec` (M3 12 Duon variants, same-current Duad seating, half-open window counts, opposing cancellation, exact cyclotomic $\mathbb{Z}_{12}$ DFT in $\mathbb{Q}[x]/(x^4 - x^2 + 1)$)
-  - `boundary.dec` (Manual §§5–6 11-bin double-slit cross-return $\delta_3$, short-window clipping, purely native `3:3:7_yro` saddle, moving boundary, Stokes cancellation)
+  - `boundary.dec` (Manual §§5–6 11-bin double-slit cross-return $\delta_3$ via `double_slit_bins()` / `double_slit_eval()`, short-window clipping, purely native `3:3:7_yro` saddle, moving boundary, Stokes cancellation)
   - `cells.dec` (M3 4-cube measures, quarter-symmetry unit-disk enclosures `n=1..16`, rectangle metric/coord swap, exact discrete-law moments, affine covariance, 16-step tesseract transport)
   - `metrology.dec` (native turn advances, `prop:m3-atomic-gain`, strictly quarantined `quarantine Q_ext SiMetrology:` for $\Delta\nu_{\text{Cs}}$, Hellwig H-maser, and separate NIST-F2 uncertainty budgets, and strictly quarantined `quarantine Q_ext DisplayQuarantine:` for post-freeze Higgs `MeV`/`GeV` mapping, LHC CMS/ATLAS 6-dp half-to-even rounding & exact residuals via one-way `qext_round_half_even`/`qext_format_fixed`, and half-ULP printed-token enclosures)
   - `sectors.dec` (strictly native, parameterized S2/S4 sectors: SPARC G0 exact bins, single-step & multi-tick `cycle_shedding_trace_summary`, awareness & delayed mindfulness recurrence, oriented Stokes cut balance, Brownian MSB-$x$ vs. Run-Tumble LSB-$x$ octants, purely dimensionless internal Higgs candidate scoring, SWELLS K1 / Tau `UNRESOLVED_PROVENANCE_QUARANTINED` guard, and MAP-21 18-digit exact variance)
-- **`manual_examples/`:** 10 positive fixtures (`01_dec_ledger`..`10_s4_cycle_shedding_90tick` with verified sibling `.stdout`) and 7 negative controls (`negative_controls/nc01..nc07` with `.expect_error`), verified byte-identical across Exact VM, AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2`, and hermetic `DecIR v2`.
+  - `apparatus.dec` (strictly pure native unbiased apparatus builders `chamber_box`, `concentric_shell_box`, `symmetric_opposing_336`, passive `ReadOnly<ChamberView>` snapshot reader `read_passive_snapshot`, blind summary `summarize_blind_run`, and 0/1/2/4-observer SHA-256 invariance verifier `verify_multi_observer_invariance`; zero `Q_ext`, zero hardcoded physical targets)
+- **`manual_examples/`:** 11 positive fixtures (`01_dec_ledger`..`11_apparatus_opposing_sensors` with verified sibling `.stdout`) and 7 negative controls (`negative_controls/nc01..nc07` with `.expect_error`), verified byte-identical across Exact VM (sequential & `--parallel-observers`), AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2` (sequential & `--parallel-observers`), and hermetic `DecIR v2`.
 
 ## Modular M4-Aligned Typst Manual & Verification (`docs/manual/`)
 
 - **`docs/manual/`:** Modular Typst manual (`main.typ`, `refs.bib`, 7 General Mechanics chapters, 5 pure-vector native Typst figures, and 3 exact-integer JSON data files) bound read-only to vendored `/bindings/aod/aod_schema.typ` and `/bindings/aod/main_registry.json`.
-- **Six-pass `aodc manual-verify docs/manual [--json]`:** Verifies `#include`/`#import` containment & `SOURCE_BINDING.json` hashes (including vendored S2 `.jsonl` and S4 `.csv` digests), balanced Typst scanning, all Main registry/internal/BibTeX references, zero rasters/`@preview` packages, pure-Rust equivalents of all 4 `rpoyau/aod-lint` `TypstAstPass` rules, 3-mode (`VM`/`AOT -O2`/`ORC JIT -O2`) live execution of inline Dec blocks and all 17 `@dec-file` Manual fixtures, and live field-by-field parity of `docs/manual/data/*.json`.
+- **Pure-Rust zero-LLVM manual dataset generator (`aodc manual-data [--check] [--output-dir <dir>] [--json]`):** Executes `manual_examples/{03,04,06}.dec`, `stdlib::aod::boundary::double_slit_bins()`, and `stdlib::aod::cells::disk_enclosure(n)` strictly in the Exact Reference VM (zero LLVM, zero hardcoded numbers), enforces pre-execution symlink-safe `--output-dir` guards (exit `2`), writes atomically with zero `.tmp` orphans, and emits portable `aod.dec.manual_data.v1` JSON.
+- **Six-pass `aodc manual-verify docs/manual [--json]`:** Verifies `#include`/`#import` containment & `SOURCE_BINDING.json` hashes (including vendored S2 `.jsonl` and S4 `.csv` digests), balanced Typst scanning, all Main registry/internal/BibTeX references, zero rasters/`@preview` packages, pure-Rust equivalents of all 4 `rpoyau/aod-lint` `TypstAstPass` rules, 3-mode (`VM`/`AOT -O2`/`ORC JIT -O2`) live execution of inline Dec blocks and all 18 `@dec-file` Manual fixtures, and live field-by-field parity of `docs/manual/data/*.json`.
 - **Stage 2/Stage 4 Convergence Verifier (`aodc verify-s2 [--s4-report] [--report <path>] [--json]`) & `aodc eval-op`:** Executes all 30 vendored S2/S4 cross-language golden vectors (`24` `rational_core.jsonl` + `6` `symbolic_and_display.jsonl`), the exact 90-tick `S4@e013401` `wavelet_shedding_simulation.csv` conservation & tolerance check (`11` active shedding ticks on `29..=39`, `102`-digit exact rational denominator), and the `aod-core` crate policy audit with strict 11-key `aod.s4.vector.v1` schema enforcement, ancestor-aware symlink-safe `--report` path guards (exit code `2`), atomic writes, pre-validation error sanitization, orthogonal scientific-status rollups (`AUTHENTICATED_EXACT=18`, `CONFORMANT_DECLARED_FIXTURE=5`, `RETAINED_DATA_CONFORMANT=6`, `UNRESOLVED_PROVENANCE_QUARANTINED=1`), and byte-identical debug-vs-release `aod.s4.rust.report.v1` JSON output.
 - **Pure-Rust zero-raster PDF auditor (`aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>`):** 100% `std`-only (`#![forbid(unsafe_code)]`, zero floats, zero external crates, zero `libLLVM` dependency) with a self-contained RFC 1950 (zlib + Adler-32) and RFC 1951 (DEFLATE stored, fixed Huffman, and dynamic Huffman) inflater. Masks binary stream payloads before root scanning, parses balanced nested `<< ... >>` dictionaries and direct/indirect `/Length` cleanly without greedy EOL stripping, fails closed on disallowed or corrupt stream `/Filter` entries and zip bombs, rejects `/Subtype /Image` XObjects (including inside `/FlateDecode` `/ObjStm` streams), inline `BI..ID..EI` raster images, and unresolved references while permitting standard ISO 32000-1 `/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]` boilerplate on pure-vector Typst PDFs, and enforces `--min-pages`, symmetric symlink/size guards, and byte-identical `--compare-pdf` SHA-256 determinism with portable `aod.dec.pdf.audit.v1` JSON output.
 
@@ -110,10 +120,11 @@ cargo run --bin aodc -- test manual_examples
 | Gate | Offline Local | GitHub Actions CI |
 | :--- | :---: | :---: |
 | `RUSTFLAGS="-D warnings" cargo test --workspace --offline` (debug & `--release`) | Verified | Verified |
-| `aodc test` (`v1_examples` 10/10, `v2_smoke` 3/3, `manual_examples` 17/17) | Verified | Verified |
+| `aodc test` (`v1_examples` 10/10, `v2_smoke` 3/3, `manual_examples` 18/18) | Verified | Verified |
+| `aodc manual-data --check` & `--json` (zero-LLVM Exact VM parity on `docs/manual/data/*.json`) | Verified | Verified |
 | `aodc verify-s2 --s4-report` & `aodc eval-op` (30/30 S2 vectors + 90-tick `S4@e013401` CSV, debug == release `cmp`) | Verified | Verified |
-| `aodc probe-hw` & `aodc learn` (honest compile-inclusive amortization) | Verified | Verified |
-| `aodc manual-verify docs/manual` & `--json` (all 6 passes live, `dec_files_checked: 17`) | Verified | Verified |
+| `aodc probe-hw` & `aodc learn` (Hardware Learner v2, `PROFILE_VERSION = 2`, `--parallel-observers`) | Verified | Verified |
+| `aodc manual-verify docs/manual` & `--json` (all 6 passes live, `dec_files_checked: 18`) | Verified | Verified |
 | Pure-Rust `aodc audit-pdf` unit/CLI suite (`tests/pdf_audit.rs`) & zero-Python repo/CI guard | Verified | Verified |
 | `typst compile --root . --creation-timestamp 0` (SHA-256-verified `v0.15.1`, double-build PDF + `aodc audit-pdf` + `pdfimages`) | Not run locally (`typst` absent offline) | Verified in `.github/workflows/ci.yml` |
 | External `rpoyau/aod-lint check --strict` over `docs/manual/**/*.typ` | Mirrored in Pass 4 offline | Verified in `.github/workflows/ci.yml` |

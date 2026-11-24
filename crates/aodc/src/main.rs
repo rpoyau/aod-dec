@@ -12,11 +12,11 @@ use aodc::{
     audit_pdf_file, bench_file_with_options, build_aot_file_with_options, check_file_with_options,
     collect_guarded_roots, compile_file_to_ir_with_options, emit_llvm_file_with_options,
     eval_operation, exec_ir_file_with_budget_capturing, format_x100,
-    jit_file_with_profile_captured, learn_file_with_options, read_bounded_regular_file,
-    read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_options,
-    run_file_with_options_capturing, validate_runtime_output_path, verify_manual_dir,
-    verify_s2_dir, verify_s4_convergence_dir, write_report_atomic, LoadOptions,
-    ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_S4_INPUT_BYTES,
+    jit_file_with_profile_and_parallel_captured, learn_file_with_options,
+    read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_options,
+    run_file_with_parallel_observers_capturing, run_manual_data, validate_runtime_output_path,
+    verify_manual_dir, verify_s2_dir, verify_s4_convergence_dir, write_report_atomic, LoadOptions,
+    ManualDataOptions, ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_S4_INPUT_BYTES,
 };
 
 struct CliErr {
@@ -118,6 +118,7 @@ struct ExecOptions {
     heldout: usize,
     output: Option<String>,
     profile: Option<String>,
+    parallel_observers: bool,
     load: LoadOptions,
     rest: Vec<String>,
 }
@@ -133,6 +134,7 @@ fn parse_options(
     allow_stdlib: bool,
     allow_profile: bool,
     allow_learn: bool,
+    allow_parallel: bool,
 ) -> Result<ExecOptions, String> {
     let mut compat = CompatMode::V2;
     let mut opt = OptLevel::O2;
@@ -144,6 +146,7 @@ fn parse_options(
     let mut heldout = 5usize;
     let mut output = None;
     let mut profile = None;
+    let mut parallel_observers = false;
     let mut stdlib_dir = None;
     let mut rest = Vec::new();
     let mut i = 0usize;
@@ -190,6 +193,9 @@ fn parse_options(
                 .ok_or_else(|| "missing path after --profile".to_string())?;
             profile = Some(v.clone());
             i += 2;
+        } else if allow_parallel && a == "--parallel-observers" {
+            parallel_observers = true;
+            i += 1;
         } else if allow_learn && a == "--baseline" {
             let v = args
                 .get(i + 1)
@@ -226,6 +232,7 @@ fn parse_options(
         heldout,
         output,
         profile,
+        parallel_observers,
         load: LoadOptions { stdlib_dir },
         rest,
     })
@@ -253,7 +260,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -271,7 +278,7 @@ fn main() -> ExitCode {
     let sub_args = &raw_args[1..];
 
     let result: Result<(), CliErr> = match cmd {
-        "check" => parse_options(sub_args, true, false, false, false, false, true, false, false)
+        "check" => parse_options(sub_args, true, false, false, false, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -285,23 +292,24 @@ fn main() -> ExitCode {
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "run" => parse_options(sub_args, true, false, true, false, false, true, false, false)
+        "run" => parse_options(sub_args, true, false, true, false, false, true, false, false, true)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
-                let (emits, outcome) = run_file_with_options_capturing(
+                let (emits, outcome) = run_file_with_parallel_observers_capturing(
                     Path::new(&opts.rest[0]),
                     opts.compat,
                     opts.fuel,
                     opts.max_depth,
                     &opts.load,
+                    opts.parallel_observers,
                 )
                 .map_err(|e| e.to_string())?;
                 flush_emits_and_result(emits, outcome)
             })
             .map_err(CliErr::fail),
-        "compile" => parse_options(sub_args, true, false, false, true, false, true, false, false)
+        "compile" => parse_options(sub_args, true, false, false, true, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -318,7 +326,7 @@ fn main() -> ExitCode {
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "exec" => parse_options(sub_args, false, false, true, false, false, false, false, false)
+        "exec" => parse_options(sub_args, false, false, true, false, false, false, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <program.ir.json>\n{}", usage()));
@@ -332,7 +340,7 @@ fn main() -> ExitCode {
                 flush_emits_and_result(emits, outcome)
             })
             .map_err(CliErr::fail),
-        "emit-llvm" => parse_options(sub_args, true, true, false, true, false, true, false, false)
+        "emit-llvm" => parse_options(sub_args, true, true, false, true, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -351,7 +359,7 @@ fn main() -> ExitCode {
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "build" => parse_options(sub_args, true, true, false, true, false, true, false, false)
+        "build" => parse_options(sub_args, true, true, false, true, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -366,22 +374,24 @@ fn main() -> ExitCode {
                     .map_err(|e| e.to_string())
             })
             .map_err(CliErr::fail),
-        "jit" => parse_options(sub_args, true, true, true, false, false, true, true, false)
+        "jit" => parse_options(sub_args, true, true, true, false, false, true, true, false, true)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let profile_path = opts.profile.as_deref().map(Path::new);
-                let (stdout, res, _plan, fallback_note) = jit_file_with_profile_captured(
-                    Path::new(&opts.rest[0]),
-                    opts.compat,
-                    opts.opt,
-                    opts.fuel,
-                    opts.max_depth,
-                    profile_path,
-                    &opts.load,
-                )
-                .map_err(|e| e.to_string())?;
+                let (stdout, res, _plan, fallback_note) =
+                    jit_file_with_profile_and_parallel_captured(
+                        Path::new(&opts.rest[0]),
+                        opts.compat,
+                        opts.opt,
+                        opts.fuel,
+                        opts.max_depth,
+                        profile_path,
+                        &opts.load,
+                        opts.parallel_observers,
+                    )
+                    .map_err(|e| e.to_string())?;
                 if let Some(note) = fallback_note {
                     eprintln!("aodc: profile fallback to baseline: {note}");
                 }
@@ -393,7 +403,7 @@ fn main() -> ExitCode {
                 res
             })
             .map_err(CliErr::fail),
-        "bench" => parse_options(sub_args, true, false, true, false, true, true, false, false)
+        "bench" => parse_options(sub_args, true, false, true, false, true, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -434,7 +444,7 @@ fn main() -> ExitCode {
             })
             .map_err(CliErr::fail),
         "probe-hw" => parse_options(
-            sub_args, false, false, false, true, false, false, false, false,
+            sub_args, false, false, false, true, false, false, false, false, false,
         )
         .and_then(|opts| {
             if !opts.rest.is_empty() {
@@ -504,7 +514,7 @@ fn main() -> ExitCode {
             Ok(())
         })
         .map_err(CliErr::fail),
-        "learn" => parse_options(sub_args, true, false, true, false, false, true, true, true)
+        "learn" => parse_options(sub_args, true, false, true, false, false, true, true, true, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -557,6 +567,100 @@ fn main() -> ExitCode {
                 Ok(())
             })
             .map_err(CliErr::fail),
+        "manual-data" => {
+            let mut check_only = false;
+            let mut output_dir: Option<PathBuf> = None;
+            let mut stdlib_dir: Option<PathBuf> = None;
+            let mut json_mode = false;
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--check" => {
+                        check_only = true;
+                        idx += 1;
+                    }
+                    "--json" => {
+                        json_mode = true;
+                        idx += 1;
+                    }
+                    "--output-dir" => {
+                        if output_dir.is_some() {
+                            parse_err = Some("duplicate flag --output-dir".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                output_dir = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing directory path after --output-dir".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--stdlib" => {
+                        if stdlib_dir.is_some() {
+                            parse_err = Some("duplicate flag --stdlib".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                stdlib_dir = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing directory path after --stdlib".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    other => {
+                        parse_err = Some(format!("unexpected argument {other:?}\n{}", usage()));
+                        break;
+                    }
+                }
+            }
+            if let Some(e) = parse_err {
+                Err(CliErr::usage(e))
+            } else {
+                match run_manual_data(&ManualDataOptions {
+                    check_only,
+                    output_dir,
+                    stdlib_dir,
+                }) {
+                    Err(usage_or_guard_err) => Err(CliErr::usage(usage_or_guard_err)),
+                    Ok(report) => {
+                        if json_mode {
+                            println!("{}", report.to_json().to_compact_ascii_json());
+                        } else {
+                            println!(
+                                "aodc manual-data (mode={}) -> {} (checked={}, written={}, changed={})",
+                                report.mode,
+                                report.status,
+                                report.files_checked,
+                                report.files_written,
+                                report.files_changed
+                            );
+                            for err in &report.errors {
+                                eprintln!("  ERROR: {err}");
+                            }
+                        }
+                        if report.is_ok() {
+                            Ok(())
+                        } else {
+                            Err(CliErr::fail(format!(
+                                "manual-data failed with {} error(s)",
+                                report.errors.len()
+                            )))
+                        }
+                    }
+                }
+            }
+        }
         "manual-verify" => {
             let mut stdlib_dir: Option<PathBuf> = None;
             let mut registry_path: Option<PathBuf> = None;
@@ -1103,7 +1207,7 @@ fn main() -> ExitCode {
                 }
             }
         }
-        "test" => parse_options(sub_args, true, false, false, false, false, true, false, false)
+        "test" => parse_options(sub_args, true, false, false, false, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <file_or_dir>\n{}", usage()));

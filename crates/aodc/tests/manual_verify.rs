@@ -114,7 +114,7 @@ fn ac04_ac05_live_docs_manual_verify_and_strict_json_cli() {
         "expected >= 4 inline negative blocks, got {}",
         rep.inline_negative_checked
     );
-    assert_eq!(rep.dec_files_checked, 17);
+    assert_eq!(rep.dec_files_checked, 18);
     assert_eq!(rep.data_files_checked, 3);
     assert_eq!(rep.raster_violations, 0);
     assert_eq!(rep.aod_lint_violations, 0);

@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod eval;
 pub mod ir;
 pub mod lexer;
+pub mod manual_data;
 pub mod manual_verify;
 pub mod modules;
 pub mod parser;
@@ -35,9 +36,13 @@ pub use aod_core::s4_report::{
 };
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
-    run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo, HwProbeReport, LearnDecision,
-    LearnSessionReport, OptLevel, OrcJitSession, PerfCapability, ProfileLoadOutcome,
-    RetainedProfile, UnrollHint, POLICY_SCOPE,
+    recommend_candidates, run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo,
+    HwPlanHints, HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession,
+    PerfCapability, ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+};
+pub use crate::manual_data::{
+    run_manual_data, validate_manual_data_output_dir, ManualDataOptions, ManualDataReport,
+    MANUAL_DATA_FILENAMES, MANUAL_DATA_SCHEMA,
 };
 pub use crate::manual_verify::{verify_manual_dir, ManualVerifyOptions, ManualVerifyReport};
 pub use crate::modules::LoadOptions;
@@ -129,8 +134,21 @@ pub fn run_file_with_options_capturing(
     max_depth: usize,
     options: &LoadOptions,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
+    run_file_with_parallel_observers_capturing(path, compat, fuel, max_depth, options, false)
+}
+
+pub fn run_file_with_parallel_observers_capturing(
+    path: &Path,
+    compat: CompatMode,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+    parallel_observers: bool,
+) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
     let checked = check_file_with_options(path, compat, options)?;
-    Ok(Evaluator::new(&checked, fuel, max_depth)?.run_main_capturing())
+    Ok(Evaluator::new(&checked, fuel, max_depth)?
+        .with_parallel_observers(parallel_observers)
+        .run_main_capturing())
 }
 
 pub fn compile_file_to_ir(path: &Path, compat: CompatMode) -> DecResult<String> {
@@ -372,10 +390,33 @@ pub fn jit_file_with_profile_captured(
     profile_path: Option<&Path>,
     options: &LoadOptions,
 ) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
+    jit_file_with_profile_and_parallel_captured(
+        path,
+        compat,
+        fallback_opt,
+        fuel,
+        max_depth,
+        profile_path,
+        options,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn jit_file_with_profile_and_parallel_captured(
+    path: &Path,
+    compat: CompatMode,
+    fallback_opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    profile_path: Option<&Path>,
+    options: &LoadOptions,
+    parallel_observers: bool,
+) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
     let checked = check_file_with_options(path, compat, options)?;
     let fallback_plan = CodegenPlan::for_opt_level(fallback_opt);
 
-    let (chosen_plan, note) = if let Some(pp) = profile_path {
+    let (mut chosen_plan, note) = if let Some(pp) = profile_path {
         let hw = HostHardwareInfo::discover()
             .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
         let (kernel_sha, workload_sha) = compute_profile_bindings(&checked, compat, fuel, max_depth);
@@ -386,6 +427,9 @@ pub fn jit_file_with_profile_captured(
     } else {
         (fallback_plan, None)
     };
+    if parallel_observers {
+        chosen_plan.parallel_observers = true;
+    }
 
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &chosen_plan)?;
     let session = OrcJitSession::compile_with_plan(&raw_ir, &chosen_plan)
