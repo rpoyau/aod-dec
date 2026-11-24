@@ -15,6 +15,7 @@ pub mod manual_verify;
 pub mod modules;
 pub mod parser;
 pub mod pdf_audit;
+pub mod report_guard;
 pub mod sim;
 pub mod types;
 
@@ -23,8 +24,15 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
+use aod_core::json::JsonValue;
 use aod_core::s2_vectors::verify_s2_vectors_dir;
-pub use aod_core::s2_vectors::S2VerifyReport;
+pub use aod_core::s2_vectors::{eval_operation, S2VerifyReport};
+pub use aod_core::s4_report::{
+    audit_aod_core_policy, build_s4_report, sanitize_error, serialize_s4_report,
+    validate_portable_report, verify_s4_cycle_shedding_csv, CorePolicyAudit,
+    CycleSheddingFixtureReport, MAX_S4_INPUT_BYTES, S4_BASE_COMMIT_BINDING, S4_BINDING_ID,
+    S4_CYCLE_SHEDDING_CSV_REL, S4_REPORT_SCHEMA,
+};
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
     run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo, HwProbeReport, LearnDecision,
@@ -37,6 +45,10 @@ pub use crate::pdf_audit::{
     adler32, audit_pdf_bytes, audit_pdf_file, inflate_deflate, inflate_zlib, InflateError,
     PdfAuditOptions, PdfAuditReport, MAX_PDF_BYTES, MAX_STREAMS, MAX_STREAM_DECOMP_BYTES,
     MAX_TOTAL_DECOMP_BYTES, PDF_AUDIT_SCHEMA,
+};
+pub use crate::report_guard::{
+    collect_guarded_roots, read_bounded_regular_file, read_bounded_stdin,
+    validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
 };
 
 use crate::checker::{check_unit, CheckedUnit};
@@ -948,4 +960,78 @@ pub fn verify_s2_dir(
             .join("SOURCE_BINDING.json"),
     };
     verify_s2_vectors_dir(&vdir, &bpath)
+}
+
+/// Verify all 30 S2/S4 golden vectors + 90-tick `wavelet_shedding_simulation.csv` + `aod-core`
+/// crate policy audit, returning a validated portable `aod.s4.rust.report.v1` JSON document,
+/// its canonical pretty UTF-8 serialization, and overall PASS boolean.
+///
+/// Explicitly provided paths (`Some`) are used strictly with zero silent fallback (`P1-2`).
+pub fn verify_s4_convergence_dir(
+    vectors_dir: Option<&Path>,
+    binding_path: Option<&Path>,
+    fixture_path: Option<&Path>,
+) -> Result<(JsonValue, String, bool), String> {
+    let default_root = if vectors_dir.is_none() || binding_path.is_none() || fixture_path.is_none()
+    {
+        Some(discover_default_s2_root())
+    } else {
+        None
+    };
+
+    let vdir = match vectors_dir {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when vectors_dir is None")
+            .join("bindings/aod/s2_vectors"),
+    };
+    let bpath = match binding_path {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when binding_path is None")
+            .join("SOURCE_BINDING.json"),
+    };
+    let fpath = match fixture_path {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when fixture_path is None")
+            .join(S4_CYCLE_SHEDDING_CSV_REL),
+    };
+
+    let crate_root = bpath
+        .parent()
+        .map(|p| p.join("crates/aod-core"))
+        .filter(|c| c.join("Cargo.toml").is_file())
+        .or_else(|| {
+            let root = default_root
+                .clone()
+                .unwrap_or_else(discover_default_s2_root);
+            let cand = root.join("crates/aod-core");
+            cand.join("Cargo.toml").is_file().then_some(cand)
+        });
+
+    let vectors = verify_s2_vectors_dir(&vdir, &bpath);
+    let fixture = verify_s4_cycle_shedding_csv(&fpath, &bpath);
+    let policy = crate_root.as_deref().map(audit_aod_core_policy);
+
+    let mut extra_roots: Vec<(&Path, &str)> = vec![
+        (vdir.as_path(), "<VECTORS_DIR>"),
+        (bpath.as_path(), "<BINDING_PATH>"),
+        (fpath.as_path(), "<FIXTURE_PATH>"),
+    ];
+    if let Some(ref cr) = crate_root {
+        extra_roots.push((cr.as_path(), "<CRATE_ROOT>"));
+    }
+    if let Some(bp_parent) = bpath.parent() {
+        extra_roots.push((bp_parent, "<REPO_ROOT>"));
+    }
+
+    let (report_val, passed) = build_s4_report(&vectors, &fixture, policy.as_ref(), &extra_roots)
+        .map_err(|e| sanitize_error(&e.to_string(), &extra_roots))?;
+    let pretty = serialize_s4_report(&report_val)
+        .map_err(|e| sanitize_error(&e.to_string(), &extra_roots))?;
+    Ok((report_val, pretty, passed))
 }

@@ -21,10 +21,10 @@ interface files.
     toprule,
     [*Crate*], [*Safety Policy*], [*Declared Role*],
     midrule,
-    [`aod-core`], [`#![forbid(unsafe_code)]`], [Exact `BigInt`, canonical `Ratio`, quarantined `QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, FIPS 180-4 SHA-256, strict float-free JSON, M3 wavelets, Manual ledger primitives.],
+    [`aod-core`], [`#![forbid(unsafe_code)]`], [Exact `BigInt`, canonical `Ratio`, quarantined `QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, FIPS 180-4 SHA-256, strict float-free JSON, M3 wavelets, Manual ledger primitives, S2/S4 exact operations, and `aod.s4.rust.report.v1` builder.],
     [`aod-rt`], [`unsafe` only in `abi.rs`], [Shared deterministic sandbox chamber, safe 1-based arena with entry cap, copy-on-write container helpers, cold-spill exact math, and panic-safe C ABI (`libaod_rt.a`).],
     [`aod-llvm`], [`unsafe` only in `ffi`/`aot`/`jit`/`hw_probe`], [`dlopen`-loaded LLVM 18 verifier and optimizer, PIC AOT ELF linker, ORC LLJIT session, CPU discovery, 5 live JIT micro-probes, and zero-float paired bootstrap learner.],
-    [`aodc`], [`#![forbid(unsafe_code)]`], [Dec v1/v2 frontend, 5 compile-time firewalls, hermetic `DecIR` verifier, Exact VM, parameterized LLVM 18 lowering, `manual-verify`, `verify-s2`, `std`-only `audit-pdf`, and CLI.],
+    [`aodc`], [`#![forbid(unsafe_code)]`], [Dec v1/v2 frontend, 5 compile-time firewalls, hermetic `DecIR` verifier, Exact VM, parameterized LLVM 18 lowering, `manual-verify`, `verify-s2 --s4-report`, `eval-op`, `std`-only `audit-pdf`, and CLI.],
     bottomrule,
   ),
 )<tab:crate-boundaries>

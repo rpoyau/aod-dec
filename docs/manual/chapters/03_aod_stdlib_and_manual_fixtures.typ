@@ -26,7 +26,7 @@ AOT, and ORC LLJIT.
     [`stdlib::aod::boundary`], [`03_short_window_boundary.dec`], [11-bin Dimonhexon double-slit cross-return $delta_3$, short-window clipping (`1:2:7_yro`, `1:2:9_yro`, `1:2:10`), purely native `3:3:7_yro` saddle (`+3/-3`), moving boundary `7`, Stokes cancellation `0/1`.],
     [`stdlib::aod::cells`], [`04_cell_measures_tesseract.dec`], [4-cube `(16,32,24,8,1)`, `V_4=81/16` & `B_3=27`, quarter-symmetry disk enclosures `n=1..16`, rectangle swap `10->8->10`, exact discrete-law moments (`T`, `F`, `Rf`, `U`), affine covariance, 16-step tesseract transport.],
     [`stdlib::aod::metrology`], [`05_conditional_si_metrology.dec`, `09_s2_higgs_and_quarantined_lensing.dec`], [Native turn advances, `prop:m3-atomic-gain` (`lambda=0` vs `1`), quarantined `SiMetrology` (`1/4596315885`, Hellwig midpoint, separate NIST-F2 budgets), and quarantined `DisplayQuarantine` (post-freeze Higgs GeV map, LHC 6-dp half-even display/residuals, half-ULP enclosure).],
-    [`stdlib::aod::sectors`], [`07_s2_sparc_and_shedding.dec`, `08_s2_awareness_stokes_octants.dec`, `09_s2_higgs_and_quarantined_lensing.dec`], [Strictly native parameterized S2 sectors: SPARC G0 bins (`RC-015`/`RC-016`), cycle shedding (`RC-014`), awareness/mindfulness (`RC-009`/`RC-010`), Stokes cut (`RC-008`), MSB-x vs LSB-x octants (`RC-012`/`RC-013`), dimensionless Higgs scoring (`RC-011`), SWELLS/Tau `UNRESOLVED_PROVENANCE_QUARANTINED` guard (`RC-020`), and MAP-21 18-digit exact variance (`RC-024`).],
+    [`stdlib::aod::sectors`], [`07_s2_sparc_and_shedding.dec`, `08_s2_awareness_stokes_octants.dec`, `09_s2_higgs_and_quarantined_lensing.dec`, `10_s4_cycle_shedding_90tick.dec`], [Strictly native parameterized S2/S4 sectors: SPARC G0 bins (`RC-015`/`RC-016`), cycle shedding (`RC-014`) and full 90-tick `S4@e013401` trace (`102`-digit exact denominator), awareness/mindfulness (`RC-009`/`RC-010`), Stokes cut (`RC-008`), MSB-x vs LSB-x octants (`RC-012`/`RC-013`), dimensionless Higgs scoring (`RC-011`), SWELLS/Tau `UNRESOLVED_PROVENANCE_QUARANTINED` guard (`RC-020`), and MAP-21 18-digit exact variance (`RC-024`).],
     bottomrule,
   ),
 )<tab:stdlib-modules>
@@ -76,16 +76,18 @@ Each module in #tabref("tab:stdlib-modules") binds directly to canonical Main eq
    `SiMetrology` submodule holding $Delta nu_"Cs" = 9192631770$, Hellwig H-maser reductions
    (#aod-cite("hellwig-hydrogen-1970")), and separate NIST-F2 Aug 2013 vs Table 1 uncertainty budgets
    (#aod-cite("heavner-nist-f2-2014, bipm-si-2019")).
-6. *Stage 2 Native Sectors and Quarantined Display (`07`..`09`):* `stdlib::aod::sectors` implements strictly
-   native, parameterized S2 reference operations (#aod-cite("aod-s2-candidate")): exact SPARC G0 radial bins
+6. *Stage 2/Stage 4 Native Sectors and Quarantined Display (`07`..`10`):* `stdlib::aod::sectors` implements strictly
+   native, parameterized S2 and S4 reference operations (#aod-cite("aod-s2-candidate, aod-s4-candidate")): exact SPARC G0 radial bins
    (`07_s2_sparc_and_shedding.dec`, including negative $V_"gas"$ absolute-value handling), exact cycle
-   shedding, MAP-21 18-digit exact rational variance (`1/999998000001000000`), awareness updates, delayed
-   mindfulness recurrence, oriented Stokes cut balance, Brownian MSB-$x$ versus Run-Tumble LSB-$x$ octants
-   (`08_s2_awareness_stokes_octants.dec`), purely dimensionless Higgs candidate scoring (`09_s2_higgs_and_quarantined_lensing.dec`),
-   and the SWELLS K1 / Tau `1/100` non-conflation audit preserving `UNRESOLVED_PROVENANCE_QUARANTINED`. All
-   post-freeze Higgs energy maps (`MeV`/`GeV`), CMS/ATLAS LHC 6-dp banker's rounding displays and exact
-   residuals, and printed-token half-ULP enclosures execute strictly inside `quarantine Q_ext DisplayQuarantine:`
-   in `stdlib/aod/metrology.dec`.
+   shedding and the full 90-tick `wavelet_shedding_simulation.csv` exact rational trace (`10_s4_cycle_shedding_90tick.dec`,
+   verifying exact zero-residual conservation across all 90 ticks, active shedding strictly on ticks `29`..`39`,
+   and `102`-digit exact `BigInt` denominator growth without floats), MAP-21 18-digit exact rational variance
+   (`1/999998000001000000`), awareness updates, delayed mindfulness recurrence, oriented Stokes cut balance,
+   Brownian MSB-$x$ versus Run-Tumble LSB-$x$ octants (`08_s2_awareness_stokes_octants.dec`), purely dimensionless
+   Higgs candidate scoring (`09_s2_higgs_and_quarantined_lensing.dec`), and the SWELLS K1 / Tau `1/100`
+   non-conflation audit preserving `UNRESOLVED_PROVENANCE_QUARANTINED`. All post-freeze Higgs energy maps
+   (`MeV`/`GeV`), CMS/ATLAS LHC 6-dp banker's rounding displays and exact residuals, and printed-token half-ULP
+   enclosures execute strictly inside `quarantine Q_ext DisplayQuarantine:` in `stdlib/aod/metrology.dec`.
 
 An inline check against `stdlib::aod::ledger` confirms exact tunnelling clip preservation:
 
@@ -107,7 +109,7 @@ Dec main() -> int:
 ```
 
 #aod-paragraph("Falsification.")
-All eight non-chamber executable Manual fixtures (`01`..`05`, `07`..`09`) are live-verified across Exact VM,
+All nine non-chamber executable Manual fixtures (`01`..`05`, `07`..`10`) are live-verified across Exact VM,
 AOT `-O2`, and ORC LLJIT `-O2` against their frozen `.stdout` files and live JSON data invariants:
 
 // @dec-file: manual_examples/01_dec_ledger.dec
@@ -118,3 +120,4 @@ AOT `-O2`, and ORC LLJIT `-O2` against their frozen `.stdout` files and live JSO
 // @dec-file: manual_examples/07_s2_sparc_and_shedding.dec
 // @dec-file: manual_examples/08_s2_awareness_stokes_octants.dec
 // @dec-file: manual_examples/09_s2_higgs_and_quarantined_lensing.dec
+// @dec-file: manual_examples/10_s4_cycle_shedding_90tick.dec

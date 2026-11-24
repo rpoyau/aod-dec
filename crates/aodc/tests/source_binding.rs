@@ -23,7 +23,7 @@ fn source_binding_schema_v2_p2_1_equations_and_vendored_hashes_verified() {
     assert_eq!(sb.get("schema_version").and_then(JsonValue::as_int), Some(&BigInt::from_i64(2)));
 
     let upstream = sb.get("upstream_bindings").and_then(JsonValue::as_array).unwrap();
-    assert_eq!(upstream.len(), 3);
+    assert_eq!(upstream.len(), 4);
 
     // Load vendored main_registry.json to cross-check every single equation label & number!
     let reg_bytes = std::fs::read(root.join("bindings/aod/main_registry.json")).unwrap();
@@ -113,6 +113,57 @@ fn source_binding_schema_v2_p2_1_equations_and_vendored_hashes_verified() {
             "vendored S2 file SHA-256 mismatch for {local_path}"
         );
     }
+
+    // Verify S4@e013401 draft-candidate binding and vendored 90-tick CRLF CSV SHA-256 byte-for-byte
+    let s4 = &upstream[3];
+    assert_eq!(s4.get("id").and_then(JsonValue::as_str), Some("S4@e013401"));
+    assert_eq!(s4.get("stage").and_then(JsonValue::as_str), Some("S4"));
+    assert_eq!(
+        s4.get("status").and_then(JsonValue::as_str),
+        Some("DRAFT_CANDIDATE_UNDER_S4_REVIEW")
+    );
+    assert_eq!(
+        s4.get("pr_number").and_then(JsonValue::as_int),
+        Some(&BigInt::from_i64(53))
+    );
+    assert_eq!(
+        s4.get("ref_name").and_then(JsonValue::as_str),
+        Some("m4-s4-rust-exact-core")
+    );
+    assert_eq!(
+        s4.get("commit").and_then(JsonValue::as_str),
+        Some("e0134017a816c699ee71a4342044c007b63917db")
+    );
+    assert_eq!(
+        s4.get("tree").and_then(JsonValue::as_str),
+        Some("789e28b5c0c7c24c91f580b643e1bd0017a89dd6")
+    );
+    assert_eq!(
+        s4.get("base_commit_binding").and_then(JsonValue::as_str),
+        Some("3a2418defb4fa92e6fbfc8951b81990fc57ce0e6")
+    );
+    let s4_vendored = s4.get("vendored_files").and_then(JsonValue::as_array).unwrap();
+    assert_eq!(s4_vendored.len(), 1);
+    assert_eq!(
+        s4_vendored[0].get("upstream_path").and_then(JsonValue::as_str),
+        Some("wavelet_shedding_simulation.csv")
+    );
+    assert_eq!(
+        s4_vendored[0].get("local_path").and_then(JsonValue::as_str),
+        Some("bindings/aod/s4_fixtures/wavelet_shedding_simulation.csv")
+    );
+    let s4_csv_bytes =
+        std::fs::read(root.join("bindings/aod/s4_fixtures/wavelet_shedding_simulation.csv"))
+            .unwrap();
+    assert_eq!(s4_csv_bytes.len(), 11245);
+    assert_eq!(
+        Sha256::digest_hex(&s4_csv_bytes),
+        s4_vendored[0].get("sha256").and_then(JsonValue::as_str).unwrap()
+    );
+    assert_eq!(
+        Sha256::digest_hex(&s4_csv_bytes),
+        "d7b0592997d47b2b550508d663afe8943a98ba9d58d087ce77e9d4d0a0c3ff40"
+    );
 
     // Verify historical v1 binding preserved verbatim
     let hist = sb.get("historical_bindings").and_then(JsonValue::as_array).unwrap();

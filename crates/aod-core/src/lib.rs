@@ -13,6 +13,7 @@ pub mod qext;
 pub mod ratio;
 pub mod s2_kernel;
 pub mod s2_vectors;
+pub mod s4_report;
 pub mod sha256;
 pub mod support;
 pub mod ternary;

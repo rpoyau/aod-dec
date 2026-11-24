@@ -59,10 +59,16 @@ jobs:
           ./target/release/aodc manual-verify docs/manual
           ./target/release/aodc manual-verify docs/manual --json
 
-      - name: Verify 30/30 Stage 2 (S2@3122c94) cross-language golden vectors (human + strict JSON)
+      - name: Verify 30/30 Stage 2 vectors, 90-tick S4@e013401 convergence, debug==release S4 report, and eval-op
         run: |
           ./target/release/aodc verify-s2
           ./target/release/aodc verify-s2 --json
+          ./target/debug/aodc verify-s2 --s4-report --report /tmp/s4_report_debug.json
+          ./target/release/aodc verify-s2 --s4-report --report /tmp/s4_report_release.json
+          cmp /tmp/s4_report_debug.json /tmp/s4_report_release.json
+          rm -f /tmp/s4_report_debug.json /tmp/s4_report_release.json
+          ./target/release/aodc eval-op cycle_shedding_trace \
+            --input-json '{"initial_burden":["1","2"],"eta":"0.82","gamma":"0.55","lambda_reclose":["19","50"],"ticks":[{"lead":"0.8","lag":["1","5"],"compatibility":"0.55"}]}'
 
       - name: Upload release aodc binary artifact
         uses: actions/upload-artifact@v4

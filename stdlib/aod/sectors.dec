@@ -34,6 +34,19 @@ struct CycleSheddingStep:
     local_reclosure: ratio
     remainder_sum: ratio
 
+struct CycleSheddingTraceSummary:
+    ticks_processed: int
+    shedding_ticks: int
+    first_shed_tick: int
+    last_shed_tick: int
+    final_burden: ratio
+    max_span: ratio
+    max_burden: ratio
+    max_excess: ratio
+    total_outward: ratio
+    total_local: ratio
+    zero_residual_all: bool
+
 struct AwarenessUpdate:
     carried: ratio
     native_current: ratio
@@ -191,6 +204,68 @@ Dec cycle_shedding_step(
         outward_shedding: out,
         local_reclosure: loc,
         remainder_sum: out + loc
+    }
+
+# 2b. Exact multi-tick cycle-shedding trace summary (S4@e013401, strictly native & parameterized)
+Dec cycle_shedding_trace_summary(
+    initial_burden: ratio,
+    leads: [ratio],
+    lags: [ratio],
+    compats: [ratio],
+    eta: ratio,
+    gamma: ratio,
+    lambda_reclose: ratio
+) -> CycleSheddingTraceSummary:
+    let n = len(leads)
+    assert n == len(lags) and n == len(compats)
+    mut prev = initial_burden
+    mut max_span = 0/1r
+    mut max_burden = 0/1r
+    mut max_excess = 0/1r
+    mut total_outward = 0/1r
+    mut total_local = 0/1r
+    mut shedding_ticks = 0
+    mut first_shed = -1
+    mut last_shed = -1
+    mut zero_res = true
+    for i in 0..n:
+        let step = cycle_shedding_step(prev, leads[i], lags[i], compats[i], eta, gamma, lambda_reclose)
+        if step.span > max_span:
+            max_span = step.span
+        if step.padar_burden > max_burden:
+            max_burden = step.padar_burden
+        if step.shed_excess > max_excess:
+            max_excess = step.shed_excess
+        total_outward = total_outward + step.outward_shedding
+        total_local = total_local + step.local_reclosure
+        if step.shed_excess > 0/1r:
+            shedding_ticks = shedding_ticks + 1
+            if first_shed < 0:
+                first_shed = i
+            last_shed = i
+            if step.padar_burden != compats[i]:
+                zero_res = false
+        if step.outward_shedding + step.local_reclosure != step.remainder_sum:
+            zero_res = false
+        if step.remainder_sum != step.shed_excess:
+            zero_res = false
+        if step.padar_burden + step.shed_excess != step.before_clipping:
+            zero_res = false
+        if step.padar_burden > compats[i]:
+            zero_res = false
+        prev = step.padar_burden
+    return CycleSheddingTraceSummary {
+        ticks_processed: n,
+        shedding_ticks: shedding_ticks,
+        first_shed_tick: first_shed,
+        last_shed_tick: last_shed,
+        final_burden: prev,
+        max_span: max_span,
+        max_burden: max_burden,
+        max_excess: max_excess,
+        total_outward: total_outward,
+        total_local: total_local,
+        zero_residual_all: zero_res
     }
 
 # 3. Finite active awareness current update (RC-009)

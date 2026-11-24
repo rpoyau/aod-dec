@@ -5,16 +5,46 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use aod_core::json::{parse_strict_json, JsonValue};
 use aodc::diagnostics::CompatMode;
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
     audit_pdf_file, bench_file_with_options, build_aot_file_with_options, check_file_with_options,
-    compile_file_to_ir_with_options, emit_llvm_file_with_options,
-    exec_ir_file_with_budget_capturing, format_x100, jit_file_with_profile_captured,
-    learn_file_with_options, run_all_hw_probes, run_dec_tests_with_options,
-    run_file_with_options_capturing, verify_manual_dir, verify_s2_dir, LoadOptions,
-    ManualVerifyOptions, OptLevel, PdfAuditOptions,
+    collect_guarded_roots, compile_file_to_ir_with_options, emit_llvm_file_with_options,
+    eval_operation, exec_ir_file_with_budget_capturing, format_x100,
+    jit_file_with_profile_captured, learn_file_with_options, read_bounded_regular_file,
+    read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_options,
+    run_file_with_options_capturing, validate_runtime_output_path, verify_manual_dir,
+    verify_s2_dir, verify_s4_convergence_dir, write_report_atomic, LoadOptions,
+    ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_S4_INPUT_BYTES,
 };
+
+struct CliErr {
+    code: u8,
+    msg: String,
+}
+
+impl CliErr {
+    fn fail(msg: impl Into<String>) -> Self {
+        Self {
+            code: 1,
+            msg: msg.into(),
+        }
+    }
+
+    fn usage(msg: impl Into<String>) -> Self {
+        Self {
+            code: 2,
+            msg: msg.into(),
+        }
+    }
+}
+
+impl From<String> for CliErr {
+    fn from(msg: String) -> Self {
+        Self::fail(msg)
+    }
+}
 
 fn canonicalize_allowing_new_file(path: &Path) -> std::io::Result<PathBuf> {
     if path.exists() {
@@ -223,7 +253,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--json]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -240,7 +270,7 @@ fn main() -> ExitCode {
     let cmd = raw_args[0].as_str();
     let sub_args = &raw_args[1..];
 
-    let result: Result<(), String> = match cmd {
+    let result: Result<(), CliErr> = match cmd {
         "check" => parse_options(sub_args, true, false, false, false, false, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -253,7 +283,8 @@ fn main() -> ExitCode {
                     CompatMode::V2 => println!("OK: Dec v2"),
                 }
                 Ok(())
-            }),
+            })
+            .map_err(CliErr::fail),
         "run" => parse_options(sub_args, true, false, true, false, false, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -268,7 +299,8 @@ fn main() -> ExitCode {
                 )
                 .map_err(|e| e.to_string())?;
                 flush_emits_and_result(emits, outcome)
-            }),
+            })
+            .map_err(CliErr::fail),
         "compile" => parse_options(sub_args, true, false, false, true, false, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -284,7 +316,8 @@ fn main() -> ExitCode {
                     .map_err(|e| e.to_string())?;
                 std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
                 Ok(())
-            }),
+            })
+            .map_err(CliErr::fail),
         "exec" => parse_options(sub_args, false, false, true, false, false, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -297,7 +330,8 @@ fn main() -> ExitCode {
                 )
                 .map_err(|e| e.to_string())?;
                 flush_emits_and_result(emits, outcome)
-            }),
+            })
+            .map_err(CliErr::fail),
         "emit-llvm" => parse_options(sub_args, true, true, false, true, false, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -315,7 +349,8 @@ fn main() -> ExitCode {
                     print!("{ir}");
                 }
                 Ok(())
-            }),
+            })
+            .map_err(CliErr::fail),
         "build" => parse_options(sub_args, true, true, false, true, false, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -329,7 +364,8 @@ fn main() -> ExitCode {
                 ensure_out_differs_from_src(&src_path, &out_path)?;
                 build_aot_file_with_options(&src_path, opts.compat, opts.opt, &out_path, &opts.load)
                     .map_err(|e| e.to_string())
-            }),
+            })
+            .map_err(CliErr::fail),
         "jit" => parse_options(sub_args, true, true, true, false, false, true, true, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -355,7 +391,8 @@ fn main() -> ExitCode {
                     let _ = out.flush();
                 }
                 res
-            }),
+            })
+            .map_err(CliErr::fail),
         "bench" => parse_options(sub_args, true, false, true, false, true, true, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -394,7 +431,8 @@ fn main() -> ExitCode {
                     format_x100(r.jit_o2_speedup_x100)
                 );
                 Ok(())
-            }),
+            })
+            .map_err(CliErr::fail),
         "probe-hw" => parse_options(
             sub_args, false, false, false, true, false, false, false, false,
         )
@@ -464,7 +502,8 @@ fn main() -> ExitCode {
             );
             println!("  total_ms:      {} ms", report.total_probe_ms);
             Ok(())
-        }),
+        })
+        .map_err(CliErr::fail),
         "learn" => parse_options(sub_args, true, false, true, false, false, true, true, true)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
@@ -516,7 +555,8 @@ fn main() -> ExitCode {
                     println!("  profile_saved:         {prof_out}");
                 }
                 Ok(())
-            }),
+            })
+            .map_err(CliErr::fail),
         "manual-verify" => {
             let mut stdlib_dir: Option<PathBuf> = None;
             let mut registry_path: Option<PathBuf> = None;
@@ -557,9 +597,9 @@ fn main() -> ExitCode {
                 }
             }
             if let Some(e) = parse_err {
-                Err(e)
+                Err(CliErr::fail(e))
             } else if positional.len() != 1 {
-                Err(format!("expected <manual_dir>\n{}", usage()))
+                Err(CliErr::fail(format!("expected <manual_dir>\n{}", usage())))
             } else {
                 let report = verify_manual_dir(
                     Path::new(&positional[0]),
@@ -600,41 +640,96 @@ fn main() -> ExitCode {
                 if report.is_ok() {
                     Ok(())
                 } else {
-                    Err(format!(
+                    Err(CliErr::fail(format!(
                         "manual verification failed with {} error(s)",
                         report.errors.len()
-                    ))
+                    )))
                 }
             }
         }
         "verify-s2" => {
             let mut vectors_dir: Option<PathBuf> = None;
             let mut binding_path: Option<PathBuf> = None;
+            let mut fixture_path: Option<PathBuf> = None;
+            let mut report_path: Option<PathBuf> = None;
+            let mut s4_report = false;
             let mut json_mode = false;
             let mut idx = 0usize;
             let mut parse_err: Option<String> = None;
             while idx < sub_args.len() {
                 match sub_args[idx].as_str() {
-                    "--vectors" => match sub_args.get(idx + 1) {
-                        Some(v) => {
-                            vectors_dir = Some(PathBuf::from(v));
-                            idx += 2;
-                        }
-                        None => {
-                            parse_err = Some("missing directory path after --vectors".to_string());
+                    "--vectors" => {
+                        if vectors_dir.is_some() {
+                            parse_err = Some("duplicate flag --vectors".to_string());
                             break;
                         }
-                    },
-                    "--binding" => match sub_args.get(idx + 1) {
-                        Some(v) => {
-                            binding_path = Some(PathBuf::from(v));
-                            idx += 2;
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                vectors_dir = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing directory path after --vectors".to_string());
+                                break;
+                            }
                         }
-                        None => {
-                            parse_err = Some("missing file path after --binding".to_string());
+                    }
+                    "--binding" => {
+                        if binding_path.is_some() {
+                            parse_err = Some("duplicate flag --binding".to_string());
                             break;
                         }
-                    },
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                binding_path = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing file path after --binding".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--fixture" => {
+                        if fixture_path.is_some() {
+                            parse_err = Some("duplicate flag --fixture".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                fixture_path = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing file path after --fixture".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--report" => {
+                        if report_path.is_some() {
+                            parse_err = Some("duplicate flag --report".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                report_path = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing file path after --report".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--s4-report" => {
+                        s4_report = true;
+                        idx += 1;
+                    }
                     "--json" => {
                         json_mode = true;
                         idx += 1;
@@ -645,41 +740,273 @@ fn main() -> ExitCode {
                     }
                 }
             }
+            if parse_err.is_none() && fixture_path.is_some() && !s4_report {
+                parse_err = Some("--fixture requires --s4-report".to_string());
+            }
+
             if let Some(e) = parse_err {
-                Err(e)
+                Err(CliErr::usage(e))
             } else {
-                let report = verify_s2_dir(vectors_dir.as_deref(), binding_path.as_deref());
-                if json_mode {
-                    println!("{}", report.to_json().to_compact_ascii_json());
-                } else {
-                    println!(
-                        "aodc verify-s2 ({}, binding_status={}) -> {}",
-                        report.binding_id, report.binding_status, report.status
-                    );
-                    println!(
-                        "  vectors: {}/{} passed (rational_core={}, symbolic_and_display={}, failed={})",
-                        report.passed_vectors,
-                        report.total_vectors,
-                        report.rational_core_count,
-                        report.symbolic_and_display_count,
-                        report.failed_vectors
-                    );
-                    let mut status_parts = Vec::new();
-                    for (k, v) in &report.scientific_status_summary {
-                        status_parts.push(format!("{k}={v}"));
+                // P0-3 / P1-1: Validate `--report` BEFORE reading any inputs or creating dirs!
+                let validated_report = if let Some(ref raw_rp) = report_path {
+                    let mut explicit: Vec<&Path> = Vec::new();
+                    if let Some(ref v) = vectors_dir {
+                        explicit.push(v.as_path());
                     }
-                    println!("  scientific_status: {}", status_parts.join(", "));
-                    for f in &report.failures {
-                        eprintln!("  FAIL {}: {}", f.case_id, f.error);
+                    if let Some(ref b) = binding_path {
+                        explicit.push(b.as_path());
+                    }
+                    if let Some(ref f) = fixture_path {
+                        explicit.push(f.as_path());
+                    }
+                    let guarded = collect_guarded_roots(raw_rp, &explicit);
+                    match validate_runtime_output_path(raw_rp, &guarded) {
+                        Ok(p) => Some(p),
+                        Err(err) => return {
+                            eprintln!("aodc: {err}");
+                            ExitCode::from(2)
+                        },
+                    }
+                } else {
+                    None
+                };
+
+                if s4_report {
+                    match verify_s4_convergence_dir(
+                        vectors_dir.as_deref(),
+                        binding_path.as_deref(),
+                        fixture_path.as_deref(),
+                    ) {
+                        Ok((_val, pretty, passed)) => {
+                            if let Some(ref rp) = validated_report {
+                                if let Err(e) = write_report_atomic(rp, pretty.as_bytes()) {
+                                    Err(CliErr::fail(e))
+                                } else if passed {
+                                    Ok(())
+                                } else {
+                                    Err(CliErr::fail(
+                                        "S4 convergence verification failed".to_string(),
+                                    ))
+                                }
+                            } else {
+                                print!("{pretty}");
+                                if passed {
+                                    Ok(())
+                                } else {
+                                    Err(CliErr::fail(
+                                        "S4 convergence verification failed".to_string(),
+                                    ))
+                                }
+                            }
+                        }
+                        Err(e) => Err(CliErr::fail(e)),
+                    }
+                } else {
+                    let report = verify_s2_dir(vectors_dir.as_deref(), binding_path.as_deref());
+                    if let Some(ref rp) = validated_report {
+                        let pretty = report.to_json().to_pretty_utf8_json();
+                        if let Err(e) = write_report_atomic(rp, pretty.as_bytes()) {
+                            Err(CliErr::fail(e))
+                        } else if report.is_ok() {
+                            Ok(())
+                        } else {
+                            Err(CliErr::fail(format!(
+                                "S2 verification failed with {} failure(s)",
+                                report.failures.len()
+                            )))
+                        }
+                    } else {
+                        if json_mode {
+                            println!("{}", report.to_json().to_compact_ascii_json());
+                        } else {
+                            println!(
+                                "aodc verify-s2 ({}, binding_status={}) -> {}",
+                                report.binding_id, report.binding_status, report.status
+                            );
+                            println!(
+                                "  vectors: {}/{} passed (rational_core={}, symbolic_and_display={}, failed={})",
+                                report.passed_vectors,
+                                report.total_vectors,
+                                report.rational_core_count,
+                                report.symbolic_and_display_count,
+                                report.failed_vectors
+                            );
+                            let mut status_parts = Vec::new();
+                            for (k, v) in &report.scientific_status_summary {
+                                status_parts.push(format!("{k}={v}"));
+                            }
+                            println!("  scientific_status: {}", status_parts.join(", "));
+                            for f in &report.failures {
+                                eprintln!("  FAIL {}: {}", f.case_id, f.error);
+                            }
+                        }
+                        if report.is_ok() {
+                            Ok(())
+                        } else {
+                            Err(CliErr::fail(format!(
+                                "S2 verification failed with {} failure(s)",
+                                report.failures.len()
+                            )))
+                        }
                     }
                 }
-                if report.is_ok() {
-                    Ok(())
+            }
+        }
+        "eval-op" => {
+            let mut input_json: Option<String> = None;
+            let mut input_file: Option<PathBuf> = None;
+            let mut input_stdin = false;
+            let mut report_path: Option<PathBuf> = None;
+            let mut positional: Vec<String> = Vec::new();
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--input-json" => {
+                        if input_json.is_some() {
+                            parse_err = Some("duplicate flag --input-json".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                input_json = Some(v.clone());
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err = Some("missing JSON value after --input-json".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--input" => {
+                        if input_file.is_some() {
+                            parse_err = Some("duplicate flag --input".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                input_file = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err = Some("missing file path after --input".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--input-stdin" => {
+                        if input_stdin {
+                            parse_err = Some("duplicate flag --input-stdin".to_string());
+                            break;
+                        }
+                        input_stdin = true;
+                        idx += 1;
+                    }
+                    "--report" => {
+                        if report_path.is_some() {
+                            parse_err = Some("duplicate flag --report".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                report_path = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err = Some("missing file path after --report".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    other if other.starts_with('-') => {
+                        parse_err = Some(format!("unknown flag {other:?} for eval-op\n{}", usage()));
+                        break;
+                    }
+                    other => {
+                        positional.push(other.to_string());
+                        idx += 1;
+                    }
+                }
+            }
+
+            let input_sources = usize::from(input_json.is_some())
+                + usize::from(input_file.is_some())
+                + usize::from(input_stdin);
+
+            if let Some(e) = parse_err {
+                Err(CliErr::usage(e))
+            } else if positional.len() != 1 {
+                Err(CliErr::usage(format!(
+                    "eval-op expects exactly one <op> name\n{}",
+                    usage()
+                )))
+            } else if input_sources != 1 {
+                Err(CliErr::usage(
+                    "eval-op requires exactly one of --input-json <json>, --input <file>, or --input-stdin"
+                        .to_string(),
+                ))
+            } else {
+                // P0-3 / P1-1: Validate `--report` BEFORE reading any inputs or evaluating `<op>`!
+                let validated_report = if let Some(ref raw_rp) = report_path {
+                    let mut explicit: Vec<&Path> = Vec::new();
+                    if let Some(ref inp) = input_file {
+                        explicit.push(inp.as_path());
+                    }
+                    let guarded = collect_guarded_roots(raw_rp, &explicit);
+                    match validate_runtime_output_path(raw_rp, &guarded) {
+                        Ok(p) => Some(p),
+                        Err(err) => {
+                            eprintln!("aodc: {err}");
+                            return ExitCode::from(2);
+                        }
+                    }
                 } else {
-                    Err(format!(
-                        "S2 verification failed with {} failure(s)",
-                        report.failures.len()
-                    ))
+                    None
+                };
+
+                let raw_json_res: Result<String, String> = if let Some(s) = input_json {
+                    if s.len() > MAX_S4_INPUT_BYTES {
+                        Err(format!(
+                            "--input-json exceeds maximum size limit of {MAX_S4_INPUT_BYTES} bytes"
+                        ))
+                    } else {
+                        Ok(s)
+                    }
+                } else if let Some(ref path) = input_file {
+                    read_bounded_regular_file(path, "input", MAX_S4_INPUT_BYTES).and_then(|bytes| {
+                        String::from_utf8(bytes)
+                            .map_err(|_| "input: file is not valid UTF-8".to_string())
+                    })
+                } else {
+                    read_bounded_stdin(MAX_S4_INPUT_BYTES).and_then(|bytes| {
+                        String::from_utf8(bytes)
+                            .map_err(|_| "stdin: input is not valid UTF-8".to_string())
+                    })
+                };
+
+                let eval_res = raw_json_res
+                    .and_then(|raw| parse_strict_json(&raw).map_err(|e| e.to_string()))
+                    .and_then(|val| match val {
+                        JsonValue::Object(m) => Ok(m),
+                        _ => Err("eval-op input must be a JSON object".to_string()),
+                    })
+                    .and_then(|inputs| {
+                        eval_operation(&positional[0], &inputs).map_err(|e| e.to_string())
+                    });
+
+                // NEVER create or write `--report` when eval-op fails with exit 1 (`P0-3`)!
+                match eval_res {
+                    Ok(result) => {
+                        let pretty = result.to_pretty_utf8_json();
+                        if let Some(ref rp) = validated_report {
+                            write_report_atomic(rp, pretty.as_bytes()).map_err(CliErr::fail)
+                        } else {
+                            print!("{pretty}");
+                            Ok(())
+                        }
+                    }
+                    Err(e) => Err(CliErr::fail(e)),
                 }
             }
         }
@@ -729,9 +1056,9 @@ fn main() -> ExitCode {
                 }
             }
             if let Some(e) = parse_err {
-                Err(e)
+                Err(CliErr::fail(e))
             } else if positional.len() != 1 {
-                Err(format!("expected <pdf>\n{}", usage()))
+                Err(CliErr::fail(format!("expected <pdf>\n{}", usage())))
             } else {
                 let report = audit_pdf_file(
                     Path::new(&positional[0]),
@@ -769,10 +1096,10 @@ fn main() -> ExitCode {
                 if report.is_ok() {
                     Ok(())
                 } else {
-                    Err(format!(
+                    Err(CliErr::fail(format!(
                         "PDF audit failed with {} error(s)",
                         report.errors.len()
-                    ))
+                    )))
                 }
             }
         }
@@ -812,15 +1139,19 @@ fn main() -> ExitCode {
                 } else {
                     Ok(())
                 }
-            }),
-        other => Err(format!("unknown subcommand {other:?}\n{}", usage())),
+            })
+            .map_err(CliErr::fail),
+        other => Err(CliErr::fail(format!(
+            "unknown subcommand {other:?}\n{}",
+            usage()
+        ))),
     };
 
     match result {
         Ok(()) => ExitCode::SUCCESS,
-        Err(msg) => {
-            eprintln!("aodc: {msg}");
-            ExitCode::from(1)
+        Err(err) => {
+            eprintln!("aodc: {}", err.msg);
+            ExitCode::from(err.code)
         }
     }
 }

@@ -38,8 +38,9 @@
 #aod-provenance[
   Upstream read-only bindings verified against `SOURCE_BINDING.json`: AOD Main `S0@98ddfa0` (`v41.02`),
   M4 Typst registry `S1b@cea71a7` (`455` Main labels, digest `a05a787d75633c95e09c3b15fa9900a270d4a4bb31418a2423c7e8121fac9289`),
-  and Stage 2 golden vectors `S2@3122c94` (`30` vendored vectors, status `DRAFT_CANDIDATE_UNDER_S2_REVIEW`, PR `#51`).
-  Zero upstream mutations are permitted in `rpoyau/aod`.
+  Stage 2 golden vectors `S2@3122c94` (`30` vendored vectors, status `DRAFT_CANDIDATE_UNDER_S2_REVIEW`, PR `#51`),
+  and Stage 4 Rust exact-core convergence `S4@e013401` (`90`-tick `wavelet_shedding_simulation.csv`, status
+  `DRAFT_CANDIDATE_UNDER_S4_REVIEW`, PR `#53`). Zero upstream mutations are permitted in `rpoyau/aod`.
 ]
 
 #outline(title: "Contents", depth: 2)

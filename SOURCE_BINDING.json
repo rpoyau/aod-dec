@@ -116,6 +116,25 @@
           "sha256": "d2ea7c41ff7fb7b62258cb137576f12f667c38377406d695557fa37b3541d19f"
         }
       ]
+    },
+    {
+      "id": "S4@e013401",
+      "stage": "S4",
+      "status": "DRAFT_CANDIDATE_UNDER_S4_REVIEW",
+      "pr_number": 53,
+      "repository": "rpoyau/aod",
+      "ref_name": "m4-s4-rust-exact-core",
+      "canonical_version": "v41.02",
+      "commit": "e0134017a816c699ee71a4342044c007b63917db",
+      "tree": "789e28b5c0c7c24c91f580b643e1bd0017a89dd6",
+      "base_commit_binding": "3a2418defb4fa92e6fbfc8951b81990fc57ce0e6",
+      "vendored_files": [
+        {
+          "upstream_path": "wavelet_shedding_simulation.csv",
+          "local_path": "bindings/aod/s4_fixtures/wavelet_shedding_simulation.csv",
+          "sha256": "d7b0592997d47b2b550508d663afe8943a98ba9d58d087ce77e9d4d0a0c3ff40"
+        }
+      ]
     }
   ],
   "historical_bindings": [

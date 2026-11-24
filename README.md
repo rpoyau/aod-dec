@@ -69,9 +69,13 @@ cargo run --bin aodc -- exec /tmp/m3.ir.json
 cargo run --bin aodc -- manual-verify docs/manual
 cargo run --bin aodc -- manual-verify docs/manual --json
 
-# Verify all 30 Stage 2 (S2@3122c94) cross-language golden vectors (human + portable zero-float JSON)
+# Verify all 30 Stage 2 (S2@3122c94) vectors + 90-tick S4@e013401 convergence + canonical aod.s4.rust.report.v1
 cargo run --bin aodc -- verify-s2
 cargo run --bin aodc -- verify-s2 --json
+cargo run --bin aodc -- verify-s2 --s4-report --report /tmp/s4_report.json
+
+# Evaluate any single exact S2/S4 operation (24 positive golden ops + cycle_shedding_trace)
+cargo run --bin aodc -- eval-op cycle_shedding_trace --input-json '{"initial_burden":"0","eta":"0.82","gamma":"0.55","lambda_reclose":"0.38","ticks":[{"lead":"0.8","lag":"0.2","compatibility":"0.55"}]}'
 
 # Audit compiled PDFs (pure-Rust std-only RFC 1950/1951 zero-raster, unresolved-ref, page-count, & SHA-256 determinism)
 cargo run --bin aodc -- audit-pdf --min-pages 6 --compare-pdf /tmp/manual-2.pdf /tmp/manual-1.pdf
@@ -91,14 +95,14 @@ cargo run --bin aodc -- test manual_examples
   - `boundary.dec` (Manual §§5–6 11-bin double-slit cross-return $\delta_3$, short-window clipping, purely native `3:3:7_yro` saddle, moving boundary, Stokes cancellation)
   - `cells.dec` (M3 4-cube measures, quarter-symmetry unit-disk enclosures `n=1..16`, rectangle metric/coord swap, exact discrete-law moments, affine covariance, 16-step tesseract transport)
   - `metrology.dec` (native turn advances, `prop:m3-atomic-gain`, strictly quarantined `quarantine Q_ext SiMetrology:` for $\Delta\nu_{\text{Cs}}$, Hellwig H-maser, and separate NIST-F2 uncertainty budgets, and strictly quarantined `quarantine Q_ext DisplayQuarantine:` for post-freeze Higgs `MeV`/`GeV` mapping, LHC CMS/ATLAS 6-dp half-to-even rounding & exact residuals via one-way `qext_round_half_even`/`qext_format_fixed`, and half-ULP printed-token enclosures)
-  - `sectors.dec` (strictly native, parameterized S2 sectors: SPARC G0 exact bins, cycle shedding, awareness & delayed mindfulness recurrence, oriented Stokes cut balance, Brownian MSB-$x$ vs. Run-Tumble LSB-$x$ octants, purely dimensionless internal Higgs candidate scoring, SWELLS K1 / Tau `UNRESOLVED_PROVENANCE_QUARANTINED` guard, and MAP-21 18-digit exact variance)
-- **`manual_examples/`:** 9 positive fixtures (`01_dec_ledger`..`09_s2_higgs_and_quarantined_lensing` with verified sibling `.stdout`) and 7 negative controls (`negative_controls/nc01..nc07` with `.expect_error`), verified byte-identical across Exact VM, AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2`, and hermetic `DecIR v2`.
+  - `sectors.dec` (strictly native, parameterized S2/S4 sectors: SPARC G0 exact bins, single-step & multi-tick `cycle_shedding_trace_summary`, awareness & delayed mindfulness recurrence, oriented Stokes cut balance, Brownian MSB-$x$ vs. Run-Tumble LSB-$x$ octants, purely dimensionless internal Higgs candidate scoring, SWELLS K1 / Tau `UNRESOLVED_PROVENANCE_QUARANTINED` guard, and MAP-21 18-digit exact variance)
+- **`manual_examples/`:** 10 positive fixtures (`01_dec_ledger`..`10_s4_cycle_shedding_90tick` with verified sibling `.stdout`) and 7 negative controls (`negative_controls/nc01..nc07` with `.expect_error`), verified byte-identical across Exact VM, AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2`, and hermetic `DecIR v2`.
 
 ## Modular M4-Aligned Typst Manual & Verification (`docs/manual/`)
 
 - **`docs/manual/`:** Modular Typst manual (`main.typ`, `refs.bib`, 7 General Mechanics chapters, 5 pure-vector native Typst figures, and 3 exact-integer JSON data files) bound read-only to vendored `/bindings/aod/aod_schema.typ` and `/bindings/aod/main_registry.json`.
-- **Six-pass `aodc manual-verify docs/manual [--json]`:** Verifies `#include`/`#import` containment & `SOURCE_BINDING.json` hashes (including both vendored S2 `.jsonl` digests), balanced Typst scanning, all Main registry/internal/BibTeX references, zero rasters/`@preview` packages, pure-Rust equivalents of all 4 `rpoyau/aod-lint` `TypstAstPass` rules, 3-mode (`VM`/`AOT -O2`/`ORC JIT -O2`) live execution of inline Dec blocks and all 16 `@dec-file` Manual fixtures, and live field-by-field parity of `docs/manual/data/*.json`.
-- **Stage 2 Golden-Vector Verifier (`aodc verify-s2 [--vectors <dir>] [--binding <path>] [--json]`):** Executes all 30 vendored S2/S4 cross-language golden vectors (`24` `rational_core.jsonl` + `6` `symbolic_and_display.jsonl`, covering all 27 distinct operations) against the shared `aod-core` kernel with strict 11-key `aod.s4.vector.v1` schema enforcement, symlink rejection, SHA-256 verification against `SOURCE_BINDING.json`, orthogonal scientific-status rollups (`AUTHENTICATED_EXACT=18`, `CONFORMANT_DECLARED_FIXTURE=5`, `RETAINED_DATA_CONFORMANT=6`, `UNRESOLVED_PROVENANCE_QUARANTINED=1`), and portable zero-host-path/zero-timestamp JSON output.
+- **Six-pass `aodc manual-verify docs/manual [--json]`:** Verifies `#include`/`#import` containment & `SOURCE_BINDING.json` hashes (including vendored S2 `.jsonl` and S4 `.csv` digests), balanced Typst scanning, all Main registry/internal/BibTeX references, zero rasters/`@preview` packages, pure-Rust equivalents of all 4 `rpoyau/aod-lint` `TypstAstPass` rules, 3-mode (`VM`/`AOT -O2`/`ORC JIT -O2`) live execution of inline Dec blocks and all 17 `@dec-file` Manual fixtures, and live field-by-field parity of `docs/manual/data/*.json`.
+- **Stage 2/Stage 4 Convergence Verifier (`aodc verify-s2 [--s4-report] [--report <path>] [--json]`) & `aodc eval-op`:** Executes all 30 vendored S2/S4 cross-language golden vectors (`24` `rational_core.jsonl` + `6` `symbolic_and_display.jsonl`), the exact 90-tick `S4@e013401` `wavelet_shedding_simulation.csv` conservation & tolerance check (`11` active shedding ticks on `29..=39`, `102`-digit exact rational denominator), and the `aod-core` crate policy audit with strict 11-key `aod.s4.vector.v1` schema enforcement, ancestor-aware symlink-safe `--report` path guards (exit code `2`), atomic writes, pre-validation error sanitization, orthogonal scientific-status rollups (`AUTHENTICATED_EXACT=18`, `CONFORMANT_DECLARED_FIXTURE=5`, `RETAINED_DATA_CONFORMANT=6`, `UNRESOLVED_PROVENANCE_QUARANTINED=1`), and byte-identical debug-vs-release `aod.s4.rust.report.v1` JSON output.
 - **Pure-Rust zero-raster PDF auditor (`aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>`):** 100% `std`-only (`#![forbid(unsafe_code)]`, zero floats, zero external crates, zero `libLLVM` dependency) with a self-contained RFC 1950 (zlib + Adler-32) and RFC 1951 (DEFLATE stored, fixed Huffman, and dynamic Huffman) inflater. Masks binary stream payloads before root scanning, parses balanced nested `<< ... >>` dictionaries and direct/indirect `/Length` cleanly without greedy EOL stripping, fails closed on disallowed or corrupt stream `/Filter` entries and zip bombs, rejects `/Subtype /Image` XObjects (including inside `/FlateDecode` `/ObjStm` streams), inline `BI..ID..EI` raster images, and unresolved references while permitting standard ISO 32000-1 `/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]` boilerplate on pure-vector Typst PDFs, and enforces `--min-pages`, symmetric symlink/size guards, and byte-identical `--compare-pdf` SHA-256 determinism with portable `aod.dec.pdf.audit.v1` JSON output.
 
 ### Offline vs. CI Verification Matrix
@@ -106,14 +110,14 @@ cargo run --bin aodc -- test manual_examples
 | Gate | Offline Local | GitHub Actions CI |
 | :--- | :---: | :---: |
 | `RUSTFLAGS="-D warnings" cargo test --workspace --offline` (debug & `--release`) | Verified | Verified |
-| `aodc test` (`v1_examples` 10/10, `v2_smoke` 3/3, `manual_examples` 16/16) | Verified | Verified |
-| `aodc verify-s2` & `--json` (30/30 Stage 2 golden vectors, `S2@3122c94`) | Verified | Verified |
+| `aodc test` (`v1_examples` 10/10, `v2_smoke` 3/3, `manual_examples` 17/17) | Verified | Verified |
+| `aodc verify-s2 --s4-report` & `aodc eval-op` (30/30 S2 vectors + 90-tick `S4@e013401` CSV, debug == release `cmp`) | Verified | Verified |
 | `aodc probe-hw` & `aodc learn` (honest compile-inclusive amortization) | Verified | Verified |
-| `aodc manual-verify docs/manual` & `--json` (all 6 passes live, `dec_files_checked: 16`) | Verified | Verified |
+| `aodc manual-verify docs/manual` & `--json` (all 6 passes live, `dec_files_checked: 17`) | Verified | Verified |
 | Pure-Rust `aodc audit-pdf` unit/CLI suite (`tests/pdf_audit.rs`) & zero-Python repo/CI guard | Verified | Verified |
 | `typst compile --root . --creation-timestamp 0` (SHA-256-verified `v0.15.1`, double-build PDF + `aodc audit-pdf` + `pdfimages`) | Not run locally (`typst` absent offline) | Verified in `.github/workflows/ci.yml` |
 | External `rpoyau/aod-lint check --strict` over `docs/manual/**/*.typ` | Mirrored in Pass 4 offline | Verified in `.github/workflows/ci.yml` |
 
 ## Provenance & Upstream Bindings
 
-All upstream AOD commit/tree hashes, equation numbers (`S0@98ddfa0` resolved against vendored read-only `bindings/aod/main_registry.json` from `S1b@cea71a7`), the Stage 2 golden-vector draft binding (`S2@3122c94`, upstream PR `#51`, `m4-s2-reference-engine`, explicitly tagged `DRAFT_CANDIDATE_UNDER_S2_REVIEW` with `RC-020` preserving `UNRESOLVED_PROVENANCE_QUARANTINED`), verbatim historical v1 `v40.01r10` provenance, and the 10 frozen v1 regression hashes are recorded in [`SOURCE_BINDING.json`](SOURCE_BINDING.json).
+All upstream AOD commit/tree hashes, equation numbers (`S0@98ddfa0` resolved against vendored read-only `bindings/aod/main_registry.json` from `S1b@cea71a7`), the Stage 2 golden-vector draft binding (`S2@3122c94`, upstream PR `#51`, `m4-s2-reference-engine`, explicitly tagged `DRAFT_CANDIDATE_UNDER_S2_REVIEW` with `RC-020` preserving `UNRESOLVED_PROVENANCE_QUARANTINED`), the Stage 4 Rust exact-core convergence draft binding (`S4@e013401`, upstream PR `#53`, `m4-s4-rust-exact-core`, explicitly tagged `DRAFT_CANDIDATE_UNDER_S4_REVIEW` with vendored CRLF `wavelet_shedding_simulation.csv`), verbatim historical v1 `v40.01r10` provenance, and the 10 frozen v1 regression hashes are recorded in [`SOURCE_BINDING.json`](SOURCE_BINDING.json).
