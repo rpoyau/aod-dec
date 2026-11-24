@@ -1,0 +1,135 @@
+# AOD Manual §4 — Declared Edge Computation (D.E.C.) Ledger Standard Library
+# Reference binding: rpoyau/aod@98ddfa0 (manual/sections/00_dec_ledger.tex)
+
+use aod::core::{ratio, support_pi, support_rd, support_pressure, support_overhang}
+use aod::ledger::{probability, sadar_promote, shedding_excess}
+
+struct KernelFour:
+    p1: ratio
+    p2: ratio
+    p3: ratio
+    p4: ratio
+    total: int
+
+struct RoleSums:
+    neg_sum: ratio
+    hinge_sum: ratio
+    pos_sum: ratio
+
+struct SlideThree:
+    p1: ratio
+    p2: ratio
+    p3: ratio
+    total: int
+    returned_sum: ratio
+    tunnel_prob: ratio
+
+struct TunnelClipResult:
+    rd_unclipped: int
+    rho_clipped: int
+    pressure: int
+    tunnel_contrib: ratio
+
+struct BoundaryAudit:
+    pressure: int
+    closure_cap: int
+    delta_close: int
+    x_shedding: int
+
+Dec clip_min(a: int, b: int) -> int:
+    if a < b:
+        return a
+    return b
+
+Dec isotropic_four() -> KernelFour:
+    return KernelFour { p1: 1/4r, p2: 1/4r, p3: 1/4r, p4: 1/4r, total: 4 }
+
+Dec normalize_four(w1: int, w2: int, w3: int, w4: int) -> KernelFour:
+    assert w1 >= 0 and w2 >= 0 and w3 >= 0 and w4 >= 0
+    let z = w1 + w2 + w3 + w4
+    assert z > 0
+    return KernelFour {
+        p1: ratio(w1, z),
+        p2: ratio(w2, z),
+        p3: ratio(w3, z),
+        p4: ratio(w4, z),
+        total: z
+    }
+
+Dec role_sums_four(k: KernelFour, s1: t1, s2: t1, s3: t1, s4: t1) -> RoleSums:
+    mut neg = 0/1r
+    mut hinge = 0/1r
+    mut pos = 0/1r
+    if s1 == -1t:
+        neg = neg + k.p1
+    elif s1 == 0t:
+        hinge = hinge + k.p1
+    else:
+        pos = pos + k.p1
+    if s2 == -1t:
+        neg = neg + k.p2
+    elif s2 == 0t:
+        hinge = hinge + k.p2
+    else:
+        pos = pos + k.p2
+    if s3 == -1t:
+        neg = neg + k.p3
+    elif s3 == 0t:
+        hinge = hinge + k.p3
+    else:
+        pos = pos + k.p3
+    if s4 == -1t:
+        neg = neg + k.p4
+    elif s4 == 0t:
+        hinge = hinge + k.p4
+    else:
+        pos = pos + k.p4
+    return RoleSums { neg_sum: neg, hinge_sum: hinge, pos_sum: pos }
+
+Dec block_dwell_slide(w1: int, w2: int, w3: int) -> SlideThree:
+    assert w1 >= 0 and w2 >= 0 and w3 >= 0
+    let z = w1 + w2 + w3
+    assert z > 0
+    let p1 = ratio(w1, z)
+    let p2 = ratio(w2, z)
+    let p3 = ratio(w3, z)
+    return SlideThree {
+        p1: p1,
+        p2: p2,
+        p3: p3,
+        total: z,
+        returned_sum: p1 + p2,
+        tunnel_prob: p3
+    }
+
+Dec tunnel_clip(rd_val: int, win_len: int, c3: int, tunnel_prob: ratio) -> TunnelClipResult:
+    assert rd_val >= 0 and win_len >= 0 and c3 > 0
+    let rho = clip_min(rd_val, win_len)
+    let pd = c3 * rho
+    let contrib = tunnel_prob * ratio(pd, 1)
+    return TunnelClipResult {
+        rd_unclipped: rd_val,
+        rho_clipped: rho,
+        pressure: pd,
+        tunnel_contrib: contrib
+    }
+
+Dec sadar_from_clipped(c3: int, rho_clipped: int, att: ratio) -> ratio:
+    return sadar_promote(c3, rho_clipped, att)
+
+Dec boundary_audit(p_d: int, c_close: int) -> BoundaryAudit:
+    let delta = p_d - c_close
+    let xs = shedding_excess(p_d, c_close)
+    return BoundaryAudit {
+        pressure: p_d,
+        closure_cap: c_close,
+        delta_close: delta,
+        x_shedding: xs
+    }
+
+Dec tau_missing_burden(missing_num: int, missing_den: int) -> ratio:
+    assert missing_den > 0
+    return ratio(missing_num, missing_den)
+
+Dec r02_gap(exact_val: ratio, rounded_proxy: ratio) -> ratio:
+    return exact_val - rounded_proxy

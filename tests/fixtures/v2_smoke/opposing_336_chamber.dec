@@ -1,0 +1,45 @@
+# Unbiased opposing 3:3:6 chamber smoke fixture (zero hardcoded physical target outcomes).
+# Explicitly tagged as DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED by the sandbox engine.
+
+chamber OpposingChamber:
+    space = box([0..64, 0..64, 0..64])
+    walls = open
+    engine = sandbox_dec
+
+prepare TwoOpposing336 in OpposingChamber:
+    clock ref_clock = 3
+    inject 3:3:6 at (24, 32, 32) dir +X orient +1t shells 2
+    inject 3:3:6 at (40, 32, 32) dir -X orient -1t shells 2
+
+observe CoreProbe:
+    tracer center_window:
+        region = box([24..40, 24..40, 24..40])
+        capture = [support, returns, hinges, shedding]
+    sensor outer_shell:
+        region = box([0..64, 0..64, 0..64])
+        capture = [crossings, cadence]
+
+observe ExtraProbes:
+    tracer north_watch:
+        region = box([20..44, 28..36, 28..36])
+        capture = [support, shedding]
+    sensor tick_counter(view) -> int:
+        return view.carrier_count
+
+Dec main() -> int:
+    let run_zero = simulate TwoOpposing336 for 16 ticks
+    let run_one = simulate TwoOpposing336 for 16 ticks with CoreProbe
+    let run_multi = simulate TwoOpposing336 for 16 ticks with CoreProbe, ExtraProbes
+
+    assert run_zero.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert run_zero.final_state_hash == run_one.final_state_hash
+    assert run_zero.final_state_hash == run_multi.final_state_hash
+    assert run_zero.carrier_count == 2
+    assert run_zero.shedding_event_count >= 1
+    assert run_zero.wavelet_event_count >= 1
+
+    emit run_zero.model_status
+    emit run_zero.final_state_hash
+    emit run_zero.shedding_event_count
+    emit run_zero.total_returns
+    return 0

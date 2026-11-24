@@ -1,0 +1,5 @@
+# Negative Control nc03 — Odd-length support literal without `_yro` tag MUST fail at compile time!
+Dec main() -> int:
+    let bad = 3:3:7
+    emit bad
+    return 0

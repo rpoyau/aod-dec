@@ -1,0 +1,116 @@
+# AOD Manual §§5-6 — Boundary Currents, Double-Slit Cross-Return delta_3,
+# Short-Window Clipping, Moving Boundary, and Stokes Cancellation
+# Reference binding: rpoyau/aod@98ddfa0 (03_short_window_rcd_shedding_fixtures.tex,
+#                                        04_boundary_current_applications.tex)
+
+use aod::core::{ratio, support_pi, support_rd, support_pressure, support_overhang}
+use stdlib::aod::ledger::{clip_min, boundary_audit}
+
+struct Delta3:
+    sign: t1
+    mag: int
+
+struct DoubleSlitSummary:
+    sum_t0: int
+    sum_cx: int
+    sum_tx: int
+    sum_obs: int
+    sum_delta: int
+    sum_mag: int
+    center_sign: t1
+    center_mag: int
+
+struct ShortWindowRow:
+    pi_val: int
+    rd_val: int
+    rho_clipped: int
+    pressure: int
+    overhang: int
+    delta_close: int
+    x_shedding: int
+
+Dec delta3_of(pred: int, obs: int) -> Delta3:
+    let d = pred - obs
+    if d > 0:
+        return Delta3 { sign: +1t, mag: d }
+    elif d < 0:
+        return Delta3 { sign: -1t, mag: -d }
+    return Delta3 { sign: 0t, mag: 0 }
+
+# Canonical 11-bin Dimonhexon double-slit cross-return fixture (Manual Table 1)
+Dec double_slit_eval() -> DoubleSlitSummary:
+    let s_bins = [4, 9, 16, 25, 31, 35, 31, 25, 16, 9, 4]
+    let cx_bins = [0, -8, -12, 8, 18, 26, 18, 8, -12, -8, 0]
+    let obs_bins = [8, 11, 19, 59, 79, 95, 80, 58, 21, 10, 8]
+    mut sum_t0 = 0
+    mut sum_cx = 0
+    mut sum_tx = 0
+    mut sum_obs = 0
+    mut sum_delta = 0
+    mut sum_mag = 0
+    mut center_sign = 0t
+    mut center_mag = 0
+    for i in 0..11:
+        let t0 = s_bins[i] + s_bins[i]
+        let cx = cx_bins[i]
+        let tx = t0 + cx
+        let ob = obs_bins[i]
+        let d = tx - ob
+        let d3 = delta3_of(tx, ob)
+        sum_t0 = sum_t0 + t0
+        sum_cx = sum_cx + cx
+        sum_tx = sum_tx + tx
+        sum_obs = sum_obs + ob
+        sum_delta = sum_delta + d
+        sum_mag = sum_mag + d3.mag
+        if i == 5:
+            center_sign = d3.sign
+            center_mag = d3.mag
+    return DoubleSlitSummary {
+        sum_t0: sum_t0,
+        sum_cx: sum_cx,
+        sum_tx: sum_tx,
+        sum_obs: sum_obs,
+        sum_delta: sum_delta,
+        sum_mag: sum_mag,
+        center_sign: center_sign,
+        center_mag: center_mag
+    }
+
+Dec eval_short_window(sf: support, c3: int, h_mu: int, win_len: int, c_close: int) -> ShortWindowRow:
+    let pi_v = support_pi(sf)
+    let rd_v = support_rd(sf, h_mu)
+    let rho_c = clip_min(rd_v, win_len)
+    let p_d = support_pressure(sf, c3, h_mu, win_len)
+    let q_d = support_overhang(sf, c3, h_mu, win_len)
+    let aud = boundary_audit(p_d, c_close)
+    return ShortWindowRow {
+        pi_val: pi_v,
+        rd_val: rd_v,
+        rho_clipped: rho_c,
+        pressure: p_d,
+        overhang: q_d,
+        delta_close: aud.delta_close,
+        x_shedding: aud.x_shedding
+    }
+
+# Moving boundary signed flux: Phi_mov = Phi_cross - Phi_sweep + Phi_shedding
+Dec moving_boundary_flux(cross: int, sweep: int, shedding: int) -> int:
+    return cross - sweep + shedding
+
+Dec scoped_channel_flux(c3: int, rho: int, win_len: int, att: ratio) -> ratio:
+    let rho_c = clip_min(rho, win_len)
+    return ratio(c3 * rho_c, 1) * att
+
+Dec stokes_cancellation(forward_flux: ratio, reverse_flux: ratio) -> ratio:
+    return forward_flux + reverse_flux
+
+Dec proton_support() -> support:
+    return 3:3:6
+
+Dec electron_support() -> support:
+    return 1:2:6
+
+# Purely native 3:3:7_yro odd-length support (zero external mass map!)
+Dec saddle_337_support() -> support:
+    return 3:3:7_yro

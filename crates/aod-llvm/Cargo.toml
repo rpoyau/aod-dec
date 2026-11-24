@@ -1,0 +1,13 @@
+[package]
+name = "aod-llvm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "std-only LLVM 18 C API dlopen FFI, parameterized codegen plans, CPU discovery, live JIT micro-probes, zero-float paired bootstrap learner, AOT ELF linker, and ORC LLJIT."
+
+[dependencies]
+aod-core = { path = "../aod-core" }
+aod-rt = { path = "../aod-rt" }
+
+[lints]
+workspace = true

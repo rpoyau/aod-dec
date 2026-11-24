@@ -1,0 +1,22 @@
+# Each return retains the start and a structural hinge.
+Dec recur(t) -> out:
+    (trace t) -> trace out:
+        t = step(t, q4(1), t1(1))
+        t = hinge(t)
+        t = step(t, q4(0), t1(-1))
+        out = close(t)
+
+Dec main() -> result:
+    () -> t32 result:
+        trace a = trace("B", "a", q4(0))
+        a = recur(a)
+        assert phases(a) == 1
+        assert beats(a) == 0
+        a = close(a)
+        assert phases(a) == 1
+        a = recur(a)
+        assert phases(a) == 2
+        assert beats(a) == 1
+        emit a
+        emit rate(a)
+        result = t32(0)

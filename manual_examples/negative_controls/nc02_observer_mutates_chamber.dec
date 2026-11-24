@@ -1,0 +1,7 @@
+# Negative Control nc02 — Read-only observer attempting to mutate ChamberView MUST fail!
+observe MutatingProbe:
+    tracer bad(view):
+        view.tick = 0
+
+Dec main() -> int:
+    return 0

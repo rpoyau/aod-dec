@@ -1,0 +1,14 @@
+[package]
+name = "aodc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Dec v2 compiler, compile-time firewall checker, hermetic DecIR verifier, exact reference evaluator, LLVM 18 IR lowering, and CLI."
+
+[dependencies]
+aod-core = { path = "../aod-core" }
+aod-rt = { path = "../aod-rt" }
+aod-llvm = { path = "../aod-llvm" }
+
+[lints]
+workspace = true

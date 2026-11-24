@@ -1,0 +1,175 @@
+# AOD Manual M3 (PRs #45/#46) — Closure Wavelets, Duon/Duad Seating, Recipient Lattice,
+# and Exact Cyclotomic Z_12 DFT in Q[x]/(x^4 - x^2 + 1) (ZERO floats!)
+# Reference binding: rpoyau/aod@98ddfa0 (00_native_closure_wave_temporal_fixtures.tex)
+
+use aod::core::ratio
+use aod::wavelet::{
+    window_dedup_count,
+    native_cadence_ratio,
+    single_contact_association,
+    recipient_eval_demo
+}
+
+const DUON_VARIANT_COUNT: int = 12
+
+enum DuonVariant:
+    Monon
+    Dyad
+    ReturnLoop
+    HingeTurn
+    DwellHold
+    SlideBypass
+    CrossReturn
+    ExoShed
+    EndoCapture
+    CoupledBeat
+    OriginSeed
+    ClosedRing
+
+enum DuadSeat:
+    OpenDuon
+    SeatedDuad
+
+struct DuadRecord:
+    seat: DuadSeat
+    has_hinge_0h: bool
+    current: int
+
+struct WindowCount:
+    phases: int
+    beats: int
+
+struct OpposingCancel:
+    net_current: int
+    left_history: int
+    right_history: int
+    retained_histories: int
+
+# Exact element of Q(zeta_12) = Q[x]/(x^4 - x^2 + 1): c0 + c1*x + c2*x^2 + c3*x^3
+struct Cyclo12:
+    c0: ratio
+    c1: ratio
+    c2: ratio
+    c3: ratio
+
+Dec seat_duad(cur_a: int, cur_b: int, has_hinge_0h: bool) -> DuadRecord:
+    if cur_a == cur_b and cur_a != 0 and has_hinge_0h:
+        return DuadRecord { seat: DuadSeat::SeatedDuad, has_hinge_0h: true, current: cur_a }
+    return DuadRecord { seat: DuadSeat::OpenDuon, has_hinge_0h: has_hinge_0h, current: cur_a }
+
+# Strict seating gate: a SeatedDuad MUST retain the mediating 0_H hinge (fails if dropped, nc06).
+Dec require_seated_duad(cur_a: int, cur_b: int, has_hinge_0h: bool) -> DuadRecord:
+    assert cur_a == cur_b and cur_a != 0
+    assert has_hinge_0h
+    return DuadRecord { seat: DuadSeat::SeatedDuad, has_hinge_0h: true, current: cur_a }
+
+# Half-open window (u, v]: origin j = 0 counts as a phase (NOT a beat); positive cuts count beats!
+Dec count_cuts_window(cuts: [int], u: int, v: int) -> WindowCount:
+    assert u < v
+    mut phases = 0
+    mut beats = 0
+    for j in cuts:
+        if j > u and j <= v:
+            phases = phases + 1
+            if j > 0:
+                beats = beats + 1
+    return WindowCount { phases: phases, beats: beats }
+
+Dec cancel_opposing_currents(left_cur: int, right_cur: int) -> OpposingCancel:
+    return OpposingCancel {
+        net_current: left_cur + right_cur,
+        left_history: left_cur,
+        right_history: right_cur,
+        retained_histories: 2
+    }
+
+Dec cyclo_zero() -> Cyclo12:
+    return Cyclo12 { c0: 0/1r, c1: 0/1r, c2: 0/1r, c3: 0/1r }
+
+Dec cyclo_add(a: Cyclo12, b: Cyclo12) -> Cyclo12:
+    return Cyclo12 {
+        c0: a.c0 + b.c0,
+        c1: a.c1 + b.c1,
+        c2: a.c2 + b.c2,
+        c3: a.c3 + b.c3
+    }
+
+Dec cyclo_scale(a: Cyclo12, s: ratio) -> Cyclo12:
+    return Cyclo12 {
+        c0: a.c0 * s,
+        c1: a.c1 * s,
+        c2: a.c2 * s,
+        c3: a.c3 * s
+    }
+
+# Exact 12th root of unity zeta_12^k in Q[x]/(x^4 - x^2 + 1)
+Dec zeta12_pow(k: int) -> Cyclo12:
+    let r = k % 12
+    if r == 0:
+        return Cyclo12 { c0: 1/1r, c1: 0/1r, c2: 0/1r, c3: 0/1r }
+    elif r == 1:
+        return Cyclo12 { c0: 0/1r, c1: 1/1r, c2: 0/1r, c3: 0/1r }
+    elif r == 2:
+        return Cyclo12 { c0: 0/1r, c1: 0/1r, c2: 1/1r, c3: 0/1r }
+    elif r == 3:
+        return Cyclo12 { c0: 0/1r, c1: 0/1r, c2: 0/1r, c3: 1/1r }
+    elif r == 4:
+        return Cyclo12 { c0: -1/1r, c1: 0/1r, c2: 1/1r, c3: 0/1r }
+    elif r == 5:
+        return Cyclo12 { c0: 0/1r, c1: -1/1r, c2: 0/1r, c3: 1/1r }
+    elif r == 6:
+        return Cyclo12 { c0: -1/1r, c1: 0/1r, c2: 0/1r, c3: 0/1r }
+    elif r == 7:
+        return Cyclo12 { c0: 0/1r, c1: -1/1r, c2: 0/1r, c3: 0/1r }
+    elif r == 8:
+        return Cyclo12 { c0: 0/1r, c1: 0/1r, c2: -1/1r, c3: 0/1r }
+    elif r == 9:
+        return Cyclo12 { c0: 0/1r, c1: 0/1r, c2: 0/1r, c3: -1/1r }
+    elif r == 10:
+        return Cyclo12 { c0: 1/1r, c1: 0/1r, c2: -1/1r, c3: 0/1r }
+    return Cyclo12 { c0: 0/1r, c1: 1/1r, c2: 0/1r, c3: -1/1r }
+
+# Complex conjugate in Q(zeta_12): conj(zeta^k) = zeta^(-k mod 12)
+Dec cyclo_conj(a: Cyclo12) -> Cyclo12:
+    let t0 = cyclo_scale(zeta12_pow(0), a.c0)
+    let t1 = cyclo_scale(zeta12_pow(11), a.c1)
+    let t2 = cyclo_scale(zeta12_pow(10), a.c2)
+    let t3 = cyclo_scale(zeta12_pow(9), a.c3)
+    return cyclo_add(cyclo_add(t0, t1), cyclo_add(t2, t3))
+
+# Exact product in Q[x]/(x^4 - x^2 + 1)
+Dec cyclo_mul(a: Cyclo12, b: Cyclo12) -> Cyclo12:
+    # Polynomial product degrees 0..6 reduced mod (x^4 - x^2 + 1):
+    # x^4 = x^2 - 1, x^5 = x^3 - x, x^6 = -1
+    let d0 = a.c0 * b.c0
+    let d1 = a.c0 * b.c1 + a.c1 * b.c0
+    let d2 = a.c0 * b.c2 + a.c1 * b.c1 + a.c2 * b.c0
+    let d3 = a.c0 * b.c3 + a.c1 * b.c2 + a.c2 * b.c1 + a.c3 * b.c0
+    let d4 = a.c1 * b.c3 + a.c2 * b.c2 + a.c3 * b.c1
+    let d5 = a.c2 * b.c3 + a.c3 * b.c2
+    let d6 = a.c3 * b.c3
+    return Cyclo12 {
+        c0: d0 - d4 - d6,
+        c1: d1 - d5,
+        c2: d2 + d4,
+        c3: d3 + d5
+    }
+
+# Exact normalized Z_12 DFT mode v_hat(m) = (1/12) * sum_{t=0..11} v[t] * zeta_12^(-m*t)
+Dec dft_z12_mode(signal: [int], m: int) -> Cyclo12:
+    assert len(signal) == 12
+    mut acc = cyclo_zero()
+    for t in 0..12:
+        let v = signal[t]
+        if v != 0:
+            let phase = zeta12_pow(-(m * t))
+            acc = cyclo_add(acc, cyclo_scale(phase, ratio(v, 1)))
+    return cyclo_scale(acc, 1/12r)
+
+Dec dft_z12_parseval(signal: [int]) -> Cyclo12:
+    mut acc = cyclo_zero()
+    for m in 0..12:
+        let mode = dft_z12_mode(signal, m)
+        let norm2 = cyclo_mul(mode, cyclo_conj(mode))
+        acc = cyclo_add(acc, norm2)
+    return acc

@@ -1,0 +1,56 @@
+# AOD Manual Fixture 08 — S2 Awareness, Mindfulness Delay, Stokes Cut, & 3D Octants
+# Exercises RC-008, RC-009, RC-010, RC-012 (MSB-x Brownian), and RC-013 (LSB-x Run-Tumble contrast).
+
+use stdlib::aod::sectors::{
+    awareness_current_update,
+    awareness_mindfulness_eval,
+    stokes_cut_balance,
+    brownian_msb_x_summary,
+    run_tumble_point_eval
+}
+
+Dec main() -> int:
+    # 1. Oriented finite Stokes cut balance (RC-008)
+    let st = stokes_cut_balance([0, 1, 0], [1, 2, 2], [3/2r, 5/4r, 1/2r], [2/1r, 4/1r, -2/1r], [0, 1])
+    assert st.internal == 0/1r and st.boundary == 4/1r and st.divergence == 4/1r
+    assert st.divergence_equals_boundary
+
+    # 2. Active awareness current update (RC-009)
+    let aw = awareness_current_update(1/2r, 2/1r, 1/4r, 0/1r, 3/2r, [1/1r, -1/3r], 0/1r)
+    assert aw.carried == 1/1r and aw.native_current == 5/8r and aw.next_current == 9/8r
+    assert aw.selected_slot == 0 and aw.removal_current == 5/8r and aw.awareness_effect
+
+    # 3. Mindfulness delayed feedback recurrence (RC-010)
+    let mf = awareness_mindfulness_eval(1/1r, 3/1r, 1/1r, 0/1r, 6)
+    assert mf.no_delay_stable_at_one and mf.final_no_delay == 1/1r
+    assert not mf.extra_delay_stable_at_one and mf.final_extra_delay == 3/1r
+
+    # 4. 3D Brownian delta_3 with MSB-x octants (RC-012)
+    let br = brownian_msb_x_summary(
+        [1, 1, 1, -1, 1, 1, 1, 1],
+        [1, 0, 1, 1, 1, -1, 1, 1],
+        [0, 1, 0, 1, 1, 1, 0, 1],
+        5
+    )
+    assert br.sum_phase_m == 10 and br.sum_octant_m == 10
+    assert br.r_q == 5/2r and br.r_x == 2/5r and br.r_y == 7/20r and br.r_z == 1/4r
+
+    # 5. 3D Run-Tumble LSB-x vs Brownian MSB-x octant contrast (RC-013)
+    let rt0 = run_tumble_point_eval(2, 2, -1, 5)
+    let rt1 = run_tumble_point_eval(-1, 2, 2, 5)
+    let rt2 = run_tumble_point_eval(1, -1, 1, 5)
+    let rt3 = run_tumble_point_eval(-1, -1, -1, 5)
+    assert rt0.octant_lsb_x == 4 and rt0.octant_msb_x_contrast == 1 and rt0.q3 == 9 and rt0.theta == 4
+    assert rt1.octant_lsb_x == 1 and rt1.octant_msb_x_contrast == 4 and rt1.q3 == 9 and rt1.theta == 4
+    assert rt2.octant_lsb_x == 2 and rt2.octant_msb_x_contrast == 2 and rt2.q3 == 3 and rt2.theta == 3
+    assert rt3.octant_lsb_x == 7 and rt3.octant_msb_x_contrast == 7 and rt3.q3 == 3 and rt3.theta == 3
+
+    emit st.boundary
+    emit aw.next_current
+    emit mf.final_no_delay
+    emit mf.final_extra_delay
+    emit br.r_q
+    emit br.r_x
+    emit rt0.octant_lsb_x
+    emit rt0.octant_msb_x_contrast
+    return 0

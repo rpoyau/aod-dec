@@ -1,0 +1,10 @@
+{
+  "fixture": "manual_examples/04_cell_measures_tesseract.dec",
+  "resolutions": [
+    { "n": 1, "a_minus_num": 0, "a_minus_den": 1, "a_plus_num": 4, "a_plus_den": 1, "c_n_num": 8, "c_n_den": 1, "excess_num": 0, "excess_den": 1 },
+    { "n": 2, "a_minus_num": 1, "a_minus_den": 1, "a_plus_num": 4, "a_plus_den": 1, "c_n_num": 8, "c_n_den": 1, "excess_num": 0, "excess_den": 1 },
+    { "n": 4, "a_minus_num": 2, "a_minus_den": 1, "a_plus_num": 15, "a_plus_den": 4, "c_n_num": 8, "c_n_den": 1, "excess_num": 1, "excess_den": 2 },
+    { "n": 8, "a_minus_num": 41, "a_minus_den": 16, "a_plus_num": 7, "a_plus_den": 2, "c_n_num": 8, "c_n_den": 1, "excess_num": 1, "excess_den": 1 },
+    { "n": 16, "a_minus_num": 183, "a_minus_den": 64, "a_plus_num": 107, "a_plus_den": 32, "c_n_num": 8, "c_n_den": 1, "excess_num": 21, "excess_den": 16 }
+  ]
+}

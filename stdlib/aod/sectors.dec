@@ -1,0 +1,466 @@
+# AOD Stage 2 (S2) — Strictly Native AOD Sector Calculations
+# Reference binding: rpoyau/aod@3122c94 (S2@3122c94, draft candidate under S2 review)
+#
+# STRICT ONTOLOGY FIREWALL (P0-2):
+# - This module is 100% pure native AOD: ZERO Q_ext imports, ZERO external SI/MeV/GeV
+#   energy maps, and ZERO external experimental targets.
+# - SPARC G0, cycle-shedding, SWELLS K1, and Tau non-conflation functions are strictly
+#   parameterized over declared-fixture inputs supplied by the caller.
+# - Post-freeze Higgs MeV/GeV mapping, LHC comparisons, banker's rounding, and half-ULP
+#   enclosures live strictly inside `quarantine Q_ext DisplayQuarantine:` in
+#   `stdlib/aod/metrology.dec`.
+
+use aod::core::{ratio, len}
+
+struct SparcBinResult:
+    u_obs: ratio
+    sigma_u: ratio
+    u_gas: ratio
+    u_disk: ratio
+    u_bulge: ratio
+    u_bar: ratio
+    c_cap: ratio
+    d_bf: ratio
+    u_ao: ratio
+    delta_u: ratio
+    z_u: ratio
+
+struct CycleSheddingStep:
+    span: ratio
+    before_clipping: ratio
+    shed_excess: ratio
+    padar_burden: ratio
+    outward_shedding: ratio
+    local_reclosure: ratio
+    remainder_sum: ratio
+
+struct AwarenessUpdate:
+    carried: ratio
+    native_current: ratio
+    next_current: ratio
+    selected_slot: int
+    removal_current: ratio
+    awareness_effect: bool
+
+struct MindfulnessOutcome:
+    final_no_delay: ratio
+    no_delay_stable_at_one: bool
+    final_extra_delay: ratio
+    extra_delay_stable_at_one: bool
+
+struct StokesCutSummary:
+    internal: ratio
+    boundary: ratio
+    divergence: ratio
+    divergence_equals_boundary: bool
+
+struct BrownianSummary:
+    sum_q: int
+    sum_phase_m: int
+    sum_octant_m: int
+    r_q: ratio
+    r_x: ratio
+    r_y: ratio
+    r_z: ratio
+
+struct RunTumblePoint:
+    octant_lsb_x: int
+    octant_msb_x_contrast: int
+    q3: int
+    theta: int
+
+struct HiggsCandidate:
+    p: int
+    q: int
+    win_l: int
+    c3: int
+    ca: int
+    cb: int
+
+struct HiggsInternalScore:
+    pi_val: int
+    rd_val: int
+    pd_val: int
+    qd_val: int
+    score: ratio
+
+struct SwellsTauAudit:
+    sum_delta_z: int
+    sum_m: int
+    tau_difference: ratio
+    tau_distinct: bool
+    scientific_status: str
+
+struct Map21Summary:
+    output_mean: ratio
+    mean_shift: ratio
+    output_variance: ratio
+    linearized_variance_diagnostic: ratio
+
+Dec abs_int(x: int) -> int:
+    if x < 0:
+        return -x
+    return x
+
+Dec abs_ratio(x: ratio) -> ratio:
+    if x < 0/1r:
+        return -x
+    return x
+
+Dec min_int(a: int, b: int) -> int:
+    if a <= b:
+        return a
+    return b
+
+Dec max_int(a: int, b: int) -> int:
+    if a >= b:
+        return a
+    return b
+
+Dec pow_int(base: int, exp: int) -> int:
+    assert exp >= 0
+    mut acc = 1
+    for i in 0..exp:
+        acc = acc * base
+    return acc
+
+Dec contains_int(xs: [int], target: int) -> bool:
+    let n = len(xs)
+    for i in 0..n:
+        if xs[i] == target:
+            return true
+    return false
+
+# 1. SPARC G0 exact radial bin evaluation (parameterized over declared-fixture bin values)
+Dec sparc_bin_eval(
+    r: ratio,
+    v_obs: ratio,
+    err_v: ratio,
+    v_gas: ratio,
+    v_disk: ratio,
+    v_bul: ratio
+) -> SparcBinResult:
+    let u_obs = v_obs * v_obs
+    let sigma_u = 2/1r * v_obs * err_v
+    assert sigma_u != 0/1r
+    let u_gas = v_gas * v_gas
+    let u_disk = v_disk * v_disk
+    let u_bulge = v_bul * v_bul
+    let u_bar = u_gas + 1/2r * u_disk + 7/10r * u_bulge
+    let c_cap = r * (abs_ratio(v_gas) + abs_ratio(v_disk) + abs_ratio(v_bul))
+    let d_bf = c_cap
+    let u_ao = u_bar + 8/1r * d_bf
+    let delta_u = u_ao - u_obs
+    let z_u = delta_u / sigma_u
+    return SparcBinResult {
+        u_obs: u_obs,
+        sigma_u: sigma_u,
+        u_gas: u_gas,
+        u_disk: u_disk,
+        u_bulge: u_bulge,
+        u_bar: u_bar,
+        c_cap: c_cap,
+        d_bf: d_bf,
+        u_ao: u_ao,
+        delta_u: delta_u,
+        z_u: z_u
+    }
+
+# 2. Exact rational cycle-shedding recurrence step (parameterized)
+Dec cycle_shedding_step(
+    prev_burden: ratio,
+    lead: ratio,
+    lag: ratio,
+    compatibility: ratio,
+    eta: ratio,
+    gamma: ratio,
+    lambda_reclose: ratio
+) -> CycleSheddingStep:
+    let span = abs_ratio(lead - lag)
+    let before = eta * prev_burden + gamma * span
+    let diff = before - compatibility
+    let exc = diff if diff > 0/1r else 0/1r
+    let bur = before - exc
+    let out = (1/1r - lambda_reclose) * exc
+    let loc = lambda_reclose * exc
+    return CycleSheddingStep {
+        span: span,
+        before_clipping: before,
+        shed_excess: exc,
+        padar_burden: bur,
+        outward_shedding: out,
+        local_reclosure: loc,
+        remainder_sum: out + loc
+    }
+
+# 3. Finite active awareness current update (RC-009)
+Dec awareness_current_update(
+    current: ratio,
+    pressure: ratio,
+    attention: ratio,
+    query: ratio,
+    gain: ratio,
+    retained: [ratio],
+    selector_threshold: ratio
+) -> AwarenessUpdate:
+    assert pressure > 0/1r
+    mut ret_sum = 0/1r
+    let n = len(retained)
+    for i in 0..n:
+        ret_sum = ret_sum + retained[i]
+    let carried = gain * ret_sum
+    let native_cur = current + attention / pressure
+    let next_cur = native_cur + (query + carried) / pressure
+    let rem_cur = native_cur + query / pressure
+    let slot = 0 if next_cur > selector_threshold else 1
+    return AwarenessUpdate {
+        carried: carried,
+        native_current: native_cur,
+        next_current: next_cur,
+        selected_slot: slot,
+        removal_current: rem_cur,
+        awareness_effect: next_cur != rem_cur
+    }
+
+# 4. Delayed feedback mindfulness recurrence (RC-010)
+Dec awareness_mindfulness_eval(
+    pressure: ratio,
+    initial_current: ratio,
+    constant_forcing: ratio,
+    delay_initial_history: ratio,
+    steps: int
+) -> MindfulnessOutcome:
+    assert pressure > 0/1r and steps >= 1
+    mut j_no = initial_current
+    mut no_stable = true
+    for i in 0..steps:
+        j_no = j_no + (constant_forcing - j_no) / pressure
+        if j_no != 1/1r:
+            no_stable = false
+
+    mut j_del = initial_current
+    mut prev_obs = delay_initial_history
+    mut del_stable = true
+    for i in 0..steps:
+        let obs = j_del
+        j_del = j_del + (constant_forcing - prev_obs) / pressure
+        prev_obs = obs
+        if j_del != 1/1r:
+            del_stable = false
+
+    return MindfulnessOutcome {
+        final_no_delay: j_no,
+        no_delay_stable_at_one: no_stable,
+        final_extra_delay: j_del,
+        extra_delay_stable_at_one: del_stable
+    }
+
+# 5. Finite oriented Stokes cut balance (RC-008)
+Dec stokes_cut_balance(
+    src_nodes: [int],
+    dst_nodes: [int],
+    p_vals: [ratio],
+    a_vals: [ratio],
+    region: [int]
+) -> StokesCutSummary:
+    let n = len(src_nodes)
+    assert n == len(dst_nodes) and n == len(p_vals) and n == len(a_vals)
+    mut internal = 0/1r
+    mut boundary = 0/1r
+    mut divergence = 0/1r
+    for k in 0..n:
+        let u = src_nodes[k]
+        let v = dst_nodes[k]
+        assert u != v and p_vals[k] >= 0/1r
+        let val = p_vals[k] * a_vals[k]
+        let u_in = contains_int(region, u)
+        let v_in = contains_int(region, v)
+        # Forward oriented channel (u -> v): +val
+        if u_in and v_in:
+            internal = internal + val
+        if u_in:
+            divergence = divergence + val
+        if u_in and not v_in:
+            boundary = boundary + val
+        # Antisymmetric reverse oriented channel (v -> u): -val
+        if v_in and u_in:
+            internal = internal - val
+        if v_in:
+            divergence = divergence - val
+        if v_in and not u_in:
+            boundary = boundary - val
+    return StokesCutSummary {
+        internal: internal,
+        boundary: boundary,
+        divergence: divergence,
+        divergence_equals_boundary: divergence == boundary and internal == 0/1r
+    }
+
+# 6. 3D octant encodings: explicit Brownian MSB-x vs Run-Tumble LSB-x separation (RC-012, RC-013)
+Dec octant_msb_x(x: int, y: int, z: int) -> int:
+    let bx = 4 if x < 0 else 0
+    let by = 2 if y < 0 else 0
+    let bz = 1 if z < 0 else 0
+    return bx + by + bz
+
+Dec octant_lsb_x(x: int, y: int, z: int) -> int:
+    let bx = 1 if x < 0 else 0
+    let by = 2 if y < 0 else 0
+    let bz = 4 if z < 0 else 0
+    return bx + by + bz
+
+Dec run_tumble_point_eval(x: int, y: int, z: int, beta_a: int) -> RunTumblePoint:
+    assert beta_a > 0
+    let q3 = x * x + y * y + z * z
+    return RunTumblePoint {
+        octant_lsb_x: octant_lsb_x(x, y, z),
+        octant_msb_x_contrast: octant_msb_x(x, y, z),
+        q3: q3,
+        theta: q3 % beta_a
+    }
+
+Dec brownian_msb_x_summary(xs: [int], ys: [int], zs: [int], beta_a: int) -> BrownianSummary:
+    let n = len(xs)
+    assert n > 0 and n == len(ys) and n == len(zs) and beta_a == 5
+    mut phase_cnt = [0, 0, 0, 0, 0]
+    mut oct_cnt = [0, 0, 0, 0, 0, 0, 0, 0]
+    mut sx = 0
+    mut sy = 0
+    mut sz = 0
+    mut sum_q = 0
+    for i in 0..n:
+        let a = xs[i]
+        let b = ys[i]
+        let c = zs[i]
+        let a2 = a * a
+        let b2 = b * b
+        let c2 = c * c
+        let qv = a2 + b2 + c2
+        let oc = octant_msb_x(a, b, c)
+        let ps = qv % beta_a
+        phase_cnt[ps] = phase_cnt[ps] + 1
+        oct_cnt[oc] = oct_cnt[oc] + 1
+        sx = sx + a2
+        sy = sy + b2
+        sz = sz + c2
+        sum_q = sum_q + qv
+    assert sum_q > 0
+    let p_base = n // beta_a
+    let p_rem = n % beta_a
+    mut sum_phase_m = 0
+    for k in 0..5:
+        let comp = p_base + (1 if k < p_rem else 0)
+        sum_phase_m = sum_phase_m + abs_int(comp - phase_cnt[k])
+    let o_base = n // 8
+    let o_rem = n % 8
+    mut sum_octant_m = 0
+    for k in 0..8:
+        let comp = o_base + (1 if k < o_rem else 0)
+        sum_octant_m = sum_octant_m + abs_int(comp - oct_cnt[k])
+    return BrownianSummary {
+        sum_q: sum_q,
+        sum_phase_m: sum_phase_m,
+        sum_octant_m: sum_octant_m,
+        r_q: ratio(sum_q, n),
+        r_x: ratio(sx, sum_q),
+        r_y: ratio(sy, sum_q),
+        r_z: ratio(sz, sum_q)
+    }
+
+# 7. Strictly internal dimensionless Higgs candidate scoring & winner selection (P0-2)
+# ZERO external energy units (MeV/GeV) and ZERO external experimental targets!
+Dec higgs_candidate_score(c: HiggsCandidate) -> HiggsInternalScore:
+    let pi_v = pow_int(c.q, c.p) + c.q
+    let rd_v = 2 * pi_v + 1
+    let rho = min_int(rd_v, c.win_l)
+    let pd_v = c.c3 * rho
+    let qd_v = c.c3 * max_int(0, rd_v - c.win_l)
+    let dl = pd_v - c.ca
+    let du = pd_v - c.cb
+    let d_sad = abs_int(dl - 3) + abs_int(du + 3)
+    let in_band = qd_v >= 100 and qd_v <= 250
+    mut d_q = 0
+    if qd_v < 100:
+        d_q = 100 - qd_v
+    elif qd_v > 250:
+        d_q = qd_v - 250
+    let d_route = 0 if (c.win_l == 7 and dl == 3 and du == -3 and in_band) else 1
+    let score = ratio(d_sad, 12) + ratio(d_q, 100) + ratio(abs_int(c.win_l - 7), 2) + ratio(d_route, 1)
+    return HiggsInternalScore {
+        pi_val: pi_v,
+        rd_val: rd_v,
+        pd_val: pd_v,
+        qd_val: qd_v,
+        score: score
+    }
+
+Dec higgs_select_winner_index(scores: [ratio]) -> int:
+    let n = len(scores)
+    assert n > 0
+    mut best_idx = 0
+    for i in 1..n:
+        if scores[i] < scores[best_idx]:
+            best_idx = i
+    return best_idx
+
+# 8. SWELLS K1 delta_3 & Tau non-conflation provenance guard (RC-020, P0-2)
+# Explicitly preserves UNRESOLVED_PROVENANCE_QUARANTINED status.
+Dec swells_delta3_tau_audit(
+    pred: [int],
+    obs: [int],
+    tau_diagnostic: ratio,
+    tau_summary_nominal: ratio
+) -> SwellsTauAudit:
+    let n = len(pred)
+    assert n == len(obs) and n > 0
+    mut sum_dz = 0
+    mut sum_m = 0
+    for i in 0..n:
+        let d = pred[i] - obs[i]
+        sum_dz = sum_dz + d
+        sum_m = sum_m + abs_int(d)
+    let tau_diff = tau_summary_nominal - tau_diagnostic
+    return SwellsTauAudit {
+        sum_delta_z: sum_dz,
+        sum_m: sum_m,
+        tau_difference: tau_diff,
+        tau_distinct: tau_diagnostic != tau_summary_nominal,
+        scientific_status: "UNRESOLVED_PROVENANCE_QUARANTINED"
+    }
+
+# 9. MAP-21 exact finite-support nonlinear variance propagation (RC-024)
+Dec map21_eval(probs: [ratio], ys: [ratio], ds: [ratio]) -> Map21Summary:
+    let n = len(probs)
+    assert n > 0 and n == len(ys) and n == len(ds)
+    mut p_sum = 0/1r
+    mut mean = 0/1r
+    mut my = 0/1r
+    mut md = 0/1r
+    for i in 0..n:
+        p_sum = p_sum + probs[i]
+        let denom = 1/1r + ys[i]
+        assert denom != 0/1r
+        let out_i = 1/1r / denom + ds[i]
+        mean = mean + probs[i] * out_i
+        my = my + probs[i] * ys[i]
+        md = md + probs[i] * ds[i]
+    assert p_sum == 1/1r
+    mut var = 0/1r
+    mut cyy = 0/1r
+    mut cdd = 0/1r
+    mut cyd = 0/1r
+    for i in 0..n:
+        let out_i = 1/1r / (1/1r + ys[i]) + ds[i]
+        let dout = out_i - mean
+        var = var + probs[i] * dout * dout
+        let dy = ys[i] - my
+        let dd = ds[i] - md
+        cyy = cyy + probs[i] * dy * dy
+        cdd = cdd + probs[i] * dd * dd
+        cyd = cyd + probs[i] * dy * dd
+    return Map21Summary {
+        output_mean: mean,
+        mean_shift: mean - 1/1r,
+        output_variance: var,
+        linearized_variance_diagnostic: cyy - 2/1r * cyd + cdd
+    }

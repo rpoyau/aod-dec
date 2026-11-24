@@ -1,0 +1,37 @@
+# M3 wavelet localization, half-open window overlap deduplication, cadence ratio vs
+# single-contact stage association, and recipient lattice evaluation.
+use aod::wavelet::{window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo}
+
+Dec main() -> int:
+    let cuts = [0, 2, 6, 8]
+    let windows = [(0, 6], (4, 8]]
+    let dedup = window_dedup_count("W_B_1", "B:main", cuts, windows)
+    assert dedup == 3
+
+    let cad = native_cadence_ratio("Wa", 3, "Wr", 5, true, 2)
+    assert cad == 3/5r
+    let zero_cad = native_cadence_ratio("Wshed", 0, "Wr", 10, true, 2)
+    assert zero_cad == 0/1r
+
+    let single = single_contact_association("Wshed", "W_B_1", "Wr", (10, 20], 1)
+    assert single.is_cadence_ratio == false
+
+    let rec = recipient_eval_demo(12, 16, (10, 25])
+    assert rec.stage == "reclosed"
+    assert rec.closure_phase_delta == 1
+    assert rec.reclosure_bip_delta == 1
+
+    let first_anchor = 00_8
+    assert first_anchor.is_first_anchor == true
+    assert 00_8 != 0_8
+
+    let yro = 1:2:9_yro
+    assert yro.is_yro == true
+    assert yro.is_closure_certificate == false
+    assert support_pi(yro) == 4
+    assert support_rd(yro, 1) == 9
+
+    emit dedup
+    emit cad
+    emit rec.stage
+    return 0
