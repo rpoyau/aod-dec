@@ -3197,6 +3197,8 @@ impl<'a> Checker<'a> {
                         | "qext_mul"
                         | "qext_div"
                         | "qext_render"
+                        | "qext_round_half_even"
+                        | "qext_format_fixed"
                 ) {
                     if ctx.effect != Effect::QExt {
                         return Err(Diagnostic::at_line(

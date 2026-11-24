@@ -22,6 +22,8 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
+use aod_core::s2_vectors::verify_s2_vectors_dir;
+pub use aod_core::s2_vectors::S2VerifyReport;
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
     run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo, HwProbeReport, LearnDecision,
@@ -887,4 +889,57 @@ fn collect_dec_files_sorted(dir: &Path, out: &mut Vec<PathBuf>) -> DecResult<()>
         }
     }
     Ok(())
+}
+
+fn discover_default_s2_root() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut cur: Option<&Path> = Some(cwd.as_path());
+        for _ in 0..=6 {
+            if let Some(dir) = cur {
+                if dir.join("SOURCE_BINDING.json").is_file()
+                    && dir
+                        .join("bindings/aod/s2_vectors/rational_core.jsonl")
+                        .is_file()
+                {
+                    return dir.to_path_buf();
+                }
+                cur = dir.parent();
+            }
+        }
+    }
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// Verify all 30 Stage 2 (`S2@3122c94`) cross-language golden vectors.
+///
+/// When `vectors_dir` or `binding_path` is explicitly provided (`Some`), strictly uses that path
+/// with zero silent fallback (`P1-2`).
+pub fn verify_s2_dir(
+    vectors_dir: Option<&Path>,
+    binding_path: Option<&Path>,
+) -> S2VerifyReport {
+    let default_root = if vectors_dir.is_none() || binding_path.is_none() {
+        Some(discover_default_s2_root())
+    } else {
+        None
+    };
+    let vdir = match vectors_dir {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when vectors_dir is None")
+            .join("bindings/aod/s2_vectors"),
+    };
+    let bpath = match binding_path {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when binding_path is None")
+            .join("SOURCE_BINDING.json"),
+    };
+    verify_s2_vectors_dir(&vdir, &bpath)
 }

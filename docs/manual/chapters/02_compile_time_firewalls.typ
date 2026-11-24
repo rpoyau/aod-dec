@@ -10,8 +10,9 @@ or JIT machine code is emitted (#mainappendix("main:app:closure-role-separation"
    called inside a probe checks under `Effect::ReadOnlyObserver` with `ReadOnly<ChamberView>`. Mutating
    `ReadOnly<T>`, stripping `ReadOnly<T>` via positional constructors (`Struct(ro)` / `Enum::Var(ro)`),
    mutating outer bindings, or invoking `simulate` fails with `ObserverMutationForbidden`.
-2. *One-Way `quarantine Q_ext` Firewall:* external decimal parsers and SI constants reside exclusively in
-   `aod::qext` or `quarantine Q_ext` submodules (#mainequation("main:eq:m3-observation-map"),
+2. *One-Way `quarantine Q_ext` Firewall:* external decimal parsers, SI constants, post-freeze energy maps,
+   and half-to-even rounding/display helpers (`qext_round_half_even`, `qext_format_fixed`) reside exclusively
+   in `aod::qext` or `quarantine Q_ext` submodules (#mainequation("main:eq:m3-observation-map"),
    #mainequation("main:eq:m3-conditional-si-anchor"), #mainequation("main:eq:m3-cs133-tau-interface")).
    A `quarantine Q_ext:` sink block may read immutable native values, emit quarantined renderings, and
    perform comparisons, yet can never return, assign outward, or leak `QExt<T>` back into native AOD code.
@@ -66,8 +67,8 @@ Dec main() -> int:
 ```
 
 #aod-paragraph("Falsification.")
-All six repository negative controls (`nc01`..`nc06`) are directly bound to this chapter and live-verified
-by `aodc manual-verify` across compile-time rejection (`nc01`..`nc03`) and 3-mode runtime failure
+All seven repository negative controls (`nc01`..`nc07`) are directly bound to this chapter and live-verified
+by `aodc manual-verify` across compile-time rejection (`nc01`..`nc03`, `nc07`) and 3-mode runtime failure
 (`nc04`..`nc06`):
 
 // @dec-file: manual_examples/negative_controls/nc01_qext_delta_nu_leak.dec
@@ -76,3 +77,4 @@ by `aodc manual-verify` across compile-time rejection (`nc01`..`nc03`) and 3-mod
 // @dec-file: manual_examples/negative_controls/nc04_reversed_sweep_sign.dec
 // @dec-file: manual_examples/negative_controls/nc05_origin_j0_as_beat.dec
 // @dec-file: manual_examples/negative_controls/nc06_duad_drops_hinge_0h.dec
+// @dec-file: manual_examples/negative_controls/nc07_display_quarantine_leak.dec

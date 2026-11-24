@@ -500,6 +500,18 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             QExt,
             false,
         )],
+        "aod::qext::qext_round_half_even" => vec![s(
+            vec![Type::QExt(Box::new(Type::Ratio)), Type::Int],
+            Type::QExt(Box::new(Type::Ratio)),
+            QExt,
+            false,
+        )],
+        "aod::qext::qext_format_fixed" => vec![s(
+            vec![Type::QExt(Box::new(Type::Ratio)), Type::Int],
+            Type::QExt(Box::new(Type::Str)),
+            QExt,
+            false,
+        )],
         _ => Vec::new(),
     }
 }

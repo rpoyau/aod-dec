@@ -2419,6 +2419,46 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             a.checked_div(b).map(Value::QExtRatio).map_err(err)
         }
         ("aod::qext::qext_render", [Value::QExtRatio(q)]) => Ok(Value::QExtStr(q.render_exact())),
+        ("aod::qext::qext_round_half_even", [Value::QExtRatio(q), Value::Int(d)]) => {
+            let max_d = aod_core::s2_kernel::MAX_ROUNDING_DECIMALS;
+            let dec_i = d.to_i64().ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("qext decimals {d} out of bounds (expected 0..={max_d})"),
+                )
+            })?;
+            if dec_i < 0 || (dec_i as usize) > max_d {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("qext decimals {dec_i} out of bounds (expected 0..={max_d})"),
+                ));
+            }
+            q.round_half_even(dec_i as usize)
+                .map(Value::QExtRatio)
+                .map_err(err)
+        }
+        ("aod::qext::qext_format_fixed", [Value::QExtRatio(q), Value::Int(d)]) => {
+            let max_d = aod_core::s2_kernel::MAX_ROUNDING_DECIMALS;
+            let dec_i = d.to_i64().ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("qext decimals {d} out of bounds (expected 0..={max_d})"),
+                )
+            })?;
+            if dec_i < 0 || (dec_i as usize) > max_d {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("qext decimals {dec_i} out of bounds (expected 0..={max_d})"),
+                ));
+            }
+            q.format_fixed(dec_i as usize)
+                .map(Value::QExtStr)
+                .map_err(err)
+        }
 
         _ => Err(Diagnostic::at_line(
             DiagnosticCode::RuntimeError,

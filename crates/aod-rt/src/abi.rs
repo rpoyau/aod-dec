@@ -1895,6 +1895,53 @@ pub unsafe extern "C" fn aod_rt_qext_render(ctx: *mut AodRtContext, a_h: u64) ->
     }
 }
 
+fn checked_qext_decimals(v: &BigInt) -> Result<usize, String> {
+    let max_d = aod_core::s2_kernel::MAX_ROUNDING_DECIMALS;
+    let d = v
+        .to_i64()
+        .ok_or_else(|| format!("qext decimals {v} out of bounds (expected 0..={max_d})"))?;
+    if d < 0 || (d as usize) > max_d {
+        return Err(format!(
+            "qext decimals {d} out of bounds (expected 0..={max_d})"
+        ));
+    }
+    Ok(d as usize)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_qext_round_half_even(
+    ctx: *mut AodRtContext,
+    a_h: u64,
+    decimals: *const DecInt,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let q = s.get_qext_ratio(a_h)?.clone();
+            let dv = read_int_in(s, decimals)?;
+            let dec = checked_qext_decimals(&dv)?;
+            let rounded = q.round_half_even(dec).map_err(|e| e.to_string())?;
+            s.arena.insert(RtValue::QExtRatio(rounded))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_qext_format_fixed(
+    ctx: *mut AodRtContext,
+    a_h: u64,
+    decimals: *const DecInt,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let q = s.get_qext_ratio(a_h)?.clone();
+            let dv = read_int_in(s, decimals)?;
+            let dec = checked_qext_decimals(&dv)?;
+            let formatted = q.format_fixed(dec).map_err(|e| e.to_string())?;
+            s.arena.insert(RtValue::QExtStr(formatted))
+        })
+    }
+}
+
 // ============================================================================
 // Containers & Composite Types (ALL Deep-Copy / Copy-on-Write per `P0-3`!)
 // ============================================================================
@@ -2495,6 +2542,14 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_qext_neg", aod_rt_qext_neg as *const () as usize),
         ("aod_rt_qext_cmp", aod_rt_qext_cmp as *const () as usize),
         ("aod_rt_qext_render", aod_rt_qext_render as *const () as usize),
+        (
+            "aod_rt_qext_round_half_even",
+            aod_rt_qext_round_half_even as *const () as usize,
+        ),
+        (
+            "aod_rt_qext_format_fixed",
+            aod_rt_qext_format_fixed as *const () as usize,
+        ),
         ("aod_rt_list_new", aod_rt_list_new as *const () as usize),
         ("aod_rt_list_get", aod_rt_list_get as *const () as usize),
         ("aod_rt_list_set", aod_rt_list_set as *const () as usize),

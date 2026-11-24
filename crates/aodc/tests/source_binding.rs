@@ -22,7 +22,7 @@ fn source_binding_schema_v2_p2_1_equations_and_vendored_hashes_verified() {
     assert_eq!(sb.get("schema_version").and_then(JsonValue::as_int), Some(&BigInt::from_i64(2)));
 
     let upstream = sb.get("upstream_bindings").and_then(JsonValue::as_array).unwrap();
-    assert_eq!(upstream.len(), 2);
+    assert_eq!(upstream.len(), 3);
 
     // Load vendored main_registry.json to cross-check every single equation label & number!
     let reg_bytes = std::fs::read(root.join("bindings/aod/main_registry.json")).unwrap();
@@ -69,6 +69,47 @@ fn source_binding_schema_v2_p2_1_equations_and_vendored_hashes_verified() {
             Sha256::digest_hex(&bytes),
             expected_sha,
             "vendored file SHA-256 mismatch for {local_path}"
+        );
+    }
+
+    // Verify S2@3122c94 draft-candidate binding and vendored golden-vector JSONL SHA-256 byte-for-byte
+    let s2 = &upstream[2];
+    assert_eq!(s2.get("id").and_then(JsonValue::as_str), Some("S2@3122c94"));
+    assert_eq!(s2.get("stage").and_then(JsonValue::as_str), Some("S2"));
+    assert_eq!(
+        s2.get("status").and_then(JsonValue::as_str),
+        Some("DRAFT_CANDIDATE_UNDER_S2_REVIEW")
+    );
+    assert_eq!(
+        s2.get("pr_number").and_then(JsonValue::as_int),
+        Some(&BigInt::from_i64(51))
+    );
+    assert_eq!(
+        s2.get("ref_name").and_then(JsonValue::as_str),
+        Some("m4-s2-reference-engine")
+    );
+    assert_eq!(
+        s2.get("commit").and_then(JsonValue::as_str),
+        Some("3122c9444596a9f479e1444c9d497e510a87f825")
+    );
+    assert_eq!(
+        s2.get("tree").and_then(JsonValue::as_str),
+        Some("d58b43ccf82b428be8f831d11203604e12d66388")
+    );
+    assert_eq!(
+        s2.get("base_commit_binding").and_then(JsonValue::as_str),
+        Some("cea71a76f26c08b603866e746867b3982da6c88e")
+    );
+    let s2_vendored = s2.get("vendored_files").and_then(JsonValue::as_array).unwrap();
+    assert_eq!(s2_vendored.len(), 2);
+    for vf in s2_vendored {
+        let local_path = vf.get("local_path").and_then(JsonValue::as_str).unwrap();
+        let expected_sha = vf.get("sha256").and_then(JsonValue::as_str).unwrap();
+        let bytes = std::fs::read(root.join(local_path)).unwrap();
+        assert_eq!(
+            Sha256::digest_hex(&bytes),
+            expected_sha,
+            "vendored S2 file SHA-256 mismatch for {local_path}"
         );
     }
 

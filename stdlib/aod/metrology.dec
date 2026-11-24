@@ -5,7 +5,15 @@
 # are STRICTLY quarantined inside `quarantine Q_ext SiMetrology:` and CANNOT leak into native AOD.
 
 use aod::core::ratio
-use aod::qext::{ext_decimal, qext_from_ratio, qext_render}
+use aod::qext::{ext_decimal, qext_from_ratio, qext_render, qext_round_half_even, qext_format_fixed}
+
+# Pure native exact integer exponentiation helper (zero external units)
+Dec int_pow(base: int, exp: int) -> int:
+    assert exp >= 0
+    mut acc = 1
+    for i in 0..exp:
+        acc = acc * base
+    return acc
 
 # Native observed turn advance on W = (k_0, k_1]: A(W) = C(W) + phi_1 - phi_0
 Dec observed_advance(winding: int, phi0: ratio, phi1: ratio) -> ratio:
@@ -40,3 +48,63 @@ quarantine Q_ext SiMetrology:
 
     Dec nist_f2_hz_uncertainty(frac_u: QExt<ratio>) -> QExt<ratio>:
         return frac_u * DELTA_NU_CS
+
+quarantine Q_ext DisplayQuarantine:
+    # Post-freeze Higgs external energy map, LHC comparisons, half-to-even rounding + exact
+    # residuals, and half-ULP printed-token enclosures (P0-1, P0-2, SD-004..SD-006).
+    const LHC_CMS_H4L_MASS_GEV = ext_decimal("125.04")
+    const LHC_CMS_H4L_SIGMA_GEV = ext_decimal("0.12")
+    const LHC_ATLAS_HGG_MASS_GEV = ext_decimal("125.22")
+    const LHC_ATLAS_HGG_SIGMA_GEV = ext_decimal("0.14")
+
+    Dec qext_abs(x: QExt<ratio>) -> QExt<ratio>:
+        if x < ext_decimal("0"):
+            return -x
+        return x
+
+    Dec higgs_freeze_mev(frozen_rd: int, frozen_l: int) -> QExt<ratio>:
+        assert frozen_rd > 0 and frozen_l >= 0
+        let e_mev = frozen_rd * int_pow(2, frozen_l + 4)
+        return qext_from_ratio(ratio(e_mev, 1))
+
+    Dec higgs_freeze_gev(frozen_rd: int, frozen_l: int) -> QExt<ratio>:
+        assert frozen_rd > 0 and frozen_l >= 0
+        let e_mev = frozen_rd * int_pow(2, frozen_l + 4)
+        return qext_from_ratio(ratio(e_mev, 1000))
+
+    Dec lhc_delta_gev(pred_gev: QExt<ratio>, mass_gev: QExt<ratio>) -> QExt<ratio>:
+        return pred_gev - mass_gev
+
+    Dec lhc_z_score_exact(
+        pred_gev: QExt<ratio>,
+        mass_gev: QExt<ratio>,
+        sigma_gev: QExt<ratio>
+    ) -> QExt<ratio>:
+        return (pred_gev - mass_gev) / sigma_gev
+
+    Dec lhc_abs_percent_error_exact(
+        pred_gev: QExt<ratio>,
+        mass_gev: QExt<ratio>
+    ) -> QExt<ratio>:
+        return qext_abs(pred_gev - mass_gev) * ext_decimal("100") / mass_gev
+
+    Dec round_half_even_value(val: QExt<ratio>, decimals: int) -> QExt<ratio>:
+        return qext_round_half_even(val, decimals)
+
+    Dec round_display(val: QExt<ratio>, decimals: int) -> QExt<str>:
+        return qext_format_fixed(val, decimals)
+
+    Dec rounding_residual(val: QExt<ratio>, decimals: int) -> QExt<ratio>:
+        let rnd = qext_round_half_even(val, decimals)
+        return qext_abs(rnd - val)
+
+    Dec half_ulp_bound(decimal_places: int) -> QExt<ratio>:
+        assert decimal_places >= 0
+        let scale = int_pow(10, decimal_places)
+        return qext_from_ratio(ratio(1, 2 * scale))
+
+    Dec half_ulp_lower(val: QExt<ratio>, decimal_places: int) -> QExt<ratio>:
+        return val - half_ulp_bound(decimal_places)
+
+    Dec half_ulp_upper(val: QExt<ratio>, decimal_places: int) -> QExt<ratio>:
+        return val + half_ulp_bound(decimal_places)

@@ -56,6 +56,20 @@ impl QExtRatio {
     pub fn render_quarantined(&self) -> String {
         format!("Q_ext({})", self.0.render_v1())
     }
+
+    /// One-way exact banker's rounding (half-to-even) strictly inside `Q_ext` (`P0-1`).
+    /// Rejects `decimals > 1024`. Never unwraps back to native `Ratio`.
+    pub fn round_half_even(&self, decimals: usize) -> CoreResult<Self> {
+        Ok(Self(crate::s2_kernel::round_rational_half_even(
+            &self.0, decimals,
+        )?))
+    }
+
+    /// One-way fixed-decimal half-to-even display string strictly inside `Q_ext` (`P0-1`).
+    /// Rejects `decimals > 1024` and never renders `"-0.000000"`.
+    pub fn format_fixed(&self, decimals: usize) -> CoreResult<String> {
+        crate::s2_kernel::format_rational_fixed(&self.0, decimals)
+    }
 }
 
 impl fmt::Display for QExtRatio {

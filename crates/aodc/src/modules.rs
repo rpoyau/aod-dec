@@ -89,6 +89,8 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "qext_mul",
             "qext_div",
             "qext_render",
+            "qext_round_half_even",
+            "qext_format_fixed",
         ]),
         _ => None,
     }

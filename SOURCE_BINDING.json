@@ -92,6 +92,30 @@
           "sha256": "4e6861360657c906ab18499afd1c114b87c8521ead1df471ddc28ab8e9c44d46"
         }
       ]
+    },
+    {
+      "id": "S2@3122c94",
+      "stage": "S2",
+      "status": "DRAFT_CANDIDATE_UNDER_S2_REVIEW",
+      "pr_number": 51,
+      "repository": "rpoyau/aod",
+      "ref_name": "m4-s2-reference-engine",
+      "canonical_version": "v41.02",
+      "commit": "3122c9444596a9f479e1444c9d497e510a87f825",
+      "tree": "d58b43ccf82b428be8f831d11203604e12d66388",
+      "base_commit_binding": "cea71a76f26c08b603866e746867b3982da6c88e",
+      "vendored_files": [
+        {
+          "upstream_path": "manual/engine/vectors/rational_core.jsonl",
+          "local_path": "bindings/aod/s2_vectors/rational_core.jsonl",
+          "sha256": "a852094458a884ec456fd712a1fbfdb8cff46f2e90095b74bafe7644ad72cc99"
+        },
+        {
+          "upstream_path": "manual/engine/vectors/symbolic_and_display.jsonl",
+          "local_path": "bindings/aod/s2_vectors/symbolic_and_display.jsonl",
+          "sha256": "d2ea7c41ff7fb7b62258cb137576f12f667c38377406d695557fa37b3541d19f"
+        }
+      ]
     }
   ],
   "historical_bindings": [

@@ -4214,6 +4214,32 @@ impl FnBuilder {
                 &q.reg,
                 Type::QExt(Box::new(Type::Str)),
             ),
+            ("aod::qext::qext_round_half_even", [q, dec]) => {
+                let dp = self.store_temp_int(&dec.reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_round_half_even(ptr %ctx, i64 {}, ptr {dp})",
+                    q.reg
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                })
+            }
+            ("aod::qext::qext_format_fixed", [q, dec]) => {
+                let dp = self.store_temp_int(&dec.reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_format_fixed(ptr %ctx, i64 {}, ptr {dp})",
+                    q.reg
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Str)),
+                })
+            }
             _ => Err(Diagnostic::at_line(
                 DiagnosticCode::RuntimeError,
                 line,
@@ -4566,6 +4592,8 @@ declare i64 @aod_rt_qext_binop(ptr, i8, i64, i64)
 declare i64 @aod_rt_qext_neg(ptr, i64)
 declare i32 @aod_rt_qext_cmp(ptr, i64, i64)
 declare i64 @aod_rt_qext_render(ptr, i64)
+declare i64 @aod_rt_qext_round_half_even(ptr, i64, ptr)
+declare i64 @aod_rt_qext_format_fixed(ptr, i64, ptr)
 
 declare i64 @aod_rt_list_new(ptr, ptr, i64)
 declare i64 @aod_rt_list_get(ptr, i64, ptr)

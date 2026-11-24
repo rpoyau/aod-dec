@@ -11,6 +11,8 @@ pub mod json;
 pub mod ledger;
 pub mod qext;
 pub mod ratio;
+pub mod s2_kernel;
+pub mod s2_vectors;
 pub mod sha256;
 pub mod support;
 pub mod ternary;
