@@ -2,9 +2,9 @@ name: AOD-DEC v2 CI
 
 on:
   push:
-    branches: ["main", "v2/native-reference-engine"]
+    branches: ["main", "v2/native-reference-engine", "v2/zero-python-evolution"]
   pull_request:
-    branches: ["main", "v2/native-reference-engine"]
+    branches: ["main", "v2/native-reference-engine", "v2/zero-python-evolution"]
 
 permissions:
   contents: read
@@ -36,6 +36,15 @@ jobs:
           cargo build --workspace --release --offline
           cargo test --workspace --release --offline
 
+      - name: Verify std-only Rust aodc dynamic-link isolation (ldd)
+        run: |
+          LDD_OUT="$(ldd ./target/release/aodc)"
+          echo "$LDD_OUT"
+          if echo "$LDD_OUT" | grep -qiE 'llvm|[p]ython|gmp'; then
+            echo "ERROR: forbidden dynamic library dependency detected in aodc" >&2
+            exit 1
+          fi
+
       - name: Run Dec v1, v2 smoke, and Manual fixture suites
         run: |
           ./target/release/aodc test --compat v1 tests/fixtures/v1_examples
@@ -55,13 +64,16 @@ jobs:
           ./target/release/aodc verify-s2
           ./target/release/aodc verify-s2 --json
 
-      - name: Run zero-raster PDF auditor unit tests (normal and -O)
-        run: |
-          python3 -m unittest scripts/test_audit_pdf_zero_raster.py
-          python3 -O -m unittest scripts/test_audit_pdf_zero_raster.py
+      - name: Upload release aodc binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aodc-release-bin
+          path: target/release/aodc
+          if-no-files-found: error
 
   typst-pdf-and-zero-raster-audit:
-    name: Typst 0.15.1 Deterministic PDF Build and Zero-Raster Audit
+    name: Typst 0.15.1 Deterministic PDF Build and Pure-Rust Zero-Raster Audit
+    needs: [rust-native-and-manual-verify]
     runs-on: ubuntu-24.04
     env:
       TYPST_VERSION: "0.15.1"
@@ -70,6 +82,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download release aodc binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: aodc-release-bin
+          path: /tmp/aodc-bin
 
       - name: Install Latin Modern, DejaVu fonts, and poppler-utils
         run: |
@@ -91,11 +109,17 @@ jobs:
           typst compile --root . --creation-timestamp 0 docs/manual/main.typ /tmp/aod-dec-v2-manual-1.pdf
           typst compile --root . --creation-timestamp 0 docs/manual/main.typ /tmp/aod-dec-v2-manual-2.pdf
 
-      - name: Audit compiled PDFs for zero rasters, zero unresolved refs, and byte determinism
+      - name: Audit compiled PDFs with pure-Rust aodc audit-pdf and pdfimages
         run: |
-          python3 scripts/audit_pdf_zero_raster.py \
+          chmod +x /tmp/aodc-bin/aodc
+          /tmp/aodc-bin/aodc audit-pdf \
             --min-pages 6 \
             --compare-pdf /tmp/aod-dec-v2-manual-2.pdf \
+            /tmp/aod-dec-v2-manual-1.pdf
+          /tmp/aodc-bin/aodc audit-pdf \
+            --min-pages 6 \
+            --compare-pdf /tmp/aod-dec-v2-manual-2.pdf \
+            --json \
             /tmp/aod-dec-v2-manual-1.pdf
           IMAGE_COUNT="$(pdfimages -list /tmp/aod-dec-v2-manual-1.pdf | tail -n +3 | wc -l)"
           echo "pdfimages embedded raster count: ${IMAGE_COUNT}"
@@ -106,6 +130,7 @@ jobs:
         with:
           name: aod-dec-v2-manual-pdf
           path: /tmp/aod-dec-v2-manual-1.pdf
+          if-no-files-found: error
 
   aod-lint-strict:
     name: Strict rpoyau/aod-lint Check over docs/manual

@@ -8,12 +8,12 @@ use std::process::ExitCode;
 use aodc::diagnostics::CompatMode;
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
-    bench_file_with_options, build_aot_file_with_options, check_file_with_options,
+    audit_pdf_file, bench_file_with_options, build_aot_file_with_options, check_file_with_options,
     compile_file_to_ir_with_options, emit_llvm_file_with_options,
     exec_ir_file_with_budget_capturing, format_x100, jit_file_with_profile_captured,
     learn_file_with_options, run_all_hw_probes, run_dec_tests_with_options,
     run_file_with_options_capturing, verify_manual_dir, verify_s2_dir, LoadOptions,
-    ManualVerifyOptions, OptLevel,
+    ManualVerifyOptions, OptLevel, PdfAuditOptions,
 };
 
 fn canonicalize_allowing_new_file(path: &Path) -> std::io::Result<PathBuf> {
@@ -223,7 +223,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--json]\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v2] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc compile [--compat v1|v2] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--compat v1|v2] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bench [--compat v1|v2] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--json]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -679,6 +679,99 @@ fn main() -> ExitCode {
                     Err(format!(
                         "S2 verification failed with {} failure(s)",
                         report.failures.len()
+                    ))
+                }
+            }
+        }
+        "audit-pdf" => {
+            let mut min_pages: usize = 1;
+            let mut compare_pdf: Option<PathBuf> = None;
+            let mut json_mode = false;
+            let mut positional: Vec<String> = Vec::new();
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--min-pages" => {
+                        match parse_positive_usize("--min-pages", sub_args.get(idx + 1)) {
+                            Ok(n) => {
+                                min_pages = n;
+                                idx += 2;
+                            }
+                            Err(e) => {
+                                parse_err = Some(e);
+                                break;
+                            }
+                        }
+                    }
+                    "--compare-pdf" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            compare_pdf = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing file path after --compare-pdf".to_string());
+                            break;
+                        }
+                    },
+                    "--json" => {
+                        json_mode = true;
+                        idx += 1;
+                    }
+                    other if other.starts_with('-') => {
+                        parse_err = Some(format!("unknown flag {other:?} for audit-pdf\n{}", usage()));
+                        break;
+                    }
+                    other => {
+                        positional.push(other.to_string());
+                        idx += 1;
+                    }
+                }
+            }
+            if let Some(e) = parse_err {
+                Err(e)
+            } else if positional.len() != 1 {
+                Err(format!("expected <pdf>\n{}", usage()))
+            } else {
+                let report = audit_pdf_file(
+                    Path::new(&positional[0]),
+                    &PdfAuditOptions {
+                        min_pages,
+                        compare_pdf,
+                    },
+                );
+                if json_mode {
+                    println!("{}", report.to_json().to_compact_ascii_json());
+                } else {
+                    println!(
+                        "aodc audit-pdf ({}) -> {} (bytes={}, pages={}, streams={}, flate={}, rasters={}, unresolved={}, sha256={})",
+                        positional[0],
+                        report.status,
+                        report.bytes,
+                        report.pages,
+                        report.streams_total,
+                        report.streams_flate_inflated,
+                        report.raster_violations,
+                        report.unresolved_violations,
+                        report.sha256
+                    );
+                    if let Some(ref cmp) = report.compare_sha256 {
+                        println!(
+                            "  compare_sha256={} deterministic_match={}",
+                            cmp,
+                            report.deterministic_match.unwrap_or(false)
+                        );
+                    }
+                    for err in &report.errors {
+                        eprintln!("  ERROR: {err}");
+                    }
+                }
+                if report.is_ok() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "PDF audit failed with {} error(s)",
+                        report.errors.len()
                     ))
                 }
             }

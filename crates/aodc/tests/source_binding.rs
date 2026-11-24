@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use aod_core::bigint::BigInt;
@@ -264,4 +265,205 @@ fn static_audit_zero_floats_zero_unsafe_and_zero_external_deps() {
             );
         }
     }
+}
+
+fn has_dot_py_token(lower: &str) -> bool {
+    let bytes = lower.as_bytes();
+    let mut i = 0usize;
+    while i + 3 <= bytes.len() {
+        if &bytes[i..i + 3] == b".py" {
+            let after = bytes.get(i + 3).copied();
+            let after2 = bytes.get(i + 4).copied();
+            let is_py_ext = match after {
+                None => true,
+                Some(b) if !(b.is_ascii_alphanumeric() || b == b'_') => true,
+                Some(b'c' | b'o' | b'i') => match after2 {
+                    None => true,
+                    Some(b2) => !(b2.is_ascii_alphanumeric() || b2 == b'_'),
+                },
+                _ => false,
+            };
+            if is_py_ext {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
+fn check_repo_zero_python(root: &Path, dir: &Path) {
+    for entry_res in std::fs::read_dir(dir).unwrap() {
+        let entry = entry_res.unwrap();
+        let ft = entry.file_type().unwrap(); // Never follows symlinks (`P0-3`)
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        let path = entry.path();
+
+        if ft.is_dir() {
+            if name_str == ".git" || name_str == "target" {
+                continue;
+            }
+            assert_ne!(
+                name_str, "__pycache__",
+                "forbidden __pycache__ directory found at {}",
+                path.display()
+            );
+            check_repo_zero_python(root, &path);
+            continue;
+        }
+
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let ext_lower = ext.to_ascii_lowercase();
+            assert!(
+                !matches!(ext_lower.as_str(), "py" | "pyc" | "pyo" | "pyi"),
+                "forbidden Python artifact `{}` found in repository",
+                path.display()
+            );
+        }
+
+        if ft.is_file() {
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if rel == "SOURCE_BINDING.json" || rel.starts_with("bindings/aod/s2_vectors/") {
+                continue;
+            }
+            let mut f = std::fs::File::open(&path).unwrap();
+            let mut head = [0u8; 128];
+            let mut read_len = 0usize;
+            while read_len < head.len() {
+                let n = f.read(&mut head[read_len..]).unwrap();
+                if n == 0 {
+                    break;
+                }
+                read_len += n;
+            }
+            let prefix = &head[..read_len];
+            if prefix.starts_with(b"#!") {
+                let first_line_end = prefix
+                    .iter()
+                    .position(|&b| b == b'\n' || b == b'\r')
+                    .unwrap_or(prefix.len());
+                let shebang = String::from_utf8_lossy(&prefix[..first_line_end]).to_ascii_lowercase();
+                assert!(
+                    !shebang.contains("python") && !shebang.contains("pypy"),
+                    "forbidden Python shebang `{shebang}` in {rel}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn zero_python_repository_and_ci_guard() {
+    let root = repo_root();
+
+    // 1. Walk entire repository (skipping .git & target, never following symlinks)
+    check_repo_zero_python(&root, &root);
+
+    // 2. Confirm legacy Python scripts are removed and .gitignore has no Python cache entries
+    assert!(!root.join("scripts/audit_pdf_zero_raster.py").exists());
+    assert!(!root.join("scripts/test_audit_pdf_zero_raster.py").exists());
+    let gitignore = std::fs::read_to_string(root.join(".gitignore")).unwrap();
+    assert!(
+        !gitignore.contains("__pycache__") && !gitignore.contains("*.pyc"),
+        ".gitignore must not retain Python cache entries"
+    );
+
+    // 3. Scan every `.github/workflows/*.{yml,yaml}` file strictly per P0-3
+    let wf_dir = root.join(".github/workflows");
+    let mut wf_files: Vec<PathBuf> = std::fs::read_dir(&wf_dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| {
+            matches!(
+                p.extension().and_then(|e| e.to_str()),
+                Some("yml" | "yaml")
+            )
+        })
+        .collect();
+    wf_files.sort();
+    assert!(!wf_files.is_empty(), "expected at least one CI workflow file");
+
+    let forbidden_tokens = [
+        "python3",
+        "python2",
+        "pypy",
+        "pytest",
+        "pip",
+        "pip3",
+        "unittest",
+        "setup-python",
+        "virtualenv",
+        "conda",
+        "poetry",
+    ];
+    let forbidden_substrings = [
+        "python3",
+        "python2",
+        "pypy",
+        "pytest",
+        "setup-python",
+        "virtualenv",
+        "unittest",
+    ];
+
+    let mut saw_ci_yml = false;
+    for wf in &wf_files {
+        let rel = wf
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let text = std::fs::read_to_string(wf).unwrap();
+        if rel == ".github/workflows/ci.yml" {
+            saw_ci_yml = true;
+            assert!(
+                text.contains("aodc audit-pdf"),
+                "ci.yml must invoke pure-Rust `aodc audit-pdf`"
+            );
+            assert!(
+                text.contains("pdfimages"),
+                "ci.yml must retain `pdfimages` cross-check"
+            );
+        }
+
+        for (idx, line) in text.lines().enumerate() {
+            let line_no = idx + 1;
+            let lower = line.to_ascii_lowercase();
+
+            for sub in forbidden_substrings {
+                assert!(
+                    !lower.contains(sub),
+                    "forbidden Python substring `{sub}` in {rel}:{line_no}: {line}"
+                );
+            }
+            for tok in lower.split(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_')) {
+                if forbidden_tokens.contains(&tok) {
+                    panic!(
+                        "forbidden Python token `{tok}` in {rel}:{line_no}: {line}"
+                    );
+                }
+            }
+            assert!(
+                !has_dot_py_token(&lower),
+                "forbidden `.py` file token in {rel}:{line_no}: {line}"
+            );
+
+            let trimmed = line.trim();
+            let bare_check = if trimmed.starts_with("branches:") {
+                trimmed.replace("\"v2/zero-python-evolution\"", "")
+            } else {
+                line.to_string()
+            };
+            assert!(
+                !bare_check.to_ascii_lowercase().contains("python"),
+                "forbidden bare `python` mention outside exact allowlisted branch literal in {rel}:{line_no}: {line}"
+            );
+        }
+    }
+    assert!(saw_ci_yml, "expected .github/workflows/ci.yml");
 }

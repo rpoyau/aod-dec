@@ -14,6 +14,7 @@ pub mod lexer;
 pub mod manual_verify;
 pub mod modules;
 pub mod parser;
+pub mod pdf_audit;
 pub mod sim;
 pub mod types;
 
@@ -32,6 +33,11 @@ pub use aod_llvm::{
 };
 pub use crate::manual_verify::{verify_manual_dir, ManualVerifyOptions, ManualVerifyReport};
 pub use crate::modules::LoadOptions;
+pub use crate::pdf_audit::{
+    adler32, audit_pdf_bytes, audit_pdf_file, inflate_deflate, inflate_zlib, InflateError,
+    PdfAuditOptions, PdfAuditReport, MAX_PDF_BYTES, MAX_STREAMS, MAX_STREAM_DECOMP_BYTES,
+    MAX_TOTAL_DECOMP_BYTES, PDF_AUDIT_SCHEMA,
+};
 
 use crate::checker::{check_unit, CheckedUnit};
 use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};

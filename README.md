@@ -73,6 +73,10 @@ cargo run --bin aodc -- manual-verify docs/manual --json
 cargo run --bin aodc -- verify-s2
 cargo run --bin aodc -- verify-s2 --json
 
+# Audit compiled PDFs (pure-Rust std-only RFC 1950/1951 zero-raster, unresolved-ref, page-count, & SHA-256 determinism)
+cargo run --bin aodc -- audit-pdf --min-pages 6 --compare-pdf /tmp/manual-2.pdf /tmp/manual-1.pdf
+cargo run --bin aodc -- audit-pdf --min-pages 6 --compare-pdf /tmp/manual-2.pdf --json /tmp/manual-1.pdf
+
 # Run Dec tests on a file or directory (including sibling .stdout and .expect_error checks)
 cargo run --bin aodc -- test --compat v1 tests/fixtures/v1_examples
 cargo run --bin aodc -- test tests/fixtures/v2_smoke
@@ -95,7 +99,7 @@ cargo run --bin aodc -- test manual_examples
 - **`docs/manual/`:** Modular Typst manual (`main.typ`, `refs.bib`, 7 General Mechanics chapters, 5 pure-vector native Typst figures, and 3 exact-integer JSON data files) bound read-only to vendored `/bindings/aod/aod_schema.typ` and `/bindings/aod/main_registry.json`.
 - **Six-pass `aodc manual-verify docs/manual [--json]`:** Verifies `#include`/`#import` containment & `SOURCE_BINDING.json` hashes (including both vendored S2 `.jsonl` digests), balanced Typst scanning, all Main registry/internal/BibTeX references, zero rasters/`@preview` packages, pure-Rust equivalents of all 4 `rpoyau/aod-lint` `TypstAstPass` rules, 3-mode (`VM`/`AOT -O2`/`ORC JIT -O2`) live execution of inline Dec blocks and all 16 `@dec-file` Manual fixtures, and live field-by-field parity of `docs/manual/data/*.json`.
 - **Stage 2 Golden-Vector Verifier (`aodc verify-s2 [--vectors <dir>] [--binding <path>] [--json]`):** Executes all 30 vendored S2/S4 cross-language golden vectors (`24` `rational_core.jsonl` + `6` `symbolic_and_display.jsonl`, covering all 27 distinct operations) against the shared `aod-core` kernel with strict 11-key `aod.s4.vector.v1` schema enforcement, symlink rejection, SHA-256 verification against `SOURCE_BINDING.json`, orthogonal scientific-status rollups (`AUTHENTICATED_EXACT=18`, `CONFORMANT_DECLARED_FIXTURE=5`, `RETAINED_DATA_CONFORMANT=6`, `UNRESOLVED_PROVENANCE_QUARANTINED=1`), and portable zero-host-path/zero-timestamp JSON output.
-- **Zero-raster PDF auditor (`scripts/audit_pdf_zero_raster.py`):** Stdlib-only Python 3 script (zero bare `assert`s) inspecting uncompressed and `/FlateDecode`-compressed PDF streams (including `/ObjStm`), rejecting `/Subtype /Image`, `/ImageB`/`/ImageC`/`/ImageI`, inline `BI..ID..EI` images, and unresolved references while verifying `--min-pages` and byte-identical `--compare-pdf` SHA-256 determinism.
+- **Pure-Rust zero-raster PDF auditor (`aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>`):** 100% `std`-only (`#![forbid(unsafe_code)]`, zero floats, zero external crates, zero `libLLVM` dependency) with a self-contained RFC 1950 (zlib + Adler-32) and RFC 1951 (DEFLATE stored, fixed Huffman, and dynamic Huffman) inflater. Masks binary stream payloads before root scanning, parses balanced nested `<< ... >>` dictionaries and direct/indirect `/Length` cleanly without greedy EOL stripping, fails closed on disallowed or corrupt stream `/Filter` entries and zip bombs, rejects `/Subtype /Image` XObjects (including inside `/FlateDecode` `/ObjStm` streams), inline `BI..ID..EI` raster images, and unresolved references while permitting standard ISO 32000-1 `/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]` boilerplate on pure-vector Typst PDFs, and enforces `--min-pages`, symmetric symlink/size guards, and byte-identical `--compare-pdf` SHA-256 determinism with portable `aod.dec.pdf.audit.v1` JSON output.
 
 ### Offline vs. CI Verification Matrix
 
@@ -106,8 +110,8 @@ cargo run --bin aodc -- test manual_examples
 | `aodc verify-s2` & `--json` (30/30 Stage 2 golden vectors, `S2@3122c94`) | Verified | Verified |
 | `aodc probe-hw` & `aodc learn` (honest compile-inclusive amortization) | Verified | Verified |
 | `aodc manual-verify docs/manual` & `--json` (all 6 passes live, `dec_files_checked: 16`) | Verified | Verified |
-| `scripts/test_audit_pdf_zero_raster.py` (`python3` & `python3 -O`) | Verified | Verified |
-| `typst compile --root . --creation-timestamp 0` (SHA-256-verified `v0.15.1`, double-build PDF + `audit_pdf_zero_raster.py`) | Not run locally (`typst` absent offline) | Verified in `.github/workflows/ci.yml` |
+| Pure-Rust `aodc audit-pdf` unit/CLI suite (`tests/pdf_audit.rs`) & zero-Python repo/CI guard | Verified | Verified |
+| `typst compile --root . --creation-timestamp 0` (SHA-256-verified `v0.15.1`, double-build PDF + `aodc audit-pdf` + `pdfimages`) | Not run locally (`typst` absent offline) | Verified in `.github/workflows/ci.yml` |
 | External `rpoyau/aod-lint check --strict` over `docs/manual/**/*.typ` | Mirrored in Pass 4 offline | Verified in `.github/workflows/ci.yml` |
 
 ## Provenance & Upstream Bindings
