@@ -1,11 +1,10 @@
 use std::fs;
-use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use aod_core::json::{parse_strict_json, JsonValue};
-use aodc::diagnostics::{CompatMode, DiagnosticCode};
+use aodc::diagnostics::DiagnosticCode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::ir::{dumps_ir, loads_ir};
 use aodc::{
@@ -54,21 +53,23 @@ fn assert_6mode_source_parity(src: &str, expected: &str, tmp: &Path, stem: &str)
 /// + `-O3` stdout parity on a `.dec` file.
 fn assert_6mode_file_parity(src_path: &Path, expected: &str, tmp: &Path, stem: &str) {
     // 1. Exact VM (`run`)
-    let vm_out = run_file(src_path, CompatMode::V2)
+    let vm_out = run_file(src_path)
         .unwrap_or_else(|e| panic!("{stem} VM failed: {e}"))
         .to_stdout_string();
     assert_eq!(vm_out, expected, "{stem}: VM stdout mismatch");
 
-    // 2. Hermetic DecIR v2 (`compile + exec`) + deterministic round-trip
-    let ir_text = compile_file_to_ir(src_path, CompatMode::V2)
+    // 2. Hermetic DecIR v3 (`compile + exec`) + deterministic round-trip
+    let ir_text = compile_file_to_ir(src_path)
         .unwrap_or_else(|e| panic!("{stem} compile failed: {e}"));
+    assert!(ir_text.contains("\"schema\": \"aod.dec.ir.v3\""));
+    assert!(ir_text.contains("\"syntax_discipline\": \"pure_wave_v2\""));
     let ir_path = tmp.join(format!("{stem}.ir.json"));
     fs::write(&ir_path, &ir_text).unwrap();
     let reloaded = loads_ir(&ir_text).unwrap_or_else(|e| panic!("{stem} loads_ir failed: {e}"));
     assert_eq!(
         dumps_ir(&reloaded),
         ir_text,
-        "{stem}: DecIR v2 round-trip must be byte-for-byte deterministic"
+        "{stem}: DecIR v3 round-trip must be byte-for-byte deterministic"
     );
     let ir_out = exec_ir_file(&ir_path)
         .unwrap_or_else(|e| panic!("{stem} exec failed: {e}"))
@@ -82,7 +83,7 @@ fn assert_6mode_file_parity(src_path: &Path, expected: &str, tmp: &Path, stem: &
         ("o3", OptLevel::O3),
     ] {
         let exe = tmp.join(format!("{stem}_{tag}_exe"));
-        build_aot_file(src_path, CompatMode::V2, opt, &exe)
+        build_aot_file(src_path, opt, &exe)
             .unwrap_or_else(|e| panic!("{stem} AOT {tag} build failed: {e}"));
         let aot = Command::new(&exe).output().unwrap();
         assert!(
@@ -98,37 +99,36 @@ fn assert_6mode_file_parity(src_path: &Path, expected: &str, tmp: &Path, stem: &
         );
     }
 
-    // 5 & 6. In-process ORC LLJIT (`jit -O0`, `jit -O2`, and `jit -O3`)
+    // 5 & 6. ORC LLJIT (`jit -O0`, `jit -O2`, and `jit -O3`)
     for (tag, opt) in [
         ("o0", OptLevel::O0),
         ("o2", OptLevel::O2),
         ("o3", OptLevel::O3),
     ] {
-        let (jit_out, res) =
-            jit_file_captured(src_path, CompatMode::V2, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+        let (jit_out, jit_res) =
+            jit_file_captured(src_path, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
                 .unwrap_or_else(|e| panic!("{stem} JIT {tag} compile failed: {e}"));
-        res.unwrap_or_else(|e| panic!("{stem} JIT {tag} runtime failed: {e}"));
+        jit_res.unwrap_or_else(|e| panic!("{stem} JIT {tag} runtime failed: {e}"));
         assert_eq!(jit_out, expected, "{stem}: JIT {tag} stdout mismatch");
     }
 }
 
-/// Assert that a runtime trap fails cleanly across ALL 6 execution modes (`run`, `compile+exec`,
-/// `build -O0`, `build -O2`, `jit -O0`, `jit -O2`) without UB, poison, or SIGFPE.
+/// Assert clean runtime trap across all 6 modes (VM, DecIR v3, AOT -O0/-O2, JIT -O0/-O2).
 fn assert_6mode_runtime_trap(src: &str, tmp: &Path, stem: &str) {
-    let vm_err = run_source(src, CompatMode::V2).expect_err(&format!("{stem}: VM must trap"));
+    let vm_err = run_source(src).expect_err(&format!("{stem}: VM must trap"));
     assert_eq!(vm_err.code, DiagnosticCode::RuntimeError);
 
     let src_path = tmp.join(format!("{stem}_trap.dec"));
     fs::write(&src_path, src).unwrap();
 
-    let ir = compile_file_to_ir(&src_path, CompatMode::V2)
+    let ir = compile_file_to_ir(&src_path)
         .unwrap_or_else(|e| panic!("{stem}: compile_file_to_ir failed: {e}"));
     let ir_err = exec_ir_str(&ir).expect_err(&format!("{stem}: DecIR exec must trap"));
     assert_eq!(ir_err.code, DiagnosticCode::RuntimeError);
 
     for (tag, opt) in [("o0", OptLevel::O0), ("o2", OptLevel::O2)] {
         let exe = tmp.join(format!("{stem}_trap_{tag}_exe"));
-        build_aot_file(&src_path, CompatMode::V2, opt, &exe)
+        build_aot_file(&src_path, opt, &exe)
             .unwrap_or_else(|e| panic!("{stem}: AOT {tag} build failed: {e}"));
         let out = Command::new(&exe).output().unwrap();
         assert_eq!(
@@ -140,138 +140,126 @@ fn assert_6mode_runtime_trap(src: &str, tmp: &Path, stem: &str) {
     }
 
     for (tag, opt) in [("o0", OptLevel::O0), ("o2", OptLevel::O2)] {
-        let (_, jit_res) =
-            jit_source_captured(src, CompatMode::V2, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-                .unwrap_or_else(|e| panic!("{stem}: JIT {tag} compile failed: {e}"));
+        let (_, jit_res) = jit_source_captured(src, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+            .unwrap_or_else(|e| panic!("{stem}: JIT {tag} compile failed: {e}"));
         assert!(jit_res.is_err(), "{stem}: JIT {tag} must trap at runtime");
     }
 }
 
 #[test]
-fn ac01_null_distinctness_incomparability_and_v1_isolation() {
-    // Compile-time incomparability with all numeric, ternary, hypercube, anchor, and bytes types
+fn ac01_null_distinctness_incomparability_and_legacy_width_eliminations() {
+    // Compile-time incomparability with all numeric, register, ternary, hypercube, anchor, and bytes types
     for (rhs, expected_code) in [
         ("0", DiagnosticCode::ImplicitCoercionForbidden),
-        ("u8(0)", DiagnosticCode::ImplicitCoercionForbidden),
-        ("b64(0)", DiagnosticCode::ImplicitCoercionForbidden),
+        ("b8(0)", DiagnosticCode::ImplicitCoercionForbidden),
+        ("b64_bits(0)", DiagnosticCode::ImplicitCoercionForbidden),
         ("0t", DiagnosticCode::ImplicitCoercionForbidden),
-        ("t9(0)", DiagnosticCode::ImplicitCoercionForbidden),
-        ("t32(0)", DiagnosticCode::ImplicitCoercionForbidden),
         ("q4(0)", DiagnosticCode::ImplicitCoercionForbidden),
         ("00_8", DiagnosticCode::ImplicitCoercionForbidden),
         ("false", DiagnosticCode::ImplicitCoercionForbidden),
         ("b\"\"", DiagnosticCode::ImplicitCoercionForbidden),
     ] {
         let src = format!(
-            "use aod::core:\n    u8, b64, t9, t32, q4\ndec main:\n    () -> int:\n        let ok = null == {rhs}\n        return 0\n"
+            "use aod::core:\n    b8, b64_bits, q4\ndec main:\n    () -> int:\n        let _ok = null == {rhs}\n        return 0\n"
         );
-        let err = check_source(&src, CompatMode::V2)
+        let err = check_source(&src)
             .expect_err(&format!("null == {rhs} must fail at compile time"));
         assert_eq!(err.code, expected_code, "mismatch on null == {rhs}: {err}");
     }
 
-    // Arithmetic / ordering on Null is forbidden
+    // Arithmetic / ordering on Null and rebinding `null` are forbidden
     for bad in [
         "dec main:\n    () -> int:\n        let x = -null\n        return 0\n",
         "dec main:\n    () -> int:\n        let x = null < null\n        return 0\n",
         "dec main:\n    () -> int:\n        let null = 1\n        return null\n",
         "dec f:\n    (null: int) -> int:\n        return 0\ndec main:\n    () -> int:\n        return f(1)\n",
     ] {
-        assert!(check_source(bad, CompatMode::V2).is_err());
+        assert!(check_source(bad).is_err());
     }
 
-    // In --compat v1: `null` is unreserved as a v1 identifier, while unbound `null` expr & `Null` type reject
-    let v1_ident_ok = r#"
-Dec add_one(null) -> out:
-    (int null) -> int out:
-        out = null + 1
-
-Dec main() -> out:
-    () -> int out:
-        out = add_one(4)
-"#;
-    let v1_res = run_source(v1_ident_ok, CompatMode::V1).unwrap();
-    assert_eq!(v1_res.to_stdout_string(), "5\n");
-
-    let v1_unbound_null = "Dec main() -> out:\n    () -> int out:\n        x = null\n        out = 0\n";
-    assert!(check_source(v1_unbound_null, CompatMode::V1).is_err());
-    let v1_null_type = "Dec main() -> out:\n    () -> Null out:\n        out = 0\n";
-    assert!(check_source(v1_null_type, CompatMode::V1).is_err());
+    // Eliminated binary integer widths and sub-word ternary widths reject with TypeError
+    for removed_ty in ["u8", "int8", "int16", "int32", "int64", "t9", "t32", "str"] {
+        let src = format!(
+            "dec bad:\n    (x: {removed_ty}) -> int:\n        return 0\ndec main:\n    () -> int:\n        return 0\n"
+        );
+        assert_eq!(
+            check_source(&src).unwrap_err().code,
+            DiagnosticCode::TypeError,
+            "removed type `{removed_ty}` must fail with TypeError"
+        );
+    }
 }
 
 #[test]
-fn ac02_u8_checked_arithmetic_and_6mode_traps() {
-    let tmp = temp_dir("ac02_u8");
+fn ac02_b8_raw_octet_bitwise_shifts_and_6mode_traps() {
+    let tmp = temp_dir("ac02_b8");
 
-    // Compile-time rejections: unary `-u8`, implicit coercion with `int`
+    // Compile-time rejections: arithmetic on raw `b8`, implicit coercion with `int`, non-int shift RHS
+    for op_expr in [
+        "-b8(1)",
+        "b8(1) + b8(2)",
+        "b8(2) - b8(1)",
+        "b8(2) * b8(3)",
+        "b8(4) / b8(2)",
+        "b8(4) // b8(2)",
+        "b8(4) % b8(2)",
+        "b8(1) << b8(2)",
+    ] {
+        let src = format!(
+            "use aod::core::b8\ndec main:\n    () -> int:\n        let _x = {op_expr}\n        return 0\n"
+        );
+        assert_eq!(
+            check_source(&src).unwrap_err().code,
+            DiagnosticCode::TypeError,
+            "expected TypeError for {op_expr}"
+        );
+    }
     assert_eq!(
         check_source(
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let x = -u8(1)\n        return 0\n",
-            CompatMode::V2
-        )
-        .unwrap_err()
-        .code,
-        DiagnosticCode::TypeError
-    );
-    assert_eq!(
-        check_source(
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let x = u8(1) + 1\n        return 0\n",
-            CompatMode::V2
+            "use aod::core::b8\ndec main:\n    () -> int:\n        let _x = b8(1) + 1\n        return 0\n"
         )
         .unwrap_err()
         .code,
         DiagnosticCode::ImplicitCoercionForbidden
     );
-    assert!(check_source("Dec main() -> out:\n    () -> u8 out:\n        out = 0\n", CompatMode::V1).is_err());
 
-    // Positive 6-mode parity
+    // Positive 6-mode parity (lowercase hex rendering `b8(0x..)`)
     let pos = r#"
 use aod::core:
-    u8, b64, t9, t32, q4
+    int, b8, bitnot, popcnt
 
 dec main:
     () -> int:
-        let a = u8(200)
-        let b = u8(55)
-        emit a + b
-        emit a - b
-        emit u8(15) * u8(17)
-        emit a // u8(7)
-        emit a % u8(7)
-        emit (u8(0xAA) & u8(0x0F)) | (u8(1) << 7)
-        emit u8(0xFF) >> u8(4)
-        emit u8(true)
-        emit u8(q4(12))
-        emit u8(t9(255))
-        emit u8(t32(255))
-        emit u8(b64(255))
+        let a = b8(0xAA)
+        let b = b8(0x55)
+        assert int(b8(255)) == 255
+        assert popcnt(a) == 4
+        assert bitnot(b8(0)) == b8(0xFF)
+        assert ~b8(0) == b8(0xFF)
+        emit b8(5)
+        emit a ^ b
+        emit (a & b8(0x0F)) | (b8(1) << 7)
+        emit b8(0xFF) >> 4
         return 0
 "#;
     assert_6mode_source_parity(
         pos,
-        "u8(255)\nu8(145)\nu8(255)\nu8(28)\nu8(4)\nu8(138)\nu8(15)\nu8(1)\nu8(12)\nu8(255)\nu8(255)\nu8(255)\n0\n",
+        "b8(0x05)\nb8(0xff)\nb8(0x8a)\nb8(0x0f)\n0\n",
         &tmp,
-        "u8_pos",
+        "b8_pos",
     );
 
-    // 6-mode runtime traps: overflow, underflow, //0, %0, <<8, >>8, <<-1, u8(256), u8(-1)
+    // 6-mode runtime traps: <<8, >>8, <<-1, >>-1, b8(256), b8(-1)
     for (tag, expr) in [
-        ("u8_add_ovf", "let _x = u8(250) + u8(10)"),
-        ("u8_sub_unf", "let _x = u8(3) - u8(4)"),
-        ("u8_mul_ovf", "let _x = u8(20) * u8(20)"),
-        ("u8_div0", "let _x = u8(9) // u8(0)"),
-        ("u8_rem0", "let _x = u8(9) % u8(0)"),
-        ("u8_shl8_u8", "let _x = u8(1) << u8(8)"),
-        ("u8_shr8_u8", "let _x = u8(1) >> u8(8)"),
-        ("u8_shl8_int", "let _x = u8(1) << 8"),
-        ("u8_shr_neg", "let _x = u8(1) >> (-1)"),
-        ("u8_from_256", "let _x = u8(256)"),
-        ("u8_from_neg", "let _x = u8(-1)"),
-        ("u8_from_t9_neg", "let _x = u8(t9(-1))"),
-        ("u8_from_b64_ovf", "let _x = u8(b64(256))"),
+        ("b8_shl8", "let _x = b8(1) << 8"),
+        ("b8_shr8", "let _x = b8(1) >> 8"),
+        ("b8_shl_neg", "let _x = b8(1) << (-1)"),
+        ("b8_shr_neg", "let _x = b8(1) >> (-1)"),
+        ("b8_from_256", "let _x = b8(256)"),
+        ("b8_from_neg", "let _x = b8(-1)"),
     ] {
         let src = format!(
-            "use aod::core:\n    u8, b64, t9\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
+            "use aod::core::b8\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
         );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
@@ -297,33 +285,24 @@ fn ac03_b64_hex_bin_lexing_compile_guards_and_6mode_traps() {
         "0x1G",
     ] {
         let src = format!("dec main:\n    () -> int:\n        let x = {bad_lex}\n        return x\n");
-        let err = check_source(&src, CompatMode::V2)
-            .expect_err(&format!("{bad_lex} must fail lexing"));
+        let err = check_source(&src).expect_err(&format!("{bad_lex} must fail lexing"));
         assert_eq!(err.code, DiagnosticCode::LexError, "for {bad_lex}: {err}");
     }
 
     // Float hex/binary -> FloatLiteralForbidden
     for bad_flt in ["0x1.5", "0b1.0"] {
-        let src = format!("dec main:\n    () -> int:\n        let x = {bad_flt}\n        return 0\n");
-        let err = check_source(&src, CompatMode::V2).unwrap_err();
+        let src = format!("dec main:\n    () -> int:\n        let _x = {bad_flt}\n        return 0\n");
+        let err = check_source(&src).unwrap_err();
         assert_eq!(err.code, DiagnosticCode::FloatLiteralForbidden);
     }
 
     // Hex range `0x1..0x5` must lex cleanly as IntLit(1) .. IntLit(5)
     assert!(check_source(
-        "use aod::core::evolve\ndec add_step:\n    (s: int, i: int) -> int:\n        return s + i\ndec main:\n    () -> int:\n        let s = evolve(0, 0x1..0x5, add_step)\n        assert s == 10\n        return 0\n",
-        CompatMode::V2
-    ).is_ok());
+        "use aod::core::evolve\ndec add_step:\n    (s: int, i: int) -> int:\n        return s + i\ndec main:\n    () -> int:\n        let s = evolve(0, 0x1..0x5, add_step)\n        assert s == 10\n        return 0\n"
+    )
+    .is_ok());
 
-    // Rejected in --compat v1
-    assert_eq!(
-        check_source("Dec main() -> out:\n    () -> int out:\n        out = 0x10\n", CompatMode::V1)
-            .unwrap_err()
-            .code,
-        DiagnosticCode::LexError
-    );
-
-    // Arithmetic (`+`, `-`, `*`, `/`, `//`, `%`) and unary `-` on `b64` are forbidden at compile time
+    // Arithmetic (`+`, `-`, `*`, `/`, `//`, `%`), unary `-`, and `b64 << b64` on `b64` are forbidden at compile time
     for op_expr in [
         "-b64(1)",
         "b64(1) + b64(2)",
@@ -332,67 +311,67 @@ fn ac03_b64_hex_bin_lexing_compile_guards_and_6mode_traps() {
         "b64(4) / b64(2)",
         "b64(4) // b64(2)",
         "b64(4) % b64(2)",
+        "b64_bits(1) << b64_bits(2)",
     ] {
         let src = format!(
-            "use aod::core::b64\ndec main:\n    () -> int:\n        let _x = {op_expr}\n        return 0\n"
+            "use aod::core:\n    b64, b64_bits\ndec main:\n    () -> int:\n        let _x = {op_expr}\n        return 0\n"
         );
-        let err = check_source(&src, CompatMode::V2)
-            .expect_err(&format!("{op_expr} must fail on b64"));
+        let err = check_source(&src).expect_err(&format!("{op_expr} must fail on b64"));
         assert_eq!(err.code, DiagnosticCode::TypeError);
     }
 
     // Positive 6-mode parity including bit 63 set (`0xFFFF_FFFF_FFFF_FFFF`, `0xAAAA_AAAA_AAAA_AAAA`)
-    // AND 1-cycle T32 wire-swap phase flip `((w & 0x5555...) << 1) | ((w & 0xAAAA...) >> 1)` == `b64(neg(t))`
+    // AND 1-cycle 32-trit wire-swap phase flip `((w & 0x5555...) << 1) | ((w & 0xAAAA...) >> 1)` == `b64(neg(t))`
     let pos = r#"
 use aod::core:
-    int, b64, t32, neg, popcnt, bitnot, all
+    int, b64, b64_bits, u64_int, neg, popcnt, bitnot, all
 
 dec wire_swap_flip:
-    (x: t32) -> t32:
+    (x: int) -> int:
         let w = b64(x)
-        let lo = (w & b64(0x5555_5555_5555_5555)) << 1
-        let hi = (w & b64(0xAAAA_AAAA_AAAA_AAAA)) >> 1
-        return t32(lo | hi)
+        let lo = (w & b64_bits(0x5555_5555_5555_5555)) << 1
+        let hi = (w & b64_bits(0xAAAA_AAAA_AAAA_AAAA)) >> 1
+        return int(lo | hi)
 
 dec check_flip:
-    (v: t32) -> bool:
+    (v: int) -> bool:
         return wire_swap_flip(v) == neg(v)
 
 dec main:
     () -> int:
-        let top = b64(0xFFFF_FFFF_FFFF_FFFF)
-        assert int(top) == 18446744073709551615
+        let top = b64_bits(0xFFFF_FFFF_FFFF_FFFF)
+        assert u64_int(top) == 18446744073709551615
         assert popcnt(top) == 64
-        assert bitnot(top) == b64(0)
-        let neg_trits = b64(0xAAAA_AAAA_AAAA_AAAA)
-        let decoded = t32(neg_trits)
-        assert decoded == t32(-926510094425920)
+        assert bitnot(top) == b64_bits(0)
+        let neg_trits = b64_bits(0xAAAA_AAAA_AAAA_AAAA)
+        let decoded = int(neg_trits)
+        assert decoded == -926510094425920
         assert b64(decoded) == neg_trits
-        assert all([t32(0), t32(1), t32(-1), t32(926510094425920), t32(-926510094425920)], check_flip)
+        assert all([0, 1, -1, 926510094425920, -926510094425920], check_flip)
         emit top
         emit decoded
         return 0
 "#;
     assert_6mode_source_parity(
         pos,
-        "b64(0xffffffffffffffff)\nt32(-926510094425920)\n0\n",
+        "b64(0xffffffffffffffff)\n-926510094425920\n0\n",
         &tmp,
         "b64_pos",
     );
 
-    // 6-mode runtime traps: shift >= 64, shift < 0, b64(-1), b64(2^64), invalid 0b11 lane in t32(b64)
+    // 6-mode runtime traps: shift >= 64, shift < 0, b64_bits(-1), b64_bits(2^64), b64(>T32_LIMIT), invalid 0b11 lane in int(b64)
     for (tag, expr) in [
-        ("b64_shl64_b64", "let _x = b64(1) << b64(64)"),
-        ("b64_shr64_b64", "let _x = b64(1) >> b64(64)"),
-        ("b64_shl64_int", "let _x = b64(1) << 64"),
-        ("b64_shr_neg", "let _x = b64(1) >> (-1)"),
-        ("b64_neg", "let _x = b64(-1)"),
-        ("b64_ovf", "let _x = b64(0x1_0000_0000_0000_0000)"),
-        ("t32_bad_lane0", "let _x = t32(b64(0b11))"),
-        ("t32_bad_lane31", "let _x = t32(b64(0xC000_0000_0000_0000))"),
+        ("b64_shl64", "let _x = b64_bits(1) << 64"),
+        ("b64_shr64", "let _x = b64_bits(1) >> 64"),
+        ("b64_shr_neg", "let _x = b64_bits(1) >> (-1)"),
+        ("b64_bits_neg", "let _x = b64_bits(-1)"),
+        ("b64_bits_ovf", "let _x = b64_bits(0x1_0000_0000_0000_0000)"),
+        ("b64_spill_ovf", "let _x = b64(926510094425920 + 1)"),
+        ("int_bad_lane0", "let _x = int(b64_bits(0b11))"),
+        ("int_bad_lane31", "let _x = int(b64_bits(0xC000_0000_0000_0000))"),
     ] {
         let src = format!(
-            "use aod::core:\n    b64, t32\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
+            "use aod::core:\n    int, b64, b64_bits\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
         );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
@@ -401,23 +380,24 @@ dec main:
 }
 
 #[test]
-fn ac04_t9_checked_ternary_and_18bit_pack_unpack_6mode() {
-    let tmp = temp_dir("ac04_t9");
+fn ac04_trit_boxed_9trit_pack_unpack_and_floor_div_6mode() {
+    let tmp = temp_dir("ac04_pack9");
 
     let pos = r#"
 use aod::core:
-    b64, t9, pack, unpack_t9
+    b64, b64_bits, pack, unpack, unpack_t9
 
 dec main:
     () -> int:
-        let hi = t9(9841)
-        let lo = t9(-9841)
-        assert hi + lo == t9(0)
+        let hi = 9841
+        let lo = -9841
+        assert hi + lo == 0
         assert -hi == lo and -lo == hi
-        assert (t9(-8) // t9(3)) == t9(-3) and (t9(-8) % t9(3)) == t9(1)
-        assert (t9(6) / t9(9)) == 2/3r
+        assert (-8 // 3) == -3 and (-8 % 3) == 1
+        assert (6 / 9) == 2/3r
         let p_hi = pack(hi)
         let p_lo = b64(lo)
+        assert unpack(p_hi) == hi
         assert unpack_t9(p_hi) == hi
         assert unpack_t9(p_lo) == lo
         emit hi
@@ -428,26 +408,21 @@ dec main:
 "#;
     assert_6mode_source_parity(
         pos,
-        "t9(9841)\nt9(-9841)\n87381\nb64(0x000000000002aaaa)\n0\n",
+        "9841\n-9841\n87381\nb64(0x000000000002aaaa)\n0\n",
         &tmp,
-        "t9_pos",
+        "pack9_pos",
     );
 
     for (tag, expr) in [
-        ("t9_hi_ovf", "let _x = t9(9842)"),
-        ("t9_lo_ovf", "let _x = t9(-9842)"),
-        ("t9_add_ovf", "let _x = t9(9841) + t9(1)"),
-        ("t9_sub_ovf", "let _x = t9(-9841) - t9(1)"),
-        ("t9_mul_ovf", "let _x = t9(200) * t9(200)"),
-        ("t9_div0", "let _x = t9(5) // t9(0)"),
-        ("t9_rem0", "let _x = t9(5) % t9(0)"),
+        ("int_div0", "let _x = 5 // 0"),
+        ("int_rem0", "let _x = 5 % 0"),
         ("t9_unpack_oob", "let _x = unpack_t9(262144)"),
         ("t9_unpack_neg", "let _x = unpack_t9(-1)"),
         ("t9_unpack_bad0", "let _x = unpack_t9(3)"),
-        ("t9_unpack_bad8", "let _x = unpack_t9(b64(0x30000))"),
+        ("t9_unpack_bad8", "let _x = unpack_t9(b64_bits(0x30000))"),
     ] {
         let src = format!(
-            "use aod::core:\n    b64, t9, unpack_t9\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
+            "use aod::core:\n    b64_bits, unpack_t9\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
         );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
@@ -456,14 +431,13 @@ dec main:
 }
 
 #[test]
-fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
+fn ac05_q4_superpose_cancel_and_select_parity_and_firewalls() {
     let tmp = temp_dir("ac05_select");
 
     // Compile-time firewalls on `select`
     assert_eq!(
         check_source(
-            "use aod::core:\n    u8, select\ndec main:\n    () -> int:\n        let _x = select(true, 1, u8(1))\n        return 0\n",
-            CompatMode::V2
+            "use aod::core:\n    b8, select\ndec main:\n    () -> int:\n        let _x = select(true, 1, b8(1))\n        return 0\n"
         )
         .unwrap_err()
         .code,
@@ -471,8 +445,7 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     );
     assert_eq!(
         check_source(
-            "use aod::core::select\nstruct Boxed:\n    v: int\ndec f:\n    (ro: ReadOnly<Boxed>, m: Boxed) -> int:\n        let _x = select(true, ro, m)\n        return 0\ndec main:\n    () -> int:\n        return 0\n",
-            CompatMode::V2
+            "use aod::core::select\nstruct Boxed:\n    v: int\ndec f:\n    (ro: ReadOnly<Boxed>, m: Boxed) -> int:\n        let _x = select(true, ro, m)\n        return 0\ndec main:\n    () -> int:\n        return 0\n"
         )
         .unwrap_err()
         .code,
@@ -480,8 +453,7 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     );
     assert_eq!(
         check_source(
-            "use aod::core::select\ndec main:\n    () -> int:\n        let _x = select(1, 2, 3)\n        return 0\n",
-            CompatMode::V2
+            "use aod::core::select\ndec main:\n    () -> int:\n        let _x = select(1, 2, 3)\n        return 0\n"
         )
         .unwrap_err()
         .code,
@@ -489,21 +461,23 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     );
     assert_eq!(
         check_source(
-            "use aod::core::select\nuse aod::qext::ext_decimal\nquarantine Q_ext LeakMod:\n    dec leak_cond:\n        (a: int, b: int) -> QExt<ratio>:\n            let q = ext_decimal(b\"1.0\")\n            let c = q == q\n            let _bad = select(c, a, b)\n            return q\ndec main:\n    () -> int:\n        return 0\n",
-            CompatMode::V2
+            "use aod::core::select\nuse aod::qext::ext_decimal\nquarantine Q_ext LeakMod:\n    dec leak_cond:\n        (a: int, b: int) -> QExt<ratio>:\n            let q = ext_decimal(b\"1.0\")\n            let c = q == q\n            let _bad = select(c, a, b)\n            return q\ndec main:\n    () -> int:\n        return 0\n"
         )
         .unwrap_err()
         .code,
         DiagnosticCode::QExtLeakageForbidden
     );
 
-    // Full 9-pair `(t1, t1)` truth table + multi-lane `t32` constructive/destructive `superpose_cancel`
+    // Full 9-pair `(t1, t1)` truth table + multi-lane `int` `superpose_cancel` + lazy untaken `select`
     let sup9 = r#"
 use aod::core:
-    t1, t32, superpose_cancel
+    t1, q4, is_hamming1, popcnt_xor, superpose_cancel, select
 
 dec main:
     () -> int:
+        let c0 = q4(0b0101)
+        let c1 = q4(0b0111)
+        assert is_hamming1(c0, c1) and popcnt_xor(q4(0), q4(15)) == 4
         assert superpose_cancel(0t, 0t) == 0t
         assert superpose_cancel(0t, 1t) == 1t
         assert superpose_cancel(0t, t1(-1)) == t1(-1)
@@ -513,21 +487,24 @@ dec main:
         assert superpose_cancel(t1(-1), 0t) == t1(-1)
         assert superpose_cancel(t1(-1), 1t) == 0t
         assert superpose_cancel(t1(-1), t1(-1)) == t1(-1)
-        emit superpose_cancel(t32(1 + 3 - 9), t32(-1 + 3 - 9))
+        let z = 0
+        assert select(z != 0, 10 // z, 42) == 42
+        assert select(z == 0, 42, 10 // z) == 42
+        emit superpose_cancel(1 + 3 - 9, -1 + 3 - 9)
         return 0
 "#;
-    assert_6mode_source_parity(sup9, "t32(-6)\n0\n", &tmp, "sup9_pos");
+    assert_6mode_source_parity(sup9, "-6\n0\n", &tmp, "sup9_pos");
 
-    // Eager left-to-right semantics: BOTH `select(false, 10 // 0, 0)` and `select(true, 0, 10 // 0)` MUST trap!
+    // Taken-branch traps on `select` across all 6 modes
     assert_6mode_runtime_trap(
-        "use aod::core::select\ndec main:\n    () -> int:\n        let x = select(false, 10 // 0, 0)\n        return x\n",
+        "use aod::core::select\ndec main:\n    () -> int:\n        return select(true, 10 // 0, 0)\n",
         &tmp,
-        "select_eager_left_trap",
+        "select_taken_left_trap",
     );
     assert_6mode_runtime_trap(
-        "use aod::core::select\ndec main:\n    () -> int:\n        let x = select(true, 0, 10 // 0)\n        return x\n",
+        "use aod::core::select\ndec main:\n    () -> int:\n        return select(false, 0, 10 // 0)\n",
         &tmp,
-        "select_eager_right_trap",
+        "select_taken_right_trap",
     );
 
     let _ = fs::remove_dir_all(&tmp);
@@ -546,14 +523,13 @@ fn ac06_bytes_escapes_immutability_nist_sha256_and_6mode_traps() {
         "b\"\\q\"",
     ] {
         let src = format!("dec main:\n    () -> int:\n        let _b = {bad}\n        return 0\n");
-        let err = check_source(&src, CompatMode::V2).unwrap_err();
+        let err = check_source(&src).unwrap_err();
         assert_eq!(err.code, DiagnosticCode::LexError, "for {bad}: {err}");
     }
 
     assert_eq!(
         check_source(
-            "dec main:\n    () -> int:\n        let _ok = \"abc\" == b\"abc\"\n        return 0\n",
-            CompatMode::V2
+            "dec main:\n    () -> int:\n        let _ok = \"abc\" == b\"abc\"\n        return 0\n"
         )
         .unwrap_err()
         .code,
@@ -561,16 +537,14 @@ fn ac06_bytes_escapes_immutability_nist_sha256_and_6mode_traps() {
     );
     assert_eq!(
         check_source(
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let _ok = [u8(1)] == b\"a\"\n        return 0\n",
-            CompatMode::V2
+            "use aod::core::b8\ndec main:\n    () -> int:\n        let _ok = [b8(1)] == b\"a\"\n        return 0\n"
         )
         .unwrap_err()
         .code,
         DiagnosticCode::ImplicitCoercionForbidden
     );
     assert!(check_source(
-        "use aod::core::u8\ndec main:\n    () -> int:\n        let b = b\"abc\"\n        b[0] = u8(1)\n        return 0\n",
-        CompatMode::V2
+        "use aod::core::b8\ndec main:\n    () -> int:\n        let b = b\"abc\"\n        b[0] = b8(1)\n        return 0\n"
     )
     .is_err());
 
@@ -615,62 +589,37 @@ dec main:
 }
 
 #[test]
-fn ac07_fixed_array_bounds_readonly_firewall_and_6mode_traps() {
-    let tmp = temp_dir("ac07_array");
+fn ac07_shaped_arrays_array_set_readonly_and_oob_6mode() {
+    let tmp = temp_dir("ac07_arrays");
 
-    // N == 0, N < 0, N > 65536, length mismatch, heterogeneous, array == list, direct arr[i] = v
-    for (bad, expected_code) in [
-        (
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let a: array[u8, 0] = [u8(1)]\n        return 0\n",
-            DiagnosticCode::TypeError,
-        ),
-        (
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let a: array[u8, 65537] = [u8(1)]\n        return 0\n",
-            DiagnosticCode::TypeError,
-        ),
-        (
-            "use aod::core::array\ndec main:\n    () -> int:\n        let a = array()\n        return 0\n",
-            DiagnosticCode::TypeError,
-        ),
-        (
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let a: array[u8, 3] = [u8(1), u8(2)]\n        return 0\n",
-            DiagnosticCode::ImplicitCoercionForbidden,
-        ),
-        (
-            "use aod::core:\n    u8, array\ndec main:\n    () -> int:\n        let a = array(1, u8(2))\n        return 0\n",
-            DiagnosticCode::ImplicitCoercionForbidden,
-        ),
-        (
-            "dec main:\n    () -> int:\n        let a: array[int, 2] = [1, 2]\n        let l: [int] = [1, 2]\n        let _eq = a == l\n        return 0\n",
-            DiagnosticCode::ImplicitCoercionForbidden,
-        ),
-        (
-            "dec main:\n    () -> int:\n        let a: array[int, 2] = [1, 2]\n        a[0] = 9\n        return 0\n",
-            DiagnosticCode::ParseError,
-        ),
-    ] {
-        let err = check_source(bad, CompatMode::V2)
-            .expect_err(&format!("expected error for:\n{bad}"));
-        assert_eq!(err.code, expected_code, "got {err} for:\n{bad}");
-    }
+    // `[int; 0]` and `array[int, 0]` rejected
+    assert!(check_source("dec main:\n    () -> int:\n        let _a: [int; 0] = []\n        return 0\n").is_err());
+    assert!(check_source("dec main:\n    () -> int:\n        let _a: array[int, 0] = []\n        return 0\n").is_err());
 
-    // ReadOnly<array[T, N]> firewall: array_set on ReadOnly<array> and passing ReadOnly<array[Cell, 1]>[0] to non-ReadOnly
-    let ro_array_set = r#"
-use aod::core::array_set
+    // `[T; N]` and `array[T, N]` equivalence + copy-on-write `array_set`
+    let arr_pos = r#"
+use aod::core:
+    b8, array, array_set, len
 
-dec bad:
-    (ro: ReadOnly<array[int, 2]>) -> array[int, 2]:
-        return array_set(ro, 0, 99)
+dec sum_pair:
+    (p: array[int, 2]) -> int:
+        return p[0] + p[1]
 
 dec main:
     () -> int:
+        let a0: [int; 3] = array(10, 20, 30)
+        let a1 = array_set(a0, 1, 99)
+        assert a0[1] == 20 and a1[1] == 99 and len(a1) == 3
+        let p: [int; 2] = [7, 8]
+        assert sum_pair(p) == 15
+        let bs: [b8; 2] = [b8(1), b8(2)]
+        emit a1
+        emit bs
         return 0
 "#;
-    assert_eq!(
-        check_source(ro_array_set, CompatMode::V2).unwrap_err().code,
-        DiagnosticCode::ObserverMutationForbidden
-    );
+    assert_6mode_source_parity(arr_pos, "[10, 99, 30]\n[b8(0x01), b8(0x02)]\n0\n", &tmp, "arr_pos");
 
+    // ReadOnly<[Cell; 1]> element projection preserves ReadOnly!
     let ro_nested_elem = r#"
 struct Cell:
     v: int
@@ -680,7 +629,7 @@ dec mutate_cell:
         return mut_c.v
 
 dec bad:
-    (ro: ReadOnly<array[Cell, 1]>) -> int:
+    (ro: ReadOnly<[Cell; 1]>) -> int:
         return mutate_cell(ro[0])
 
 dec main:
@@ -688,7 +637,7 @@ dec main:
         return 0
 "#;
     assert_eq!(
-        check_source(ro_nested_elem, CompatMode::V2).unwrap_err().code,
+        check_source(ro_nested_elem).unwrap_err().code,
         DiagnosticCode::ObserverMutationForbidden
     );
 
@@ -718,10 +667,9 @@ dec main:
 fn ac08_ac13_hw_register_primitives_6mode_parity() {
     let root = repo_root();
     let src_path = root.join("tests/fixtures/v2_smoke/hw_register_primitives.dec");
-    let expected = fs::read_to_string(
-        root.join("tests/fixtures/v2_smoke/hw_register_primitives.stdout"),
-    )
-    .unwrap();
+    let expected =
+        fs::read_to_string(root.join("tests/fixtures/v2_smoke/hw_register_primitives.stdout"))
+            .unwrap();
     let tmp = temp_dir("ac08_smoke");
     assert_6mode_file_parity(&src_path, &expected, &tmp, "hw_register_primitives");
     let _ = fs::remove_dir_all(&tmp);
@@ -813,6 +761,9 @@ fn ac10_live_walk_anchor_invariance_and_all_11_manual_examples_pass() {
 
 #[test]
 fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
+
     let tmp = temp_dir("ac11_audit");
 
     // 6 distinct hostile `.dec` programs individually falsifying each §5.17 audit hook (`AC-11`)!
@@ -835,7 +786,7 @@ fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
         (
             "hook4_odd_sheddic_enclosure",
             "sheddic_path_audit",
-            "use aod::core::u8\nuse aod::ledger::audit_sheddic_route\ndec main:\n    () -> int:\n        let _ok = audit_sheddic_route(3, u8(7))\n        return 0\n",
+            "use aod::core::b8\nuse aod::ledger::audit_sheddic_route\ndec main:\n    () -> int:\n        let _ok = audit_sheddic_route(3, b8(7))\n        return 0\n",
         ),
         (
             "hook5_cycle_unclosed_or_zero_rd",
@@ -850,7 +801,7 @@ fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
     ];
 
     for (name, failing_hook, src) in hostile_cases {
-        let rep = audit_dec_source(src, CompatMode::V2);
+        let rep = audit_dec_source(src);
         assert_eq!(rep.status, "FAIL", "{name} must FAIL");
 
         let fpath = tmp.join(format!("{name}.dec"));
@@ -893,8 +844,7 @@ fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
 
     // Also verify empty/pass-only body fails `spine_audit` cleanly
     let pass_only = audit_dec_source(
-        "dec noop:\n    () -> Null:\n        pass\ndec main:\n    () -> int:\n        return 0\n",
-        CompatMode::V2,
+        "dec noop:\n    () -> null:\n        pass\ndec main:\n    () -> int:\n        return 0\n",
     );
     assert!(!pass_only.spine_audit.passed());
 
@@ -911,19 +861,22 @@ fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
     let no_src = Command::new(aodc_bin()).arg("audit-dec").output().unwrap();
     assert_eq!(no_src.status.code(), Some(2));
 
-    let real_target = tmp.join("real.json");
-    fs::write(&real_target, "{}").unwrap();
-    let sym_report = tmp.join("sym_report.json");
-    symlink(&real_target, &sym_report).unwrap();
-    let nonexistent_src = tmp.join("does_not_exist.dec");
-    let sym_out = Command::new(aodc_bin())
-        .args(["audit-dec", "--report"])
-        .arg(&sym_report)
-        .arg(&nonexistent_src)
-        .output()
-        .unwrap();
-    assert_eq!(sym_out.status.code(), Some(2));
-    assert_eq!(fs::read_to_string(&real_target).unwrap(), "{}");
+    #[cfg(unix)]
+    {
+        let real_target = tmp.join("real.json");
+        fs::write(&real_target, "{}").unwrap();
+        let sym_report = tmp.join("sym_report.json");
+        symlink(&real_target, &sym_report).unwrap();
+        let nonexistent_src = tmp.join("does_not_exist.dec");
+        let sym_out = Command::new(aodc_bin())
+            .args(["audit-dec", "--report"])
+            .arg(&sym_report)
+            .arg(&nonexistent_src)
+            .output()
+            .unwrap();
+        assert_eq!(sym_out.status.code(), Some(2));
+        assert_eq!(fs::read_to_string(&real_target).unwrap(), "{}");
+    }
 
     let forbidden_in_repo = repo_root().join("crates/forbidden_pr10_audit_report.json");
     let repo_out = Command::new(aodc_bin())
@@ -1020,8 +973,9 @@ fn ac14_repository_zero_float_unsafe_allowlist_and_no_clamping_guard() {
     collect_rs_files(&root.join("crates"), &mut rs_files);
     assert!(!rs_files.is_empty());
 
-    let f_32 = ["f", "32"].concat();
-    let f_64 = ["f", "64"].concat();
+    let flt_32 = ["f", "32"].concat();
+    let flt_64 = ["f", "64"].concat();
+    let unsafe_tok = ["un", "safe"].concat();
 
     for path in &rs_files {
         let rel = path
@@ -1039,14 +993,15 @@ fn ac14_repository_zero_float_unsafe_allowlist_and_no_clamping_guard() {
                 continue;
             }
             assert!(
-                !contains_ident_token(trimmed, &f_32) && !contains_ident_token(trimmed, &f_64),
+                !contains_ident_token(trimmed, &flt_32)
+                    && !contains_ident_token(trimmed, &flt_64),
                 "forbidden float token on {rel}:{}: {trimmed}",
                 idx + 1
             );
             if !allowlisted_unsafe.contains(&rel.as_str()) && !trimmed.starts_with("#![forbid(") {
                 assert!(
-                    !contains_ident_token(trimmed, "unsafe"),
-                    "forbidden unsafe token outside 5-file allowlist on {rel}:{}: {trimmed}",
+                    !contains_ident_token(trimmed, &unsafe_tok),
+                    "forbidden {unsafe_tok} token outside 5-file allowlist on {rel}:{}: {trimmed}",
                     idx + 1
                 );
             }

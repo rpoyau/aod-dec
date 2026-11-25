@@ -1,70 +1,70 @@
 use aod::core:
-    int, u8, t1, t9, t32, q4, pow, lcm
+    int, b8, t1, q4, pow, lcm
 
 struct MotifSpec:
-    p_class: t9
-    q_units: t9
-    l_enclosure: t32
+    p_class: int
+    q_units: int
+    l_enclosure: int
 
 struct TetronE4:
     v_anchor: q4
-    seats: array[t1, 4]
-    seat_status: u8
-    hinge_free_seats: t9
+    seats: [t1; 4]
+    seat_status: b8
+    hinge_free_seats: int
 
 struct CountCompressed:
-    a_tritrio: t9
-    b_tetratrio: t9
-    c_dimon: t9
-    l_outer: t32
-    gamma_m: t32
+    a_tritrio: int
+    b_tetratrio: int
+    c_dimon: int
+    l_outer: int
+    gamma_m: int
 
 dec eval_curling_curl:
-    (spec: MotifSpec, h_mu: t32) -> (t32, t32, u8):
-        let pi_branch = (pow(t32(spec.q_units), int(spec.p_class)) + t32(spec.q_units))
-        let rd_total = ((t32(2) * pi_branch) + h_mu)
-        let is_yro = u8((int(spec.l_enclosure) & 1))
+    (spec: MotifSpec, h_mu: int) -> (int, int, b8):
+        let pi_branch = (pow(spec.q_units, spec.p_class) + spec.q_units)
+        let rd_total = ((2 * pi_branch) + h_mu)
+        let is_yro = (b8(spec.l_enclosure) & b8(1))
         return (pi_branch, rd_total, is_yro)
 
 dec resolve_tetron_seating:
-    (e4_box: TetronE4, u8(0), t1(0)) -> TetronE4:
-        return TetronE4(e4_box.v_anchor, e4_box.seats, u8(2), e4_box.hinge_free_seats)
-    (e4_box: TetronE4, u8(0), branch_sigma: t1) -> TetronE4:
-        assert ((branch_sigma == t1(-1)) or (branch_sigma == 1t))
-        let used_seats = (t9(4) - e4_box.hinge_free_seats)
-        return TetronE4(e4_box.v_anchor, e4_box.seats, u8(5), used_seats)
+    (e4_box: TetronE4, b8(0), 0t) -> TetronE4:
+        return TetronE4(e4_box.v_anchor, e4_box.seats, b8(2), e4_box.hinge_free_seats)
+    (e4_box: TetronE4, b8(0), branch_sigma: t1) -> TetronE4:
+        assert ((branch_sigma == -1t) or (branch_sigma == 1t))
+        let used_seats = (4 - e4_box.hinge_free_seats)
+        return TetronE4(e4_box.v_anchor, e4_box.seats, b8(5), used_seats)
 
 dec build_coord0_shell:
-    (a_tri: t9, b_tetra: t9, c_dim: t9, m_order: t9) -> CountCompressed:
-        assert (m_order >= t9(3))
-        let l_even = (t32(2) * t32(m_order))
-        let gamma = ((t32(m_order) * (t32(m_order) + t32(1))) - t32(6))
+    (a_tri: int, b_tetra: int, c_dim: int, m_order: int) -> CountCompressed:
+        assert (m_order >= 3)
+        let l_even = (2 * m_order)
+        let gamma = ((m_order * (m_order + 1)) - 6)
         return CountCompressed(a_tri, b_tetra, c_dim, l_even, gamma)
 
 dec fractal_tesseract_range:
-    (sec_count: t32, spec_a: MotifSpec, spec_b: MotifSpec) -> (t32, t32, t32, t32):
-        let (_pi_a, rd_a, _yro_a) = eval_curling_curl(spec_a, t32(1))
-        let (_pi_b, rd_b, _yro_b) = eval_curling_curl(spec_b, t32(1))
-        let n_support = (sec_count * t32(2))
+    (sec_count: int, spec_a: MotifSpec, spec_b: MotifSpec) -> (int, int, int, int):
+        let (_pi_a, rd_a, _yro_a) = eval_curling_curl(spec_a, 1)
+        let (_pi_b, rd_b, _yro_b) = eval_curling_curl(spec_b, 1)
+        let n_support = (sec_count * 2)
         let t_sync = lcm(rd_a, rd_b)
         return (n_support, rd_a, rd_b, t_sync)
 
 dec main:
     () -> int:
-        let spec_e4 = MotifSpec(t9(1), t9(2), t32(4))
-        let spec_c6 = MotifSpec(t9(3), t9(3), t32(6))
-        let spec_c8 = MotifSpec(t9(3), t9(4), t32(8))
-        let (pi_e4, rd_e4, yro_e4) = eval_curling_curl(spec_e4, t32(1))
-        assert (((pi_e4 == t32(4)) and (rd_e4 == t32(9))) and (yro_e4 == u8(0)))
-        let (n_sup, rd_c6, rd_c8, t_sync) = fractal_tesseract_range(t32(4), spec_c6, spec_c8)
-        assert ((((n_sup == t32(8)) and (rd_c6 == t32(61))) and (rd_c8 == t32(137))) and (t_sync == t32(8357)))
-        let box0 = TetronE4(q4(5), [1t, t1(-1), 0t, 1t], u8(0), t9(1))
-        let jitter = resolve_tetron_seating(box0, u8(0), 0t)
-        let seated = resolve_tetron_seating(box0, u8(0), 1t)
-        assert ((jitter.seat_status == u8(2)) and (jitter.hinge_free_seats == t9(1)))
-        assert ((seated.seat_status == u8(5)) and (seated.hinge_free_seats == t9(3)))
-        let shell = build_coord0_shell(t9(1), t9(1), t9(2), t9(3))
-        assert ((shell.l_outer == t32(6)) and (shell.gamma_m == t32(6)))
+        let spec_e4 = MotifSpec(1, 2, 4)
+        let spec_c6 = MotifSpec(3, 3, 6)
+        let spec_c8 = MotifSpec(3, 4, 8)
+        let (pi_e4, rd_e4, yro_e4) = eval_curling_curl(spec_e4, 1)
+        assert (((pi_e4 == 4) and (rd_e4 == 9)) and (yro_e4 == b8(0)))
+        let (n_sup, rd_c6, rd_c8, t_sync) = fractal_tesseract_range(4, spec_c6, spec_c8)
+        assert ((((n_sup == 8) and (rd_c6 == 61)) and (rd_c8 == 137)) and (t_sync == 8357))
+        let box0 = TetronE4(q4(5), [1t, -1t, 0t, 1t], b8(0), 1)
+        let jitter = resolve_tetron_seating(box0, b8(0), 0t)
+        let seated = resolve_tetron_seating(box0, b8(0), 1t)
+        assert ((jitter.seat_status == b8(2)) and (jitter.hinge_free_seats == 1))
+        assert ((seated.seat_status == b8(5)) and (seated.hinge_free_seats == 3))
+        let shell = build_coord0_shell(1, 1, 2, 3)
+        assert ((shell.l_outer == 6) and (shell.gamma_m == 6))
         emit rd_e4
         emit rd_c6
         emit rd_c8

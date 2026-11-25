@@ -519,13 +519,13 @@ fn zero_python_repository_and_ci_guard() {
     assert!(saw_ci_yml, "expected .github/workflows/ci.yml");
 }
 
-fn collect_v2_dec_files_no_symlinks(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
+fn collect_clean_break_dec_files_no_symlinks(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
     for entry_res in std::fs::read_dir(dir).unwrap() {
         let entry = entry_res.unwrap();
-        let ft = entry.file_type().unwrap(); // Never follows symlinks
+        let ft = entry.file_type().unwrap();
         assert!(
             !ft.is_symlink(),
-            "unexpected symlink at {}",
+            "unexpected symlink in repository tree: {}",
             entry.path().display()
         );
         let path = entry.path();
@@ -538,12 +538,12 @@ fn collect_v2_dec_files_no_symlinks(root: &Path, dir: &Path, out: &mut Vec<PathB
         if ft.is_dir() {
             if matches!(
                 rel.as_str(),
-                ".git" | "target" | "_build" | "reference/aod-dec-dev" | "tests/fixtures/v1_examples"
-            ) || rel.starts_with("reference/aod-dec-dev/")
+                ".git" | "target" | "_build" | "tests/fixtures/v1_examples"
+            ) || rel.starts_with("reference/aod-dec-dev")
             {
                 continue;
             }
-            collect_v2_dec_files_no_symlinks(root, &path, out);
+            collect_clean_break_dec_files_no_symlinks(root, &path, out);
             continue;
         }
 
@@ -569,7 +569,8 @@ fn collect_typ_files_no_symlinks(dir: &Path, out: &mut Vec<PathBuf>) {
 
 fn assert_pure_wave_dec_text(label: &str, text: &str) {
     let banned_tokens = [
-        "Dec", "if", "elif", "else", "while", "break", "continue", "mut", "match", "str",
+        "Dec", "if", "elif", "else", "while", "break", "continue", "mut", "match", "str", "u8",
+        "int8", "int16", "int32", "int64", "t9", "t32", "float",
     ];
     for (idx, line) in text.lines().enumerate() {
         let line_no = idx + 1;
@@ -645,25 +646,26 @@ fn assert_pure_wave_dec_text(label: &str, text: &str) {
 
 #[test]
 fn pure_wave_dec_v2_repository_guard() {
-    use aodc::diagnostics::{CompatMode, DiagnosticCode, SyntaxDiscipline};
-    use aodc::parser::parse_source_with_discipline;
+    use aodc::diagnostics::DiagnosticCode;
+    use aodc::parser::parse_source;
 
     let root = repo_root();
 
     // 1. Walk repo_root() (never following symlinks; skipping .git, target, _build,
     //    reference/aod-dec-dev/**, and tests/fixtures/v1_examples/*.dec)
-    let mut v2_files = Vec::new();
-    collect_v2_dec_files_no_symlinks(&root, &root, &mut v2_files);
-    v2_files.sort();
-    assert!(
-        v2_files.len() >= 41,
-        "expected >= 41 V2 .dec files in repository, found {}",
-        v2_files.len()
+    let mut dec_files = Vec::new();
+    collect_clean_break_dec_files_no_symlinks(&root, &root, &mut dec_files);
+    dec_files.sort();
+    assert_eq!(
+        dec_files.len(),
+        52,
+        "expected exactly 52 clean-break .dec files in repository, found {}",
+        dec_files.len()
     );
 
     let mut positive_count = 0usize;
     let mut negative_count = 0usize;
-    for path in &v2_files {
+    for path in &dec_files {
         let rel = path
             .strip_prefix(&root)
             .unwrap()
@@ -676,32 +678,32 @@ fn pure_wave_dec_v2_repository_guard() {
             negative_count += 1;
             let fname = path.file_name().unwrap().to_string_lossy();
             if fname.starts_with("nc03_") {
-                let err =
-                    parse_source_with_discipline(&raw, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
-                        .unwrap_err();
+                let err = parse_source(&raw).unwrap_err();
                 assert_eq!(
                     err.code,
                     DiagnosticCode::OddSupportRequiresYro,
                     "nc03 must fail with OddSupportRequiresYro, got {err}"
                 );
             } else {
-                parse_source_with_discipline(&raw, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
-                    .unwrap_or_else(|e| panic!("negative control {rel} failed PureWaveV2 parse: {e}"));
+                parse_source(&raw)
+                    .unwrap_or_else(|e| panic!("negative control {rel} failed clean-break parse: {e}"));
             }
         } else {
             positive_count += 1;
             if rel.starts_with("stdlib/aod/") {
-                let loaded =
-                    aodc::modules::load_from_source(&raw, path.parent(), CompatMode::V2)
-                        .unwrap_or_else(|e| panic!("load failed on {rel}: {e}"));
+                let loaded = aodc::modules::load_from_source_with_options(
+                    &raw,
+                    path.parent(),
+                    &aodc::LoadOptions::default(),
+                )
+                .unwrap_or_else(|e| panic!("load failed on {rel}: {e}"));
                 aodc::checker::check_unit(loaded, false)
                     .unwrap_or_else(|e| panic!("stdlib check failed on {rel}: {e}"));
             } else {
-                aodc::check_file(path, CompatMode::V2)
+                aodc::check_file(path)
                     .unwrap_or_else(|e| panic!("check_file failed on {rel}: {e}"));
             }
-            let audit =
-                aodc::audit_dec_file_with_options(path, CompatMode::V2, &aodc::LoadOptions::default());
+            let audit = aodc::audit_dec_file_with_options(path, &aodc::LoadOptions::default());
             assert!(
                 audit.passed() && audit.hooks_passed() == 6,
                 "audit-dec failed on {rel}: {:?}",
@@ -709,8 +711,8 @@ fn pure_wave_dec_v2_repository_guard() {
             );
         }
     }
-    assert_eq!(positive_count, 34, "expected 34 positive V2 .dec files");
-    assert_eq!(negative_count, 7, "expected 7 negative-control V2 .dec files");
+    assert_eq!(positive_count, 45, "expected 45 positive clean-break .dec files");
+    assert_eq!(negative_count, 7, "expected 7 negative-control clean-break .dec files");
 
     // 2. Scan all inline ```dec and ```dec-fail blocks in docs/manual/**/*.typ
     let mut typ_files = Vec::new();

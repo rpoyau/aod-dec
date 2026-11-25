@@ -1,15 +1,26 @@
 use aod_core::bigint::BigInt;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, Q4, T1, T32, T9};
+use aod_core::ternary::{Addr8, B64, B8, Q4, T1};
 pub use aod_rt::sim::{AxisDir, ProbeKind, WallPolicy as WallPolicyAst};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum TritLiteral {
+    NegOne,
     Zero,
-    One,
+    PosOne,
     Hinge0H,
     Dwell0D,
+}
+
+impl TritLiteral {
+    pub const fn to_t1(self) -> T1 {
+        match self {
+            TritLiteral::NegOne => T1::NEG,
+            TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D => T1::ZERO,
+            TritLiteral::PosOne => T1::POS,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -70,18 +81,14 @@ pub struct EnumDecl {
 pub enum TypeExpr {
     Unit,
     Named(String),
-    List(Box<TypeExpr>),
+    /// Fixed compile-time shaped array `[T; N]`.
     Array(Box<TypeExpr>, usize),
+    /// Dynamic stream / slice `[T]`.
+    List(Box<TypeExpr>),
     Map(Box<TypeExpr>, Box<TypeExpr>),
     Tuple(Vec<TypeExpr>),
     ReadOnly(Box<TypeExpr>),
     QExt(Box<TypeExpr>),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TypedParam {
-    pub name: String,
-    pub ty: TypeExpr,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -90,15 +97,12 @@ pub enum Pattern {
     Binding(String),
     NullLit,
     IntLit(BigInt),
-    U8Lit(u8),
-    B64Lit(u64),
     BoolLit(bool),
-    StrLit(String),
     BytesLit(Vec<u8>),
-    TritLit(T1),
-    T9Lit(T9),
-    T32Lit(T32),
+    B8Lit(B8),
+    B64Lit(B64),
     Q4Lit(Q4),
+    TritLit(T1),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
     SupportLit(SupportForm),
@@ -111,8 +115,11 @@ pub enum Pattern {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecArmParam {
-    TypedVar { ty: TypeExpr, name: String },
-    TypedPattern { ty: TypeExpr, pattern: Pattern },
+    /// `(x: int)`
+    TypedVar { name: String, ty: TypeExpr },
+    /// `(-1t: t1)` or `(0: int)`
+    TypedPattern { pattern: Pattern, ty: TypeExpr },
+    /// Literal or enum pattern whose type is inferred from sibling arms or pattern literal (`-1t`, `0`, `Role::Pos`).
     Pattern(Pattern),
 }
 
@@ -120,34 +127,17 @@ pub enum DecArmParam {
 pub struct DecArm {
     pub params: Vec<DecArmParam>,
     pub guard: Option<Expr>,
+    pub has_arrow: bool,
     pub return_type: TypeExpr,
-    pub output_name: Option<String>,
     pub body: Vec<Stmt>,
     pub line: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum DecFnKind {
-    MultiArm {
-        has_header_params: bool,
-        header_params: Vec<String>,
-        header_typed_params: Option<Vec<TypedParam>>,
-        output_name: Option<String>,
-        header_return_type: Option<TypeExpr>,
-        arms: Vec<DecArm>,
-    },
-    SingleArm {
-        params: Vec<TypedParam>,
-        has_arrow: bool,
-        return_type: TypeExpr,
-        body: Vec<Stmt>,
-    },
-}
-
+/// Uniform clean-break `dec <name>:` signature-combinatorics block.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DecFnDecl {
     pub name: String,
-    pub kind: DecFnKind,
+    pub arms: Vec<DecArm>,
     pub line: usize,
 }
 
@@ -201,7 +191,6 @@ pub enum ProbeDecl {
         name: String,
         param_name: String,
         param_ty: Option<TypeExpr>,
-        has_arrow: bool,
         return_type: TypeExpr,
         body: Vec<Stmt>,
         line: usize,
@@ -223,24 +212,9 @@ pub struct QuarantineModDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AssignTarget {
-    Ident(String),
-    Field { base: Box<Expr>, name: String },
-    Index { base: Box<Expr>, index: Box<Expr> },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ForTarget {
+pub enum LetPattern {
     Single(String),
-    Tuple(Vec<String>),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MatchArm {
-    pub pattern: Pattern,
-    pub guard: Option<Expr>,
-    pub body: Vec<Stmt>,
-    pub line: usize,
+    Tuple(Vec<(String, Option<TypeExpr>)>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -249,62 +223,17 @@ pub struct Stmt {
     pub line: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LetTupleElem {
-    pub name: String,
-    pub ty: Option<TypeExpr>,
-}
-
+/// Pure side-effect-free local statement set (zero `if`, `for`, `while`, `mut`, or reassignment!).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StmtKind {
     Let {
-        name: String,
+        pattern: LetPattern,
         ty: Option<TypeExpr>,
-        value: Expr,
-    },
-    LetTuple {
-        elems: Vec<LetTupleElem>,
-        ty: Option<TypeExpr>,
-        value: Expr,
-    },
-    Mut {
-        name: String,
-        ty: Option<TypeExpr>,
-        value: Expr,
-    },
-    TypedLocal {
-        ty: TypeExpr,
-        name: String,
-        value: Expr,
-    },
-    Assign {
-        target: AssignTarget,
         value: Expr,
     },
     Assert(Expr),
     Emit(Expr),
     Return(Option<Expr>),
-    If {
-        cond: Expr,
-        then_body: Vec<Stmt>,
-        elifs: Vec<(Expr, Vec<Stmt>)>,
-        else_body: Vec<Stmt>,
-    },
-    Match {
-        scrutinee: Expr,
-        arms: Vec<MatchArm>,
-    },
-    For {
-        target: ForTarget,
-        iter: Expr,
-        body: Vec<Stmt>,
-    },
-    While {
-        cond: Expr,
-        body: Vec<Stmt>,
-    },
-    Break,
-    Continue,
     Pass,
     QuarantineBlock {
         body: Vec<Stmt>,
@@ -317,7 +246,23 @@ pub enum UnaryOp {
     Pos,
     Neg,
     Not,
+    BitNot,
     Boundary,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum AdverbOp {
+    FoldAdd,
+    FoldMul,
+    FoldMin,
+    FoldMax,
+    FoldAnd,
+    FoldOr,
+    FoldSuperpose,
+    ScanAdd,
+    ScanMul,
+    ScanMin,
+    ScanMax,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -328,6 +273,8 @@ pub enum BinaryOp {
     Div,
     FloorDiv,
     Mod,
+    Min,
+    Max,
     BitAnd,
     BitOr,
     BitXor,
@@ -339,14 +286,20 @@ pub enum BinaryOp {
     LtEq,
     Gt,
     GtEq,
+    Cmp3,
     And,
     Or,
+    Sieve,
+    OuterAdd,
+    OuterMul,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CallArg {
-    pub name: Option<String>,
-    pub value: Expr,
+pub struct MatchExprArm {
+    pub pattern: Pattern,
+    pub guard: Option<Expr>,
+    pub body: Expr,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -360,7 +313,6 @@ pub enum ExprKind {
     NullLit,
     IntLit(BigInt),
     BoolLit(bool),
-    StrLit(String),
     BytesLit(Vec<u8>),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
@@ -368,13 +320,10 @@ pub enum ExprKind {
     TritLit(TritLiteral),
     Ident(String),
     Path(Vec<String>),
-    List(Vec<Expr>),
-    ArrayLit(Vec<Expr>),
+    /// `[e0, e1, ...]` sequence literal (`[T; N]` when non-empty, `[T]` when empty or slice-contextual).
+    SeqLit(Vec<Expr>),
+    /// `map[(k1, v1), ...]` or `map[]`.
     MapLit(Vec<(Expr, Expr)>),
-    StructLit {
-        path: Vec<String>,
-        fields: Vec<(String, Expr)>,
-    },
     Tuple(Vec<Expr>),
     WindowLit {
         start: Box<Expr>,
@@ -388,19 +337,27 @@ pub enum ExprKind {
         op: UnaryOp,
         operand: Box<Expr>,
     },
+    Adverb {
+        op: AdverbOp,
+        operand: Box<Expr>,
+    },
     Binary {
         op: BinaryOp,
         left: Box<Expr>,
         right: Box<Expr>,
     },
-    Ternary {
-        cond: Box<Expr>,
-        yes: Box<Expr>,
-        no: Box<Expr>,
-    },
     Call {
         callee: Box<Expr>,
-        args: Vec<CallArg>,
+        args: Vec<Expr>,
+    },
+    /// Stream pipeline `lhs |> stage` (already desugared or preserved for pull-iterator loop fusion!).
+    Pipe {
+        input: Box<Expr>,
+        stage: Box<PipeStage>,
+    },
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchExprArm>,
     },
     Field {
         base: Box<Expr>,
@@ -415,5 +372,21 @@ pub enum ExprKind {
         prepare: String,
         ticks: Box<Expr>,
         observers: Vec<String>,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PipeStage {
+    Adverb(AdverbOp),
+    Boundary,
+    /// Operator section `(+ k)`, `(* k)`, `(== -1t)`, etc. (`input op rhs`).
+    Section {
+        op: BinaryOp,
+        rhs: Expr,
+    },
+    /// Function/combinator stage `f` or `f(arg1, arg2, ...)` -> `f(input, arg1, arg2, ...)`.
+    Call {
+        callee: Expr,
+        extra_args: Vec<Expr>,
     },
 }

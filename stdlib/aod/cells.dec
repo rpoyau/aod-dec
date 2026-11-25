@@ -3,8 +3,7 @@
 # Reference binding: rpoyau/aod@98ddfa0 (01_cell_measures.tex, 02_mapping_error.tex)
 
 use aod::core:
-    ratio, len, select, min, list_set
-    evolve, fold_seq, zip_seq, sum, dot
+    b8, each, fold, int, len, min, range_seq, ratio, select, set_at
 
 struct FourCubeCounts:
     v0: int
@@ -35,87 +34,77 @@ struct AffineCov:
     var_b: ratio
     cov_ab: ratio
 
-dec four_cube_counts:
-    () -> FourCubeCounts:
-        let v0 = 16
-        let v1 = 32
-        let v2 = 24
-        let v3 = 8
-        let v4 = 1
-        let total = v0 + v1 + v2 + v3 + v4
-        let euler = v0 - v1 + v2 - v3 + v4
-        return FourCubeCounts(v0, v1, v2, v3, v4, total, euler)
+dec four_cube_counts() -> FourCubeCounts:
+    let v0 = 16
+    let v1 = 32
+    let v2 = 24
+    let v3 = 8
+    let v4 = 1
+    let total = v0 + v1 + v2 + v3 + v4
+    let euler = v0 - v1 + v2 - v3 + v4
+    FourCubeCounts(v0, v1, v2, v3, v4, total, euler)
 
-dec four_cube_measure:
-    (a: ratio) -> FourCubeMeasure:
-        let a2 = a * a
-        let a3 = a2 * a
-        let a4 = a3 * a
-        return FourCubeMeasure(a4, 8/1r * a3)
+dec four_cube_measure(a: ratio) -> FourCubeMeasure:
+    let a2 = a * a
+    let a3 = a2 * a
+    let a4 = a3 * a
+    FourCubeMeasure(a4, 8/1r * a3)
 
-dec disk_col_step:
-    ((inner_q, outer_q): (int, int), j: int, (n2, i2, ip1_2): (int, int, int)) -> (int, int):
-        let next_outer = outer_q + select(i2 + j * j < n2, 1, 0)
-        let next_inner = inner_q + select(ip1_2 + (j + 1) * (j + 1) <= n2, 1, 0)
-        return (next_inner, next_outer)
-
-dec disk_row_step:
-    (counts: (int, int), i: int, (n, n2): (int, int)) -> (int, int):
-        let i2 = i * i
-        let ip1_2 = (i + 1) * (i + 1)
-        return evolve(counts, 0..n, disk_col_step, (n2, i2, ip1_2))
+dec sum_int_row(row: [int]) -> int:
+    +/ row
 
 # Exact unit-disk cubical enclosure via quarter-symmetry (0..n x 0..n) x 4 (`P1-2`)
-dec disk_enclosure:
-    (n: int) -> DiskEnclosure:
-        assert n >= 1
-        let n2 = n * n
-        let (inner_q, outer_q) = evolve((0, 0), 0..n, disk_row_step, (n, n2))
-        let a_minus = ratio(4 * inner_q, n2)
-        let a_plus = ratio(4 * outer_q, n2)
-        let c_n = 8/1r
-        let excess = c_n - 2/1r * a_plus
-        return DiskEnclosure(n, a_minus, a_plus, c_n, excess)
+# using explicit outer product `+:` and rank-lifted `select`.
+dec disk_enclosure(n: int) -> DiskEnclosure:
+    assert n >= 1
+    let n2 = n * n
+    let lo = range_seq(0, n)
+    let hi = range_seq(1, n + 1)
+    let lo_sq = lo * lo
+    let hi_sq = hi * hi
+    let outer_grid = select((lo_sq +: lo_sq) < n2, 1, 0)
+    let inner_grid = select((hi_sq +: hi_sq) <= n2, 1, 0)
+    let outer_q = each(outer_grid, sum_int_row) |> +/
+    let inner_q = each(inner_grid, sum_int_row) |> +/
+    let a_minus = ratio(4 * inner_q, n2)
+    let a_plus = ratio(4 * outer_q, n2)
+    let c_n = 8/1r
+    let excess = c_n - 2/1r * a_plus
+    DiskEnclosure(n, a_minus, a_plus, c_n, excess)
 
 # Rectangle boundary measure: 2 * (nx * wx + ny * wy)
-dec rect_boundary:
-    (nx: int, ny: int, wx: ratio, wy: ratio) -> ratio:
-        return 2/1r * (ratio(nx, 1) * wx + ratio(ny, 1) * wy)
+dec rect_boundary(nx: int, ny: int, wx: ratio, wy: ratio) -> ratio:
+    2/1r * (ratio(nx, 1) * wx + ratio(ny, 1) * wy)
 
-dec accum_variance:
-    (var_acc: ratio, (v, p): (ratio, ratio), mu: ratio) -> ratio:
-        let d = v - mu
-        return var_acc + p * d * d
+dec moments_from_atoms(vals: [ratio], probs: [ratio]) -> LawMoments:
+    let k = len(vals)
+    assert k == len(probs) and k > 0
+    let p_sum = +/ probs
+    assert p_sum == 1/1r
+    let mu = +/ (probs * vals)
+    let d = vals - mu
+    let var = +/ (probs * d * d)
+    LawMoments(mu, var)
 
-dec moments_from_atoms:
-    (vals: [ratio], probs: [ratio]) -> LawMoments:
-        let k = len(vals)
-        assert k == len(probs) and k > 0
-        let p_sum = sum(probs)
-        assert p_sum == 1/1r
-        let mu = dot(probs, vals)
-        let var = fold_seq(0/1r, zip_seq(vals, probs), accum_variance, mu)
-        return LawMoments(mu, var)
+dec affine_cov(a: ratio, b: ratio, var_x: ratio) -> AffineCov:
+    AffineCov(a * a * var_x, b * b * var_x, a * b * var_x)
 
-dec affine_cov:
-    (a: ratio, b: ratio, var_x: ratio) -> AffineCov:
-        return AffineCov(a * a * var_x, b * b * var_x, a * b * var_x)
-
-dec transport_step:
-    (cells: [int], step: int, init_mass: int) -> [int]:
-        let src = step % 16
-        let bit = 1 << (step % 4)
-        let dst = src ^ bit
-        let cur_src = cells[src]
-        let transfer = min(cur_src // 2 + 1, cur_src)
-        let c1 = list_set(cells, src, cur_src - transfer)
-        let c2 = list_set(c1, dst, c1[dst] + transfer)
-        assert sum(c2) == init_mass
-        return c2
+dec tesseract_step(cells: [int; 16], step: int) -> [int; 16]:
+    let before_sum = +/ cells
+    let src = step % 16
+    let bit = b8(1) << (step % 4)
+    let dst = int(b8(src) ^ bit)
+    let cur_src = cells[src]
+    let transfer = min(cur_src // 2 + 1, cur_src)
+    let c1 = set_at(cells, src, cur_src - transfer)
+    let c2 = set_at(c1, dst, c1[dst] + transfer)
+    assert (+/ c2) == before_sum
+    c2
 
 # 16-step exact integer transport across all 16 Q_4 tesseract vertices conserving total mass on every step
-dec tesseract_transport_16:
-    (init_mass: int) -> int:
-        let cells0 = [init_mass, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        let final_cells = evolve(cells0, 0..16, transport_step, init_mass)
-        return sum(final_cells)
+dec tesseract_transport_16(init_mass: int) -> int:
+    let cells0 = [init_mass, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let final_cells = fold(range_seq(0, 16), cells0, tesseract_step)
+    let final_sum = +/ final_cells
+    assert final_sum == init_mass
+    final_sum

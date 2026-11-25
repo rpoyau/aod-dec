@@ -7,19 +7,15 @@ use aod_core::json::{parse_strict_json, JsonValue};
 use aod_core::sha256::Sha256;
 use aod_llvm::{CodegenPlan, OptLevel};
 use aodc::codegen::lower_to_llvm_ir_with_plan;
-use aodc::diagnostics::{CompatMode, DiagnosticCode, SyntaxDiscipline};
+use aodc::diagnostics::DiagnosticCode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::ir::loads_ir;
-use aodc::lexer::tokenize_with_discipline;
-use aodc::modules::{load_from_source_with_options, load_hermetic_with_discipline};
-use aodc::parser::parse_source_with_discipline;
 use aodc::types::{lookup_builtin, Type};
 use aodc::{
-    audit_dec_file_with_options, build_aot_file, build_aot_source, check_file,
-    check_file_with_options, check_source, compile_file_to_ir, compile_jit_source, emit_llvm_source,
-    exec_ir_file, format_source, format_source_with_discipline, jit_file_captured,
-    jit_source_with_plan_captured, run_file, run_source_with_budget, verify_manual_dir,
-    LoadOptions, ManualVerifyOptions,
+    audit_dec_file_with_options, build_aot_file, build_aot_source, check_file, check_source,
+    compile_file_to_ir, compile_jit_source, emit_llvm_source, exec_ir_file, format_source,
+    jit_file_captured, jit_source_with_plan_captured, run_file, run_source_with_budget,
+    verify_manual_dir, LoadOptions, ManualVerifyOptions,
 };
 
 static D3_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -62,13 +58,14 @@ fn collect_files_with_ext(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) {
 
 fn assert_6mode_file_parity(path: &Path, expected: &str, tmp: &Path, stem: &str) {
     // 1. Exact VM (`run`)
-    let vm = run_file(path, CompatMode::V2)
+    let vm = run_file(path)
         .unwrap_or_else(|e| panic!("{stem} VM failed: {e}"))
         .to_stdout_string();
     assert_eq!(vm, expected, "{stem} VM mismatch");
 
-    // 2. Hermetic DecIR v2 (`compile + exec`)
-    let ir_text = compile_file_to_ir(path, CompatMode::V2).unwrap();
+    // 2. Hermetic DecIR v3 (`compile + exec`)
+    let ir_text = compile_file_to_ir(path).unwrap();
+    assert!(ir_text.contains("\"schema\": \"aod.dec.ir.v3\""));
     assert!(ir_text.contains("\"syntax_discipline\": \"pure_wave_v2\""));
     let ir_path = tmp.join(format!("{stem}.ir.json"));
     fs::write(&ir_path, &ir_text).unwrap();
@@ -78,7 +75,7 @@ fn assert_6mode_file_parity(path: &Path, expected: &str, tmp: &Path, stem: &str)
     // 3 & 4. AOT -O0 and -O2
     for (tag, opt) in [("o0", OptLevel::O0), ("o2", OptLevel::O2)] {
         let exe = tmp.join(format!("{stem}_{tag}"));
-        build_aot_file(path, CompatMode::V2, opt, &exe)
+        build_aot_file(path, opt, &exe)
             .unwrap_or_else(|e| panic!("{stem} AOT {tag} build failed: {e}"));
         let out = Command::new(&exe).output().unwrap();
         assert!(
@@ -91,9 +88,8 @@ fn assert_6mode_file_parity(path: &Path, expected: &str, tmp: &Path, stem: &str)
 
     // 5 & 6. ORC LLJIT -O0 and -O2
     for (tag, opt) in [("o0", OptLevel::O0), ("o2", OptLevel::O2)] {
-        let (jout, jres) =
-            jit_file_captured(path, CompatMode::V2, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-                .unwrap_or_else(|e| panic!("{stem} JIT {tag} compile failed: {e}"));
+        let (jout, jres) = jit_file_captured(path, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+            .unwrap_or_else(|e| panic!("{stem} JIT {tag} compile failed: {e}"));
         jres.unwrap_or_else(|e| panic!("{stem} JIT {tag} runtime failed: {e}"));
         assert_eq!(jout, expected);
     }
@@ -165,7 +161,7 @@ fn ac01_seven_first_principles_modules_6mode_fmt_check_and_cli_test() {
 }
 
 #[test]
-fn ac02_zero_transitional_v2_and_34_file_6hook_audit_dec_sweep() {
+fn ac02_zero_transitional_v2_and_45_file_6hook_audit_dec_sweep() {
     let root = repo_root();
 
     // 1. Zero `TransitionalV2` or `"transitional_v2"` anywhere in `crates/` (outside dynamic test probe)
@@ -196,7 +192,7 @@ fn ac02_zero_transitional_v2_and_34_file_6hook_audit_dec_sweep() {
         );
     }
 
-    // 2. Verify `lookup_builtin` contains ZERO non-v1 `Type::Str` signatures
+    // 2. Verify `lookup_builtin` contains ZERO `Type::Str` signatures
     for name in [
         "bytes",
         "addr8",
@@ -216,18 +212,14 @@ fn ac02_zero_transitional_v2_and_34_file_6hook_audit_dec_sweep() {
     ] {
         for sig in lookup_builtin(name) {
             let has_str = sig.params.iter().any(Type::contains_str) || sig.ret.contains_str();
-            if has_str {
-                assert!(
-                    sig.v1_allowed && matches!(name, "trace" | "fold" | "coupling"),
-                    "unexpected V2 Type::Str signature on builtin {name}"
-                );
-            }
+            assert!(!has_str, "unexpected Type::Str signature on builtin {name}");
         }
     }
 
-    // 3. Sweep all 34 positive V2 `.dec` files:
+    // 3. Sweep all 45 positive clean-break `.dec` files:
     //    7 `examples/first_principles/*.dec` + 7 `stdlib/aod/*.dec` + 11 `manual_examples/*.dec`
-    //    + 5 `tests/fixtures/v2_smoke/*.dec` + 4 `tests/fixtures/v2_bench/*.dec`!
+    //    + 5 `tests/fixtures/v2_smoke/*.dec` + 4 `tests/fixtures/v2_bench/*.dec`
+    //    + 10 `tests/fixtures/v3_examples/*.dec` + 1 `self_host/aodc_self.dec`!
     let read_dec_dir = |rel: &str| -> Vec<PathBuf> {
         let mut v: Vec<PathBuf> = fs::read_dir(root.join(rel))
             .unwrap()
@@ -242,40 +234,49 @@ fn ac02_zero_transitional_v2_and_34_file_6hook_audit_dec_sweep() {
     let manual_files = read_dec_dir("manual_examples");
     let smoke_files = read_dec_dir("tests/fixtures/v2_smoke");
     let bench_files = read_dec_dir("tests/fixtures/v2_bench");
+    let v3_files = read_dec_dir("tests/fixtures/v3_examples");
+    let self_host_file = vec![root.join("self_host/aodc_self.dec")];
     assert_eq!(fp_files.len(), 7);
     assert_eq!(stdlib_files.len(), 7);
     assert_eq!(manual_files.len(), 11);
     assert_eq!(smoke_files.len(), 5);
     assert_eq!(bench_files.len(), 4);
+    assert_eq!(v3_files.len(), 10);
 
-    let all_34: Vec<&PathBuf> = fp_files
+    let all_45: Vec<&PathBuf> = fp_files
         .iter()
         .chain(&stdlib_files)
         .chain(&manual_files)
         .chain(&smoke_files)
         .chain(&bench_files)
+        .chain(&v3_files)
+        .chain(&self_host_file)
         .collect();
-    assert_eq!(all_34.len(), 34);
+    assert_eq!(all_45.len(), 45);
 
-    for p in all_34 {
+    for p in all_45 {
         let raw = fs::read_to_string(p).unwrap();
         if stdlib_files.contains(p) {
-            let loaded = aodc::modules::load_from_source(&raw, p.parent(), CompatMode::V2)
-                .unwrap_or_else(|e| panic!("load_from_source failed on {}: {e}", p.display()));
+            let loaded = aodc::modules::load_from_source_with_options(
+                &raw,
+                p.parent(),
+                &LoadOptions::default(),
+            )
+            .unwrap_or_else(|e| panic!("load_from_source failed on {}: {e}", p.display()));
             aodc::checker::check_unit(loaded, false)
                 .unwrap_or_else(|e| panic!("check_unit(lib) failed on {}: {e}", p.display()));
         } else {
-            check_file(p, CompatMode::V2)
+            check_file(p)
                 .unwrap_or_else(|e| panic!("check_file failed on {}: {e}", p.display()));
         }
-        let f1 = format_source(&raw, CompatMode::V2)
+        let f1 = format_source(&raw)
             .unwrap_or_else(|e| panic!("format_source failed on {}: {e}", p.display()));
-        let f2 = format_source(&f1, CompatMode::V2)
+        let f2 = format_source(&f1)
             .unwrap_or_else(|e| panic!("second format_source failed on {}: {e}", p.display()));
         assert_eq!(f1, f2, "non-idempotent fmt on {}", p.display());
 
         // Direct API + CLI `aodc audit-dec --json` (`status == "PASS"` && `hooks_passed == 6`)
-        let rep = audit_dec_file_with_options(p, CompatMode::V2, &LoadOptions::default());
+        let rep = audit_dec_file_with_options(p, &LoadOptions::default());
         assert!(
             rep.passed() && rep.hooks_passed() == 6,
             "audit-dec API failed on {}: {:?}",
@@ -341,7 +342,7 @@ dec match_stage:
 
 observe CheckRoStatus:
     tracer watch:
-        (view: ReadOnly<ChamberView>) -> Null:
+        (view: ReadOnly<ChamberView>) -> null:
             let st: sim::ModelStatus = view.model_status
             assert st == ModelStatus::DeclaredSandboxNotS3Authenticated
             assert st == aod::core::ModelStatus::DeclaredSandboxNotS3Authenticated
@@ -421,13 +422,11 @@ dec main:
 
     // Wrong builtin namespace (`aod::wavelet::ModelStatus` / `aod::sim::RecipientStage`) rejected!
     assert!(check_source(
-        "dec main:\n    () -> int:\n        let _bad = aod::wavelet::ModelStatus::DeclaredSandboxNotS3Authenticated\n        return 0\n",
-        CompatMode::V2
+        "dec main:\n    () -> int:\n        let _bad = aod::wavelet::ModelStatus::DeclaredSandboxNotS3Authenticated\n        return 0\n"
     )
     .is_err());
     assert!(check_source(
-        "dec main:\n    () -> int:\n        let _bad = aod::sim::RecipientStage::Reclosed\n        return 0\n",
-        CompatMode::V2
+        "dec main:\n    () -> int:\n        let _bad = aod::sim::RecipientStage::Reclosed\n        return 0\n"
     )
     .is_err());
 
@@ -435,11 +434,11 @@ dec main:
 }
 
 #[test]
-fn ac04_ac05_ac06_27_banned_constructs_cli_flags_v1_isolation_and_decir_v2() {
+fn ac04_ac05_ac06_banned_constructs_v1_rejection_and_decir_v3_discipline() {
     let root = repo_root();
     let tmp = temp_dir("ac04_cutoff");
 
-    // 1. All >= 27 banned legacy constructs rejected WITHOUT `--strict-wave` by both `check_source` and plain `aodc check`!
+    // 1. All banned legacy constructs rejected unconditionally by both `check_source` and plain `aodc check`!
     let legacy_cases: &[(&str, &str)] = &[
         ("01_brace_struct_decl", "struct S { x: int }\ndec main:\n    () -> int:\n        return 0\n"),
         ("02_brace_enum_decl", "enum E { A, B }\ndec main:\n    () -> int:\n        return 0\n"),
@@ -447,36 +446,37 @@ fn ac04_ac05_ac06_27_banned_constructs_cli_flags_v1_isolation_and_decir_v2() {
         ("04_brace_map_lit", "dec main:\n    () -> int:\n        let m = {1: 2}\n        return 0\n"),
         ("05_brace_use", "use aod::core::{t1}\ndec main:\n    () -> int:\n        return 0\n"),
         ("06_uppercase_dec", "Dec main:\n    () -> int:\n        return 0\n"),
-        ("07_single_arm_header", "dec main() -> int:\n    return 0\n"),
-        ("08_prefix_arm_param", "dec f:\n    (int x) -> int:\n        return x\ndec main:\n    () -> int:\n        return f(1)\n"),
-        ("09_legacy_if_guard", "dec f:\n    (x: int) if x > 0 -> int:\n        return x\n    (x: int) -> int:\n        return 0\ndec main:\n    () -> int:\n        return f(1)\n"),
-        ("10_legacy_arm_out_binding", "dec main:\n    () -> int out:\n        return 0\n"),
-        ("11_unit_return_type", "dec main:\n    () -> ():\n        return\n"),
-        ("12_unit_expr", "dec main:\n    () -> int:\n        let _u = ()\n        return 0\n"),
-        ("13_if_stmt", "dec main:\n    () -> int:\n        if true:\n            return 1\n        return 0\n"),
-        ("14_ternary_expr", "dec main:\n    () -> int:\n        return 1 if true else 0\n"),
-        ("15_for_loop", "dec main:\n    () -> int:\n        for i in 0..3:\n            emit i\n        return 0\n"),
-        ("16_while_loop", "dec main:\n    () -> int:\n        while false:\n            emit 1\n        return 0\n"),
-        ("17_break_stmt", "dec main:\n    () -> int:\n        break\n        return 0\n"),
-        ("18_continue_stmt", "dec main:\n    () -> int:\n        continue\n        return 0\n"),
-        ("19_mut_local", "dec main:\n    () -> int:\n        mut x = 1\n        return x\n"),
-        ("20_local_rebinding", "dec main:\n    () -> int:\n        let x = 1\n        x = 2\n        return x\n"),
-        ("21_implicit_assign", "dec main:\n    () -> int:\n        x = 1\n        return x\n"),
-        ("22_field_mutation", "struct S:\n    x: int\ndec main:\n    () -> int:\n        let s = S(1)\n        s.x = 2\n        return s.x\n"),
-        ("23_index_mutation", "dec main:\n    () -> int:\n        let xs = [1, 2]\n        xs[0] = 9\n        return xs[0]\n"),
-        ("24_typed_local_v1", "dec main:\n    () -> int:\n        int x = 1\n        return x\n"),
-        ("25_match_stmt", "enum E:\n    A\ndec main:\n    () -> int:\n        match E::A:\n            E::A:\n                return 1\n"),
-        ("26_named_call_arg", "struct S:\n    x: int\ndec main:\n    () -> int:\n        let s = S(x: 1)\n        return s.x\n"),
-        ("27_double_quote_str", "dec main:\n    () -> int:\n        let s = \"hello\"\n        return 0\n"),
-        ("28_single_quote_str", "dec main:\n    () -> int:\n        let s = 'hello'\n        return 0\n"),
-        ("29_str_type_annot", "dec main:\n    () -> int:\n        let xs: [str] = []\n        return 0\n"),
-        ("30_str_witness_call", "use aod::core::q4\nuse aod::witness::trace\ndec main:\n    () -> int:\n        let _t = trace(\"a\", \"b\", q4(0))\n        return 0\n"),
+        ("07_prefix_arm_param", "dec f:\n    (int x) -> int:\n        return x\ndec main:\n    () -> int:\n        return f(1)\n"),
+        ("08_legacy_if_guard", "dec f:\n    (x: int) if x > 0 -> int:\n        return x\n    (x: int) -> int:\n        return 0\ndec main:\n    () -> int:\n        return f(1)\n"),
+        ("09_legacy_arm_out_binding", "dec main:\n    () -> int out:\n        return 0\n"),
+        ("10_if_stmt", "dec main:\n    () -> int:\n        if true:\n            return 1\n        return 0\n"),
+        ("11_ternary_expr", "dec main:\n    () -> int:\n        return 1 if true else 0\n"),
+        ("12_for_loop", "dec main:\n    () -> int:\n        for i in 0..3:\n            emit i\n        return 0\n"),
+        ("13_while_loop", "dec main:\n    () -> int:\n        while false:\n            emit 1\n        return 0\n"),
+        ("14_break_stmt", "dec main:\n    () -> int:\n        break\n        return 0\n"),
+        ("15_continue_stmt", "dec main:\n    () -> int:\n        continue\n        return 0\n"),
+        ("16_mut_local", "dec main:\n    () -> int:\n        mut x = 1\n        return x\n"),
+        ("17_local_rebinding", "dec main:\n    () -> int:\n        let x = 1\n        x = 2\n        return x\n"),
+        ("18_implicit_assign", "dec main:\n    () -> int:\n        x = 1\n        return x\n"),
+        ("19_field_mutation", "struct S:\n    x: int\ndec main:\n    () -> int:\n        let s = S(1)\n        s.x = 2\n        return s.x\n"),
+        ("20_index_mutation", "dec main:\n    () -> int:\n        let xs = [1, 2]\n        xs[0] = 9\n        return xs[0]\n"),
+        ("21_typed_local_v1", "dec main:\n    () -> int:\n        int x = 1\n        return x\n"),
+        ("22_match_colon_stmt", "enum E:\n    A\ndec main:\n    () -> int:\n        match E::A:\n            E::A:\n                return 1\n"),
+        ("23_named_call_arg", "struct S:\n    x: int\ndec main:\n    () -> int:\n        let s = S(x: 1)\n        return s.x\n"),
+        ("24_double_quote_str", "dec main:\n    () -> int:\n        let s = \"hello\"\n        return 0\n"),
+        ("25_single_quote_str", "dec main:\n    () -> int:\n        let s = 'hello'\n        return 0\n"),
+        ("26_str_type_annot", "dec main:\n    () -> int:\n        let xs: [str] = []\n        return 0\n"),
+        ("27_str_witness_call", "use aod::core::q4\nuse aod::witness::trace\ndec main:\n    () -> int:\n        let _t = trace(\"a\", \"b\", q4(0))\n        return 0\n"),
+        ("28_u8_type_annot", "dec main:\n    () -> int:\n        let _x: u8 = 0\n        return 0\n"),
+        ("29_t9_type_annot", "dec main:\n    () -> int:\n        let _x: t9 = 0\n        return 0\n"),
+        ("30_t32_type_annot", "dec main:\n    () -> int:\n        let _x: t32 = 0\n        return 0\n"),
+        ("31_int64_type_annot", "dec main:\n    () -> int:\n        let _x: int64 = 0\n        return 0\n"),
     ];
     assert!(legacy_cases.len() >= 27);
     for (tag, code) in legacy_cases {
         assert!(
-            check_source(code, CompatMode::V2).is_err(),
-            "check_source(CompatMode::V2) must unconditionally reject {tag}"
+            check_source(code).is_err(),
+            "check_source must unconditionally reject {tag}"
         );
         let bad_file = tmp.join(format!("{tag}.dec"));
         fs::write(&bad_file, code).unwrap();
@@ -491,110 +491,19 @@ fn ac04_ac05_ac06_27_banned_constructs_cli_flags_v1_isolation_and_decir_v2() {
         );
     }
 
-    // 2. Explicit mismatched `(CompatMode, SyntaxDiscipline)` pairs fail with `ParseError` across all 5 entrypoints
-    let pure_prog = "dec main:\n    () -> int:\n        return 0\n";
-    let v1_prog = "Dec main() -> out:\n    () -> int out:\n        out = 0\n";
-    assert_eq!(
-        tokenize_with_discipline(pure_prog, CompatMode::V2, SyntaxDiscipline::LegacyV1)
-            .unwrap_err()
-            .code,
-        DiagnosticCode::ParseError
-    );
-    assert_eq!(
-        tokenize_with_discipline(v1_prog, CompatMode::V1, SyntaxDiscipline::PureWaveV2)
-            .unwrap_err()
-            .code,
-        DiagnosticCode::ParseError
-    );
-    assert_eq!(
-        parse_source_with_discipline(pure_prog, CompatMode::V2, SyntaxDiscipline::LegacyV1)
-            .unwrap_err()
-            .code,
-        DiagnosticCode::ParseError
-    );
-    assert_eq!(
-        load_from_source_with_options(
-            pure_prog,
-            None,
-            CompatMode::V2,
-            &LoadOptions {
-                stdlib_dir: None,
-                discipline: SyntaxDiscipline::LegacyV1,
-            },
-        )
-        .unwrap_err()
-        .code,
-        DiagnosticCode::ParseError
-    );
-    assert_eq!(
-        load_hermetic_with_discipline(
-            pure_prog,
-            &std::collections::BTreeMap::new(),
-            CompatMode::V2,
-            SyntaxDiscipline::LegacyV1,
-        )
-        .unwrap_err()
-        .code,
-        DiagnosticCode::ParseError
-    );
-    assert_eq!(
-        format_source_with_discipline(pure_prog, CompatMode::V2, SyntaxDiscipline::LegacyV1)
-            .unwrap_err()
-            .code,
-        DiagnosticCode::ParseError
-    );
-
-    // 3. CLI `--strict-wave` / `--compat v2 --strict-wave` exit 0; `--compat v1 --strict-wave` exits 2
-    let fp00 = root.join("examples/first_principles/00_primitives.dec");
-    for args in [
-        vec!["check"],
-        vec!["check", "--strict-wave"],
-        vec!["check", "--pure-wave"],
-        vec!["check", "--compat", "v2", "--strict-wave"],
-        vec!["fmt", "--check"],
-        vec!["fmt", "--check", "--strict-wave"],
-        vec!["fmt", "--check", "--compat", "v2", "--strict-wave"],
-        vec!["audit-dec"],
-        vec!["audit-dec", "--strict-wave"],
-        vec!["audit-dec", "--compat", "v2", "--strict-wave"],
-    ] {
-        let out = Command::new(aodc_bin())
-            .args(&args)
-            .arg(&fp00)
-            .output()
-            .unwrap();
-        assert!(
-            out.status.success(),
-            "CLI {:?} failed: {}",
-            args,
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
-    for sub in ["check", "run", "fmt", "audit", "audit-dec", "test"] {
-        for flag in ["--strict-wave", "--pure-wave"] {
-            let out = Command::new(aodc_bin())
-                .args([sub, "--compat", "v1", flag])
-                .arg(root.join("tests/fixtures/v1_examples/closure.dec"))
-                .output()
-                .unwrap();
-            assert_eq!(out.status.code(), Some(2), "{sub} --compat v1 {flag}");
-        }
-    }
-
-    // 4. `CompatMode::V1` (`LoadOptions::default()`) passes all 10 frozen v1 examples while `CompatMode::V2` rejects all 10 (`AC-05`)
+    // 2. Clean-break frontend rejects all 10 frozen `tests/fixtures/v1_examples/*.dec`
     for ent in fs::read_dir(root.join("tests/fixtures/v1_examples")).unwrap() {
         let p = ent.unwrap().path();
         if p.extension().and_then(|s| s.to_str()) == Some("dec") {
-            check_file_with_options(&p, CompatMode::V1, &LoadOptions::default())
-                .unwrap_or_else(|e| panic!("V1 check failed on {}: {e}", p.display()));
-            assert!(check_file(&p, CompatMode::V2).is_err());
+            assert!(check_file(&p).is_err());
         }
     }
 
-    // 5. DecIR v2 requires `"syntax_discipline": "pure_wave_v2"` (rejects missing, legacy tag, or smuggled source, `AC-06`)
+    // 3. DecIR v3 requires `"schema": "aod.dec.ir.v3"` and `"syntax_discipline": "pure_wave_v2"`
+    let pure_prog = "dec main:\n    () -> int:\n        return 0\n";
     let p = tmp.join("ok.dec");
     fs::write(&p, pure_prog).unwrap();
-    let ir_str = compile_file_to_ir(&p, CompatMode::V2).unwrap();
+    let ir_str = compile_file_to_ir(&p).unwrap();
     let JsonValue::Object(base_obj) = parse_strict_json(&ir_str).unwrap() else {
         panic!("expected IR JSON object");
     };
@@ -630,15 +539,15 @@ fn ac07_unboxed_tuple_evolve_aliasing_wildcards_depth_safe_select_and_lazy_traps
 
     let sound_src = r#"
 use aod::core:
-    u8, t32, evolve
+    b8, evolve
 
 dec alias_fib_step:
     ((a, b): (int, int), _: int) -> (int, int):
         return (b, a + b)
 
 dec multi_wild_step:
-    ((acc, _, _): (int, t32, u8), i: int) -> (int, t32, u8):
-        return (acc + i + 1, t32(0), u8(7))
+    ((acc, _, _): (int, int, b8), i: int) -> (int, int, b8):
+        return (acc + i + 1, 0, b8(7))
 
 dec swapped_names_pick:
     (a: int, b: int) where a > b -> int:
@@ -647,9 +556,9 @@ dec swapped_names_pick:
         return a
 
 dec pat_plus_trap_guard:
-    (u8(1), x: int) where (10 // x) > 0 -> int:
+    (b8(1), x: int) where (10 // x) > 0 -> int:
         return 99
-    (_: u8, _: int) -> int:
+    (_: b8, _: int) -> int:
         return 42
 
 dec stress_step:
@@ -661,13 +570,13 @@ dec main:
         let (f10, f11) = evolve((0, 1), 0..10, alias_fib_step)
         assert f10 == 55 and f11 == 89
 
-        let (w_acc, w_t, w_u) = evolve((0, t32(9), u8(1)), 0..5, multi_wild_step)
-        assert w_acc == 15 and w_t == t32(0) and w_u == u8(7)
+        let (w_acc, w_t, w_u) = evolve((0, 9, b8(1)), 0..5, multi_wild_step)
+        assert w_acc == 15 and w_t == 0 and w_u == b8(7)
 
         assert swapped_names_pick(9, 2) == 9
         assert swapped_names_pick(2, 9) == 9
-        assert pat_plus_trap_guard(u8(0), 0) == 42
-        assert pat_plus_trap_guard(u8(1), 2) == 99
+        assert pat_plus_trap_guard(b8(0), 0) == 42
+        assert pat_plus_trap_guard(b8(1), 2) == 99
 
         # 500 calls (> 200) under tight max_depth = 6 proves emit_depth_dec() runs on EVERY 2-arm select return!
         let total = evolve(0, 0..500, stress_step)
@@ -676,22 +585,22 @@ dec main:
         emit total
         return 0
 "#;
-    let checked = check_source(sound_src, CompatMode::V2).unwrap();
+    let checked = check_source(sound_src).unwrap();
     let sel_plan = CodegenPlan {
         branchless_select: true,
         ..CodegenPlan::baseline_o2()
     };
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &sel_plan).unwrap();
     assert!(
-        raw_ir.contains("_unboxed(ptr %ctx, ptr %s0, ptr %s1, %DecInt %arg_idx)"),
+        raw_ir.contains("_unboxed(ptr %ctx, ptr %s0, ptr %s1, i64 %arg_idx)"),
         "expected _unboxed companion function for alias_fib_step:\n{raw_ir}"
     );
     assert!(
-        raw_ir.contains("_unboxed(ptr %ctx, ptr %s0, ptr %s1, ptr %s2, %DecInt %arg_idx)"),
+        raw_ir.contains("_unboxed(ptr %ctx, ptr %s0, ptr %s1, ptr %s2, i64 %arg_idx)"),
         "expected _unboxed companion function for multi_wild_step:\n{raw_ir}"
     );
     let swapped_ir = raw_ir
-        .split("define internal %DecInt @dec_fn_swapped_names_pick")
+        .split("define internal i64 @dec_fn_swapped_names_pick")
         .nth(1)
         .unwrap()
         .split("\n}\n")
@@ -704,12 +613,11 @@ dec main:
         "expected pure 2-arm select lowering on swapped_names_pick:\n{swapped_ir}"
     );
 
-    let vm_tight = run_source_with_budget(sound_src, CompatMode::V2, DEFAULT_FUEL, 6)
+    let vm_tight = run_source_with_budget(sound_src, DEFAULT_FUEL, 6)
         .unwrap()
         .to_stdout_string();
     let (jit_tight, jit_res) =
-        jit_source_with_plan_captured(sound_src, CompatMode::V2, &sel_plan, DEFAULT_FUEL, 6)
-            .unwrap();
+        jit_source_with_plan_captured(sound_src, &sel_plan, DEFAULT_FUEL, 6).unwrap();
     jit_res.unwrap_or_else(|e| panic!("JIT trapped under tight max_depth=6 (depth leak!): {e}"));
     assert_eq!(jit_tight, vm_tight);
 
@@ -722,7 +630,7 @@ fn ac09_ac10_ac11_manual_data_manual_verify_and_precodegen_firewalls() {
     let root = repo_root();
     let tmp = temp_dir("ac09_ac11");
 
-    // 1. Byte-identical `06` and `11` `.stdout` + zero `manual-data` drift (`AC-09`)
+    // 1. Non-empty `06` and `11` `.stdout` + zero `manual-data` drift (`AC-09`)
     assert!(
         !Sha256::digest_hex(&fs::read(root.join("manual_examples/06_unbiased_chamber_sandbox.stdout")).unwrap()).is_empty()
     );
@@ -760,7 +668,7 @@ fn ac09_ac10_ac11_manual_data_manual_verify_and_precodegen_firewalls() {
     // 3. Pre-codegen compile-time firewall `DiagnosticCode`s (`AC-11`)
     let firewall_cases = [
         (
-            "use aod::core::list_push\nobserve Bad:\n    tracer t:\n        (view: ReadOnly<ChamberView>) -> Null:\n            let _b = list_push(view.carriers, 1)\n            return null\ndec main:\n    () -> int:\n        return 0\n",
+            "use aod::core::list_push\nobserve Bad:\n    tracer t:\n        (view: ReadOnly<ChamberView>) -> null:\n            let _b = list_push(view.carriers, 1)\n            return null\ndec main:\n    () -> int:\n        return 0\n",
             DiagnosticCode::ObserverMutationForbidden,
         ),
         (
@@ -776,7 +684,7 @@ fn ac09_ac10_ac11_manual_data_manual_verify_and_precodegen_firewalls() {
             DiagnosticCode::EvenSupportForbidsYro,
         ),
         (
-            "use aod::core::u8\ndec main:\n    () -> int:\n        let _bad = 1 + u8(1)\n        return 0\n",
+            "use aod::core::b8\ndec main:\n    () -> int:\n        let _bad = 1 + b8(1)\n        return 0\n",
             DiagnosticCode::ImplicitCoercionForbidden,
         ),
         (
@@ -786,19 +694,16 @@ fn ac09_ac10_ac11_manual_data_manual_verify_and_precodegen_firewalls() {
     ];
     let never_exe = tmp.join("never_created");
     for (src, expected_code) in firewall_cases {
-        assert_eq!(emit_llvm_source(src, CompatMode::V2, OptLevel::O2).unwrap_err().code, expected_code);
+        assert_eq!(emit_llvm_source(src, OptLevel::O2).unwrap_err().code, expected_code);
         assert_eq!(
-            build_aot_source(src, CompatMode::V2, OptLevel::O2, &never_exe)
+            build_aot_source(src, OptLevel::O2, &never_exe)
                 .unwrap_err()
                 .code,
             expected_code
         );
         assert!(!never_exe.exists());
         assert_eq!(
-            compile_jit_source(src, CompatMode::V2, OptLevel::O2)
-                .err()
-                .unwrap()
-                .code,
+            compile_jit_source(src, OptLevel::O2).err().unwrap().code,
             expected_code
         );
     }

@@ -1,73 +1,73 @@
 use aod::core:
-    int, b64, t1, t32, ratio, superpose_cancel
+    int, b64, b64_bits, t1, ratio, superpose_cancel
 
 struct Delta3:
     s: t1
-    m: t32
+    m: int
 
 dec flip_phase:
     (wave: t1) -> t1:
         return -wave
-    (wave: t32) -> t32:
+    (wave: int) -> int:
         let raw = b64(wave)
-        let lo = ((raw & b64(6148914691236517205)) << 1)
-        let hi = ((raw & b64(12297829382473034410)) >> 1)
-        return t32((lo | hi))
+        let lo = ((raw & b64_bits(6148914691236517205)) << 1)
+        let hi = ((raw & b64_bits(12297829382473034410)) >> 1)
+        return int((lo | hi))
 
 dec add_wave:
-    (a: t32, b: t32) -> t32:
+    (a: int, b: int) -> int:
         return (a + b)
     (a: ratio, b: ratio) -> ratio:
         return (a + b)
 
 dec quadrance:
-    (dx: t32, dy: t32) -> t32:
+    (dx: int, dy: int) -> int:
         return ((dx * dx) + (dy * dy))
 
 dec spread:
-    (dx: t32, dy: t32) -> ratio:
+    (dx: int, dy: int) -> ratio:
         let qy = (dy * dy)
-        return ratio(int(qy), int(((dx * dx) + qy)))
+        return ratio(qy, ((dx * dx) + qy))
 
 dec audit_trace4:
-    (h1: t32, h2: t32, h3: t32, h4: t32, beta_a: t32) -> (t32, t32, t32):
+    (h1: int, h2: int, h3: int, h4: int, beta_a: int) -> (int, int, int):
         let q2_3d = (((h1 * h1) + (h2 * h2)) + (h3 * h3))
         let q2_4d = (q2_3d + (h4 * h4))
         let phase_theta = (q2_3d % beta_a)
         return (q2_3d, q2_4d, phase_theta)
 
 dec delta3_t32:
-    (x: t32) where (x > t32(0)) -> Delta3:
+    (x: int) where (x > 0) -> Delta3:
         return Delta3(1t, x)
-    (t32(0)) -> Delta3:
-        return Delta3(0t, t32(0))
-    (x: t32) -> Delta3:
-        return Delta3(t1(-1), flip_phase(x))
+    (0) -> Delta3:
+        return Delta3(0t, 0)
+    (x: int) -> Delta3:
+        return Delta3(-1t, flip_phase(x))
 
 dec main:
     () -> int:
-        assert ((flip_phase(1t) == t1(-1)) and (flip_phase(0t) == 0t))
-        assert (flip_phase(t32(13)) == t32(-13))
-        assert (flip_phase(t32(-926510094425920)) == t32(926510094425920))
+        assert ((flip_phase(1t) == -1t) and (flip_phase(0t) == 0t))
+        assert (flip_phase(13) == -13)
+        assert (flip_phase(-926510094425920) == 926510094425920)
         assert (superpose_cancel(1t, 1t) == 1t)
-        assert (superpose_cancel(t1(-1), t1(-1)) == t1(-1))
-        assert (superpose_cancel(1t, t1(-1)) == 0t)
-        let w = t32(22)
+        assert (superpose_cancel(-1t, -1t) == -1t)
+        assert (superpose_cancel(1t, -1t) == 0t)
+        let w = 22
         assert (superpose_cancel(w, w) == w)
-        assert (superpose_cancel(w, flip_phase(w)) == t32(0))
-        assert (add_wave(t32(5), t32(-2)) == t32(3))
+        assert (superpose_cancel(w, flip_phase(w)) == 0)
+        assert (add_wave(5, -2) == 3)
         assert (add_wave(1/3r, 1/6r) == 1/2r)
-        let q25 = quadrance(t32(3), t32(4))
-        let sp = spread(t32(3), t32(4))
-        assert ((q25 == t32(25)) and (sp == 16/25r))
-        let (q3, q4_val, theta) = audit_trace4(t32(1), t32(2), t32(2), t32(4), t32(7))
-        assert (((q3 == t32(9)) and (q4_val == t32(25))) and (theta == t32(2)))
-        assert (delta3_t32(t32(9)) == Delta3(1t, t32(9)))
-        assert (delta3_t32(t32(0)) == Delta3(0t, t32(0)))
-        assert (delta3_t32(t32(-9)) == Delta3(t1(-1), t32(9)))
+        let q25 = quadrance(3, 4)
+        let sp = spread(3, 4)
+        assert ((q25 == 25) and (sp == 16/25r))
+        let (q3, q4_val, theta) = audit_trace4(1, 2, 2, 4, 7)
+        assert (((q3 == 9) and (q4_val == 25)) and (theta == 2))
+        assert (delta3_t32(9) == Delta3(1t, 9))
+        assert (delta3_t32(0) == Delta3(0t, 0))
+        assert (delta3_t32(-9) == Delta3(-1t, 9))
         emit superpose_cancel(w, w)
         emit q25
         emit sp
         emit (q3, q4_val, theta)
-        emit delta3_t32(t32(-9))
+        emit delta3_t32(-9)
         return 0

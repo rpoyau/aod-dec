@@ -4,25 +4,14 @@ use std::path::{Path, PathBuf};
 use aod_core::sha256::Sha256;
 
 use crate::ast::{Item, Program, UseDecl};
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, SyntaxDiscipline};
-use crate::parser::parse_source_with_discipline;
+use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
+use crate::parser::parse_source;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LoadOptions {
     /// Explicit `--stdlib <dir>` override pointing to the `stdlib/` directory itself
     /// (containing `aod/ledger.dec`). When set, NO silent fallback is permitted (`P0-2`).
     pub stdlib_dir: Option<PathBuf>,
-    /// Syntax discipline (`PureWaveV2` default for V2; resolved via `SyntaxDiscipline::for_compat` on V1).
-    pub discipline: SyntaxDiscipline,
-}
-
-impl LoadOptions {
-    pub fn for_compat(compat: CompatMode) -> Self {
-        Self {
-            stdlib_dir: None,
-            discipline: SyntaxDiscipline::for_compat(compat),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -36,8 +25,6 @@ pub struct BundledModule {
 /// post-order topological `module_load_order` for `const` initialization, `P0-1`).
 #[derive(Clone, Debug)]
 pub struct LoadedUnit {
-    pub compat: CompatMode,
-    pub discipline: SyntaxDiscipline,
     pub entry_source: String,
     pub entry_sha256: String,
     pub entry_program: Program,
@@ -64,42 +51,59 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
     match namespace[1].as_str() {
         "core" => Some(&[
             "t1",
-            "t9",
-            "t32",
             "q4",
-            "u8",
+            "b8",
             "b64",
+            "b64_bits",
+            "u64_int",
             "int",
             "ratio",
+            "bytes",
+            "u16_le_bytes",
+            "u32_le_bytes",
+            "i32_le_bytes",
+            "i64_le_bytes",
+            "b64_le_bytes",
+            "push_byte",
+            "concat_bytes",
+            "slice_bytes",
+            "sha256_bytes",
+            "hex_bytes",
+            "pack_ratio",
+            "unpack_ratio",
             "pack",
             "unpack",
             "unpack_t9",
+            "num",
+            "den",
             "neg",
+            "abs",
+            "sgn",
+            "signum",
+            "min",
+            "max",
+            "clamp",
+            "pow",
+            "gcd",
+            "lcm",
+            "trit_shl",
+            "trit_shr",
+            "superpose_cancel",
             "bitnot",
             "popcnt",
-            "is_hamming1",
             "popcnt_xor",
-            "superpose_cancel",
-            "bytes",
-            "slice_bytes",
-            "concat_bytes",
-            "sha256_bytes",
-            "hex_bytes",
-            "array",
-            "array_set",
-            "select",
+            "is_hamming1",
             "verify_sheddic_route",
             "audit_sheddic_route",
             "verify_frg_cross_return",
-            "addr8",
-            "support",
-            "support_pi",
-            "support_rd",
-            "support_pressure",
-            "support_overhang",
-            "boundary_of",
-            "len",
-            "contains",
+            "mux",
+            "select",
+            "gate",
+            "argmin",
+            "argmax",
+            "walk",
+            "settle",
+            "fold",
             "evolve",
             "scan",
             "fold_seq",
@@ -110,27 +114,34 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "count",
             "any",
             "all",
+            "sum",
+            "dot",
+            "each",
+            "range_seq",
+            "array",
+            "array_set",
+            "push",
+            "concat",
+            "slice",
+            "set_at",
+            "list_set",
+            "list_push",
+            "concat_seq",
+            "slice_seq",
             "map_put",
             "map_remove",
             "map_get_or",
             "map_keys",
             "map_entries",
-            "list_set",
-            "list_push",
-            "concat_seq",
-            "slice_seq",
-            "sum",
-            "dot",
-            "num",
-            "den",
-            "abs",
-            "signum",
-            "min",
-            "max",
-            "clamp",
-            "gcd",
-            "lcm",
-            "pow",
+            "addr8",
+            "support",
+            "support_pi",
+            "support_rd",
+            "support_pressure",
+            "support_overhang",
+            "boundary_of",
+            "len",
+            "contains",
             "ModelStatus",
             "RecipientStage",
         ]),
@@ -169,13 +180,18 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "qext_render_bytes",
             "qext_format_fixed_bytes",
         ]),
+        "sys" => Some(&["cli_args", "read_file_bytes", "write_executable_elf"]),
         _ => None,
     }
 }
 
 pub fn canonical_builtin_name(namespace: &[String], item: &str) -> String {
-    if namespace.len() == 2 && namespace[0] == "aod" && namespace[1] == "qext" {
-        format!("aod::qext::{item}")
+    if namespace.len() == 2 && namespace[0] == "aod" {
+        match namespace[1].as_str() {
+            "qext" => format!("aod::qext::{item}"),
+            "sys" => format!("aod::sys::{item}"),
+            _ => item.to_string(),
+        }
     } else {
         item.to_string()
     }
@@ -230,18 +246,9 @@ pub fn resolve_stdlib_root(options: &LoadOptions, base_dir: Option<&Path>) -> Op
     None
 }
 
-/// Load a source file (or in-memory source with optional base directory) with `LoadOptions::for_compat(compat)`.
-pub fn load_from_source(
-    entry_source: &str,
-    base_dir: Option<&Path>,
-    compat: CompatMode,
-) -> DecResult<LoadedUnit> {
-    load_from_source_with_options(
-        entry_source,
-        base_dir,
-        compat,
-        &LoadOptions::for_compat(compat),
-    )
+/// Load a source file (or in-memory source with optional base directory) with default `LoadOptions`.
+pub fn load_from_source(entry_source: &str, base_dir: Option<&Path>) -> DecResult<LoadedUnit> {
+    load_from_source_with_options(entry_source, base_dir, &LoadOptions::default())
 }
 
 /// Load a source file (or in-memory source with optional base directory and explicit `LoadOptions`)
@@ -249,20 +256,13 @@ pub fn load_from_source(
 pub fn load_from_source_with_options(
     entry_source: &str,
     base_dir: Option<&Path>,
-    compat: CompatMode,
     options: &LoadOptions,
 ) -> DecResult<LoadedUnit> {
-    let discipline = match compat {
-        CompatMode::V1 => SyntaxDiscipline::for_compat(compat),
-        CompatMode::V2 => options.discipline,
-    };
-    let entry_program = parse_source_with_discipline(entry_source, compat, discipline)?;
+    let entry_program = parse_source(entry_source)?;
     let entry_sha256 = Sha256::digest_hex(entry_source.as_bytes());
     let stdlib_root = resolve_stdlib_root(options, base_dir);
 
     let mut loader = ModuleLoader {
-        compat,
-        discipline,
         base_dir: base_dir.map(Path::to_path_buf),
         stdlib_root,
         embedded: None,
@@ -277,8 +277,6 @@ pub fn load_from_source_with_options(
     let entry_imports = loader.resolve_program_uses(&entry_program, "<entry>", base_dir)?;
 
     Ok(LoadedUnit {
-        compat,
-        discipline,
         entry_source: entry_source.to_string(),
         entry_sha256,
         entry_program,
@@ -291,27 +289,10 @@ pub fn load_from_source_with_options(
 }
 
 /// Load a `LoadedUnit` strictly hermetically from embedded `entry_source` + `bundled_modules`
-/// under `SyntaxDiscipline::for_compat(compat)` (`P0-2`, `P0-3`, `P1-2`).
+/// (ZERO ambient filesystem reads, ZERO `AOD_STDLIB_DIR` inspection).
 pub fn load_hermetic(
     entry_source: &str,
     bundled_modules: &BTreeMap<String, BundledModule>,
-    compat: CompatMode,
-) -> DecResult<LoadedUnit> {
-    load_hermetic_with_discipline(
-        entry_source,
-        bundled_modules,
-        compat,
-        SyntaxDiscipline::for_compat(compat),
-    )
-}
-
-/// Load a `LoadedUnit` strictly hermetically from embedded `entry_source` + `bundled_modules`
-/// with explicit `SyntaxDiscipline` (`P0-5`).
-pub fn load_hermetic_with_discipline(
-    entry_source: &str,
-    bundled_modules: &BTreeMap<String, BundledModule>,
-    compat: CompatMode,
-    discipline: SyntaxDiscipline,
 ) -> DecResult<LoadedUnit> {
     for (name, m) in bundled_modules {
         let actual = Sha256::digest_hex(m.source.as_bytes());
@@ -322,12 +303,10 @@ pub fn load_hermetic_with_discipline(
             ));
         }
     }
-    let entry_program = parse_source_with_discipline(entry_source, compat, discipline)?;
+    let entry_program = parse_source(entry_source)?;
     let entry_sha256 = Sha256::digest_hex(entry_source.as_bytes());
 
     let mut loader = ModuleLoader {
-        compat,
-        discipline,
         base_dir: None,
         stdlib_root: None,
         embedded: Some(bundled_modules.clone()),
@@ -342,8 +321,6 @@ pub fn load_hermetic_with_discipline(
     let entry_imports = loader.resolve_program_uses(&entry_program, "<entry>", None)?;
 
     Ok(LoadedUnit {
-        compat,
-        discipline,
         entry_source: entry_source.to_string(),
         entry_sha256,
         entry_program,
@@ -356,8 +333,6 @@ pub fn load_hermetic_with_discipline(
 }
 
 struct ModuleLoader {
-    compat: CompatMode,
-    discipline: SyntaxDiscipline,
     base_dir: Option<PathBuf>,
     stdlib_root: Option<PathBuf>,
     embedded: Option<BTreeMap<String, BundledModule>>,
@@ -400,7 +375,7 @@ impl ModuleLoader {
             ));
         }
 
-        // Built-in `aod::*` namespace (preserved untouched)
+        // Built-in `aod::*` namespace
         if u.path[0] == "aod" {
             if let Some(items) = &u.items {
                 let allowed = builtin_namespace_items(&u.path).ok_or_else(|| {
@@ -498,7 +473,6 @@ impl ModuleLoader {
                 ImportedSymbol::ModuleNamespace(mod_key),
             );
         } else {
-            // Try loading full path as module first; if absent, treat last segment as item in parent module.
             let full_key = u.path.join("::");
             if self.module_exists(&full_key, &u.path, current_dir) {
                 self.load_user_module(&full_key, &u.path, current_mod, current_dir, u.line)?;
@@ -530,7 +504,6 @@ impl ModuleLoader {
     }
 
     fn module_exists(&self, mod_key: &str, segs: &[String], current_dir: Option<&Path>) -> bool {
-        // P0-2: Check embedded hermetic bundle FIRST for ALL modules (including `stdlib::*`).
         if let Some(emb) = &self.embedded {
             return emb.contains_key(mod_key);
         }
@@ -546,7 +519,6 @@ impl ModuleLoader {
             return None;
         }
 
-        // Pure `.dec` stdlib namespace (`use stdlib::...`) resolves strictly under `stdlib_root` (`P0-2`)
         if segs[0] == "stdlib" {
             if segs.len() < 2 {
                 return None;
@@ -614,7 +586,6 @@ impl ModuleLoader {
             return Ok(());
         }
 
-        // P0-2: Always inspect hermetic embedded bundle FIRST (zero filesystem / env reads in `exec`).
         let (source, next_dir) = if let Some(emb) = &self.embedded {
             let m = emb.get(mod_key).ok_or_else(|| {
                 Diagnostic::at_line(
@@ -646,13 +617,12 @@ impl ModuleLoader {
         };
 
         let sha = Sha256::digest_hex(source.as_bytes());
-        let program = parse_source_with_discipline(&source, self.compat, self.discipline)?;
+        let program = parse_source(&source)?;
 
         self.visiting.push(mod_key.to_string());
         let mod_imports = self.resolve_program_uses(&program, mod_key, next_dir.as_deref())?;
         self.visiting.pop();
 
-        // Post-order DFS exit (`P0-1`): dependencies strictly precede dependents!
         self.visited.insert(mod_key.to_string());
         self.module_load_order.push(mod_key.to_string());
         self.bundled_modules.insert(

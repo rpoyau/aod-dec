@@ -4,7 +4,7 @@ use std::process::Command;
 use aod_rt::abi::OwnedRtContext;
 use aod_rt::arena::RtArena;
 use aod_rt::value::RtValue;
-use aodc::diagnostics::{CompatMode, DiagnosticCode};
+use aodc::diagnostics::DiagnosticCode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
     build_aot_source, compile_jit_source, emit_llvm_source, jit_source_captured, run_source,
@@ -19,11 +19,11 @@ fn temp_dir(tag: &str) -> PathBuf {
 }
 
 fn assert_parity_success(src: &str, tag: &str) {
-    let expected = run_source(src, CompatMode::V2).unwrap().to_stdout_string();
+    let expected = run_source(src).unwrap().to_stdout_string();
     let tmp = temp_dir(tag);
 
     let exe = tmp.join("bin_o2");
-    build_aot_source(src, CompatMode::V2, OptLevel::O2, &exe).unwrap();
+    build_aot_source(src, OptLevel::O2, &exe).unwrap();
     let out = Command::new(&exe).output().unwrap();
     assert!(
         out.status.success(),
@@ -33,25 +33,30 @@ fn assert_parity_success(src: &str, tag: &str) {
     assert_eq!(String::from_utf8_lossy(&out.stdout), expected, "AOT stdout mismatch ({tag})");
 
     let (jout, jres) =
-        jit_source_captured(src, CompatMode::V2, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-            .unwrap();
+        jit_source_captured(src, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
     jres.unwrap_or_else(|e| panic!("JIT failed for {tag}: {e}"));
     assert_eq!(jout, expected, "JIT stdout mismatch ({tag})");
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
 
-fn assert_parity_runtime_fail(src: &str, expected_prior_stdout: &str, fuel: usize, max_depth: usize, tag: &str) {
+fn assert_parity_runtime_fail(
+    src: &str,
+    expected_prior_stdout: &str,
+    fuel: usize,
+    max_depth: usize,
+    tag: &str,
+) {
     // 1. VM fails
     assert!(
-        run_source_with_budget(src, CompatMode::V2, fuel, max_depth).is_err(),
+        run_source_with_budget(src, fuel, max_depth).is_err(),
         "expected VM failure for {tag}"
     );
 
     // 2. AOT -O2 fails while preserving prior emits + `aodc:` on stderr + exit 1
     let tmp = temp_dir(tag);
     let exe = tmp.join("fail_o2");
-    build_aot_source(src, CompatMode::V2, OptLevel::O2, &exe).unwrap();
+    build_aot_source(src, OptLevel::O2, &exe).unwrap();
     let out = Command::new(&exe)
         .args(["--fuel", &fuel.to_string(), "--max-depth", &max_depth.to_string()])
         .output()
@@ -69,7 +74,7 @@ fn assert_parity_runtime_fail(src: &str, expected_prior_stdout: &str, fuel: usiz
     );
 
     // 3. ORC LLJIT -O2 fails while preserving prior emits
-    let (jout, jres) = jit_source_captured(src, CompatMode::V2, OptLevel::O2, fuel, max_depth).unwrap();
+    let (jout, jres) = jit_source_captured(src, OptLevel::O2, fuel, max_depth).unwrap();
     assert!(jres.is_err(), "expected JIT failure for {tag}");
     assert_eq!(
         jout, expected_prior_stdout,
@@ -80,125 +85,129 @@ fn assert_parity_runtime_fail(src: &str, expected_prior_stdout: &str, fuel: usiz
 }
 
 #[test]
-fn ac09_int_overflow_spill_floor_div_bitwise_parity() {
+fn ac09_trit_boxed_int_inline_boundary_spill_floor_div_and_b64_bitwise_parity() {
     let src = r#"
-dec main:
-    () -> int:
-        let max64 = 9223372036854775807
-        let min64 = -9223372036854775807 - 1
+dec main() -> int:
+    let max_t32 = 926510094425920
+    let min_t32 = -926510094425920
 
-        # Overflow spills + spill-and-unbox round-trip
-        let p1 = max64 + 1
-        let m1 = min64 - 1
-        let sq = max64 * max64
-        let neg_min = -min64
-        let div_min = min64 // -1
-        let rem_min = min64 % -1
-        let roundtrip = p1 - 1
-        assert roundtrip == max64
-        assert neg_min == p1
-        assert div_min == p1
-        assert rem_min == 0
+    # Inline 32-trit boundary -> BigTrit spill (`0xD000... | handle`) -> unspill round-trip
+    let p1 = max_t32 + 1
+    let m1 = min_t32 - 1
+    let sq = max_t32 * max_t32
+    let neg_min = -m1
+    let div_min = m1 // -1
+    let rem_min = m1 % -1
+    let roundtrip = p1 - 1
+    assert roundtrip == max_t32
+    assert neg_min == p1
+    assert div_min == p1
+    assert rem_min == 0
 
-        # 256-bit arithmetic
-        let big = sq * sq
-        assert big // sq == sq
+    # Multi-limb base-3^32 BigTrit arithmetic
+    let big = sq * sq
+    assert big // sq == sq
 
-        # 4-quadrant exact floor division & remainder
-        assert 7 // 3 == 2 and 7 % 3 == 1
-        assert -7 // 3 == -3 and -7 % 3 == 2
-        assert 7 // -3 == -3 and 7 % -3 == -2
-        assert -7 // -3 == 2 and -7 % -3 == -1
+    # 4-quadrant exact floor division & remainder
+    assert 7 // 3 == 2 and 7 % 3 == 1
+    assert -7 // 3 == -3 and -7 % 3 == 2
+    assert 7 // -3 == -3 and 7 % -3 == -2
+    assert -7 // -3 == 2 and -7 % -3 == -1
 
-        # Bitwise edge cases: << 63 spills cleanly, >> 64 returns 0 (no poison!)
-        let s63 = 1 << 63
-        assert s63 == p1
-        assert (max64 >> 64) == 0
-        assert (max64 >> 100) == 0
-        assert (12 & 10) == 8 and (12 | 10) == 14 and (12 ^ 10) == 6
+    # Balanced-ternary trit shifts & b64 raw bitwise operations
+    let t40 = trit_shl(1, 40)
+    assert trit_shr(t40, 40) == 1
+    let raw12 = b64_bits(12)
+    let raw10 = b64_bits(10)
+    assert u64_int(raw12 & raw10) == 8
+    assert u64_int(raw12 | raw10) == 14
+    assert u64_int(raw12 ^ raw10) == 6
+    assert u64_int(b64_bits(1) << 16) == 65536
 
-        emit p1
-        emit m1
-        emit sq
-        emit big
-        emit s63
-        return 0
+    emit p1
+    emit m1
+    emit sq
+    emit big
+    emit t40
+    0
 "#;
     assert_parity_success(src, "ac09_int_spill");
 
-    // Negative bitwise rejection across VM, AOT, and JIT
-    let neg_bit = "dec main:\n    () -> int:\n        emit b\"before-neg-bit\"\n        let x = (-1) & 3\n        return x\n";
-    assert_parity_runtime_fail(neg_bit, "b\"before-neg-bit\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac09_neg_bit");
-
     // Div by zero rejection across VM, AOT, and JIT
-    let div0 = "dec main:\n    () -> int:\n        emit b\"before-div0\"\n        let x = 7 // 0\n        return x\n";
+    let div0 = "dec main() -> int:\n    emit b\"before-div0\"\n    7 // 0\n";
     assert_parity_runtime_fail(div0, "b\"before-div0\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac09_div0");
 }
 
 #[test]
-fn ac10_t1_t32_q4_ratio_spill_and_bit63_pack_unpack_parity() {
+fn ac10_trit_boxed_b64_view_pack_ratio_and_huge_ratio_spill_parity() {
     let src = r#"
-use aod::core:
-    int, t32, ratio, pack, unpack
+dec main() -> int:
+    # 0-cycle Trit-Boxed `b64(int)` <-> `int(b64)` register view at ±(3^32 - 1)/2!
+    let lim = 926510094425920
+    let neg_lim = -926510094425920
+    let p_pos = b64(lim)
+    let p_neg = b64(neg_lim)
+    assert int(p_pos) == lim
+    assert int(p_neg) == neg_lim
+    assert u64_int(p_pos) == 6148914691236517205
+    assert u64_int(p_neg) == 12297829382473034410
+    assert lim + neg_lim == 0
 
-dec main:
-    () -> int:
-        # P0-3: T32 extremes + bit-63-set pack(t32(-T32::LIMIT)) spill & unpack round-trip!
-        let lim = t32(926510094425920)
-        let neg_lim = t32(-926510094425920)
-        let p_pos = pack(lim)
-        let p_neg = pack(neg_lim)
-        assert unpack(p_pos) == lim
-        assert unpack(p_neg) == neg_lim
-        assert p_pos == 6148914691236517205 and p_neg == 12297829382473034410
-        assert lim + neg_lim == t32(0)
+    # Compact 1-word `[num][11][den]` `pack_ratio` / `unpack_ratio` round-trip
+    let pr1 = pack_ratio(1/3r)
+    let pr2 = pack_ratio(-22/7r)
+    assert unpack_ratio(pr1) == 1/3r
+    assert unpack_ratio(pr2) == -22/7r
 
-        # Exact ratio -> int conversion
-        assert int(6/2r) == 3
+    # Exact ratio -> int conversion
+    assert int(6/2r) == 3
 
-        # Huge ratio spill beyond i64 numerator/denominator
-        let big_n = 9223372036854775807 * 9223372036854775807
-        let big_d = 9223372036854775807 + 2
-        let r_big = ratio(big_n, big_d)
-        let r_sum = r_big + 1/3r
-        assert r_sum > r_big
+    # Coupled 2-word `ratio` with one negative inline word (`0x8000...`) and positive inline word (`0x4000...`),
+    # plus huge BigTrit numerator/denominator spill!
+    let r_mixed = ratio(neg_lim, lim - 1)
+    assert r_mixed < 0/1r
+    let big_n = 9223372036854775807 * 9223372036854775807
+    let big_d = 9223372036854775807 + 2
+    let r_big = ratio(big_n, big_d)
+    let r_sum = r_big + 1/3r
+    assert r_sum > r_big
 
-        emit p_pos
-        emit p_neg
-        emit r_sum
-        return 0
+    emit u64_int(p_pos)
+    emit u64_int(p_neg)
+    emit r_sum
+    0
 "#;
-    assert_parity_success(src, "ac10_t32_ratio_spill");
+    assert_parity_success(src, "ac10_trit_ratio_spill");
 
-    // Hostile T32 overflow
-    let t32_ov = "use aod::core:\n    int, t32\ndec main:\n    () -> int:\n        emit b\"before-t32\"\n        let x = t32(926510094425920) + t32(1)\n        return int(x)\n";
-    assert_parity_runtime_fail(t32_ov, "b\"before-t32\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_t32_ov");
+    // Hostile `b64(spilled_int)` (> 32 trits) rejected across VM, AOT, JIT
+    let spill_b64 = "dec main() -> int:\n    emit b\"before-b64\"\n    let w = b64(926510094425920 + 1)\n    u64_int(w)\n";
+    assert_parity_runtime_fail(spill_b64, "b\"before-b64\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_spill_b64");
 
-    // Hostile unpack(3) (invalid 0b11 lane)
-    let bad_unpack = "use aod::core:\n    int, unpack\ndec main:\n    () -> int:\n        emit b\"before-unpack\"\n        let x = unpack(3)\n        return int(x)\n";
+    // Hostile `int(b64_bits(3))` (invalid 0b11 lane) rejected across VM, AOT, JIT
+    let bad_unpack = "dec main() -> int:\n    emit b\"before-unpack\"\n    int(b64_bits(3))\n";
     assert_parity_runtime_fail(bad_unpack, "b\"before-unpack\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_bad_unpack");
 
-    // Hostile unpack(-1)
-    let neg_unpack = "use aod::core:\n    int, unpack\ndec main:\n    () -> int:\n        emit b\"before-neg-unpack\"\n        let x = unpack(-1)\n        return int(x)\n";
-    assert_parity_runtime_fail(neg_unpack, "b\"before-neg-unpack\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_neg_unpack");
+    // Hostile `pack_ratio` exceeding 31 combined trits rejected across VM, AOT, JIT
+    let ovf_pack_ratio = "dec main() -> int:\n    emit b\"before-pr\"\n    let w = pack_ratio(ratio(926510094425920, 926510094425919))\n    u64_int(w)\n";
+    assert_parity_runtime_fail(ovf_pack_ratio, "b\"before-pr\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_ovf_pr");
 
     // Hostile non-integer ratio -> int(7/2r)
-    let bad_int_rat = "use aod::core::int\ndec main:\n    () -> int:\n        emit b\"before-rat-int\"\n        let x = int(7/2r)\n        return x\n";
+    let bad_int_rat = "dec main() -> int:\n    emit b\"before-rat-int\"\n    int(7/2r)\n";
     assert_parity_runtime_fail(bad_int_rat, "b\"before-rat-int\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_bad_int_rat");
 }
 
 #[test]
 fn ac12_budgets_assert_and_procedural_observer_failure_preserve_emits() {
     // 1. Coarsened native fuel exhaustion preserves prior emit
-    let fuel_loop = "use aod::core::evolve\ndec st:\n    (s: int, _: int) -> int:\n        return s + 1\ndec main:\n    () -> int:\n        emit b\"pre-fuel\"\n        return evolve(0, 0..1000, st)\n";
+    let fuel_loop = "dec inc(x: int) -> int:\n    x + 1\n\ndec main() -> int:\n    emit b\"pre-fuel\"\n    walk(0, 1000, inc)\n";
     assert_parity_runtime_fail(fuel_loop, "b\"pre-fuel\"\n", 15, DEFAULT_MAX_DEPTH, "ac12_fuel");
 
     // 2. Call depth exhaustion preserves prior emit
-    let depth_rec = "dec dive:\n    (n: int) -> int:\n        emit n\n        return dive(n + 1)\n\ndec main:\n    () -> int:\n        return dive(1)\n";
+    let depth_rec = "dec dive(n: int) -> int:\n    emit n\n    dive(n + 1)\n\ndec main() -> int:\n    dive(1)\n";
     assert_parity_runtime_fail(depth_rec, "1\n2\n3\n4\n", DEFAULT_FUEL, 5, "ac12_depth");
 
     // 3. Assertion failure preserves prior emit
-    let assert_fail = "dec main:\n    () -> int:\n        emit b\"pre-assert\"\n        assert false\n        return 0\n";
+    let assert_fail = "dec main() -> int:\n    emit b\"pre-assert\"\n    assert false\n    0\n";
     assert_parity_runtime_fail(assert_fail, "b\"pre-assert\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac12_assert");
 
     // 4. P1-3: Procedural observer callback failure halts simulate immediately & preserves prior emits!
@@ -208,21 +217,19 @@ chamber C:
     walls = open
 
 prepare P in C:
-    inject 3:3:6 at (4, 4, 4) dir +X orient 1t shells 1
+    inject 3:3:6 at (4, 4, 4) dir +X orient +1t shells 1
 
 observe FailObs:
-    sensor s:
-        (view: ReadOnly<ChamberView>) -> int:
-            emit view.tick
-            assert view.tick < 2
-            return view.tick
+    sensor s(view) -> int:
+        emit view.tick
+        assert view.tick < 2
+        view.tick
 
-dec main:
-    () -> int:
-        emit b"start-sim"
-        let r = simulate P for 10 ticks with FailObs
-        emit b"unreachable"
-        return r.ticks
+dec main() -> int:
+    emit b"start-sim"
+    let r = simulate P over 10 ticks with FailObs
+    emit b"unreachable"
+    r.ticks
 "#;
     assert_parity_runtime_fail(
         obs_fail,
@@ -239,26 +246,25 @@ fn ac13_arena_invalid_handle_and_max_entries_cap_safety() {
     let mut arena = RtArena::new(3);
     assert!(arena.get(0).is_err());
     assert!(arena.get(1).is_err());
-    let h1 = arena.insert(RtValue::Bytes(b"a".to_vec())).unwrap();
-    let h2 = arena.insert(RtValue::Bytes(b"b".to_vec())).unwrap();
-    let h3 = arena.insert(RtValue::Bytes(b"c".to_vec())).unwrap();
+    let h1 = arena.insert(RtValue::Bytes(b"a".to_vec().into())).unwrap();
+    let h2 = arena.insert(RtValue::Bytes(b"b".to_vec().into())).unwrap();
+    let h3 = arena.insert(RtValue::Bytes(b"c".to_vec().into())).unwrap();
     assert_eq!((h1, h2, h3), (1, 2, 3));
-    assert!(arena.insert(RtValue::Bytes(b"overflow".to_vec())).is_err());
+    assert!(arena.insert(RtValue::Bytes(b"overflow".to_vec().into())).is_err());
     assert!(arena.get(99).is_err());
 
     // 2. End-to-end C ABI cap exhaustion via ORC LLJIT with tiny max_arena_entries=2 (zero unsafe in test!)
     let alloc_prog = r#"
-dec main:
-    () -> int:
-        let a = b"one"
-        let b = b"two"
-        let c = b"three"
-        emit a
-        emit b
-        emit c
-        return 0
+dec main() -> int:
+    let a = b"one"
+    let b = b"two"
+    let c = b"three"
+    emit a
+    emit b
+    emit c
+    0
 "#;
-    let sess = compile_jit_source(alloc_prog, CompatMode::V2, OptLevel::O0).unwrap();
+    let sess = compile_jit_source(alloc_prog, OptLevel::O0).unwrap();
     let mut cap_ctx = OwnedRtContext::with_arena_cap(1000, 32, true, 2);
     sess.execute(&mut cap_ctx);
     assert!(cap_ctx.failed(), "expected arena cap failure");
@@ -316,36 +322,33 @@ fn ac14_compile_time_firewalls_enforced_before_ir_or_artifacts() {
 
     let hostile_cases = [
         (
-            "use aod::qext::ext_decimal\ndec main:\n    () -> int:\n        let q = ext_decimal(b\"1.25\")\n        return 0\n",
+            "use aod::qext:\n    ext_decimal\ndec main() -> int:\n    let q = ext_decimal(b\"1.25\")\n    0\n",
             DiagnosticCode::QExtLeakageForbidden,
         ),
         (
-            "observe Bad:\n    tracer t:\n        (view: ChamberView) -> Null:\n            return null\ndec main:\n    () -> int:\n        return 0\n",
+            "dec take_mut(v: ChamberView) -> int:\n    v.tick\nobserve Bad:\n    sensor t(view) -> int:\n        take_mut(view)\ndec main() -> int:\n    0\n",
             DiagnosticCode::ObserverMutationForbidden,
         ),
         (
-            "dec main:\n    () -> int:\n        let x = 1.5\n        return 0\n",
+            "dec main() -> int:\n    let x = 1.5\n    0\n",
             DiagnosticCode::FloatLiteralForbidden,
         ),
     ];
 
     for (src, expected_code) in hostile_cases {
         assert_eq!(
-            emit_llvm_source(src, CompatMode::V2, OptLevel::O2).unwrap_err().code,
+            emit_llvm_source(src, OptLevel::O2).unwrap_err().code,
             expected_code
         );
         assert_eq!(
-            build_aot_source(src, CompatMode::V2, OptLevel::O2, &out_exe)
+            build_aot_source(src, OptLevel::O2, &out_exe)
                 .unwrap_err()
                 .code,
             expected_code
         );
         assert!(!out_exe.exists(), "firewall failure must not create output executable");
         assert_eq!(
-            compile_jit_source(src, CompatMode::V2, OptLevel::O2)
-                .err()
-                .unwrap()
-                .code,
+            compile_jit_source(src, OptLevel::O2).err().unwrap().code,
             expected_code
         );
     }
@@ -361,18 +364,18 @@ fn ac16_twenty_sequential_orc_jit_sessions_mix_ok_and_fail() {
         } else if i % 3 == 2 {
             // Runtime assertion failure inside ORC JIT session cleanly dropped
             let src = format!(
-                "dec main:\n    () -> int:\n        emit {i}\n        assert false\n        return 0\n"
+                "dec main() -> int:\n    emit {i}\n    assert false\n    0\n"
             );
-            let sess = compile_jit_source(&src, CompatMode::V2, OptLevel::O2).unwrap();
+            let sess = compile_jit_source(&src, OptLevel::O2).unwrap();
             let (out, res) = sess.run_captured(DEFAULT_FUEL as i64, DEFAULT_MAX_DEPTH as i32);
             assert!(res.is_err());
             assert_eq!(out, format!("{i}\n"));
         } else {
             // Succeeding session with unique value
             let src = format!(
-                "dec main:\n    () -> int:\n        let x = {i} * 7 + 1\n        emit x\n        return x\n"
+                "dec main() -> int:\n    let x = {i} * 7 + 1\n    emit x\n    x\n"
             );
-            let sess = compile_jit_source(&src, CompatMode::V2, OptLevel::O2).unwrap();
+            let sess = compile_jit_source(&src, OptLevel::O2).unwrap();
             let (out, res) = sess.run_captured(DEFAULT_FUEL as i64, DEFAULT_MAX_DEPTH as i32);
             res.unwrap();
             let expected = i * 7 + 1;
@@ -380,4 +383,3 @@ fn ac16_twenty_sequential_orc_jit_sessions_mix_ok_and_fail() {
         }
     }
 }
-

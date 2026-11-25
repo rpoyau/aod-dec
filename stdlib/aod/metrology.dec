@@ -1,31 +1,27 @@
 # AOD Manual M3 (PRs #45/#46) — Conditional SI Metrology Interface
-# Reference binding: rpoyau/aod@98ddfa0 (03_temporal_observation.tex, aod_temporal_metrology.py)
+# Reference binding: rpoyau/aod@98ddfa0 (03_temporal_observation.tex)
 #
 # All SI defining frequencies, Hellwig hydrogen maser reports, and NIST-F2 uncertainty budgets
 # are STRICTLY quarantined inside `quarantine Q_ext SiMetrology:` and CANNOT leak into native AOD.
 
 use aod::core:
-    ratio, abs, pow
-
+    abs, pow, ratio
 use aod::qext:
-    ext_decimal, qext_from_ratio, qext_round_half_even, qext_format_fixed_bytes
+    ext_decimal, qext_from_ratio, qext_render, qext_round_half_even, qext_format_fixed
 
 # Pure native exact integer exponentiation helper (zero external units)
-dec int_pow:
-    (base: int, exp: int) -> int:
-        assert exp >= 0
-        return pow(base, exp)
+dec int_pow(base: int, exp: int) -> int:
+    assert exp >= 0
+    pow(base, exp)
 
 # Native observed turn advance on W = (k_0, k_1]: A(W) = C(W) + phi_1 - phi_0
-dec observed_advance:
-    (winding: int, phi0: ratio, phi1: ratio) -> ratio:
-        return ratio(winding, 1) + phi1 - phi0
+dec observed_advance(winding: int, phi0: ratio, phi1: ratio) -> ratio:
+    ratio(winding, 1) + phi1 - phi0
 
 # prop:m3-atomic-gain identifiability family: g_lambda(Z) = 1 + lambda * (55 - Z) / 54
 # Preserves g_lambda(55) == 1 (Cs anchor) while varying g_lambda(1) == 1 + lambda.
-dec atomic_gain_family:
-    (z: int, lam: ratio) -> ratio:
-        return 1/1r + lam * ratio(55 - z, 54)
+dec atomic_gain_family(z: int, lam: ratio) -> ratio:
+    1/1r + lam * ratio(55 - z, 54)
 
 quarantine Q_ext SiMetrology:
     # Exact SI defining Cs-133 hyperfine frequency (Hz)
@@ -40,21 +36,17 @@ quarantine Q_ext SiMetrology:
     const NIST_F2_AUG2013_UB = ext_decimal(b"0.00000000000000016")
     const NIST_F2_TABLE1_UB = ext_decimal(b"0.00000000000000011")
 
-    dec duration_seconds:
-        (a_ref: ratio) -> QExt<ratio>:
-            return qext_from_ratio(a_ref) / DELTA_NU_CS
+    dec duration_seconds(a_ref: ratio) -> QExt<ratio>:
+        qext_from_ratio(a_ref) / DELTA_NU_CS
 
-    dec mean_frequency_hz:
-        (a_cmp: ratio, a_ref: ratio) -> QExt<ratio>:
-            return qext_from_ratio(a_cmp) * DELTA_NU_CS / qext_from_ratio(a_ref)
+    dec mean_frequency_hz(a_cmp: ratio, a_ref: ratio) -> QExt<ratio>:
+        qext_from_ratio(a_cmp) * DELTA_NU_CS / qext_from_ratio(a_ref)
 
-    dec hellwig_midpoint_hz:
-        () -> QExt<ratio>:
-            return (H_HELLWIG_TABLE_IV + H_HELLWIG_TABLE_VI) / ext_decimal(b"2")
+    dec hellwig_midpoint_hz() -> QExt<ratio>:
+        (H_HELLWIG_TABLE_IV + H_HELLWIG_TABLE_VI) / ext_decimal(b"2")
 
-    dec nist_f2_hz_uncertainty:
-        (frac_u: QExt<ratio>) -> QExt<ratio>:
-            return frac_u * DELTA_NU_CS
+    dec nist_f2_hz_uncertainty(frac_u: QExt<ratio>) -> QExt<ratio>:
+        frac_u * DELTA_NU_CS
 
 quarantine Q_ext DisplayQuarantine:
     # Post-freeze Higgs external energy map, LHC comparisons, half-to-even rounding + exact
@@ -64,57 +56,45 @@ quarantine Q_ext DisplayQuarantine:
     const LHC_ATLAS_HGG_MASS_GEV = ext_decimal(b"125.22")
     const LHC_ATLAS_HGG_SIGMA_GEV = ext_decimal(b"0.14")
 
-    dec qext_abs:
-        (x: QExt<ratio>) -> QExt<ratio>:
-            return abs(x)
+    dec qext_abs(x: QExt<ratio>) -> QExt<ratio>:
+        abs(x)
 
-    dec higgs_freeze_mev:
-        (frozen_rd: int, frozen_l: int) -> QExt<ratio>:
-            assert frozen_rd > 0 and frozen_l >= 0
-            let e_mev = frozen_rd * int_pow(2, frozen_l + 4)
-            return qext_from_ratio(ratio(e_mev, 1))
+    dec higgs_freeze_mev(frozen_rd: int, frozen_l: int) -> QExt<ratio>:
+        assert frozen_rd > 0 and frozen_l >= 0
+        let e_mev = frozen_rd * int_pow(2, frozen_l + 4)
+        qext_from_ratio(ratio(e_mev, 1))
 
-    dec higgs_freeze_gev:
-        (frozen_rd: int, frozen_l: int) -> QExt<ratio>:
-            assert frozen_rd > 0 and frozen_l >= 0
-            let e_mev = frozen_rd * int_pow(2, frozen_l + 4)
-            return qext_from_ratio(ratio(e_mev, 1000))
+    dec higgs_freeze_gev(frozen_rd: int, frozen_l: int) -> QExt<ratio>:
+        assert frozen_rd > 0 and frozen_l >= 0
+        let e_mev = frozen_rd * int_pow(2, frozen_l + 4)
+        qext_from_ratio(ratio(e_mev, 1000))
 
-    dec lhc_delta_gev:
-        (pred_gev: QExt<ratio>, mass_gev: QExt<ratio>) -> QExt<ratio>:
-            return pred_gev - mass_gev
+    dec lhc_delta_gev(pred_gev: QExt<ratio>, mass_gev: QExt<ratio>) -> QExt<ratio>:
+        pred_gev - mass_gev
 
-    dec lhc_z_score_exact:
-        (pred_gev: QExt<ratio>, mass_gev: QExt<ratio>, sigma_gev: QExt<ratio>) -> QExt<ratio>:
-            return (pred_gev - mass_gev) / sigma_gev
+    dec lhc_z_score_exact(pred_gev: QExt<ratio>, mass_gev: QExt<ratio>, sigma_gev: QExt<ratio>) -> QExt<ratio>:
+        (pred_gev - mass_gev) / sigma_gev
 
-    dec lhc_abs_percent_error_exact:
-        (pred_gev: QExt<ratio>, mass_gev: QExt<ratio>) -> QExt<ratio>:
-            return qext_abs(pred_gev - mass_gev) * ext_decimal(b"100") / mass_gev
+    dec lhc_abs_percent_error_exact(pred_gev: QExt<ratio>, mass_gev: QExt<ratio>) -> QExt<ratio>:
+        qext_abs(pred_gev - mass_gev) * ext_decimal(b"100") / mass_gev
 
-    dec round_half_even_value:
-        (val: QExt<ratio>, decimals: int) -> QExt<ratio>:
-            return qext_round_half_even(val, decimals)
+    dec round_half_even_value(val: QExt<ratio>, decimals: int) -> QExt<ratio>:
+        qext_round_half_even(val, decimals)
 
-    dec round_display:
-        (val: QExt<ratio>, decimals: int) -> QExt<bytes>:
-            return qext_format_fixed_bytes(val, decimals)
+    dec round_display(val: QExt<ratio>, decimals: int) -> QExt<bytes>:
+        qext_format_fixed(val, decimals)
 
-    dec rounding_residual:
-        (val: QExt<ratio>, decimals: int) -> QExt<ratio>:
-            let rnd = qext_round_half_even(val, decimals)
-            return qext_abs(rnd - val)
+    dec rounding_residual(val: QExt<ratio>, decimals: int) -> QExt<ratio>:
+        let rnd = qext_round_half_even(val, decimals)
+        qext_abs(rnd - val)
 
-    dec half_ulp_bound:
-        (decimal_places: int) -> QExt<ratio>:
-            assert decimal_places >= 0
-            let scale = int_pow(10, decimal_places)
-            return qext_from_ratio(ratio(1, 2 * scale))
+    dec half_ulp_bound(decimal_places: int) -> QExt<ratio>:
+        assert decimal_places >= 0
+        let scale = int_pow(10, decimal_places)
+        qext_from_ratio(ratio(1, 2 * scale))
 
-    dec half_ulp_lower:
-        (val: QExt<ratio>, decimal_places: int) -> QExt<ratio>:
-            return val - half_ulp_bound(decimal_places)
+    dec half_ulp_lower(val: QExt<ratio>, decimal_places: int) -> QExt<ratio>:
+        val - half_ulp_bound(decimal_places)
 
-    dec half_ulp_upper:
-        (val: QExt<ratio>, decimal_places: int) -> QExt<ratio>:
-            return val + half_ulp_bound(decimal_places)
+    dec half_ulp_upper(val: QExt<ratio>, decimal_places: int) -> QExt<ratio>:
+        val + half_ulp_bound(decimal_places)

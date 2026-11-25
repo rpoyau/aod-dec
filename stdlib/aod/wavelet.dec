@@ -3,7 +3,9 @@
 # Reference binding: rpoyau/aod@98ddfa0 (00_native_closure_wave_temporal_fixtures.tex)
 
 use aod::core:
-    ratio, len, select, evolve, fold_seq
+    fold, len, range_seq, ratio, select
+use aod::wavelet:
+    RecipientStage, window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
 
 const DUON_VARIANT_COUNT: int = 12
 
@@ -47,119 +49,113 @@ struct Cyclo12:
     c2: ratio
     c3: ratio
 
+struct DftCtx:
+    signal: [int]
+    mode_m: int
+    acc: Cyclo12
+
 dec seat_duad:
-    (cur_a: int, cur_b: int, true) where cur_a == cur_b and cur_a != 0 -> DuadRecord:
-        return DuadRecord(DuadSeat::SeatedDuad, true, cur_a)
-    (cur_a: int, _: int, has_hinge_0h: bool) -> DuadRecord:
-        return DuadRecord(DuadSeat::OpenDuon, has_hinge_0h, cur_a)
+    (cur_a: int, cur_b: int, has_hinge_0h: bool) where cur_a == cur_b and cur_a != 0 and has_hinge_0h -> DuadRecord:
+        DuadRecord(DuadSeat::SeatedDuad, true, cur_a)
+    (cur_a: int, cur_b: int, has_hinge_0h: bool) -> DuadRecord:
+        DuadRecord(DuadSeat::OpenDuon, has_hinge_0h, cur_a)
 
 # Strict seating gate: a SeatedDuad MUST retain the mediating 0_H hinge (fails if dropped, nc06).
-dec require_seated_duad:
-    (cur_a: int, cur_b: int, has_hinge_0h: bool) -> DuadRecord:
-        assert cur_a == cur_b and cur_a != 0
-        assert has_hinge_0h
-        return DuadRecord(DuadSeat::SeatedDuad, true, cur_a)
-
-dec accum_cut_in_window:
-    (wc: WindowCount, j: int, (u, v): (int, int)) where j > u and j <= v -> WindowCount:
-        let add_beat = select(j > 0, 1, 0)
-        return WindowCount(wc.phases + 1, wc.beats + add_beat)
-    (wc: WindowCount, _: int, _: (int, int)) -> WindowCount:
-        return wc
+dec require_seated_duad(cur_a: int, cur_b: int, has_hinge_0h: bool) -> DuadRecord:
+    assert cur_a == cur_b and cur_a != 0
+    assert has_hinge_0h
+    DuadRecord(DuadSeat::SeatedDuad, true, cur_a)
 
 # Half-open window (u, v]: origin j = 0 counts as a phase (NOT a beat); positive cuts count beats!
-dec count_cuts_window:
-    (cuts: [int], u: int, v: int) -> WindowCount:
-        assert u < v
-        return fold_seq(WindowCount(0, 0), cuts, accum_cut_in_window, (u, v))
+dec count_cuts_window(cuts: [int], u: int, v: int) -> WindowCount:
+    assert u < v
+    let in_win = ((cuts > u) and (cuts <= v)) ?> cuts
+    let pos_beats = (in_win > 0) ?> in_win
+    WindowCount(len(in_win), len(pos_beats))
 
-dec cancel_opposing_currents:
-    (left_cur: int, right_cur: int) -> OpposingCancel:
-        return OpposingCancel(left_cur + right_cur, left_cur, right_cur, 2)
+dec cancel_opposing_currents(left_cur: int, right_cur: int) -> OpposingCancel:
+    OpposingCancel(left_cur + right_cur, left_cur, right_cur, 2)
 
-dec cyclo_zero:
-    () -> Cyclo12:
-        return Cyclo12(0/1r, 0/1r, 0/1r, 0/1r)
+dec cyclo_zero() -> Cyclo12:
+    Cyclo12(0/1r, 0/1r, 0/1r, 0/1r)
 
-dec cyclo_add:
-    (a: Cyclo12, b: Cyclo12) -> Cyclo12:
-        return Cyclo12(a.c0 + b.c0, a.c1 + b.c1, a.c2 + b.c2, a.c3 + b.c3)
+dec cyclo_add(a: Cyclo12, b: Cyclo12) -> Cyclo12:
+    Cyclo12(a.c0 + b.c0, a.c1 + b.c1, a.c2 + b.c2, a.c3 + b.c3)
 
-dec cyclo_scale:
-    (a: Cyclo12, s: ratio) -> Cyclo12:
-        return Cyclo12(a.c0 * s, a.c1 * s, a.c2 * s, a.c3 * s)
+dec cyclo_scale(a: Cyclo12, s: ratio) -> Cyclo12:
+    Cyclo12(a.c0 * s, a.c1 * s, a.c2 * s, a.c3 * s)
 
 dec zeta12_unit:
-    (0) -> Cyclo12:
-        return Cyclo12(1/1r, 0/1r, 0/1r, 0/1r)
-    (1) -> Cyclo12:
-        return Cyclo12(0/1r, 1/1r, 0/1r, 0/1r)
-    (2) -> Cyclo12:
-        return Cyclo12(0/1r, 0/1r, 1/1r, 0/1r)
-    (3) -> Cyclo12:
-        return Cyclo12(0/1r, 0/1r, 0/1r, 1/1r)
-    (4) -> Cyclo12:
-        return Cyclo12(-1/1r, 0/1r, 1/1r, 0/1r)
-    (5) -> Cyclo12:
-        return Cyclo12(0/1r, -1/1r, 0/1r, 1/1r)
-    (6) -> Cyclo12:
-        return Cyclo12(-1/1r, 0/1r, 0/1r, 0/1r)
-    (7) -> Cyclo12:
-        return Cyclo12(0/1r, -1/1r, 0/1r, 0/1r)
-    (8) -> Cyclo12:
-        return Cyclo12(0/1r, 0/1r, -1/1r, 0/1r)
-    (9) -> Cyclo12:
-        return Cyclo12(0/1r, 0/1r, 0/1r, -1/1r)
-    (10) -> Cyclo12:
-        return Cyclo12(1/1r, 0/1r, -1/1r, 0/1r)
-    (_) -> Cyclo12:
-        return Cyclo12(0/1r, 1/1r, 0/1r, -1/1r)
+    (0: int) -> Cyclo12:
+        Cyclo12(1/1r, 0/1r, 0/1r, 0/1r)
+    (1: int) -> Cyclo12:
+        Cyclo12(0/1r, 1/1r, 0/1r, 0/1r)
+    (2: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, 1/1r, 0/1r)
+    (3: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, 0/1r, 1/1r)
+    (4: int) -> Cyclo12:
+        Cyclo12(-1/1r, 0/1r, 1/1r, 0/1r)
+    (5: int) -> Cyclo12:
+        Cyclo12(0/1r, -1/1r, 0/1r, 1/1r)
+    (6: int) -> Cyclo12:
+        Cyclo12(-1/1r, 0/1r, 0/1r, 0/1r)
+    (7: int) -> Cyclo12:
+        Cyclo12(0/1r, -1/1r, 0/1r, 0/1r)
+    (8: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, -1/1r, 0/1r)
+    (9: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, 0/1r, -1/1r)
+    (10: int) -> Cyclo12:
+        Cyclo12(1/1r, 0/1r, -1/1r, 0/1r)
+    (_: int) -> Cyclo12:
+        Cyclo12(0/1r, 1/1r, 0/1r, -1/1r)
 
 # Exact 12th root of unity zeta_12^k in Q[x]/(x^4 - x^2 + 1)
-dec zeta12_pow:
-    (k: int) -> Cyclo12:
-        return zeta12_unit(k % 12)
+dec zeta12_pow(k: int) -> Cyclo12:
+    zeta12_unit(k % 12)
 
 # Complex conjugate in Q(zeta_12): conj(zeta^k) = zeta^(-k mod 12)
-dec cyclo_conj:
-    (a: Cyclo12) -> Cyclo12:
-        let t0 = cyclo_scale(zeta12_pow(0), a.c0)
-        let t1 = cyclo_scale(zeta12_pow(11), a.c1)
-        let t2 = cyclo_scale(zeta12_pow(10), a.c2)
-        let t3 = cyclo_scale(zeta12_pow(9), a.c3)
-        return cyclo_add(cyclo_add(t0, t1), cyclo_add(t2, t3))
+dec cyclo_conj(a: Cyclo12) -> Cyclo12:
+    let t0 = cyclo_scale(zeta12_pow(0), a.c0)
+    let t1 = cyclo_scale(zeta12_pow(11), a.c1)
+    let t2 = cyclo_scale(zeta12_pow(10), a.c2)
+    let t3 = cyclo_scale(zeta12_pow(9), a.c3)
+    cyclo_add(cyclo_add(t0, t1), cyclo_add(t2, t3))
 
 # Exact product in Q[x]/(x^4 - x^2 + 1)
-dec cyclo_mul:
-    (a: Cyclo12, b: Cyclo12) -> Cyclo12:
-        let d0 = a.c0 * b.c0
-        let d1 = a.c0 * b.c1 + a.c1 * b.c0
-        let d2 = a.c0 * b.c2 + a.c1 * b.c1 + a.c2 * b.c0
-        let d3 = a.c0 * b.c3 + a.c1 * b.c2 + a.c2 * b.c1 + a.c3 * b.c0
-        let d4 = a.c1 * b.c3 + a.c2 * b.c2 + a.c3 * b.c1
-        let d5 = a.c2 * b.c3 + a.c3 * b.c2
-        let d6 = a.c3 * b.c3
-        return Cyclo12(d0 - d4 - d6, d1 - d5, d2 + d4, d3 + d5)
+dec cyclo_mul(a: Cyclo12, b: Cyclo12) -> Cyclo12:
+    let d0 = a.c0 * b.c0
+    let d1 = a.c0 * b.c1 + a.c1 * b.c0
+    let d2 = a.c0 * b.c2 + a.c1 * b.c1 + a.c2 * b.c0
+    let d3 = a.c0 * b.c3 + a.c1 * b.c2 + a.c2 * b.c1 + a.c3 * b.c0
+    let d4 = a.c1 * b.c3 + a.c2 * b.c2 + a.c3 * b.c1
+    let d5 = a.c2 * b.c3 + a.c3 * b.c2
+    let d6 = a.c3 * b.c3
+    Cyclo12(d0 - d4 - d6, d1 - d5, d2 + d4, d3 + d5)
 
-dec dft_mode_step:
-    (acc: Cyclo12, t: int, (signal, m): ([int], int)) -> Cyclo12:
-        let v = signal[t]
-        let phase = zeta12_pow(-(m * t))
-        return select(v == 0, acc, cyclo_add(acc, cyclo_scale(phase, ratio(v, 1))))
+dec dft_mode_step(ctx: DftCtx, t: int) -> DftCtx:
+    let v = ctx.signal[t]
+    let term = select(
+        v != 0,
+        cyclo_scale(zeta12_pow(-(ctx.mode_m * t)), ratio(v, 1)),
+        cyclo_zero()
+    )
+    DftCtx(ctx.signal, ctx.mode_m, cyclo_add(ctx.acc, term))
 
 # Exact normalized Z_12 DFT mode v_hat(m) = (1/12) * sum_{t=0..11} v[t] * zeta_12^(-m*t)
-dec dft_z12_mode:
-    (signal: [int], m: int) -> Cyclo12:
-        assert len(signal) == 12
-        let acc = evolve(cyclo_zero(), 0..12, dft_mode_step, (signal, m))
-        return cyclo_scale(acc, 1/12r)
+dec dft_z12_mode(signal: [int], m: int) -> Cyclo12:
+    assert len(signal) == 12
+    let init = DftCtx(signal, m, cyclo_zero())
+    let out = fold(range_seq(0, 12), init, dft_mode_step)
+    cyclo_scale(out.acc, 1/12r)
 
-dec dft_parseval_step:
-    (acc: Cyclo12, m: int, signal: [int]) -> Cyclo12:
-        let mode = dft_z12_mode(signal, m)
-        let norm2 = cyclo_mul(mode, cyclo_conj(mode))
-        return cyclo_add(acc, norm2)
+dec parseval_step(ctx: DftCtx, m: int) -> DftCtx:
+    let mode = dft_z12_mode(ctx.signal, m)
+    let norm2 = cyclo_mul(mode, cyclo_conj(mode))
+    DftCtx(ctx.signal, 0, cyclo_add(ctx.acc, norm2))
 
-dec dft_z12_parseval:
-    (signal: [int]) -> Cyclo12:
-        return evolve(cyclo_zero(), 0..12, dft_parseval_step, signal)
+dec dft_z12_parseval(signal: [int]) -> Cyclo12:
+    let init = DftCtx(signal, 0, cyclo_zero())
+    let out = fold(range_seq(0, 12), init, parseval_step)
+    out.acc

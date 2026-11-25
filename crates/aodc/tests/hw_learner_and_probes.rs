@@ -10,7 +10,6 @@ use aod_llvm::{
     POLICY_SCOPE,
 };
 use aodc::codegen::lower_to_llvm_ir_with_plan;
-use aodc::diagnostics::CompatMode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
     build_aot_file, check_file, compute_profile_bindings, emit_llvm_file_with_plan,
@@ -55,9 +54,7 @@ fn ac02_host_hardware_discovery_and_deterministic_cpu_sig() {
         assert!(hw1.l1d_bytes > 0, "expected sysfs L1d cache > 0 on Linux");
         assert!(hw1.cache_line_bytes > 0, "expected sysfs cache line > 0 on Linux");
     }
-    // Honest perf_event_open capability detection (never crashes or fabricates counters)
     let _cap = probe_perf_event_open();
-    // Strict JSON encoding contains zero floats
     let raw = hw1.to_json().to_compact_ascii_json();
     let parsed = parse_strict_json(&raw).unwrap();
     assert_eq!(
@@ -68,7 +65,6 @@ fn ac02_host_hardware_discovery_and_deterministic_cpu_sig() {
 
 #[test]
 fn ac03_to_ac07_all_5_live_self_verifying_jit_probes_and_branch_ir_proof() {
-    // 1. P0-2 post-O2 IR proof for Probe 3: branching retains `br i1` while branchless emits `select`!
     let opt_branching =
         verify_and_optimize_ir(probe_branch_kernel_ir(true), OptLevel::O2).unwrap();
     let opt_branchless =
@@ -82,7 +78,6 @@ fn ac03_to_ac07_all_5_live_self_verifying_jit_probes_and_branch_ir_proof() {
         "Probe 3 branchless kernel must emit `select i1` after -O2:\n{opt_branchless}"
     );
 
-    // 2. Run all 5 live self-verifying ORC LLJIT probes
     let report = run_all_hw_probes().unwrap();
     assert_eq!(report.policy_scope, POLICY_SCOPE);
     assert!(report.memory_tiers.verified);
@@ -93,53 +88,42 @@ fn ac03_to_ac07_all_5_live_self_verifying_jit_probes_and_branch_ir_proof() {
     assert!(report.unroll_layout.verified);
     assert!(report.multicore.verified);
     assert!(report.multicore.tested_workers >= 1);
+    assert!(report.frg_ring_gate.verified);
+    assert!(report.frg_ring_gate.identity_verified);
+    assert!(report.frg_ring_gate.op_certified);
+    assert_eq!(report.frg_ring_gate.t_sync, 8357);
+    assert_eq!(report.frg_ring_gate.t_zero, 274);
+    assert!(report.frg_ring_gate.c_cross >= 137);
+    assert_eq!(
+        report.frg_ring_gate.t_cross - report.frg_ring_gate.t_zero,
+        report.frg_ring_gate.c_cross
+    );
 
-    // Canonical strict JSON round-trip (zero floats)
     let json_text = report.to_json().to_compact_ascii_json();
     let parsed = parse_strict_json(&json_text).unwrap();
     assert_eq!(
         parsed.get("policy_scope").and_then(JsonValue::as_str),
         Some(POLICY_SCOPE)
     );
+    assert!(parsed.get("frg_ring_gate").is_some());
 }
 
 #[test]
 fn ac08_ac09_parameterized_codegen_plan_p0_3_safety_and_unroll_metadata() {
-    // 1. P0-3 / P0-4 strict is_pure_select_safe guard: 2-arm `dec` MUST NOT eagerly evaluate trapping div-by-0 or Int neg!
+    // 1. P0-3 strict is_pure_select_safe guard: MUST NOT eagerly evaluate trapping div-by-0!
     let lazy_trap_src = r#"
-dec safe_div10:
-    (x: int) where x != 0 -> int:
-        return 10 // x
-    (_: int) -> int:
-        return 42
-
-dec safe_div10_alt:
-    (x: int) where x != 0 -> int:
-        return 10 // x
-    (_: int) -> int:
-        return 7
-
-dec safe_neg_min64:
-    (x: int, min64: int) where x != 0 -> int:
-        return -min64
-    (_: int, _: int) -> int:
-        return 5
-
-dec main:
-    () -> int:
-        let x = 0
-        let r = safe_div10(x)
-        let t = safe_div10_alt(x)
-        let min64 = -9223372036854775807 - 1
-        let safe_neg = safe_neg_min64(x, min64)
-        emit r
-        emit t
-        emit safe_neg
-        return 0
+dec main() -> int:
+    let x = 0
+    let r = select(x != 0, 10 // x, 42)
+    let t = mux(x <=> 0, 10 // x, 7, 10 // x)
+    let min_t32 = -926510094425920 - 1
+    let safe_neg = select(x != 0, -min_t32, 5)
+    emit r
+    emit t
+    emit safe_neg
+    0
 "#;
-    let vm_out = run_source(lazy_trap_src, CompatMode::V2)
-        .unwrap()
-        .to_stdout_string();
+    let vm_out = run_source(lazy_trap_src).unwrap().to_stdout_string();
     assert_eq!(vm_out, "42\n7\n5\n0\n");
 
     let sel_plan = CodegenPlan {
@@ -152,7 +136,6 @@ dec main:
     };
     let (jit_out, jit_res) = jit_source_with_plan_captured(
         lazy_trap_src,
-        CompatMode::V2,
         &sel_plan,
         DEFAULT_FUEL,
         DEFAULT_MAX_DEPTH,
@@ -163,19 +146,12 @@ dec main:
 
     // 2. P0-3 unique distinct !llvm.loop metadata passes LLVMVerifyModule for Unroll4 & Disable!
     let loop_src = r#"
-use aod::core::evolve
-
-dec add_step:
-    (s: int, i: int) -> int:
-        return s + i
-
-dec main:
-    () -> int:
-        let s = evolve(0, 0..32, add_step)
-        emit s
-        return 0
+dec main() -> int:
+    let s = (0..32) |> +/
+    emit s
+    0
 "#;
-    let checked = aodc::check_source(loop_src, CompatMode::V2).unwrap();
+    let checked = aodc::check_source(loop_src).unwrap();
     for (hint, expected_md) in [
         (UnrollHint::Unroll4, "llvm.loop.unroll.count"),
         (UnrollHint::Disable, "llvm.loop.unroll.disable"),
@@ -191,12 +167,11 @@ dec main:
         let raw_ir = lower_to_llvm_ir_with_plan(&checked, &p).unwrap();
         assert!(raw_ir.contains("distinct !{"), "missing distinct loop md");
         assert!(raw_ir.contains(expected_md), "missing {expected_md}");
-        // Must verify & optimize cleanly in LLVM 18!
-        let _opt_ir = emit_llvm_source_with_plan(loop_src, CompatMode::V2, &p).unwrap();
+        let _opt_ir = emit_llvm_source_with_plan(loop_src, &p).unwrap();
     }
 
     // 3. `inline_ratio_fastpath: false` emits direct `@aod_rt_ratio_add` and preserves exact semantics
-    let ratio_src = "dec main:\n    () -> int:\n        let r = 1/3r + 1/6r\n        emit r\n        return 0\n";
+    let ratio_src = "dec main() -> int:\n    let r = 1/3r + 1/6r\n    emit r\n    0\n";
     let no_inline_plan = CodegenPlan {
         opt_level: OptLevel::O0,
         branchless_select: false,
@@ -205,12 +180,11 @@ dec main:
         inline_ratio_fastpath: false,
         ..CodegenPlan::baseline_o0()
     };
-    let checked_r = aodc::check_source(ratio_src, CompatMode::V2).unwrap();
+    let checked_r = aodc::check_source(ratio_src).unwrap();
     let raw_r = lower_to_llvm_ir_with_plan(&checked_r, &no_inline_plan).unwrap();
     assert!(raw_r.contains("call void @aod_rt_ratio_add"));
     let (ro, rres) = jit_source_with_plan_captured(
         ratio_src,
-        CompatMode::V2,
         &no_inline_plan,
         DEFAULT_FUEL,
         DEFAULT_MAX_DEPTH,
@@ -222,7 +196,6 @@ dec main:
 
 #[test]
 fn ac10_zero_float_paired_bootstrap_determinism_and_exact_semantic_guard() {
-    // 1. Deterministic paired bootstrap CI in integer basis points
     let fast_pairs = vec![
         (10_000, 2_000),
         (10_200, 2_100),
@@ -245,13 +218,13 @@ fn ac10_zero_float_paired_bootstrap_determinism_and_exact_semantic_guard() {
     let slow_ci = paired_bootstrap_ci_bps(&slow_pairs, 20261113, 2000);
     assert!(slow_ci.lower_95_bps < 0);
 
-    // 2. Hostile Exact Semantic Guard rejection: candidate produces wrong output -> MUST Rollback!
+    // Hostile Exact Semantic Guard rejection: candidate produces wrong output -> MUST Rollback!
     let hw = run_all_hw_probes().unwrap();
     let baseline = CodegenPlan::baseline_o0();
-    let ok_src = "dec main:\n    () -> int:\n        emit b\"OK\"\n        return 0\n";
-    let bad_src = "dec main:\n    () -> int:\n        emit b\"CORRUPTED\"\n        return 0\n";
-    let ok_checked = aodc::check_source(ok_src, CompatMode::V2).unwrap();
-    let bad_checked = aodc::check_source(bad_src, CompatMode::V2).unwrap();
+    let ok_src = "dec main() -> int:\n    emit b\"OK\"\n    0\n";
+    let bad_src = "dec main() -> int:\n    emit b\"CORRUPTED\"\n    0\n";
+    let ok_checked = aodc::check_source(ok_src).unwrap();
+    let bad_checked = aodc::check_source(bad_src).unwrap();
 
     let session_rep = run_learn_session(
         &hw,
@@ -333,36 +306,30 @@ fn ac11_ac12_ac13_retained_profile_atomic_roundtrip_and_hostile_tamper_fallbacks
         ProfileLoadOutcome::Loaded(prof.clone())
     );
 
-    // Hostile 1: wrong CPU signature -> FallbackToBaseline
     assert!(matches!(
         RetainedProfile::load_validated(&good_path, &"f".repeat(64), &k_sha, &w_sha),
         ProfileLoadOutcome::FallbackToBaseline { .. }
     ));
-    // Hostile 2: wrong kernel IR SHA -> FallbackToBaseline
     assert!(matches!(
         RetainedProfile::load_validated(&good_path, &hw.cpu_sig_sha256, &"f".repeat(64), &w_sha),
         ProfileLoadOutcome::FallbackToBaseline { .. }
     ));
-    // Hostile 3: wrong workload SHA -> FallbackToBaseline
     assert!(matches!(
         RetainedProfile::load_validated(&good_path, &hw.cpu_sig_sha256, &k_sha, &"f".repeat(64)),
         ProfileLoadOutcome::FallbackToBaseline { .. }
     ));
-    // Hostile 4: > 1 MiB oversized file rejected BEFORE reading (`P1-1`)!
     let huge_path = tmp.join("huge.json");
     std::fs::write(&huge_path, vec![b' '; 1_048_577]).unwrap();
     assert!(matches!(
         RetainedProfile::load_validated(&huge_path, &hw.cpu_sig_sha256, &k_sha, &w_sha),
         ProfileLoadOutcome::FallbackToBaseline { reason } if reason.contains("1048576")
     ));
-    // Hostile 5: float literal injected -> strict JSON rejects -> FallbackToBaseline
     let float_path = tmp.join("float.json");
     std::fs::write(&float_path, "{\"gain\": 1.25}\n").unwrap();
     assert!(matches!(
         RetainedProfile::load_validated(&float_path, &hw.cpu_sig_sha256, &k_sha, &w_sha),
         ProfileLoadOutcome::FallbackToBaseline { .. }
     ));
-    // Hostile 6: 1-byte tampered payload -> SHA-256 mismatch -> FallbackToBaseline
     let tampered_path = tmp.join("tampered.json");
     let raw_good = std::fs::read_to_string(&good_path).unwrap();
     std::fs::write(&tampered_path, raw_good.replace("valid test profile", "valid test profilX"))
@@ -372,12 +339,10 @@ fn ac11_ac12_ac13_retained_profile_atomic_roundtrip_and_hostile_tamper_fallbacks
         ProfileLoadOutcome::FallbackToBaseline { reason } if reason.contains("profile_sha256")
     ));
 
-    // Hostile 7: `jit_file_with_profile_captured` falls back cleanly on corrupted profile without crashing!
     let bench = repo_root().join("tests/fixtures/v2_bench/branch_irregular_bench.dec");
-    let vm_out = run_file(&bench, CompatMode::V2).unwrap().to_stdout_string();
+    let vm_out = run_file(&bench).unwrap().to_stdout_string();
     let (jit_out, jit_res, used_plan, fallback_note) = jit_file_with_profile_captured(
         &bench,
-        CompatMode::V2,
         OptLevel::O2,
         DEFAULT_FUEL,
         DEFAULT_MAX_DEPTH,
@@ -390,8 +355,6 @@ fn ac11_ac12_ac13_retained_profile_atomic_roundtrip_and_hostile_tamper_fallbacks
     assert_eq!(used_plan, CodegenPlan::for_opt_level(OptLevel::O2));
     assert!(fallback_note.is_some());
 
-    // Hostile 8 (AC-13 CLI): invoke `aodc jit --profile <hostile>` across 5 hostile profiles and verify
-    // exit 0, byte-identical stdout, AND non-empty stderr notice `"aodc: profile fallback to baseline:"`!
     let dup_key_path = tmp.join("dup_key.json");
     std::fs::write(&dup_key_path, "{\"a\":1,\"a\":2}\n").unwrap();
     let cpu_drift_path = tmp.join("cpu_drift.json");
@@ -442,7 +405,6 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
     let root = repo_root();
     let tmp = temp_dir("ac14_cli");
 
-    // 1. CLI `aodc probe-hw --output <r.json>`
     let probe_json = tmp.join("hw_report.json");
     let p_cli = Command::new(aodc_bin())
         .args(["probe-hw", "--output"])
@@ -464,8 +426,8 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
     assert!(parsed_hw.get("branch_predictor").is_some());
     assert!(parsed_hw.get("unroll_layout").is_some());
     assert!(parsed_hw.get("multicore").is_some());
+    assert!(parsed_hw.get("frg_ring_gate").is_some());
 
-    // 2. CLI `aodc learn --profile <src> <src>` refuses self-overwrite
     let amort_src = root.join("tests/fixtures/v2_bench/learn_amortized_bench.dec");
     let self_ov = Command::new(aodc_bin())
         .args(["learn", "--profile"])
@@ -476,7 +438,6 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
     assert!(!self_ov.status.success());
     assert!(String::from_utf8_lossy(&self_ov.stderr).contains("differ"));
 
-    // 3. P0-4 Honest compile-inclusive amortization -> genuine unfudged `Retain` on learn_amortized_bench.dec!
     let amort_prof = tmp.join("amortized_profile.json");
     let learn_cli = Command::new(aodc_bin())
         .args([
@@ -503,8 +464,8 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
     );
 
     let hw = HostHardwareInfo::discover().unwrap();
-    let checked = check_file(&amort_src, CompatMode::V2).unwrap();
-    let (k_sha, w_sha) = compute_profile_bindings(&checked, CompatMode::V2, 2_000_000, DEFAULT_MAX_DEPTH);
+    let checked = check_file(&amort_src).unwrap();
+    let (k_sha, w_sha) = compute_profile_bindings(&checked, 2_000_000, DEFAULT_MAX_DEPTH);
     let ProfileLoadOutcome::Loaded(loaded_prof) =
         RetainedProfile::load_validated(&amort_prof, &hw.cpu_sig_sha256, &k_sha, &w_sha)
     else {
@@ -525,7 +486,6 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
                 .saturating_add(loaded_prof.measured_overhead_ns)
     );
 
-    // 4. `aodc jit --fuel 2000000 --profile <amort_prof>` matches plain `aodc jit --fuel 2000000`
     let jit_plain = Command::new(aodc_bin())
         .args(["jit", "-O0", "--fuel", "2000000"])
         .arg(&amort_src)
@@ -540,12 +500,10 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
     assert!(jit_plain.status.success() && jit_prof.status.success());
     assert_eq!(jit_plain.stdout, jit_prof.stdout);
 
-    // 5. Honest accounting on `unboxed_loop_bench.dec` (short workload -> honest Retain or Rollback matching net math!)
     let short_src = root.join("tests/fixtures/v2_bench/unboxed_loop_bench.dec");
     let short_prof = tmp.join("short_profile.json");
     let (_, short_rep) = learn_file_with_options(
         &short_src,
-        CompatMode::V2,
         OptLevel::O0,
         5,
         5,
@@ -576,11 +534,9 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
     let bench = root.join("tests/fixtures/v2_bench/branch_irregular_bench.dec");
     let tmp = temp_dir("ac15_branch");
 
-    // 1. Fits within DEFAULT_FUEL = 100_000 in Exact VM
-    let vm_out = run_file(&bench, CompatMode::V2).unwrap().to_stdout_string();
+    let vm_out = run_file(&bench).unwrap().to_stdout_string();
 
-    // 2. Compare raw lowered IR with `branchless_select = true` vs `false` (`P1-2`)
-    let checked = check_file(&bench, CompatMode::V2).unwrap();
+    let checked = check_file(&bench).unwrap();
     let plan_sel = CodegenPlan {
         opt_level: OptLevel::O2,
         branchless_select: true,
@@ -599,49 +555,25 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
     };
     let raw_sel = lower_to_llvm_ir_with_plan(&checked, &plan_sel).unwrap();
     let raw_br = lower_to_llvm_ir_with_plan(&checked, &plan_br).unwrap();
-    let pick_sel = raw_sel
-        .split("define internal %DecInt @dec_fn_pick_irregular")
-        .nth(1)
-        .unwrap()
-        .split("\n}\n")
-        .next()
-        .unwrap();
-    let pick_br = raw_br
-        .split("define internal %DecInt @dec_fn_pick_irregular")
-        .nth(1)
-        .unwrap()
-        .split("\n}\n")
-        .next()
-        .unwrap();
     assert!(
-        pick_sel.contains("= select i1 ")
-            && !pick_sel.contains("guard_ok_")
-            && !pick_sel.contains("arm_next_"),
-        "expected select lowering with branchless_select=true:\n{pick_sel}"
+        raw_sel.contains("= select i1 ") && !raw_sel.contains("sel_t_") && !raw_sel.contains("mux_n_"),
+        "expected select lowering with branchless_select=true"
     );
     assert!(
-        pick_br.contains("guard_ok_")
-            && pick_br.contains("arm_next_")
-            && pick_br.contains("br i1 ")
-            && !pick_br.contains("= select i1 "),
-        "expected guard_ok_/arm_next_ br i1 lowering with branchless_select=false:\n{pick_br}"
+        (raw_br.contains("sel_t_") || raw_br.contains("mux_n_")) && raw_br.contains("br i1 "),
+        "expected br i1 lowering with branchless_select=false"
     );
-    // Both verify & optimize cleanly in LLVM 18
-    let _ = emit_llvm_file_with_plan(&bench, CompatMode::V2, &plan_sel, &LoadOptions::default())
-        .unwrap();
-    let _ = emit_llvm_file_with_plan(&bench, CompatMode::V2, &plan_br, &LoadOptions::default())
-        .unwrap();
+    let _ = emit_llvm_file_with_plan(&bench, &plan_sel, &LoadOptions::default()).unwrap();
+    let _ = emit_llvm_file_with_plan(&bench, &plan_br, &LoadOptions::default()).unwrap();
 
-    // 3. Byte-identical parity across VM, AOT -O2, ORC JIT (both plans), and `aodc learn`
     let exe = tmp.join("branch_o2");
-    build_aot_file(&bench, CompatMode::V2, OptLevel::O2, &exe).unwrap();
+    build_aot_file(&bench, OptLevel::O2, &exe).unwrap();
     let aot_out = Command::new(&exe).output().unwrap();
     assert!(aot_out.status.success());
     assert_eq!(String::from_utf8_lossy(&aot_out.stdout), vm_out);
 
     let (jout, jres) =
-        jit_file_captured(&bench, CompatMode::V2, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-            .unwrap();
+        jit_file_captured(&bench, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
     jres.unwrap();
     assert_eq!(jout, vm_out);
 
@@ -652,7 +584,6 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
 
     let (_, learn_rep) = learn_file_with_options(
         &bench,
-        CompatMode::V2,
         OptLevel::O0,
         5,
         5,
@@ -670,8 +601,6 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
 
 #[test]
 fn p0_nullfn_no_entry_session_returns_clean_error_and_p2_negative_json_rejected() {
-    // P0-NULLFN: calling execute / run_captured on a `compile_named_with_plan(..., None)` session
-    // MUST return a clean error without transmuting/invoking null address 0usize!
     let ir = "define i64 @helper_only(i64 %x) {\nentry:\n  ret i64 %x\n}\n";
     let sess =
         OrcJitSession::compile_named_with_plan(ir, &CodegenPlan::baseline_o0(), None).unwrap();
@@ -691,7 +620,6 @@ fn p0_nullfn_no_entry_session_returns_clean_error_and_p2_negative_json_rejected(
         Some("OrcJitSession has no default entry symbol")
     );
 
-    // P2: negative integer fields in profile JSON MUST be rejected (never silently clamped to 0!)
     let tmp = temp_dir("p2_neg_json");
     let hw = HostHardwareInfo::discover().unwrap();
     let k_sha = "3".repeat(64);

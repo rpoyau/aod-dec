@@ -1,52 +1,57 @@
 # SoA vs AoS exact integer layout benchmark (`PR 9`, Pillar 3):
-# - Compares Structure-of-Arrays (`[int]` parallel lanes) against Array-of-Structures (`[CellPair]`)
-#   over an identical exact recurrence via `evolve` + persistent `list_set`, verifying 100%
-#   identical outputs with zero floats.
-# - Comfortably fits within DEFAULT_FUEL = 100_000 for Exact VM, AOT, and ORC LLJIT parity.
+# - Compares Structure-of-Arrays (`[int; 8]` parallel rank-lifted lanes) against Array-of-Structures
+#   (`[CellPair; 8]`) over an identical exact recurrence, verifying 100% identical outputs with zero floats.
 
 use aod::core:
-    list_set, evolve
+    fold, range_seq
 
 struct CellPair:
     a: int
     b: int
 
-dec soa_lane_step:
-    ((lane_a, lane_b, acc): ([int], [int], int), j: int, step: int) -> ([int], [int], int):
-        let va = lane_a[j]
-        let vb = lane_b[j]
-        let next_a = (va + vb + step) % 1000003
-        let next_b = (vb + j + 1) % 1000003
-        let next_la = list_set(lane_a, j, next_a)
-        let next_lb = list_set(lane_b, j, next_b)
-        return (next_la, next_lb, (acc + next_a - next_b) % 1000000007)
+struct SoaState:
+    lane_a: [int; 8]
+    lane_b: [int; 8]
+    acc: int
 
-dec soa_outer_step:
-    ((lane_a, lane_b, acc): ([int], [int], int), step: int) -> ([int], [int], int):
-        return evolve((lane_a, lane_b, acc), 0..8, soa_lane_step, step)
+struct AosState:
+    pairs: [CellPair; 8]
+    acc: int
 
-dec run_soa_kernel:
-    (n: int) -> int:
-        let init_a = [1, 3, 5, 7, 11, 13, 17, 19]
-        let init_b = [2, 4, 6, 8, 10, 12, 14, 16]
-        let (_, _, acc) = evolve((init_a, init_b, 0), 0..n, soa_outer_step)
-        return acc
+dec soa_step(st: SoaState, step: int) -> SoaState:
+    let idx_plus_1 = [1, 2, 3, 4, 5, 6, 7, 8]
+    let next_a = (st.lane_a + st.lane_b + step) % 1000003
+    let next_b = (st.lane_b + idx_plus_1) % 1000003
+    let delta = +/ (next_a - next_b)
+    SoaState(next_a, next_b, (st.acc + delta) % 1000000007)
 
-dec aos_lane_step:
-    ((pairs, acc): ([CellPair], int), j: int, step: int) -> ([CellPair], int):
-        let p = pairs[j]
-        let next_a = (p.a + p.b + step) % 1000003
-        let next_b = (p.b + j + 1) % 1000003
-        let next_pairs = list_set(pairs, j, CellPair(next_a, next_b))
-        return (next_pairs, (acc + next_a - next_b) % 1000000007)
+dec run_soa_kernel(n: int) -> int:
+    let init = SoaState([1, 3, 5, 7, 11, 13, 17, 19], [2, 4, 6, 8, 10, 12, 14, 16], 0)
+    let fin = fold(range_seq(0, n), init, soa_step)
+    fin.acc
 
-dec aos_outer_step:
-    ((pairs, acc): ([CellPair], int), step: int) -> ([CellPair], int):
-        return evolve((pairs, acc), 0..8, aos_lane_step, step)
+dec aos_pair_next(p: CellPair, step_and_j1: (int, int)) -> CellPair:
+    let (step, j1) = step_and_j1
+    CellPair((p.a + p.b + step) % 1000003, (p.b + j1) % 1000003)
 
-dec run_aos_kernel:
-    (n: int) -> int:
-        let init_pairs = [
+dec aos_step(st: AosState, step: int) -> AosState:
+    let ps = st.pairs
+    let next_ps = [
+        aos_pair_next(ps[0], (step, 1)),
+        aos_pair_next(ps[1], (step, 2)),
+        aos_pair_next(ps[2], (step, 3)),
+        aos_pair_next(ps[3], (step, 4)),
+        aos_pair_next(ps[4], (step, 5)),
+        aos_pair_next(ps[5], (step, 6)),
+        aos_pair_next(ps[6], (step, 7)),
+        aos_pair_next(ps[7], (step, 8))
+    ]
+    let delta = (+/ next_ps.a) - (+/ next_ps.b)
+    AosState(next_ps, (st.acc + delta) % 1000000007)
+
+dec run_aos_kernel(n: int) -> int:
+    let init = AosState(
+        [
             CellPair(1, 2),
             CellPair(3, 4),
             CellPair(5, 6),
@@ -55,15 +60,16 @@ dec run_aos_kernel:
             CellPair(13, 12),
             CellPair(17, 14),
             CellPair(19, 16)
-        ]
-        let (_, acc) = evolve((init_pairs, 0), 0..n, aos_outer_step)
-        return acc
+        ],
+        0
+    )
+    let fin = fold(range_seq(0, n), init, aos_step)
+    fin.acc
 
-dec main:
-    () -> int:
-        let soa_res = run_soa_kernel(64)
-        let aos_res = run_aos_kernel(64)
-        assert soa_res == aos_res
-        emit soa_res
-        emit aos_res
-        return 0
+dec main() -> int:
+    let soa_res = run_soa_kernel(64)
+    let aos_res = run_aos_kernel(64)
+    assert soa_res == aos_res
+    emit soa_res
+    emit aos_res
+    0

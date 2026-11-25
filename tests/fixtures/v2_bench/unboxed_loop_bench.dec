@@ -1,23 +1,25 @@
-# Unboxed exact compute benchmark (`P0-4`, `P1-2`, `AC-05`, `AC-07`, `AC-15`):
+# Unboxed exact compute benchmark (`P1-2`, `AC-05`, `AC-15`):
 # - Fits comfortably within DEFAULT_FUEL = 100_000 for Exact VM parity.
-# - Exercises exact `int`, `t32`, and bounded-denominator `ratio` arithmetic via scalar-tuple
-#   `evolve` whose `@dec_fn_*_unboxed` fast path stays 100% inline unboxed at LLVM -O2.
+# - Exercises exact 1-GPR Trit-Boxed `int` and 2-GPR `ratio` arithmetic in tight scalar `walk` loops
+#   whose hot path stays 100% inline unboxed at LLVM -O2.
 
-use aod::core:
-    t32, ratio, evolve
+use aod::core::walk
 
-dec unboxed_step:
-    ((acc, tern, r): (int, t32, ratio), i: int) -> (int, t32, ratio):
-        return (acc + (i % 17), tern + t32((i % 19) - 9), r + ratio(i % 15, 8))
+dec step_int(acc: int) -> int:
+    let next = (acc * 3 + 7) % 999983
+    let w1 = int(b64(next))
+    let w2 = int(b64(w1 + 1))
+    int(b64(w2 - 1))
 
-dec run_unboxed_kernel:
-    (n: int) -> int:
-        let (acc, tern, r) = evolve((0, t32(0), 0/1r), 0..n, unboxed_step)
-        emit acc
-        emit tern
-        emit r
-        return 0
+dec step_ratio(r: ratio) -> ratio:
+    r + 3/8r
 
-dec main:
-    () -> int:
-        return run_unboxed_kernel(3600)
+dec run_unboxed_kernel(n: int) -> int:
+    let acc = walk(1, n, step_int)
+    let rat = walk(0/1r, n, step_ratio)
+    emit acc
+    emit rat
+    0
+
+dec main() -> int:
+    run_unboxed_kernel(2800)

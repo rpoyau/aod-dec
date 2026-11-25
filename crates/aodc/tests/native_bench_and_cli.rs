@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use aodc::bench_file;
-use aodc::diagnostics::CompatMode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 
 fn aodc_bin() -> PathBuf {
@@ -68,13 +67,12 @@ fn ac11_standalone_aot_elf_ldd_isolation_cli_flags_and_overwrite_refusal() {
     );
     assert!(exe_path.is_file());
 
-    // 3. `ldd` isolation audit: ZERO libLLVM, ZERO libpython, ZERO libgmp!
+    // 3. `ldd` isolation audit: ZERO libLLVM, ZERO libgmp!
     let ldd = Command::new("ldd").arg(&exe_path).output().unwrap();
     assert!(ldd.status.success());
     let ldd_out = String::from_utf8_lossy(&ldd.stdout);
     let lower = ldd_out.to_ascii_lowercase();
     assert!(!lower.contains("libllvm"), "standalone ELF must not link libLLVM:\n{ldd_out}");
-    assert!(!lower.contains("libpython"), "standalone ELF must not link libpython:\n{ldd_out}");
     assert!(!lower.contains("libgmp"), "standalone ELF must not link libgmp:\n{ldd_out}");
 
     // 4. Native ELF `--fuel` and `--max-depth` flags
@@ -121,7 +119,7 @@ fn ac15_aodc_bench_five_mode_parity_and_5x_speedup() {
     let bench_src = repo_root().join("tests/fixtures/v2_bench/unboxed_loop_bench.dec");
 
     // 1. Direct API benchmark check: 5/5 parity + >= 5.00x speedup for BOTH AOT -O2 and ORC JIT -O2
-    let report = bench_file(&bench_src, CompatMode::V2, 5, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
+    let report = bench_file(&bench_src, 5, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
     assert!(report.parity_ok);
     assert!(
         report.aot_o2_speedup_x100 >= 500,

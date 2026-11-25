@@ -1,65 +1,33 @@
 use aod_core::bigint::BigInt;
-use aod_core::ternary::{Q4, T1, T32, T9};
+use aod_core::ternary::{B64, B8, Q4, T1};
 
 use crate::ast::{
-    AssignTarget, AxisDir, BinaryOp, CallArg, ChamberDecl, ClockDecl, ConstDecl, DecArm,
-    DecArmParam, DecFnDecl, DecFnKind, EnumDecl, EnumVariantDecl, Expr, ExprKind, ForTarget,
-    InjectDecl, Item, LetTupleElem, MatchArm, ObserveDecl, Pattern, PrepareDecl, ProbeDecl,
-    ProbeKind, Program, QuarantineModDecl, Stmt, StmtKind, StructDecl, TritLiteral, TypeExpr,
-    TypedParam, UnaryOp, UseDecl, WallPolicyAst,
+    AxisDir, BinaryOp, ChamberDecl, ClockDecl, ConstDecl, DecArm, DecArmParam,
+    DecFnDecl, EnumDecl, EnumVariantDecl, Expr, ExprKind, InjectDecl, Item, LetPattern,
+    MatchExprArm, ObserveDecl, Pattern, PipeStage, PrepareDecl, ProbeDecl, ProbeKind, Program,
+    QuarantineModDecl, Stmt, StmtKind, StructDecl, TritLiteral, TypeExpr, UnaryOp, UseDecl,
+    WallPolicyAst,
 };
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, SyntaxDiscipline};
-use crate::lexer::{tokenize_with_discipline, Token, TokenKind};
+use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
+use crate::lexer::{tokenize, Token, TokenKind};
 
 pub const MAX_SOURCE_BYTES: usize = 1_000_000;
 
-pub fn parse_source(source: &str, compat: CompatMode) -> DecResult<Program> {
-    parse_source_with_discipline(source, compat, SyntaxDiscipline::for_compat(compat))
-}
-
-pub fn parse_program(source: &str, compat: CompatMode) -> DecResult<Program> {
-    parse_source_with_discipline(source, compat, SyntaxDiscipline::for_compat(compat))
-}
-
-pub fn parse_program_with_discipline(
-    source: &str,
-    compat: CompatMode,
-    discipline: SyntaxDiscipline,
-) -> DecResult<Program> {
-    parse_source_with_discipline(source, compat, discipline)
-}
-
-pub fn parse_source_with_discipline(
-    source: &str,
-    compat: CompatMode,
-    discipline: SyntaxDiscipline,
-) -> DecResult<Program> {
+pub fn parse_source(source: &str) -> DecResult<Program> {
     if source.len() > MAX_SOURCE_BYTES {
         return Err(Diagnostic::new(
             DiagnosticCode::ParseError,
             "source exceeds the 1 MB core limit",
         ));
     }
-    if compat == CompatMode::V1 && discipline == SyntaxDiscipline::PureWaveV2 {
-        return Err(Diagnostic::new(
-            DiagnosticCode::ParseError,
-            "--strict-wave / PureWaveV2 cannot be combined with --compat v1",
-        ));
-    }
-    if compat == CompatMode::V2 && discipline == SyntaxDiscipline::LegacyV1 {
-        return Err(Diagnostic::new(
-            DiagnosticCode::ParseError,
-            "LegacyV1 cannot be combined with CompatMode::V2; Dec v2 is unconditionally PureWaveV2",
-        ));
-    }
-    let tokens = tokenize_with_discipline(source, compat, discipline)?;
+    let tokens = tokenize(source)?;
     let mut parser = Parser {
         tokens,
         pos: 0,
-        compat,
-        discipline,
         pending_gt: false,
         generic_depth: 0,
+        in_observe: false,
+        just_closed_block: false,
     };
     parser.parse_program()
 }
@@ -67,11 +35,12 @@ pub fn parse_source_with_discipline(
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
-    compat: CompatMode,
-    discipline: SyntaxDiscipline,
-    /// `P2-2`: supports nested generic closings like `ReadOnly<QExt<ratio>>` where lexer emitted `>>`.
+    /// Supports nested generic closings like `ReadOnly<QExt<ratio>>` where lexer emitted `>>`.
     pending_gt: bool,
     generic_depth: usize,
+    in_observe: bool,
+    /// Set when an expression (such as indented `match`) already consumed its trailing `Dedent`.
+    just_closed_block: bool,
 }
 
 impl Parser {
@@ -88,6 +57,7 @@ impl Parser {
     }
 
     fn advance(&mut self) -> Token {
+        self.just_closed_block = false;
         let tok = self.peek().clone();
         if self.pos + 1 < self.tokens.len() {
             self.pos += 1;
@@ -160,15 +130,36 @@ impl Parser {
         matches!(&self.peek().kind, TokenKind::Ident(s) if s == name)
     }
 
-    fn check_pure_wave_binder(&self, name: &str, line: usize) -> DecResult<()> {
-        if self.discipline == SyntaxDiscipline::PureWaveV2 && name == "map" {
-            return Err(Diagnostic::at_line(
+    fn expect_positive_usize(&mut self, ctx: &str) -> DecResult<usize> {
+        let tok = self.peek().clone();
+        match tok.kind {
+            TokenKind::IntLit(n) => {
+                self.advance();
+                let u = n.to_u64().ok_or_else(|| {
+                    Diagnostic::at(
+                        DiagnosticCode::ParseError,
+                        tok.line,
+                        tok.col,
+                        format!("{ctx} out of range: {n}"),
+                    )
+                })?;
+                if u == 0 || u > 1_000_000 {
+                    return Err(Diagnostic::at(
+                        DiagnosticCode::TypeError,
+                        tok.line,
+                        tok.col,
+                        format!("{ctx} must be in 1..=1_000_000, got {u}"),
+                    ));
+                }
+                Ok(u as usize)
+            }
+            other => Err(Diagnostic::at(
                 DiagnosticCode::ParseError,
-                line,
-                "`map` is reserved in --strict-wave; choose a different binding name",
-            ));
+                tok.line,
+                tok.col,
+                format!("expected positive integer ({ctx}), got {other:?}"),
+            )),
         }
-        Ok(())
     }
 
     fn parse_program(&mut self) -> DecResult<Program> {
@@ -178,24 +169,11 @@ impl Parser {
             items.push(self.parse_top_item(false)?);
             self.skip_newlines();
         }
-        if self.compat == CompatMode::V1 && items.is_empty() {
-            return Err(Diagnostic::new(
-                DiagnosticCode::ParseError,
-                "empty source: no Dec declarations",
-            ));
-        }
         Ok(Program { items })
     }
 
     fn parse_top_item(&mut self, in_quarantine_mod: bool) -> DecResult<Item> {
         let line = self.line();
-        if self.compat == CompatMode::V1 && !self.check(&TokenKind::Dec) {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                line,
-                "expected Dec name(parameters) -> result:; unsupported top-level syntax in --compat v1",
-            ));
-        }
         match &self.peek().kind {
             TokenKind::Use => {
                 if in_quarantine_mod {
@@ -228,7 +206,7 @@ impl Parser {
                 }
                 Ok(Item::Enum(self.parse_enum()?))
             }
-            TokenKind::Dec | TokenKind::DecLower => Ok(Item::DecFn(self.parse_dec_fn()?)),
+            TokenKind::Dec => Ok(Item::DecFn(self.parse_dec_fn()?)),
             TokenKind::Chamber => {
                 if in_quarantine_mod {
                     return Err(Diagnostic::at_line(
@@ -282,78 +260,61 @@ impl Parser {
         let line = self.line();
         self.expect(&TokenKind::Use, "'use'")?;
         let mut path = vec![self.expect_ident("module path")?];
-        let mut items = None;
         while self.check(&TokenKind::ColonColon) {
             self.advance();
-            if self.check(&TokenKind::LBrace) {
-                self.advance();
-                let mut list = Vec::new();
-                while !self.check(&TokenKind::RBrace) {
+            path.push(self.expect_ident("path segment")?);
+        }
+        if self.check(&TokenKind::Colon) {
+            self.advance();
+            self.expect(&TokenKind::Newline, "newline after 'use path:'")?;
+            self.expect(&TokenKind::Indent, "indented imported items")?;
+            self.skip_newlines();
+            let mut list = Vec::new();
+            while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+                loop {
                     list.push(self.expect_ident("imported item")?);
                     if self.check(&TokenKind::Comma) {
                         self.advance();
+                        if self.check(&TokenKind::Newline)
+                            || self.check(&TokenKind::Dedent)
+                            || self.check(&TokenKind::Eof)
+                        {
+                            break;
+                        }
                     } else {
                         break;
                     }
                 }
-                self.expect(&TokenKind::RBrace, "'}'")?;
-                items = Some(list);
-                break;
-            } else {
-                path.push(self.expect_ident("path segment")?);
-            }
-        }
-        if items.is_none() && self.check(&TokenKind::Colon) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "`use` declarations are not in --compat v1",
-                ));
-            }
-            self.advance();
-            self.expect(&TokenKind::Newline, "newline after `use <path>:`")?;
-            self.expect(&TokenKind::Indent, "indented import list after `use <path>:`")?;
-            self.skip_newlines();
-            let mut list = Vec::new();
-            while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                list.push(self.expect_ident("imported item")?);
-                while self.check(&TokenKind::Comma) {
-                    self.advance();
-                    if self.check(&TokenKind::Newline)
-                        || self.check(&TokenKind::Dedent)
-                        || self.check(&TokenKind::Eof)
-                    {
-                        break;
-                    }
-                    list.push(self.expect_ident("imported item")?);
-                }
                 self.expect_line_end()?;
                 self.skip_newlines();
             }
-            self.expect(&TokenKind::Dedent, "dedent after `use` import block")?;
+            self.expect(&TokenKind::Dedent, "dedent after use block")?;
             if list.is_empty() {
                 return Err(Diagnostic::at_line(
                     DiagnosticCode::ParseError,
                     line,
-                    "`use <path>:` block must list at least one imported symbol",
+                    "indented use block must list at least one imported symbol",
                 ));
             }
-            return Ok(UseDecl {
+            Ok(UseDecl {
                 path,
                 items: Some(list),
                 line,
-            });
+            })
+        } else {
+            self.expect_line_end()?;
+            Ok(UseDecl {
+                path,
+                items: None,
+                line,
+            })
         }
-        self.expect_line_end()?;
-        Ok(UseDecl { path, items, line })
     }
 
     fn parse_const(&mut self) -> DecResult<ConstDecl> {
         let line = self.line();
         self.expect(&TokenKind::Const, "'const'")?;
         let name = self.expect_ident("const name")?;
-        self.check_pure_wave_binder(&name, line)?;
         let ty = if self.check(&TokenKind::Colon) {
             self.advance();
             Some(self.parse_type_expr()?)
@@ -375,38 +336,20 @@ impl Parser {
         let line = self.line();
         self.expect(&TokenKind::Struct, "'struct'")?;
         let name = self.expect_ident("struct name")?;
+        self.expect(&TokenKind::Colon, "':' after struct name")?;
+        self.expect(&TokenKind::Newline, "newline after struct header")?;
+        self.expect(&TokenKind::Indent, "indented struct fields")?;
+        self.skip_newlines();
         let mut fields = Vec::new();
-
-        if self.check(&TokenKind::LBrace) {
-            self.advance();
-            while !self.check(&TokenKind::RBrace) {
-                let fname = self.expect_ident("struct field name")?;
-                self.expect(&TokenKind::Colon, "':' after field name")?;
-                let fty = self.parse_type_expr()?;
-                fields.push((fname, fty));
-                if self.check(&TokenKind::Comma) {
-                    self.advance();
-                } else {
-                    break;
-                }
-            }
-            self.expect(&TokenKind::RBrace, "'}'")?;
+        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+            let fname = self.expect_ident("struct field name")?;
+            self.expect(&TokenKind::Colon, "':' after field name")?;
+            let fty = self.parse_type_expr()?;
+            fields.push((fname, fty));
             self.expect_line_end()?;
-        } else {
-            self.expect(&TokenKind::Colon, "':' or '{' after struct name")?;
-            self.expect(&TokenKind::Newline, "newline after struct header")?;
-            self.expect(&TokenKind::Indent, "indented struct fields")?;
             self.skip_newlines();
-            while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                let fname = self.expect_ident("struct field name")?;
-                self.expect(&TokenKind::Colon, "':' after field name")?;
-                let fty = self.parse_type_expr()?;
-                fields.push((fname, fty));
-                self.expect_line_end()?;
-                self.skip_newlines();
-            }
-            self.expect(&TokenKind::Dedent, "dedent after struct")?;
         }
+        self.expect(&TokenKind::Dedent, "dedent after struct")?;
         Ok(StructDecl { name, fields, line })
     }
 
@@ -414,32 +357,17 @@ impl Parser {
         let line = self.line();
         self.expect(&TokenKind::Enum, "'enum'")?;
         let name = self.expect_ident("enum name")?;
+        self.expect(&TokenKind::Colon, "':' after enum name")?;
+        self.expect(&TokenKind::Newline, "newline after enum header")?;
+        self.expect(&TokenKind::Indent, "indented enum variants")?;
+        self.skip_newlines();
         let mut variants = Vec::new();
-
-        if self.check(&TokenKind::LBrace) {
-            self.advance();
-            while !self.check(&TokenKind::RBrace) {
-                variants.push(self.parse_enum_variant()?);
-                if self.check(&TokenKind::Comma) {
-                    self.advance();
-                } else {
-                    break;
-                }
-            }
-            self.expect(&TokenKind::RBrace, "'}'")?;
+        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+            variants.push(self.parse_enum_variant()?);
             self.expect_line_end()?;
-        } else {
-            self.expect(&TokenKind::Colon, "':' or '{' after enum name")?;
-            self.expect(&TokenKind::Newline, "newline after enum header")?;
-            self.expect(&TokenKind::Indent, "indented enum variants")?;
             self.skip_newlines();
-            while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                variants.push(self.parse_enum_variant()?);
-                self.expect_line_end()?;
-                self.skip_newlines();
-            }
-            self.expect(&TokenKind::Dedent, "dedent after enum")?;
         }
+        self.expect(&TokenKind::Dedent, "dedent after enum")?;
         if variants.is_empty() {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::ParseError,
@@ -464,6 +392,9 @@ impl Parser {
                 payloads.push(self.parse_type_expr()?);
                 if self.check(&TokenKind::Comma) {
                     self.advance();
+                    if self.check(&TokenKind::RParen) {
+                        break;
+                    }
                 } else {
                     break;
                 }
@@ -492,17 +423,14 @@ impl Parser {
 
     fn parse_type_expr_inner(&mut self) -> DecResult<TypeExpr> {
         let line = self.line();
+        if self.check(&TokenKind::Null) {
+            self.advance();
+            return Ok(TypeExpr::Named("null".to_string()));
+        }
         if self.check(&TokenKind::LParen) {
             self.advance();
             if self.check(&TokenKind::RParen) {
                 self.advance();
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "unit type `()` is forbidden in --strict-wave; use `Null`",
-                    ));
-                }
                 return Ok(TypeExpr::Unit);
             }
             let first = self.parse_type_expr_inner()?;
@@ -523,68 +451,44 @@ impl Parser {
         }
         if self.check(&TokenKind::LBracket) {
             self.advance();
-            let inner = self.parse_type_expr_inner()?;
-            self.expect(&TokenKind::RBracket, "']'")?;
-            return Ok(TypeExpr::List(Box::new(inner)));
-        }
-        let name = self.expect_ident("type name")?;
-        if name == "array" && self.check(&TokenKind::LBracket) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "array[T, N] is not in --compat v1",
-                ));
+            let elem_ty = self.parse_type_expr_inner()?;
+            if self.check(&TokenKind::Semicolon) {
+                self.advance();
+                let mut dims = Vec::new();
+                loop {
+                    dims.push(self.expect_positive_usize("array dimension")?);
+                    if self.check(&TokenKind::Comma) {
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
+                self.expect(&TokenKind::RBracket, "']' after shaped array type")?;
+                let mut built = elem_ty;
+                for &d in dims.iter().rev() {
+                    built = TypeExpr::Array(Box::new(built), d);
+                }
+                return Ok(built);
             }
+            self.expect(&TokenKind::RBracket, "']'")?;
+            return Ok(TypeExpr::List(Box::new(elem_ty)));
+        }
+        let mut name = self.expect_ident("type name")?;
+        while self.check(&TokenKind::ColonColon) {
+            self.advance();
+            let seg = self.expect_ident("qualified type segment")?;
+            name.push_str("::");
+            name.push_str(&seg);
+        }
+        if name == "array" && self.check(&TokenKind::LBracket) {
             self.advance();
             let elem_ty = self.parse_type_expr_inner()?;
             self.expect(&TokenKind::Comma, "',' in array[T, N]")?;
-            if self.check(&TokenKind::Minus) {
-                self.advance();
-                if matches!(self.peek().kind, TokenKind::IntLit(_)) {
-                    self.advance();
-                }
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::TypeError,
-                    line,
-                    "array[T, N] length N must satisfy 1 <= N <= 65536",
-                ));
-            }
-            let len_usize = match &self.peek().kind {
-                TokenKind::IntLit(n) => {
-                    let n_val = n.clone();
-                    self.advance();
-                    n_val
-                        .to_u64()
-                        .and_then(|v| usize::try_from(v).ok())
-                        .filter(|&v| (1..=65_536).contains(&v))
-                        .ok_or_else(|| {
-                            Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                line,
-                                format!("array[T, N] length N must satisfy 1 <= N <= 65536, got {n_val}"),
-                            )
-                        })?
-                }
-                other => {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        format!("expected compile-time integer literal N in array[T, N], got {other:?}"),
-                    ));
-                }
-            };
+            let n = self.expect_positive_usize("array dimension")?;
             self.expect(&TokenKind::RBracket, "']' in array[T, N]")?;
-            return Ok(TypeExpr::Array(Box::new(elem_ty), len_usize));
+            return Ok(TypeExpr::Array(Box::new(elem_ty), n));
         }
         if name == "map" && self.check(&TokenKind::LBracket) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "map[K, V] is not in --compat v1",
-                ));
-            }
             self.advance();
             let k = self.parse_type_expr_inner()?;
             self.expect(&TokenKind::Comma, "',' in map[K, V]")?;
@@ -609,286 +513,53 @@ impl Parser {
                 )),
             }
         } else {
-            let mut full_name = name;
-            if self.compat == CompatMode::V2 {
-                while self.check(&TokenKind::ColonColon) {
-                    self.advance();
-                    let seg = self.expect_ident("qualified type segment")?;
-                    full_name.push_str("::");
-                    full_name.push_str(&seg);
-                }
-            }
-            Ok(TypeExpr::Named(full_name))
+            Ok(TypeExpr::Named(name))
         }
     }
 
     fn parse_dec_fn(&mut self) -> DecResult<DecFnDecl> {
         let line = self.line();
-        match &self.peek().kind {
-            TokenKind::Dec => {
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "legacy uppercase `Dec` is forbidden in --strict-wave; use lowercase `dec`",
-                    ));
-                }
-                self.advance();
-            }
-            TokenKind::DecLower => {
-                self.advance();
-            }
-            other => {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    format!("expected 'dec' or 'Dec', got {other:?}"),
-                ));
-            }
-        }
+        self.expect(&TokenKind::Dec, "'dec'")?;
         let name = self.expect_ident("function name")?;
 
-        // Phase D2 pure indented `dec <name>:` signature-matrix form (`P1-1`: supports multi-arity rows!)
+        // 1. Canonical signature-matrix header: `dec <name>:` + indented `(params) [where g] -> Ret:` arms
         if self.check(&TokenKind::Colon) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "pure `dec <name>:` without header parameter list is not in --compat v1",
-                ));
-            }
             self.advance();
-            self.expect(&TokenKind::Newline, "newline after `dec <name>:`")?;
-            self.expect(&TokenKind::Indent, "indented signature rows after `dec <name>:`")?;
+            self.expect(&TokenKind::Newline, "newline after 'dec <name>:'")?;
+            self.expect(&TokenKind::Indent, "indented dec signature arms")?;
             self.skip_newlines();
-
             let mut arms = Vec::new();
             while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
                 arms.push(self.parse_dec_arm()?);
                 self.skip_newlines();
             }
-            self.expect(&TokenKind::Dedent, "dedent after `dec` arms")?;
+            self.expect(&TokenKind::Dedent, "dedent after dec arms")?;
             if arms.is_empty() {
                 return Err(Diagnostic::at_line(
                     DiagnosticCode::ParseError,
                     line,
-                    "dec declaration has no signature rows",
+                    format!("dec {name}: has no signature arms"),
                 ));
             }
+            return Ok(DecFnDecl { name, arms, line });
+        }
+
+        // 2. Concise single-arm shorthand: `dec <name>(params) [where g] -> Ret:`
+        if self.check(&TokenKind::LParen) {
+            let arm = self.parse_dec_arm()?;
             return Ok(DecFnDecl {
                 name,
-                kind: DecFnKind::MultiArm {
-                    has_header_params: false,
-                    header_params: Vec::new(),
-                    header_typed_params: None,
-                    output_name: None,
-                    header_return_type: None,
-                    arms,
-                },
+                arms: vec![arm],
                 line,
             });
         }
 
-        if self.discipline == SyntaxDiscipline::PureWaveV2 {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                line,
-                "legacy `dec name(...)` header is forbidden in --pure-wave; use `dec name:` with indented `(params) -> Ret:` rows",
-            ));
-        }
-
-        self.expect(&TokenKind::LParen, "'('")?;
-
-        let mut bare_params: Vec<String> = Vec::new();
-        let mut typed_params: Vec<TypedParam> = Vec::new();
-        let mut saw_typed = false;
-        let mut saw_bare = false;
-
-        if !self.check(&TokenKind::RParen) {
-            loop {
-                let first = self.expect_ident("parameter")?;
-                if self.check(&TokenKind::Colon) {
-                    saw_typed = true;
-                    self.advance();
-                    let ty = self.parse_type_expr()?;
-                    typed_params.push(TypedParam { name: first, ty });
-                } else if matches!(&self.peek().kind, TokenKind::Ident(_)) {
-                    saw_typed = true;
-                    let pname = self.expect_ident("parameter name")?;
-                    typed_params.push(TypedParam {
-                        name: pname,
-                        ty: TypeExpr::Named(first),
-                    });
-                } else {
-                    saw_bare = true;
-                    bare_params.push(first);
-                }
-                if self.check(&TokenKind::Comma) {
-                    self.advance();
-                    if self.check(&TokenKind::RParen) {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-        self.expect(&TokenKind::RParen, "')'")?;
-        if saw_typed && saw_bare {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                line,
-                "cannot mix typed and untyped parameters in Dec header",
-            ));
-        }
-
-        let mut arrow_ident: Option<String> = None;
-        let mut arrow_type: Option<TypeExpr> = None;
-        let has_arrow = self.check(&TokenKind::Arrow);
-        if has_arrow {
-            self.advance();
-            if self.check(&TokenKind::LParen) && self.peek_n(1).kind == TokenKind::RParen {
-                self.advance();
-                self.advance();
-                arrow_type = Some(TypeExpr::Unit);
-            } else if matches!(&self.peek().kind, TokenKind::Ident(_))
-                && self.peek_n(1).kind == TokenKind::Colon
-            {
-                let id = self.expect_ident("return binding or type")?;
-                arrow_ident = Some(id.clone());
-                arrow_type = Some(TypeExpr::Named(id));
-            } else {
-                arrow_type = Some(self.parse_type_expr()?);
-            }
-        }
-
-        self.expect(&TokenKind::Colon, "':'")?;
-        self.expect(&TokenKind::Newline, "newline after Dec header")?;
-        self.expect(&TokenKind::Indent, "indented Dec body")?;
-        self.skip_newlines();
-
-        let is_multi_arm = self.looks_like_dec_arm();
-        if self.compat == CompatMode::V1 && !is_multi_arm {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                self.line(),
-                "expected a typed signature row in --compat v1",
-            ));
-        }
-
-        if is_multi_arm {
-            if self.compat == CompatMode::V1 && saw_typed {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "multi-arm Dec header must list untyped parameter names in --compat v1",
-                ));
-            }
-            if self.compat == CompatMode::V1 && arrow_ident.is_none() {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "multi-arm Dec declaration requires `-> output_name:`",
-                ));
-            }
-            let header_params = if saw_typed {
-                typed_params.iter().map(|p| p.name.clone()).collect()
-            } else {
-                bare_params
-            };
-            let header_typed_params = if saw_typed { Some(typed_params) } else { None };
-            let output_name = if saw_typed { None } else { arrow_ident };
-            let header_return_type = if saw_typed { arrow_type } else { None };
-
-            let mut arms = Vec::new();
-            while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                arms.push(self.parse_dec_arm()?);
-                self.skip_newlines();
-            }
-            self.expect(&TokenKind::Dedent, "dedent after Dec arms")?;
-            if arms.is_empty() {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "Dec declaration has no signature rows",
-                ));
-            }
-            Ok(DecFnDecl {
-                name,
-                kind: DecFnKind::MultiArm {
-                    has_header_params: true,
-                    header_params,
-                    header_typed_params,
-                    output_name,
-                    header_return_type,
-                    arms,
-                },
-                line,
-            })
-        } else {
-            if saw_bare {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "single-arm Dec parameters require explicit types (`name: Type`)",
-                ));
-            }
-            let return_type = arrow_type.unwrap_or(TypeExpr::Unit);
-            let body = self.parse_block_stmts_already_indented()?;
-            Ok(DecFnDecl {
-                name,
-                kind: DecFnKind::SingleArm {
-                    params: typed_params,
-                    has_arrow,
-                    return_type,
-                    body,
-                },
-                line,
-            })
-        }
-    }
-
-    fn looks_like_dec_arm(&self) -> bool {
-        if !self.check(&TokenKind::LParen) {
-            return false;
-        }
-        let mut depth = 0usize;
-        let mut i = self.pos;
-        while i < self.tokens.len() {
-            match self.tokens[i].kind {
-                TokenKind::LParen => depth += 1,
-                TokenKind::RParen => {
-                    depth -= 1;
-                    if depth == 0 {
-                        // Look for `->` directly OR `where ... ->` / `if ... ->` tracking nested delimiters (`AC-01`)!
-                        let mut j = i + 1;
-                        let mut guard_depth = 0usize;
-                        while j < self.tokens.len() {
-                            match self.tokens[j].kind {
-                                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
-                                    guard_depth += 1;
-                                    j += 1;
-                                }
-                                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                                    guard_depth = guard_depth.saturating_sub(1);
-                                    j += 1;
-                                }
-                                TokenKind::Arrow if guard_depth == 0 => return true,
-                                TokenKind::Colon if guard_depth == 0 => return false,
-                                TokenKind::Newline if guard_depth == 0 => return false,
-                                TokenKind::Eof => return false,
-                                _ => j += 1,
-                            }
-                        }
-                        return false;
-                    }
-                }
-                TokenKind::Newline | TokenKind::Eof => return false,
-                _ => {}
-            }
-            i += 1;
-        }
-        false
+        Err(Diagnostic::at(
+            DiagnosticCode::ParseError,
+            self.peek().line,
+            self.peek().col,
+            "expected ':' or '(' after dec function name",
+        ))
     }
 
     fn parse_dec_arm(&mut self) -> DecResult<DecArm> {
@@ -910,230 +581,71 @@ impl Parser {
         }
         self.expect(&TokenKind::RParen, "')'")?;
 
-        let mut guard: Option<Expr> = None;
+        let mut guard = None;
         if self.check(&TokenKind::Where) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "`where` arm guards are not in --compat v1",
-                ));
-            }
-            self.advance();
-            guard = Some(self.parse_expr()?);
-        } else if self.check(&TokenKind::If) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "arm guards are not in --compat v1",
-                ));
-            }
-            if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "legacy `if` arm guard is forbidden in --pure-wave; use `where <expr>` before `->`",
-                ));
-            }
             self.advance();
             guard = Some(self.parse_expr()?);
         }
 
-        self.expect(&TokenKind::Arrow, "'->'")?;
-        let return_type = self.parse_type_expr()?;
-        let output_name = if matches!(&self.peek().kind, TokenKind::Ident(_)) {
-            if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "legacy arm result binding `-> Type out:` is forbidden in --pure-wave; use `-> Type:` and `return`",
-                ));
-            }
-            Some(self.expect_ident("arm result binding")?)
+        let (has_arrow, return_type) = if self.check(&TokenKind::Arrow) {
+            self.advance();
+            (true, self.parse_type_expr()?)
         } else {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "arm signature requires a result binding in --compat v1",
-                ));
-            }
-            None
+            (false, TypeExpr::Unit)
         };
 
         if self.check(&TokenKind::Where) {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                line,
-                "`where <expr>` arm guard must appear before `->`",
-            ));
-        }
-        if self.check(&TokenKind::If) {
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "arm guards are not in --compat v1",
-                ));
-            }
-            if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "legacy `if` arm guard is forbidden in --pure-wave; use `where <expr>` before `->`",
-                ));
-            }
             if guard.is_some() {
                 return Err(Diagnostic::at_line(
                     DiagnosticCode::ParseError,
                     line,
-                    "duplicate guard on Dec arm",
+                    "duplicate 'where' guard on dec arm",
                 ));
             }
             self.advance();
             guard = Some(self.parse_expr()?);
         }
 
-        self.expect(&TokenKind::Colon, "':'")?;
-        self.expect(&TokenKind::Newline, "newline after arm signature")?;
-        self.expect(&TokenKind::Indent, "indented arm body")?;
-        let body = self.parse_block_stmts_already_indented()?;
+        self.expect(&TokenKind::Colon, "':' after arm signature")?;
+        let mut body = if self.check(&TokenKind::Newline) {
+            self.advance();
+            self.expect(&TokenKind::Indent, "indented arm body")?;
+            self.parse_block_stmts_already_indented()?
+        } else {
+            // Single-line arm expression/statement shorthand: `(0: int) -> int: 1`
+            let s = self.parse_stmt()?;
+            vec![s]
+        };
+
+        promote_tail_return(&mut body, &return_type);
+
         Ok(DecArm {
             params,
             guard,
+            has_arrow,
             return_type,
-            output_name,
             body,
             line,
         })
     }
 
-    fn token_after_matching_rparen(&self, start_lparen: usize) -> Option<&TokenKind> {
-        let mut depth = 0usize;
-        let mut idx = start_lparen;
-        while idx < self.tokens.len() {
-            match self.tokens[idx].kind {
-                TokenKind::LParen => depth += 1,
-                TokenKind::RParen => {
-                    depth = depth.saturating_sub(1);
-                    if depth == 0 {
-                        return self.tokens.get(idx + 1).map(|t| &t.kind);
-                    }
-                }
-                TokenKind::Eof => return None,
-                _ => {}
-            }
-            idx += 1;
-        }
-        None
-    }
-
     fn parse_dec_arm_param(&mut self) -> DecResult<DecArmParam> {
-        let line = self.line();
-        if self.compat == CompatMode::V1 {
+        if let TokenKind::Ident(ref name) = self.peek().kind {
+            if name != "_" && self.peek_n(1).kind == TokenKind::Colon {
+                let pname = self.expect_ident("parameter name")?;
+                self.expect(&TokenKind::Colon, "':'")?;
+                let ty = self.parse_type_expr()?;
+                return Ok(DecArmParam::TypedVar { name: pname, ty });
+            }
+        }
+        let pattern = self.parse_pattern()?;
+        if self.check(&TokenKind::Colon) {
+            self.advance();
             let ty = self.parse_type_expr()?;
-            let name = self.expect_ident("arm parameter name")?;
-            return Ok(DecArmParam::TypedVar { ty, name });
+            Ok(DecArmParam::TypedPattern { pattern, ty })
+        } else {
+            Ok(DecArmParam::Pattern(pattern))
         }
-
-        // 1. Canonical Phase D2 colon-typed parameter: `x: Type` or `_: Type`
-        if let TokenKind::Ident(ref s) = self.peek().kind {
-            if self.peek_n(1).kind == TokenKind::Colon {
-                let name = s.clone();
-                self.advance();
-                self.advance();
-                let ty = self.parse_type_expr()?;
-                if name == "_" {
-                    return Ok(DecArmParam::TypedPattern {
-                        ty,
-                        pattern: Pattern::Wildcard,
-                    });
-                }
-                self.check_pure_wave_binder(&name, line)?;
-                return Ok(DecArmParam::TypedVar { ty, name });
-            }
-        }
-
-        // 2. Tuple pattern `((a, b))` or typed tuple pattern `((a, b): (int, int))` vs legacy `((int, int) p)`
-        if self.check(&TokenKind::LParen) {
-            let after = self.token_after_matching_rparen(self.pos);
-            if self.discipline == SyntaxDiscipline::PureWaveV2
-                || matches!(
-                    after,
-                    Some(TokenKind::Colon | TokenKind::Comma | TokenKind::RParen)
-                )
-            {
-                let pat = self.parse_pattern()?;
-                if self.check(&TokenKind::Colon) {
-                    self.advance();
-                    let ty = self.parse_type_expr()?;
-                    return Ok(DecArmParam::TypedPattern { ty, pattern: pat });
-                }
-                return Ok(DecArmParam::Pattern(pat));
-            }
-        }
-
-        // 3. Pattern-first parameter (`0`, `-1t`, `b"..."`, `Enum::Var(...)`, `_`, bare `x`), optionally `: Type`
-        let is_pattern_first = match &self.peek().kind {
-            TokenKind::Null
-            | TokenKind::IntLit(_)
-            | TokenKind::True
-            | TokenKind::False
-            | TokenKind::StrLit(_)
-            | TokenKind::BytesLit(_)
-            | TokenKind::RatioLit(_)
-            | TokenKind::Addr8Lit(_)
-            | TokenKind::SupportLit(_)
-            | TokenKind::TritLit(_)
-            | TokenKind::Plus
-            | TokenKind::Minus => true,
-            TokenKind::Ident(s) => {
-                s == "_"
-                    || self.peek_n(1).kind == TokenKind::ColonColon
-                    || matches!(self.peek_n(1).kind, TokenKind::Comma | TokenKind::RParen)
-                    || (self.peek_n(1).kind == TokenKind::LParen
-                        && matches!(
-                            s.as_str(),
-                            "u8" | "b64" | "t1" | "t9" | "t32" | "q4"
-                        ))
-            }
-            _ => false,
-        };
-        if is_pattern_first {
-            let pat = self.parse_pattern()?;
-            if self.check(&TokenKind::Colon) {
-                self.advance();
-                let ty = self.parse_type_expr()?;
-                return Ok(DecArmParam::TypedPattern { ty, pattern: pat });
-            }
-            return Ok(DecArmParam::Pattern(pat));
-        }
-
-        if self.discipline == SyntaxDiscipline::PureWaveV2 {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                line,
-                "legacy prefix `Type param` syntax is forbidden in --pure-wave; use `param: Type` or pattern",
-            ));
-        }
-
-        // 4. LegacyV1 `TypeExpr` followed by binding name or pattern
-        let ty = self.parse_type_expr()?;
-        if let TokenKind::Ident(ref s) = self.peek().kind {
-            if s != "_" && self.peek_n(1).kind != TokenKind::ColonColon {
-                let name = self.expect_ident("arm parameter name")?;
-                return Ok(DecArmParam::TypedVar { ty, name });
-            }
-        }
-        let pat = self.parse_pattern().map_err(|_| {
-            Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                line,
-                "expected parameter name or pattern after type in Dec arm",
-            )
-        })?;
-        Ok(DecArmParam::TypedPattern { ty, pattern: pat })
     }
 
     fn parse_pattern(&mut self) -> DecResult<Pattern> {
@@ -1145,13 +657,6 @@ impl Parser {
                 Ok(Pattern::Wildcard)
             }
             TokenKind::Null => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`null` is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Pattern::NullLit)
             }
@@ -1163,18 +668,7 @@ impl Parser {
                 self.advance();
                 Ok(Pattern::BoolLit(false))
             }
-            TokenKind::StrLit(s) => {
-                self.advance();
-                Ok(Pattern::StrLit(s))
-            }
             TokenKind::BytesLit(bs) => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "byte literals are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Pattern::BytesLit(bs))
             }
@@ -1196,11 +690,7 @@ impl Parser {
             }
             TokenKind::TritLit(tl) => {
                 self.advance();
-                let t = match tl {
-                    TritLiteral::One => T1::POS,
-                    TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D => T1::ZERO,
-                };
-                Ok(Pattern::TritLit(t))
+                Ok(Pattern::TritLit(tl.to_t1()))
             }
             TokenKind::Plus | TokenKind::Minus => {
                 let neg = tok.kind == TokenKind::Minus;
@@ -1217,12 +707,7 @@ impl Parser {
                     }
                     TokenKind::TritLit(tl) => {
                         self.advance();
-                        let base = match tl {
-                            TritLiteral::One => T1::POS,
-                            TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D => {
-                                T1::ZERO
-                            }
-                        };
+                        let base: T1 = tl.to_t1();
                         Ok(Pattern::TritLit(if neg { base.checked_neg() } else { base }))
                     }
                     other => Err(Diagnostic::at_line(
@@ -1239,28 +724,22 @@ impl Parser {
                     pats.push(self.parse_pattern()?);
                     if self.check(&TokenKind::Comma) {
                         self.advance();
+                        if self.check(&TokenKind::RParen) {
+                            break;
+                        }
                     } else {
                         break;
                     }
                 }
                 self.expect(&TokenKind::RParen, "')' in tuple pattern")?;
-                if pats.is_empty() && self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "unit pattern `()` is forbidden in pure-wave Dec v2; use `null` (`Null`)",
-                    ));
-                }
                 Ok(Pattern::Tuple(pats))
             }
             TokenKind::Ident(first) => {
                 self.advance();
-                if self.compat == CompatMode::V2
-                    && self.check(&TokenKind::LParen)
-                    && matches!(
-                        first.as_str(),
-                        "u8" | "b64" | "t1" | "t9" | "t32" | "q4"
-                    )
+                if matches!(
+                    first.as_str(),
+                    "b8" | "b64" | "b64_bits" | "t1" | "q4"
+                ) && self.check(&TokenKind::LParen)
                 {
                     self.advance();
                     let neg = if self.check(&TokenKind::Minus) {
@@ -1272,86 +751,19 @@ impl Parser {
                     } else {
                         false
                     };
-                    let pat = match self.peek().kind.clone() {
-                        TokenKind::TritLit(tl) if first == "t1" => {
+                    if first == "t1" {
+                        if let TokenKind::TritLit(tl) = self.peek().kind {
                             self.advance();
-                            let base = match tl {
-                                TritLiteral::One => T1::POS,
-                                TritLiteral::Zero
-                                | TritLiteral::Hinge0H
-                                | TritLiteral::Dwell0D => T1::ZERO,
-                            };
-                            Pattern::TritLit(if neg { base.checked_neg() } else { base })
+                            let base = tl.to_t1();
+                            self.expect(&TokenKind::RParen, "')' after t1(...) pattern")?;
+                            return Ok(Pattern::TritLit(if neg { base.checked_neg() } else { base }));
                         }
+                    }
+                    let arg_tok = self.peek().clone();
+                    let raw_int = match arg_tok.kind {
                         TokenKind::IntLit(n) => {
                             self.advance();
-                            let val = if neg { -n } else { n };
-                            match first.as_str() {
-                                "u8" => {
-                                    let b = val
-                                        .to_u64()
-                                        .and_then(|v| u8::try_from(v).ok())
-                                        .ok_or_else(|| {
-                                            Diagnostic::at_line(
-                                                DiagnosticCode::ParseError,
-                                                line,
-                                                format!("u8 pattern literal {val} out of bounds 0..=255"),
-                                            )
-                                        })?;
-                                    Pattern::U8Lit(b)
-                                }
-                                "b64" => {
-                                    let w = val.to_u64().ok_or_else(|| {
-                                        Diagnostic::at_line(
-                                            DiagnosticCode::ParseError,
-                                            line,
-                                            format!("b64 pattern literal {val} out of bounds"),
-                                        )
-                                    })?;
-                                    Pattern::B64Lit(w)
-                                }
-                                "t1" => {
-                                    let t = T1::from_bigint(&val).map_err(|_| {
-                                        Diagnostic::at_line(
-                                            DiagnosticCode::InvalidTritLiteral,
-                                            line,
-                                            format!("t1 pattern literal {val} out of bounds -1..=1"),
-                                        )
-                                    })?;
-                                    Pattern::TritLit(t)
-                                }
-                                "t9" => {
-                                    let t = T9::from_bigint(&val).map_err(|_| {
-                                        Diagnostic::at_line(
-                                            DiagnosticCode::ParseError,
-                                            line,
-                                            format!("t9 pattern literal {val} out of bounds -9841..=9841"),
-                                        )
-                                    })?;
-                                    Pattern::T9Lit(t)
-                                }
-                                "t32" => {
-                                    let t = T32::from_bigint(&val).map_err(|_| {
-                                        Diagnostic::at_line(
-                                            DiagnosticCode::ParseError,
-                                            line,
-                                            format!("t32 pattern literal {val} out of bounds"),
-                                        )
-                                    })?;
-                                    Pattern::T32Lit(t)
-                                }
-                                "q4" => {
-                                    let q = Q4::from_bigint(&val).map_err(|_| {
-                                        Diagnostic::at_line(
-                                            DiagnosticCode::ParseError,
-                                            line,
-                                            format!("q4 pattern literal {val} out of bounds 0..=15"),
-                                        )
-                                    })?;
-                                    Pattern::Q4Lit(q)
-                                }
-                                _ => unreachable!(),
-                            }
+                            if neg { -n } else { n }
                         }
                         other => {
                             return Err(Diagnostic::at_line(
@@ -1364,8 +776,49 @@ impl Parser {
                         }
                     };
                     self.expect(&TokenKind::RParen, "')' after register pattern literal")?;
-                    Ok(pat)
-                } else if self.check(&TokenKind::ColonColon) {
+                    return match first.as_str() {
+                        "b8" => {
+                            let u = raw_int.to_u64().filter(|&v| v <= 255).ok_or_else(|| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::TypeError,
+                                    line,
+                                    format!("b8 pattern literal outside 0..=255: {raw_int}"),
+                                )
+                            })?;
+                            Ok(Pattern::B8Lit(B8(u as u8)))
+                        }
+                        "b64" => {
+                            let b = B64::from_trit_int(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(DiagnosticCode::TypeError, line, e.to_string())
+                            })?;
+                            Ok(Pattern::B64Lit(b))
+                        }
+                        "b64_bits" => {
+                            let b = B64::from_unsigned_int(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(DiagnosticCode::TypeError, line, e.to_string())
+                            })?;
+                            Ok(Pattern::B64Lit(b))
+                        }
+                        "t1" => {
+                            let t = T1::from_bigint(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::InvalidTritLiteral,
+                                    line,
+                                    e.to_string(),
+                                )
+                            })?;
+                            Ok(Pattern::TritLit(t))
+                        }
+                        "q4" => {
+                            let q = Q4::from_bigint(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(DiagnosticCode::TypeError, line, e.to_string())
+                            })?;
+                            Ok(Pattern::Q4Lit(q))
+                        }
+                        _ => unreachable!(),
+                    };
+                }
+                if self.check(&TokenKind::ColonColon) {
                     let mut path = vec![first];
                     while self.check(&TokenKind::ColonColon) {
                         self.advance();
@@ -1378,6 +831,9 @@ impl Parser {
                             bindings.push(self.parse_pattern()?);
                             if self.check(&TokenKind::Comma) {
                                 self.advance();
+                                if self.check(&TokenKind::RParen) {
+                                    break;
+                                }
                             } else {
                                 break;
                             }
@@ -1386,7 +842,6 @@ impl Parser {
                     }
                     Ok(Pattern::EnumVariant { path, bindings })
                 } else {
-                    self.check_pure_wave_binder(&first, line)?;
                     Ok(Pattern::Binding(first))
                 }
             }
@@ -1444,8 +899,19 @@ impl Parser {
                 }
                 "engine" => {
                     let eng = match &self.peek().kind {
-                        TokenKind::StrLit(s) | TokenKind::Ident(s) => {
+                        TokenKind::Ident(s) => {
                             let s = s.clone();
+                            self.advance();
+                            s
+                        }
+                        TokenKind::BytesLit(bs) => {
+                            let s = std::str::from_utf8(bs).map_err(|_| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::ParseError,
+                                    fline,
+                                    "chamber engine bytes literal must be valid UTF-8",
+                                )
+                            })?.to_string();
                             self.advance();
                             s
                         }
@@ -1453,7 +919,7 @@ impl Parser {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::ParseError,
                                 fline,
-                                format!("expected engine identifier or string, got {other:?}"),
+                                format!("expected engine identifier or byte literal, got {other:?}"),
                             ));
                         }
                     };
@@ -1648,148 +1114,162 @@ impl Parser {
         self.expect(&TokenKind::Indent, "indented observe body")?;
         self.skip_newlines();
 
-        let mut probes = Vec::new();
-        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-            let pline = self.line();
-            if self.check(&TokenKind::Quarantine) {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::QExtLeakageForbidden,
-                    pline,
-                    "quarantine Q_ext is forbidden inside observe blocks",
-                ));
-            }
-            let kind_word = self.expect_ident("tracer or sensor")?;
-            let kind = match kind_word.as_str() {
-                "tracer" => ProbeKind::Tracer,
-                "sensor" => ProbeKind::Sensor,
-                other => {
+        let prev_in_observe = self.in_observe;
+        self.in_observe = true;
+        let res = (|| {
+            let mut probes = Vec::new();
+            while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+                let pline = self.line();
+                if self.check(&TokenKind::Quarantine) {
                     return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
+                        DiagnosticCode::QExtLeakageForbidden,
                         pline,
-                        format!("expected `tracer` or `sensor` inside observe, got {other:?}"),
+                        "quarantine Q_ext is forbidden inside observe blocks",
                     ));
                 }
-            };
-            let pname = self.expect_ident("probe name")?;
-            if self.check(&TokenKind::LParen) {
-                let probe = self.parse_procedural_probe_sig_and_body(kind, pname, pline)?;
-                probes.push(probe);
-            } else {
-                self.expect(&TokenKind::Colon, "':'")?;
-                self.expect(&TokenKind::Newline, "newline after probe header")?;
-                self.expect(&TokenKind::Indent, "indented probe body")?;
-                self.skip_newlines();
-                if self.check(&TokenKind::LParen) {
-                    // Indented procedural probe form (`P0-1`):
-                    //   tracer pname:
-                    //       (view: ReadOnly<ChamberView>) -> Ret:
-                    //           ...
-                    let probe = self.parse_procedural_probe_sig_and_body(kind, pname, pline)?;
-                    self.skip_newlines();
-                    self.expect(&TokenKind::Dedent, "dedent after indented procedural probe")?;
-                    probes.push(probe);
-                } else {
-                    let mut region: Option<Expr> = None;
-                    let mut capture: Vec<String> = Vec::new();
-                    while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                        let fline = self.line();
-                        let field = self.expect_ident("region or capture")?;
-                        if self.check(&TokenKind::Eq) || self.check(&TokenKind::Colon) {
-                            self.advance();
-                        }
-                        match field.as_str() {
-                            "region" => region = Some(self.parse_expr()?),
-                            "capture" => {
-                                self.expect(&TokenKind::LBracket, "'[' for capture list")?;
-                                while !self.check(&TokenKind::RBracket) {
-                                    capture.push(self.expect_ident("capture channel")?);
-                                    if self.check(&TokenKind::Comma) {
-                                        self.advance();
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                self.expect(&TokenKind::RBracket, "']'")?;
-                            }
-                            other => {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ParseError,
-                                    fline,
-                                    format!("unknown declarative probe field {other:?}"),
-                                ));
-                            }
-                        }
-                        self.expect_line_end()?;
-                        self.skip_newlines();
-                    }
-                    self.expect(&TokenKind::Dedent, "dedent after probe")?;
-                    let region = region.ok_or_else(|| {
-                        Diagnostic::at_line(
+                let kind_word = self.expect_ident("tracer or sensor")?;
+                let kind = match kind_word.as_str() {
+                    "tracer" => ProbeKind::Tracer,
+                    "sensor" => ProbeKind::Sensor,
+                    other => {
+                        return Err(Diagnostic::at_line(
                             DiagnosticCode::ParseError,
                             pline,
-                            format!("probe {pname} missing required `region`"),
-                        )
-                    })?;
-                    probes.push(ProbeDecl::Declarative {
+                            format!("expected `tracer` or `sensor` inside observe, got {other:?}"),
+                        ));
+                    }
+                };
+                let pname = self.expect_ident("probe name")?;
+                if self.check(&TokenKind::LParen) {
+                    self.advance();
+                    let param_name = self.expect_ident("observer view parameter")?;
+                    let param_ty = if self.check(&TokenKind::Colon) {
+                        self.advance();
+                        Some(self.parse_type_expr()?)
+                    } else {
+                        None
+                    };
+                    self.expect(&TokenKind::RParen, "')'")?;
+                    let return_type = if self.check(&TokenKind::Arrow) {
+                        self.advance();
+                        self.parse_type_expr()?
+                    } else {
+                        TypeExpr::Unit
+                    };
+                    self.expect(&TokenKind::Colon, "':'")?;
+                    self.expect(&TokenKind::Newline, "newline after procedural probe header")?;
+                    self.expect(&TokenKind::Indent, "indented procedural probe body")?;
+                    let mut body = self.parse_block_stmts_already_indented()?;
+                    promote_tail_return(&mut body, &return_type);
+                    probes.push(ProbeDecl::Procedural {
                         kind,
                         name: pname,
-                        region,
-                        capture,
+                        param_name,
+                        param_ty,
+                        return_type,
+                        body,
                         line: pline,
                     });
+                } else {
+                    self.expect(&TokenKind::Colon, "':'")?;
+                    self.expect(&TokenKind::Newline, "newline after probe header")?;
+                    self.expect(&TokenKind::Indent, "indented probe body")?;
+                    self.skip_newlines();
+                    if self.check(&TokenKind::LParen) {
+                        self.advance();
+                        let param_name = self.expect_ident("observer view parameter")?;
+                        let param_ty = if self.check(&TokenKind::Colon) {
+                            self.advance();
+                            Some(self.parse_type_expr()?)
+                        } else {
+                            None
+                        };
+                        self.expect(&TokenKind::RParen, "')'")?;
+                        let return_type = if self.check(&TokenKind::Arrow) {
+                            self.advance();
+                            self.parse_type_expr()?
+                        } else {
+                            TypeExpr::Unit
+                        };
+                        self.expect(&TokenKind::Colon, "':'")?;
+                        let mut body = if self.check(&TokenKind::Newline) {
+                            self.advance();
+                            self.expect(&TokenKind::Indent, "indented procedural probe body")?;
+                            self.parse_block_stmts_already_indented()?
+                        } else {
+                            let s = self.parse_stmt()?;
+                            vec![s]
+                        };
+                        self.skip_newlines();
+                        self.expect(&TokenKind::Dedent, "dedent after indented procedural probe")?;
+                        promote_tail_return(&mut body, &return_type);
+                        probes.push(ProbeDecl::Procedural {
+                            kind,
+                            name: pname,
+                            param_name,
+                            param_ty,
+                            return_type,
+                            body,
+                            line: pline,
+                        });
+                    } else {
+                        let mut region: Option<Expr> = None;
+                        let mut capture: Vec<String> = Vec::new();
+                        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+                            let fline = self.line();
+                            let field = self.expect_ident("region or capture")?;
+                            if self.check(&TokenKind::Eq) || self.check(&TokenKind::Colon) {
+                                self.advance();
+                            }
+                            match field.as_str() {
+                                "region" => region = Some(self.parse_expr()?),
+                                "capture" => {
+                                    self.expect(&TokenKind::LBracket, "'[' for capture list")?;
+                                    while !self.check(&TokenKind::RBracket) {
+                                        capture.push(self.expect_ident("capture channel")?);
+                                        if self.check(&TokenKind::Comma) {
+                                            self.advance();
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    self.expect(&TokenKind::RBracket, "']'")?;
+                                }
+                                other => {
+                                    return Err(Diagnostic::at_line(
+                                        DiagnosticCode::ParseError,
+                                        fline,
+                                        format!("unknown declarative probe field {other:?}"),
+                                    ));
+                                }
+                            }
+                            self.expect_line_end()?;
+                            self.skip_newlines();
+                        }
+                        self.expect(&TokenKind::Dedent, "dedent after probe")?;
+                        let region = region.ok_or_else(|| {
+                            Diagnostic::at_line(
+                                DiagnosticCode::ParseError,
+                                pline,
+                                format!("probe {pname} missing required `region`"),
+                            )
+                        })?;
+                        probes.push(ProbeDecl::Declarative {
+                            kind,
+                            name: pname,
+                            region,
+                            capture,
+                            line: pline,
+                        });
+                    }
                 }
+                self.skip_newlines();
             }
-            self.skip_newlines();
-        }
-        self.expect(&TokenKind::Dedent, "dedent after observe")?;
-        Ok(ObserveDecl { name, probes, line })
-    }
-
-    fn parse_procedural_probe_sig_and_body(
-        &mut self,
-        kind: ProbeKind,
-        pname: String,
-        pline: usize,
-    ) -> DecResult<ProbeDecl> {
-        let sig_line = self.line();
-        self.expect(&TokenKind::LParen, "'('")?;
-        let param_name = self.expect_ident("observer view parameter")?;
-        self.check_pure_wave_binder(&param_name, sig_line)?;
-        let param_ty = if self.check(&TokenKind::Colon) {
-            self.advance();
-            Some(self.parse_type_expr()?)
-        } else {
-            None
-        };
-        self.expect(&TokenKind::RParen, "')'")?;
-        let has_arrow = self.check(&TokenKind::Arrow);
-        let return_type = if has_arrow {
-            self.advance();
-            self.parse_type_expr()?
-        } else {
-            TypeExpr::Unit
-        };
-        if self.discipline == SyntaxDiscipline::PureWaveV2 && (param_ty.is_none() || !has_arrow) {
-            return Err(Diagnostic::at_line(
-                DiagnosticCode::ParseError,
-                sig_line,
-                "procedural observe probe in --strict-wave requires explicit `(view: ReadOnly<ChamberView>) -> Ret:` signature",
-            ));
-        }
-        self.expect(&TokenKind::Colon, "':'")?;
-        self.expect(&TokenKind::Newline, "newline after procedural probe header")?;
-        self.expect(&TokenKind::Indent, "indented procedural probe body")?;
-        let body = self.parse_block_stmts_already_indented()?;
-        Ok(ProbeDecl::Procedural {
-            kind,
-            name: pname,
-            param_name,
-            param_ty,
-            has_arrow,
-            return_type,
-            body,
-            line: pline,
-        })
+            self.expect(&TokenKind::Dedent, "dedent after observe")?;
+            Ok(ObserveDecl { name, probes, line })
+        })();
+        self.in_observe = prev_in_observe;
+        res
     }
 
     fn parse_quarantine_mod(&mut self) -> DecResult<QuarantineModDecl> {
@@ -1832,71 +1312,40 @@ impl Parser {
         let line = self.line();
         match &self.peek().kind {
             TokenKind::Let => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`let` is not in --compat v1",
-                    ));
-                }
                 self.advance();
-                if self.check(&TokenKind::LParen) {
+                let pattern = if self.check(&TokenKind::LParen) {
                     self.advance();
                     let mut elems = Vec::new();
                     while !self.check(&TokenKind::RParen) {
-                        let ename = self.expect_ident("tuple binding name or `_`")?;
-                        if ename != "_" {
-                            self.check_pure_wave_binder(&ename, line)?;
-                        }
-                        let ety = if self.check(&TokenKind::Colon) {
+                        let bname = self.expect_ident("tuple binding name")?;
+                        let elem_ty = if self.check(&TokenKind::Colon) {
                             self.advance();
                             Some(self.parse_type_expr()?)
                         } else {
                             None
                         };
-                        elems.push(LetTupleElem {
-                            name: ename,
-                            ty: ety,
-                        });
+                        elems.push((bname, elem_ty));
                         if self.check(&TokenKind::Comma) {
                             self.advance();
+                            if self.check(&TokenKind::RParen) {
+                                break;
+                            }
                         } else {
                             break;
                         }
                     }
-                    self.expect(&TokenKind::RParen, "')' after tuple destructuring bindings")?;
+                    self.expect(&TokenKind::RParen, "')' in let tuple pattern")?;
                     if elems.len() < 2 {
                         return Err(Diagnostic::at_line(
                             DiagnosticCode::ParseError,
                             line,
-                            "tuple destructuring `let (a, b, ...) = expr` requires at least 2 elements",
+                            "let tuple destructuring requires at least 2 bindings",
                         ));
                     }
-                    if self.discipline == SyntaxDiscipline::PureWaveV2
-                        && elems.iter().all(|e| e.name == "_")
-                    {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "tuple destructuring `let (...)` in --strict-wave requires at least one named binding",
-                        ));
-                    }
-                    let ty = if self.check(&TokenKind::Colon) {
-                        self.advance();
-                        Some(self.parse_type_expr()?)
-                    } else {
-                        None
-                    };
-                    self.expect(&TokenKind::Eq, "'='")?;
-                    let value = self.parse_expr()?;
-                    self.expect_line_end()?;
-                    return Ok(Stmt {
-                        kind: StmtKind::LetTuple { elems, ty, value },
-                        line,
-                    });
-                }
-                let name = self.expect_ident("binding name")?;
-                self.check_pure_wave_binder(&name, line)?;
+                    LetPattern::Tuple(elems)
+                } else {
+                    LetPattern::Single(self.expect_ident("binding name")?)
+                };
                 let ty = if self.check(&TokenKind::Colon) {
                     self.advance();
                     Some(self.parse_type_expr()?)
@@ -1907,38 +1356,7 @@ impl Parser {
                 let value = self.parse_expr()?;
                 self.expect_line_end()?;
                 Ok(Stmt {
-                    kind: StmtKind::Let { name, ty, value },
-                    line,
-                })
-            }
-            TokenKind::Mut => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`mut` is not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`mut` is forbidden in --pure-wave; use immutable `let` bindings and AFC scope operators",
-                    ));
-                }
-                self.advance();
-                let name = self.expect_ident("mutable binding name")?;
-                let ty = if self.check(&TokenKind::Colon) {
-                    self.advance();
-                    Some(self.parse_type_expr()?)
-                } else {
-                    None
-                };
-                self.expect(&TokenKind::Eq, "'='")?;
-                let value = self.parse_expr()?;
-                self.expect_line_end()?;
-                Ok(Stmt {
-                    kind: StmtKind::Mut { name, ty, value },
+                    kind: StmtKind::Let { pattern, ty, value },
                     line,
                 })
             }
@@ -1976,239 +1394,7 @@ impl Parser {
                     line,
                 })
             }
-            TokenKind::If => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "nested `if` blocks are not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`if` / `elif` / `else` blocks are forbidden in --pure-wave; use multi-arm `dec` with `where` guards or `select`",
-                    ));
-                }
-                self.advance();
-                let cond = self.parse_expr()?;
-                self.expect(&TokenKind::Colon, "':'")?;
-                self.expect(&TokenKind::Newline, "newline")?;
-                self.expect(&TokenKind::Indent, "indent")?;
-                let then_body = self.parse_block_stmts_already_indented()?;
-                self.skip_newlines();
-                let mut elifs = Vec::new();
-                while self.check(&TokenKind::Elif) {
-                    self.advance();
-                    let ec = self.parse_expr()?;
-                    self.expect(&TokenKind::Colon, "':'")?;
-                    self.expect(&TokenKind::Newline, "newline")?;
-                    self.expect(&TokenKind::Indent, "indent")?;
-                    let eb = self.parse_block_stmts_already_indented()?;
-                    elifs.push((ec, eb));
-                    self.skip_newlines();
-                }
-                let else_body = if self.check(&TokenKind::Else) {
-                    self.advance();
-                    self.expect(&TokenKind::Colon, "':'")?;
-                    self.expect(&TokenKind::Newline, "newline")?;
-                    self.expect(&TokenKind::Indent, "indent")?;
-                    self.parse_block_stmts_already_indented()?
-                } else {
-                    Vec::new()
-                };
-                Ok(Stmt {
-                    kind: StmtKind::If {
-                        cond,
-                        then_body,
-                        elifs,
-                        else_body,
-                    },
-                    line,
-                })
-            }
-            TokenKind::Match => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`match` is not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`match` is forbidden in --pure-wave; dispatch via pattern rows on a `dec` block",
-                    ));
-                }
-                self.advance();
-                let scrutinee = self.parse_expr()?;
-                self.expect(&TokenKind::Colon, "':' after match expression")?;
-                self.expect(&TokenKind::Newline, "newline after match header")?;
-                self.expect(&TokenKind::Indent, "indented match arms")?;
-                self.skip_newlines();
-                let mut arms = Vec::new();
-                while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                    let aline = self.line();
-                    let pattern = self.parse_pattern()?;
-                    let guard = if self.check(&TokenKind::If) {
-                        self.advance();
-                        Some(self.parse_expr()?)
-                    } else {
-                        None
-                    };
-                    self.expect(&TokenKind::Colon, "':' after match pattern")?;
-                    let body = if self.check(&TokenKind::Newline) {
-                        self.advance();
-                        self.expect(&TokenKind::Indent, "indented match arm body")?;
-                        self.parse_block_stmts_already_indented()?
-                    } else {
-                        vec![self.parse_stmt()?]
-                    };
-                    arms.push(MatchArm {
-                        pattern,
-                        guard,
-                        body,
-                        line: aline,
-                    });
-                    self.skip_newlines();
-                }
-                self.expect(&TokenKind::Dedent, "dedent after match")?;
-                if arms.is_empty() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "match requires at least one arm",
-                    ));
-                }
-                Ok(Stmt {
-                    kind: StmtKind::Match { scrutinee, arms },
-                    line,
-                })
-            }
-            TokenKind::For => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`for` loops are not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`for` loops are forbidden in --pure-wave; use `evolve`, `scan`, `fold_seq`, or `map_seq`",
-                    ));
-                }
-                self.advance();
-                let target = if self.check(&TokenKind::LParen) {
-                    self.advance();
-                    let mut vars = Vec::new();
-                    while !self.check(&TokenKind::RParen) {
-                        vars.push(self.expect_ident("loop tuple variable")?);
-                        if self.check(&TokenKind::Comma) {
-                            self.advance();
-                        } else {
-                            break;
-                        }
-                    }
-                    self.expect(&TokenKind::RParen, "')'")?;
-                    ForTarget::Tuple(vars)
-                } else {
-                    ForTarget::Single(self.expect_ident("loop variable")?)
-                };
-                self.expect(&TokenKind::In, "'in'")?;
-                let iter = self.parse_expr()?;
-                self.expect(&TokenKind::Colon, "':'")?;
-                self.expect(&TokenKind::Newline, "newline")?;
-                self.expect(&TokenKind::Indent, "indent")?;
-                let body = self.parse_block_stmts_already_indented()?;
-                Ok(Stmt {
-                    kind: StmtKind::For { target, iter, body },
-                    line,
-                })
-            }
-            TokenKind::While => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`while` loops are not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`while` loops are forbidden in --pure-wave; use `evolve` or tail-recursive `dec`",
-                    ));
-                }
-                self.advance();
-                let cond = self.parse_expr()?;
-                self.expect(&TokenKind::Colon, "':'")?;
-                self.expect(&TokenKind::Newline, "newline")?;
-                self.expect(&TokenKind::Indent, "indent")?;
-                let body = self.parse_block_stmts_already_indented()?;
-                Ok(Stmt {
-                    kind: StmtKind::While { cond, body },
-                    line,
-                })
-            }
-            TokenKind::Break => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`break` is not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`break` is forbidden in --pure-wave",
-                    ));
-                }
-                self.advance();
-                self.expect_line_end()?;
-                Ok(Stmt {
-                    kind: StmtKind::Break,
-                    line,
-                })
-            }
-            TokenKind::Continue => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`continue` is not in --compat v1",
-                    ));
-                }
-                if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`continue` is forbidden in --pure-wave",
-                    ));
-                }
-                self.advance();
-                self.expect_line_end()?;
-                Ok(Stmt {
-                    kind: StmtKind::Continue,
-                    line,
-                })
-            }
             TokenKind::Pass => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`pass` is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 self.expect_line_end()?;
                 Ok(Stmt {
@@ -2217,13 +1403,6 @@ impl Parser {
                 })
             }
             TokenKind::Quarantine => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`quarantine Q_ext` is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 let tag = self.expect_ident("'Q_ext'")?;
                 if tag != "Q_ext" {
@@ -2243,86 +1422,35 @@ impl Parser {
                 })
             }
             _ => {
-                if matches!(&self.peek().kind, TokenKind::Ident(_))
-                    && matches!(&self.peek_n(1).kind, TokenKind::Ident(_))
-                    && self.peek_n(2).kind == TokenKind::Eq
-                {
-                    if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "legacy `Type name = expr` local is forbidden in --pure-wave; use `let name: Type = expr`",
-                        ));
-                    }
-                    let ty_name = self.expect_ident("type")?;
-                    let name = self.expect_ident("variable")?;
-                    self.expect(&TokenKind::Eq, "'='")?;
-                    let value = self.parse_expr()?;
-                    self.expect_line_end()?;
-                    return Ok(Stmt {
-                        kind: StmtKind::TypedLocal {
-                            ty: TypeExpr::Named(ty_name),
-                            name,
-                            value,
-                        },
-                        line,
-                    });
-                }
-
                 let lhs = self.parse_expr()?;
                 if self.check(&TokenKind::Eq) {
-                    if self.discipline == SyntaxDiscipline::PureWaveV2 {
+                    if self.in_observe {
                         return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
+                            DiagnosticCode::ObserverMutationForbidden,
                             line,
-                            "reassignment and field/index mutation (`=`) are forbidden in --pure-wave; use `let` bindings",
+                            "observer cannot mutate chamber view or bindings",
                         ));
                     }
-                    self.advance();
-                    let value = self.parse_expr()?;
-                    self.expect_line_end()?;
-                    let target = match lhs.kind {
-                        ExprKind::Ident(name) => AssignTarget::Ident(name),
-                        ExprKind::Field { base, name } => AssignTarget::Field { base, name },
-                        ExprKind::Index { base, index } => AssignTarget::Index { base, index },
-                        _ => {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ParseError,
-                                line,
-                                "invalid assignment target",
-                            ));
-                        }
-                    };
-                    if self.compat == CompatMode::V1 && !matches!(target, AssignTarget::Ident(_)) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "field/index assignment is not in --compat v1",
-                        ));
-                    }
-                    Ok(Stmt {
-                        kind: StmtKind::Assign { target, value },
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
                         line,
-                    })
-                } else {
-                    if self.compat == CompatMode::V1 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "unsupported statement in --compat v1; expected assignment, assert, emit or return",
-                        ));
-                    }
-                    self.expect_line_end()?;
-                    Ok(Stmt {
-                        kind: StmtKind::ExprStmt(lhs),
-                        line,
-                    })
+                        "imperative assignment / mutation is removed; use immutable 'let', 'walk', or 'settle'",
+                    ));
                 }
+                self.expect_line_end()?;
+                Ok(Stmt {
+                    kind: StmtKind::ExprStmt(lhs),
+                    line,
+                })
             }
         }
     }
 
     fn expect_line_end(&mut self) -> DecResult<()> {
+        if self.just_closed_block {
+            self.just_closed_block = false;
+            return Ok(());
+        }
         if self.check(&TokenKind::Newline) {
             self.advance();
             Ok(())
@@ -2341,34 +1469,129 @@ impl Parser {
     // ==================== Expressions ====================
 
     fn parse_expr(&mut self) -> DecResult<Expr> {
-        self.parse_ternary()
+        self.parse_pipe()
     }
 
-    fn parse_ternary(&mut self) -> DecResult<Expr> {
-        let yes = self.parse_or()?;
-        if self.check(&TokenKind::If) {
+    fn parse_pipe(&mut self) -> DecResult<Expr> {
+        let mut lhs = self.parse_or()?;
+        while self.check(&TokenKind::PipeGt) {
             let line = self.line();
-            if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "conditional `if ... else` expression is forbidden in --pure-wave; use `select(cond, a, b)`",
-                ));
-            }
             self.advance();
-            let cond = self.parse_or()?;
-            self.expect(&TokenKind::Else, "'else' in conditional expression")?;
-            let no = self.parse_ternary()?;
-            Ok(Expr {
-                kind: ExprKind::Ternary {
-                    cond: Box::new(cond),
-                    yes: Box::new(yes),
-                    no: Box::new(no),
+            let stage = self.parse_pipe_stage()?;
+            lhs = Expr {
+                kind: ExprKind::Pipe {
+                    input: Box::new(lhs),
+                    stage: Box::new(stage),
                 },
                 line,
-            })
-        } else {
-            Ok(yes)
+            };
+        }
+        Ok(lhs)
+    }
+
+    fn parse_pipe_stage(&mut self) -> DecResult<PipeStage> {
+        if let TokenKind::Adverb(op) = self.peek().kind {
+            self.advance();
+            return Ok(PipeStage::Adverb(op));
+        }
+        if self.check(&TokenKind::BoundaryOp) {
+            self.advance();
+            return Ok(PipeStage::Boundary);
+        }
+        // Check parenthesized operator section `(+ k)`, `(== -1t)`, `(min 0)`, etc.
+        if self.check(&TokenKind::LParen) {
+            if let Some(op) = self.peek_section_op_after_lparen() {
+                self.advance(); // consume '('
+                self.advance(); // consume operator token
+                let rhs = self.parse_expr()?;
+                self.expect(&TokenKind::RParen, "')' after pipeline operator section")?;
+                return Ok(PipeStage::Section { op, rhs });
+            }
+        }
+
+        // Otherwise parse `f` or `path::f` optionally followed by `(arg1, arg2, ...)`
+        let tok = self.peek().clone();
+        let line = tok.line;
+        let callee = match tok.kind {
+            TokenKind::Ident(first) => {
+                self.advance();
+                let mut segs = vec![first];
+                while self.check(&TokenKind::ColonColon) {
+                    self.advance();
+                    segs.push(self.expect_ident("path segment")?);
+                }
+                if segs.len() == 1 {
+                    Expr {
+                        kind: ExprKind::Ident(segs.into_iter().next().unwrap()),
+                        line,
+                    }
+                } else {
+                    Expr {
+                        kind: ExprKind::Path(segs),
+                        line,
+                    }
+                }
+            }
+            other => {
+                return Err(Diagnostic::at(
+                    DiagnosticCode::ParseError,
+                    tok.line,
+                    tok.col,
+                    format!("expected pipeline stage (adverb, section, or function), got {other:?}"),
+                ));
+            }
+        };
+
+        let mut extra_args = Vec::new();
+        if self.check(&TokenKind::LParen) {
+            self.advance();
+            while !self.check(&TokenKind::RParen) {
+                extra_args.push(self.parse_expr()?);
+                if self.check(&TokenKind::Comma) {
+                    self.advance();
+                    if self.check(&TokenKind::RParen) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            self.expect(&TokenKind::RParen, "')' in pipeline stage call")?;
+        }
+        Ok(PipeStage::Call { callee, extra_args })
+    }
+
+    fn peek_section_op_after_lparen(&self) -> Option<BinaryOp> {
+        match &self.peek_n(1).kind {
+            TokenKind::Plus => Some(BinaryOp::Add),
+            TokenKind::Minus => Some(BinaryOp::Sub),
+            TokenKind::Star => Some(BinaryOp::Mul),
+            TokenKind::Slash => Some(BinaryOp::Div),
+            TokenKind::SlashSlash => Some(BinaryOp::FloorDiv),
+            TokenKind::Percent => Some(BinaryOp::Mod),
+            TokenKind::EqEq => Some(BinaryOp::Eq),
+            TokenKind::NotEq => Some(BinaryOp::NotEq),
+            TokenKind::Lt => Some(BinaryOp::Lt),
+            TokenKind::LtEq => Some(BinaryOp::LtEq),
+            TokenKind::Gt => Some(BinaryOp::Gt),
+            TokenKind::GtEq => Some(BinaryOp::GtEq),
+            TokenKind::Cmp3 => Some(BinaryOp::Cmp3),
+            TokenKind::Amp => Some(BinaryOp::BitAnd),
+            TokenKind::Pipe => Some(BinaryOp::BitOr),
+            TokenKind::Caret => Some(BinaryOp::BitXor),
+            TokenKind::Shl => Some(BinaryOp::Shl),
+            TokenKind::Shr => Some(BinaryOp::Shr),
+            TokenKind::And => Some(BinaryOp::And),
+            TokenKind::Or => Some(BinaryOp::Or),
+            TokenKind::OuterAdd => Some(BinaryOp::OuterAdd),
+            TokenKind::OuterMul => Some(BinaryOp::OuterMul),
+            TokenKind::Ident(s) if s == "min" && self.peek_n(2).kind != TokenKind::LParen => {
+                Some(BinaryOp::Min)
+            }
+            TokenKind::Ident(s) if s == "max" && self.peek_n(2).kind != TokenKind::LParen => {
+                Some(BinaryOp::Max)
+            }
+            _ => None,
         }
     }
 
@@ -2421,12 +1644,30 @@ impl Parser {
                 line,
             })
         } else {
-            self.parse_compare()
+            self.parse_sieve()
         }
     }
 
+    fn parse_sieve(&mut self) -> DecResult<Expr> {
+        let mut lhs = self.parse_compare()?;
+        while self.check(&TokenKind::Sieve) {
+            let line = self.line();
+            self.advance();
+            let rhs = self.parse_compare()?;
+            lhs = Expr {
+                kind: ExprKind::Binary {
+                    op: BinaryOp::Sieve,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                },
+                line,
+            };
+        }
+        Ok(lhs)
+    }
+
     fn parse_compare(&mut self) -> DecResult<Expr> {
-        let lhs = self.parse_range()?;
+        let lhs = self.parse_outer()?;
         let op = match self.peek().kind {
             TokenKind::EqEq => Some(BinaryOp::Eq),
             TokenKind::NotEq => Some(BinaryOp::NotEq),
@@ -2434,12 +1675,13 @@ impl Parser {
             TokenKind::LtEq => Some(BinaryOp::LtEq),
             TokenKind::Gt => Some(BinaryOp::Gt),
             TokenKind::GtEq => Some(BinaryOp::GtEq),
+            TokenKind::Cmp3 => Some(BinaryOp::Cmp3),
             _ => None,
         };
         if let Some(op) = op {
             let line = self.line();
             self.advance();
-            let rhs = self.parse_range()?;
+            let rhs = self.parse_outer()?;
             if matches!(
                 self.peek().kind,
                 TokenKind::EqEq
@@ -2448,6 +1690,7 @@ impl Parser {
                     | TokenKind::LtEq
                     | TokenKind::Gt
                     | TokenKind::GtEq
+                    | TokenKind::Cmp3
             ) {
                 return Err(Diagnostic::at_line(
                     DiagnosticCode::ParseError,
@@ -2468,17 +1711,33 @@ impl Parser {
         }
     }
 
+    fn parse_outer(&mut self) -> DecResult<Expr> {
+        let mut lhs = self.parse_range()?;
+        loop {
+            let op = match self.peek().kind {
+                TokenKind::OuterAdd => BinaryOp::OuterAdd,
+                TokenKind::OuterMul => BinaryOp::OuterMul,
+                _ => break,
+            };
+            let line = self.line();
+            self.advance();
+            let rhs = self.parse_range()?;
+            lhs = Expr {
+                kind: ExprKind::Binary {
+                    op,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                },
+                line,
+            };
+        }
+        Ok(lhs)
+    }
+
     fn parse_range(&mut self) -> DecResult<Expr> {
         let lhs = self.parse_bitor()?;
         if self.check(&TokenKind::DotDot) {
             let line = self.line();
-            if self.compat == CompatMode::V1 {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ParseError,
-                    line,
-                    "range literals are not in --compat v1",
-                ));
-            }
             self.advance();
             let rhs = self.parse_bitor()?;
             Ok(Expr {
@@ -2548,12 +1807,41 @@ impl Parser {
     }
 
     fn parse_shift(&mut self) -> DecResult<Expr> {
-        let mut lhs = self.parse_add()?;
+        let mut lhs = self.parse_minmax()?;
         loop {
             let op = match self.peek().kind {
                 TokenKind::Shl => BinaryOp::Shl,
                 TokenKind::Shr => BinaryOp::Shr,
                 _ => break,
+            };
+            let line = self.line();
+            self.advance();
+            let rhs = self.parse_minmax()?;
+            lhs = Expr {
+                kind: ExprKind::Binary {
+                    op,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                },
+                line,
+            };
+        }
+        Ok(lhs)
+    }
+
+    fn parse_minmax(&mut self) -> DecResult<Expr> {
+        let mut lhs = self.parse_add()?;
+        loop {
+            let op = if self.check_ident_eq("min")
+                && !matches!(self.peek_n(1).kind, TokenKind::Colon | TokenKind::Eq)
+            {
+                BinaryOp::Min
+            } else if self.check_ident_eq("max")
+                && !matches!(self.peek_n(1).kind, TokenKind::Colon | TokenKind::Eq)
+            {
+                BinaryOp::Max
+            } else {
+                break;
             };
             let line = self.line();
             self.advance();
@@ -2635,6 +1923,12 @@ impl Parser {
             TokenKind::Minus => {
                 self.advance();
                 let operand = self.parse_unary()?;
+                if let ExprKind::TritLit(TritLiteral::PosOne) = operand.kind {
+                    return Ok(Expr {
+                        kind: ExprKind::TritLit(TritLiteral::NegOne),
+                        line,
+                    });
+                }
                 Ok(Expr {
                     kind: ExprKind::Unary {
                         op: UnaryOp::Neg,
@@ -2643,19 +1937,34 @@ impl Parser {
                     line,
                 })
             }
+            TokenKind::Tilde => {
+                self.advance();
+                let operand = self.parse_unary()?;
+                Ok(Expr {
+                    kind: ExprKind::Unary {
+                        op: UnaryOp::BitNot,
+                        operand: Box::new(operand),
+                    },
+                    line,
+                })
+            }
             TokenKind::BoundaryOp => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "boundary operator ∂ is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 let operand = self.parse_unary()?;
                 Ok(Expr {
                     kind: ExprKind::Unary {
                         op: UnaryOp::Boundary,
+                        operand: Box::new(operand),
+                    },
+                    line,
+                })
+            }
+            TokenKind::Adverb(op) => {
+                self.advance();
+                let operand = self.parse_unary()?;
+                Ok(Expr {
+                    kind: ExprKind::Adverb {
+                        op,
                         operand: Box::new(operand),
                     },
                     line,
@@ -2671,7 +1980,7 @@ impl Parser {
             let line = self.line();
             if self.check(&TokenKind::LParen) {
                 if let ExprKind::Ident(ref name) = expr.kind {
-                    if name == "box" && self.compat == CompatMode::V2 {
+                    if name == "box" {
                         self.advance();
                         let mut dims = Vec::new();
                         if self.check(&TokenKind::LBracket) {
@@ -2707,37 +2016,7 @@ impl Parser {
                 let mut args = Vec::new();
                 if !self.check(&TokenKind::RParen) {
                     loop {
-                        if matches!(&self.peek().kind, TokenKind::Ident(_))
-                            && self.peek_n(1).kind == TokenKind::Colon
-                        {
-                            if self.compat == CompatMode::V1 {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ParseError,
-                                    self.line(),
-                                    "named call arguments are not in --compat v1",
-                                ));
-                            }
-                            if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ParseError,
-                                    self.line(),
-                                    "named call arguments are forbidden in --pure-wave; use positional arguments",
-                                ));
-                            }
-                            let arg_name = self.expect_ident("named argument")?;
-                            self.advance();
-                            let val = self.parse_expr()?;
-                            args.push(CallArg {
-                                name: Some(arg_name),
-                                value: val,
-                            });
-                        } else {
-                            let val = self.parse_expr()?;
-                            args.push(CallArg {
-                                name: None,
-                                value: val,
-                            });
-                        }
+                        args.push(self.parse_expr()?);
                         if self.check(&TokenKind::Comma) {
                             self.advance();
                             if self.check(&TokenKind::RParen) {
@@ -2757,13 +2036,6 @@ impl Parser {
                     line,
                 };
             } else if self.check(&TokenKind::Dot) {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "field access is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 let field = self.expect_ident("field name")?;
                 expr = Expr {
@@ -2774,13 +2046,6 @@ impl Parser {
                     line,
                 };
             } else if self.check(&TokenKind::LBracket) {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "indexing is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 let index = self.parse_expr()?;
                 self.expect(&TokenKind::RBracket, "']'")?;
@@ -2803,13 +2068,6 @@ impl Parser {
         let line = tok.line;
         match tok.kind {
             TokenKind::Null => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`null` is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::NullLit,
@@ -2837,21 +2095,7 @@ impl Parser {
                     line,
                 })
             }
-            TokenKind::StrLit(s) => {
-                self.advance();
-                Ok(Expr {
-                    kind: ExprKind::StrLit(s),
-                    line,
-                })
-            }
             TokenKind::BytesLit(bs) => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "byte literals are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::BytesLit(bs),
@@ -2859,13 +2103,6 @@ impl Parser {
                 })
             }
             TokenKind::RatioLit(r) => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "ratio literals (a/br) are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::RatioLit(r),
@@ -2873,13 +2110,6 @@ impl Parser {
                 })
             }
             TokenKind::Addr8Lit(a) => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "octal anchor literals are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::Addr8Lit(a),
@@ -2887,13 +2117,6 @@ impl Parser {
                 })
             }
             TokenKind::SupportLit(sf) => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "support literals are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::SupportLit(sf),
@@ -2901,27 +2124,14 @@ impl Parser {
                 })
             }
             TokenKind::TritLit(t) => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "trit literals (0t/1t/0_H/0_D) are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 Ok(Expr {
                     kind: ExprKind::TritLit(t),
                     line,
                 })
             }
+            TokenKind::Match => self.parse_match_expr(),
             TokenKind::Simulate => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "`simulate` is not in --compat v1",
-                    ));
-                }
                 self.advance();
                 let prepare = self.expect_ident("prepare name")?;
                 let mut observers = Vec::new();
@@ -2936,7 +2146,9 @@ impl Parser {
                         }
                     }
                 }
-                self.expect(&TokenKind::For, "'for'")?;
+                if self.check_ident_eq("over") || self.check_ident_eq("for") {
+                    self.advance();
+                }
                 let ticks = self.parse_expr()?;
                 if self.check_ident_eq("ticks") {
                     self.advance();
@@ -2944,7 +2156,7 @@ impl Parser {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::ParseError,
                         self.line(),
-                        "expected `ticks` after simulate count",
+                        "expected `ticks` after simulate count (e.g. `simulate Prep over 12 ticks`)",
                     ));
                 }
                 if self.check_ident_eq("with") {
@@ -2969,82 +2181,43 @@ impl Parser {
             }
             TokenKind::Ident(first) => {
                 self.advance();
-                if first == "map"
-                    && self.check(&TokenKind::LBracket)
-                    && (self.discipline == SyntaxDiscipline::PureWaveV2
-                        || matches!(
-                            self.peek_n(1).kind,
-                            TokenKind::RBracket | TokenKind::LParen
-                        ))
-                {
-                    if self.compat == CompatMode::V1 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "map literals are not in --compat v1",
-                        ));
-                    }
+                // Map literal: `map[(k1, v1), ...]` or `map[k1: v1, ...]` or `map[]`
+                if first == "map" && self.check(&TokenKind::LBracket) {
                     self.advance();
                     let mut entries = Vec::new();
                     while !self.check(&TokenKind::RBracket) {
-                        self.expect(&TokenKind::LParen, "'(' for `(key, val)` pair in `map[...]` literal")?;
-                        let k = self.parse_expr()?;
-                        self.expect(&TokenKind::Comma, "',' in `(key, val)` pair in `map[...]` literal")?;
-                        let v = self.parse_expr()?;
-                        self.expect(&TokenKind::RParen, "')' after `(key, val)` pair in `map[...]` literal")?;
-                        entries.push((k, v));
+                        if self.check(&TokenKind::LParen) {
+                            self.advance();
+                            let k = self.parse_expr()?;
+                            self.expect(&TokenKind::Comma, "',' in map[(k, v)] entry")?;
+                            let v = self.parse_expr()?;
+                            self.expect(&TokenKind::RParen, "')' in map[(k, v)] entry")?;
+                            entries.push((k, v));
+                        } else {
+                            let k = self.parse_expr()?;
+                            self.expect(&TokenKind::Colon, "':' in map[k: v] entry")?;
+                            let v = self.parse_expr()?;
+                            entries.push((k, v));
+                        }
                         if self.check(&TokenKind::Comma) {
                             self.advance();
+                            if self.check(&TokenKind::RBracket) {
+                                break;
+                            }
                         } else {
                             break;
                         }
                     }
-                    self.expect(&TokenKind::RBracket, "']' in `map[...]` literal")?;
+                    self.expect(&TokenKind::RBracket, "']' in map literal")?;
                     return Ok(Expr {
                         kind: ExprKind::MapLit(entries),
                         line,
                     });
                 }
                 let mut segs = vec![first];
-                if self.check(&TokenKind::ColonColon) {
-                    if self.compat == CompatMode::V1 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "module/enum paths are not in --compat v1",
-                        ));
-                    }
-                    while self.check(&TokenKind::ColonColon) {
-                        self.advance();
-                        segs.push(self.expect_ident("path segment")?);
-                    }
-                }
-                if self.check(&TokenKind::LBrace) {
-                    if self.compat == CompatMode::V1 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "struct literals are not in --compat v1",
-                        ));
-                    }
+                while self.check(&TokenKind::ColonColon) {
                     self.advance();
-                    let mut fields = Vec::new();
-                    while !self.check(&TokenKind::RBrace) {
-                        let fname = self.expect_ident("struct field name")?;
-                        self.expect(&TokenKind::Colon, "':' in struct literal")?;
-                        let val = self.parse_expr()?;
-                        fields.push((fname, val));
-                        if self.check(&TokenKind::Comma) {
-                            self.advance();
-                        } else {
-                            break;
-                        }
-                    }
-                    self.expect(&TokenKind::RBrace, "'}' in struct literal")?;
-                    return Ok(Expr {
-                        kind: ExprKind::StructLit { path: segs, fields },
-                        line,
-                    });
+                    segs.push(self.expect_ident("path segment")?);
                 }
                 if segs.len() == 1 {
                     Ok(Expr {
@@ -3058,43 +2231,9 @@ impl Parser {
                     })
                 }
             }
-            TokenKind::LBrace => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "map literals are not in --compat v1",
-                    ));
-                }
-                self.advance();
-                let mut entries = Vec::new();
-                while !self.check(&TokenKind::RBrace) {
-                    let k = self.parse_expr()?;
-                    self.expect(&TokenKind::Colon, "':' in map literal")?;
-                    let v = self.parse_expr()?;
-                    entries.push((k, v));
-                    if self.check(&TokenKind::Comma) {
-                        self.advance();
-                    } else {
-                        break;
-                    }
-                }
-                self.expect(&TokenKind::RBrace, "'}' in map literal")?;
-                Ok(Expr {
-                    kind: ExprKind::MapLit(entries),
-                    line,
-                })
-            }
             TokenKind::LParen => {
                 self.advance();
                 if self.check(&TokenKind::RParen) {
-                    if self.discipline == SyntaxDiscipline::PureWaveV2 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "unit value `()` is forbidden in pure-wave Dec v2; use `null` (`Null`)",
-                        ));
-                    }
                     self.advance();
                     return Ok(Expr {
                         kind: ExprKind::Tuple(Vec::new()),
@@ -3103,13 +2242,6 @@ impl Parser {
                 }
                 let e1 = self.parse_expr()?;
                 if self.check(&TokenKind::Comma) {
-                    if self.compat == CompatMode::V1 {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            line,
-                            "tuples and window literals are not in --compat v1",
-                        ));
-                    }
                     self.advance();
                     let e2 = self.parse_expr()?;
                     if self.check(&TokenKind::RBracket) {
@@ -3141,26 +2273,22 @@ impl Parser {
                 }
             }
             TokenKind::LBracket => {
-                if self.compat == CompatMode::V1 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ParseError,
-                        line,
-                        "list literals are not in --compat v1",
-                    ));
-                }
                 self.advance();
                 let mut items = Vec::new();
                 while !self.check(&TokenKind::RBracket) {
                     items.push(self.parse_expr()?);
                     if self.check(&TokenKind::Comma) {
                         self.advance();
+                        if self.check(&TokenKind::RBracket) {
+                            break;
+                        }
                     } else {
                         break;
                     }
                 }
                 self.expect(&TokenKind::RBracket, "']'")?;
                 Ok(Expr {
-                    kind: ExprKind::List(items),
+                    kind: ExprKind::SeqLit(items),
                     line,
                 })
             }
@@ -3170,6 +2298,72 @@ impl Parser {
                 tok.col,
                 format!("unexpected token in expression: {other:?}"),
             )),
+        }
+    }
+
+    fn parse_match_expr(&mut self) -> DecResult<Expr> {
+        let line = self.line();
+        self.expect(&TokenKind::Match, "'match'")?;
+        let scrutinee = self.parse_expr()?;
+        self.expect(&TokenKind::Colon, "':' after match scrutinee")?;
+        self.expect(&TokenKind::Newline, "newline after match header")?;
+        self.expect(&TokenKind::Indent, "indented match arms")?;
+        self.skip_newlines();
+        let mut arms = Vec::new();
+        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+            let aline = self.line();
+            let pattern = self.parse_pattern()?;
+            let guard = if self.check(&TokenKind::Where) {
+                self.advance();
+                Some(self.parse_expr()?)
+            } else {
+                None
+            };
+            if self.check(&TokenKind::Arrow) || self.check(&TokenKind::Colon) {
+                self.advance();
+            } else {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::ParseError,
+                    aline,
+                    "expected '->' after match pattern",
+                ));
+            }
+            let body = self.parse_expr()?;
+            self.expect_line_end()?;
+            self.skip_newlines();
+            arms.push(MatchExprArm {
+                pattern,
+                guard,
+                body,
+                line: aline,
+            });
+        }
+        self.expect(&TokenKind::Dedent, "dedent after match")?;
+        self.just_closed_block = true;
+        if arms.is_empty() {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::ParseError,
+                line,
+                "match expression requires at least one arm",
+            ));
+        }
+        Ok(Expr {
+            kind: ExprKind::Match {
+                scrutinee: Box::new(scrutinee),
+                arms,
+            },
+            line,
+        })
+    }
+}
+
+fn promote_tail_return(body: &mut [Stmt], return_type: &TypeExpr) {
+    if matches!(return_type, TypeExpr::Unit) {
+        return;
+    }
+    if let Some(last) = body.last_mut() {
+        if let StmtKind::ExprStmt(ref expr) = last.kind {
+            last.kind = StmtKind::Return(Some(expr.clone()));
         }
     }
 }

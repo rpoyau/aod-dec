@@ -1,8 +1,7 @@
 # Negative Control nc05 — Counting origin j = 0 inside (-1, 1] as a beat MUST fail assertion!
 use stdlib::aod::wavelet::count_cuts_window
 
-dec main:
-    () -> int:
-        let w = count_cuts_window([0, 6], -1, 1)
-        assert w.beats == 1
-        return 0
+dec main() -> int:
+    let w = count_cuts_window([0, 6], -1, 1)
+    assert w.beats == 1
+    0

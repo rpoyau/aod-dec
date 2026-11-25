@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-//! Phase D1 (`aod.dec.audit.v1`) Live-Walk Scanner & 6-Hook Native `.dec` Auditor (`P0-7`, `P1-2`).
+//! Live-Walk Scanner & 6-Hook Native `.dec` Auditor (`aod.dec.audit.v1`).
 //!
 //! Pure `aod-core` + `aodc` AST/typecheck pass (`#![forbid(unsafe_code)]`, zero floats,
 //! zero `aod_llvm` dependency, zero host paths/timestamps in portable JSON reports).
@@ -14,14 +14,14 @@ use aod_core::ratio::Ratio;
 use aod_core::s4_report::sanitize_error;
 use aod_core::sha256::Sha256;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, Q4, T1, T32, T9};
+use aod_core::ternary::{Addr8, Q4, T1};
 
 use crate::ast::{
-    AssignTarget, BinaryOp, DecFnDecl, DecFnKind, Expr, ExprKind, Item, Pattern, ProbeDecl,
-    Program, Stmt, StmtKind, TritLiteral, UnaryOp,
+    BinaryOp, DecArmParam, DecFnDecl, Expr, ExprKind, Item, LetPattern, Pattern, PipeStage,
+    ProbeDecl, Program, Stmt, StmtKind, TritLiteral, UnaryOp,
 };
 use crate::checker::check_unit;
-use crate::diagnostics::{CompatMode, DiagnosticCode};
+use crate::diagnostics::DiagnosticCode;
 use crate::modules::{load_from_source_with_options, LoadOptions};
 
 pub const DEC_AUDIT_SCHEMA: &str = "aod.dec.audit.v1";
@@ -69,11 +69,24 @@ impl LiveWalkSummary {
     }
 }
 
+fn addr8_from_u64_min2(mut val: u64) -> Addr8 {
+    let mut rev = Vec::new();
+    while val > 0 {
+        rev.push((val & 7) as u8);
+        val >>= 3;
+    }
+    while rev.len() < 2 {
+        rev.push(0);
+    }
+    rev.reverse();
+    Addr8::from_digits(rev).expect("valid octal digits 0..7")
+}
+
 /// Live-walk byte scanner starting at `00_8` (`[0, 0]`), monotonically burning dwell across
 /// consecutive whitespace, structural delimiters, and `# ... \n` comments without resetting,
-/// and advancing the retained octal anchor only on non-zero role boundary crossings (`P0-7`).
+/// and advancing the retained octal anchor only on non-zero role boundary crossings.
 pub fn lex_live_walk(src: &[u8]) -> LiveWalkSummary {
-    let initial_anchor = Addr8::from_u64_min2(0);
+    let initial_anchor = addr8_from_u64_min2(0);
     let mut anchor_val: u64 = 0;
     let mut prev_role = T1::ZERO;
     let mut dwell_burned: u64 = 0;
@@ -109,7 +122,7 @@ pub fn lex_live_walk(src: &[u8]) -> LiveWalkSummary {
 
     LiveWalkSummary {
         initial_anchor,
-        final_anchor: Addr8::from_u64_min2(anchor_val),
+        final_anchor: addr8_from_u64_min2(anchor_val),
         committed_crossings,
         dwell_burned,
     }
@@ -264,8 +277,7 @@ pub fn audit_dec_source_with_options(
     source: &str,
     source_name: &str,
     base_dir: Option<&Path>,
-    compat: CompatMode,
-    opts: LoadOptions,
+    opts: &LoadOptions,
 ) -> DecAuditReport {
     let raw_bytes = source.as_bytes();
     let live_walk = lex_live_walk(raw_bytes);
@@ -273,7 +285,7 @@ pub fn audit_dec_source_with_options(
 
     let mut acc = AuditState::default();
 
-    match load_from_source_with_options(source, base_dir, compat, &opts) {
+    match load_from_source_with_options(source, base_dir, opts) {
         Err(diag) => {
             let msg = sanitize_error(&diag.to_string(), &[]);
             acc.errors.push(msg.clone());
@@ -371,14 +383,11 @@ impl AuditState {
 #[derive(Clone, Debug)]
 enum FoldVal {
     Int(BigInt),
-    U8(u8),
+    B8(u8),
     B64(u64),
     T1(T1),
-    T9(T9),
-    T32(T32),
     Q4(Q4),
     Bool(bool),
-    Str(String),
     Bytes(Vec<u8>),
     Ratio(Ratio),
     Support(SupportForm),
@@ -406,6 +415,13 @@ fn is_unclosed_trace_expr(expr: &Expr, env: &ConstEnv) -> bool {
             callee_leaf_name(callee),
             Some("trace" | "step" | "hinge" | "dwell" | "outer" | "fuse")
         ),
+        ExprKind::Pipe { stage, .. } => match stage.as_ref() {
+            PipeStage::Call { callee, .. } => matches!(
+                callee_leaf_name(callee),
+                Some("trace" | "step" | "hinge" | "dwell" | "outer" | "fuse")
+            ),
+            _ => false,
+        },
         _ => false,
     }
 }
@@ -417,14 +433,16 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
     match &expr.kind {
         ExprKind::IntLit(n) => Some(FoldVal::Int(n.clone())),
         ExprKind::BoolLit(b) => Some(FoldVal::Bool(*b)),
-        ExprKind::StrLit(s) => Some(FoldVal::Str(s.clone())),
         ExprKind::BytesLit(bs) => Some(FoldVal::Bytes(bs.clone())),
         ExprKind::RatioLit(r) => Some(FoldVal::Ratio(r.clone())),
         ExprKind::SupportLit(sf) => Some(FoldVal::Support(sf.clone())),
-        ExprKind::TritLit(TritLiteral::One) => Some(FoldVal::T1(T1::POS)),
-        ExprKind::TritLit(TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D) => {
-            Some(FoldVal::T1(T1::ZERO))
-        }
+        ExprKind::TritLit(tl) => match tl {
+            TritLiteral::NegOne => Some(FoldVal::T1(T1::NEG)),
+            TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D => {
+                Some(FoldVal::T1(T1::ZERO))
+            }
+            TritLiteral::PosOne => Some(FoldVal::T1(T1::POS)),
+        },
         ExprKind::Ident(name) => env.get(name).cloned(),
         ExprKind::Range { start, end } => match (fold_expr(start, env)?, fold_expr(end, env)?) {
             (FoldVal::Int(s), FoldVal::Int(e)) => Some(FoldVal::Range(s, e)),
@@ -441,7 +459,7 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
             }
             Some(FoldVal::Tuple(out))
         }
-        ExprKind::List(items) | ExprKind::ArrayLit(items) => {
+        ExprKind::SeqLit(items) => {
             let mut out = Vec::with_capacity(items.len());
             for it in items {
                 out.push(fold_expr(it, env)?);
@@ -459,8 +477,6 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
                 (UnaryOp::Pos, x) => Some(x),
                 (UnaryOp::Neg, FoldVal::Int(n)) => Some(FoldVal::Int(-n)),
                 (UnaryOp::Neg, FoldVal::T1(t)) => Some(FoldVal::T1(t.checked_neg())),
-                (UnaryOp::Neg, FoldVal::T9(t)) => Some(FoldVal::T9(t.checked_neg())),
-                (UnaryOp::Neg, FoldVal::T32(t)) => t.checked_neg().ok().map(FoldVal::T32),
                 (UnaryOp::Neg, FoldVal::Ratio(r)) => Some(FoldVal::Ratio(-r)),
                 (UnaryOp::Not, FoldVal::Bool(b)) => Some(FoldVal::Bool(!b)),
                 _ => None,
@@ -491,90 +507,75 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
                 _ => None,
             }
         }
-        ExprKind::Call { callee, args } if args.iter().all(|a| a.name.is_none()) => {
+        ExprKind::Call { callee, args } => {
             let leaf = callee_leaf_name(callee)?;
             let mut fargs = Vec::with_capacity(args.len());
             for a in args {
-                fargs.push(fold_expr(&a.value, env)?);
+                fargs.push(fold_expr(a, env)?);
             }
-            match (leaf, fargs.as_slice()) {
-                ("u8", [FoldVal::Int(n)]) => {
-                    n.to_u64().and_then(|v| u8::try_from(v).ok()).map(FoldVal::U8)
-                }
-                ("u8", [FoldVal::U8(b)]) => Some(FoldVal::U8(*b)),
-                ("u8", [FoldVal::Q4(q)]) => Some(FoldVal::U8(q.value())),
-                ("int", [FoldVal::Int(n)]) => Some(FoldVal::Int(n.clone())),
-                ("int", [FoldVal::U8(b)]) => Some(FoldVal::Int(BigInt::from_u64(*b as u64))),
-                ("int", [FoldVal::B64(w)]) => Some(FoldVal::Int(BigInt::from_u64(*w))),
-                ("int", [FoldVal::T1(t)]) => Some(FoldVal::Int(BigInt::from_i64(t.value() as i64))),
-                ("int", [FoldVal::T9(t)]) => Some(FoldVal::Int(BigInt::from_i64(t.value() as i64))),
-                ("int", [FoldVal::T32(t)]) => Some(FoldVal::Int(BigInt::from_i128(t.value()))),
-                ("int", [FoldVal::Q4(q)]) => Some(FoldVal::Int(BigInt::from_u64(q.value() as u64))),
-                ("b64", [FoldVal::Int(n)]) => n.to_u64().map(FoldVal::B64),
-                ("b64", [FoldVal::B64(w)]) => Some(FoldVal::B64(*w)),
-                ("t1", [FoldVal::Int(n)]) => T1::from_bigint(n).ok().map(FoldVal::T1),
-                ("t1", [FoldVal::T1(t)]) => Some(FoldVal::T1(*t)),
-                ("t9", [FoldVal::Int(n)]) => T9::from_bigint(n).ok().map(FoldVal::T9),
-                ("t9", [FoldVal::T9(t)]) => Some(FoldVal::T9(*t)),
-                ("t32", [FoldVal::Int(n)]) => T32::from_bigint(n).ok().map(FoldVal::T32),
-                ("t32", [FoldVal::T32(t)]) => Some(FoldVal::T32(*t)),
-                ("q4", [FoldVal::Int(n)]) => Q4::from_bigint(n).ok().map(FoldVal::Q4),
-                ("q4", [FoldVal::Q4(q)]) => Some(FoldVal::Q4(*q)),
-                ("abs", [FoldVal::Int(n)]) => Some(FoldVal::Int(n.abs())),
-                ("abs", [FoldVal::T1(t)]) => Some(FoldVal::T1(t.abs())),
-                ("abs", [FoldVal::T9(t)]) => Some(FoldVal::T9(t.abs())),
-                ("abs", [FoldVal::T32(t)]) => Some(FoldVal::T32(t.abs())),
-                ("abs", [FoldVal::Ratio(r)]) => Some(FoldVal::Ratio(r.abs())),
-                ("min", [FoldVal::Int(a), FoldVal::Int(b)]) => {
-                    Some(FoldVal::Int(a.min(b).clone()))
-                }
-                ("max", [FoldVal::Int(a), FoldVal::Int(b)]) => {
-                    Some(FoldVal::Int(a.max(b).clone()))
-                }
-                ("min", [FoldVal::Ratio(a), FoldVal::Ratio(b)]) => {
-                    Some(FoldVal::Ratio(a.min(b).clone()))
-                }
-                ("max", [FoldVal::Ratio(a), FoldVal::Ratio(b)]) => {
-                    Some(FoldVal::Ratio(a.max(b).clone()))
-                }
-                ("gcd", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.gcd(b))),
-                ("lcm", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.lcm(b))),
-                ("pow", [FoldVal::Int(a), FoldVal::Int(b)]) => {
-                    a.checked_pow_bigint(b).ok().map(FoldVal::Int)
-                }
-                ("pow", [FoldVal::Ratio(a), FoldVal::Int(b)]) => {
-                    a.checked_pow_bigint(b).ok().map(FoldVal::Ratio)
-                }
-                ("num", [FoldVal::Ratio(r)]) => Some(FoldVal::Int(r.num().clone())),
-                ("den", [FoldVal::Ratio(r)]) => Some(FoldVal::Int(r.den().clone())),
-                ("ratio", [FoldVal::Int(a), FoldVal::Int(b)]) => {
-                    Ratio::new(a.clone(), b.clone()).ok().map(FoldVal::Ratio)
-                }
-                ("ratio", [FoldVal::Int(a)]) => Some(FoldVal::Ratio(Ratio::from_int(a.clone()))),
-                ("support", [FoldVal::Str(s)]) => SupportForm::parse(s).ok().map(FoldVal::Support),
-                ("support", [FoldVal::Bytes(bs)]) => std::str::from_utf8(bs)
-                    .ok()
-                    .and_then(|s| SupportForm::parse(s).ok())
-                    .map(FoldVal::Support),
-                (
-                    "support",
-                    [FoldVal::Int(p), FoldVal::Int(q), FoldVal::Int(l), FoldVal::Bool(y)],
-                ) => SupportForm::new(p.clone(), q.clone(), l.clone(), *y)
-                    .ok()
-                    .map(FoldVal::Support),
-                ("proton_support", []) => SupportForm::parse("3:3:6").ok().map(FoldVal::Support),
-                ("electron_support", []) => SupportForm::parse("1:2:6").ok().map(FoldVal::Support),
-                ("saddle_337_support", []) => {
-                    SupportForm::parse("3:3:7_yro").ok().map(FoldVal::Support)
-                }
-                ("shedding_excess", [FoldVal::Int(pd), FoldVal::Int(cc)]) => {
-                    SupportForm::shedding_audit(pd, cc)
-                        .ok()
-                        .map(|r| FoldVal::Int(r.x_shedding))
-                }
-                _ => None,
-            }
+            fold_call_leaf(leaf, &fargs)
         }
+        _ => None,
+    }
+}
+
+fn fold_call_leaf(leaf: &str, fargs: &[FoldVal]) -> Option<FoldVal> {
+    match (leaf, fargs) {
+        ("b8", [FoldVal::Int(n)]) => n.to_u64().and_then(|v| u8::try_from(v).ok()).map(FoldVal::B8),
+        ("b8", [FoldVal::B8(b)]) => Some(FoldVal::B8(*b)),
+        ("b8", [FoldVal::Q4(q)]) => Some(FoldVal::B8(q.value())),
+        ("b8", [FoldVal::Bool(b)]) => Some(FoldVal::B8(u8::from(*b))),
+        ("int", [FoldVal::Int(n)]) => Some(FoldVal::Int(n.clone())),
+        ("int", [FoldVal::B8(b)]) => Some(FoldVal::Int(BigInt::from_u64(*b as u64))),
+        ("int", [FoldVal::B64(w)]) => Some(FoldVal::Int(BigInt::from_u64(*w))),
+        ("int", [FoldVal::T1(t)]) => Some(FoldVal::Int(BigInt::from_i64(t.value() as i64))),
+        ("int", [FoldVal::Q4(q)]) => Some(FoldVal::Int(BigInt::from_u64(q.value() as u64))),
+        ("b64" | "b64_bits", [FoldVal::Int(n)]) => n.to_u64().map(FoldVal::B64),
+        ("b64", [FoldVal::B64(w)]) => Some(FoldVal::B64(*w)),
+        ("t1", [FoldVal::Int(n)]) => T1::from_bigint(n).ok().map(FoldVal::T1),
+        ("t1", [FoldVal::T1(t)]) => Some(FoldVal::T1(*t)),
+        ("q4", [FoldVal::Int(n)]) => Q4::from_bigint(n).ok().map(FoldVal::Q4),
+        ("q4", [FoldVal::Q4(q)]) => Some(FoldVal::Q4(*q)),
+        ("abs", [FoldVal::Int(n)]) => Some(FoldVal::Int(n.abs())),
+        ("abs", [FoldVal::T1(t)]) => Some(FoldVal::T1(if t.value() < 0 { T1::POS } else { *t })),
+        ("abs", [FoldVal::Ratio(r)]) => Some(FoldVal::Ratio(r.abs())),
+        ("min", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.min(b).clone())),
+        ("max", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.max(b).clone())),
+        ("min", [FoldVal::Ratio(a), FoldVal::Ratio(b)]) => Some(FoldVal::Ratio(a.min(b).clone())),
+        ("max", [FoldVal::Ratio(a), FoldVal::Ratio(b)]) => Some(FoldVal::Ratio(a.max(b).clone())),
+        ("gcd", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.gcd(b))),
+        ("lcm", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.lcm(b))),
+        ("pow", [FoldVal::Int(a), FoldVal::Int(b)]) => {
+            a.checked_pow_bigint(b).ok().map(FoldVal::Int)
+        }
+        ("pow", [FoldVal::Ratio(a), FoldVal::Int(b)]) => {
+            a.checked_pow_bigint(b).ok().map(FoldVal::Ratio)
+        }
+        ("num", [FoldVal::Ratio(r)]) => Some(FoldVal::Int(r.num().clone())),
+        ("den", [FoldVal::Ratio(r)]) => Some(FoldVal::Int(r.den().clone())),
+        ("ratio", [FoldVal::Int(a), FoldVal::Int(b)]) => {
+            Ratio::new(a.clone(), b.clone()).ok().map(FoldVal::Ratio)
+        }
+        ("ratio", [FoldVal::Int(a)]) => Some(FoldVal::Ratio(Ratio::from_int(a.clone()))),
+        ("support", [FoldVal::Bytes(bs)]) => std::str::from_utf8(bs)
+            .ok()
+            .and_then(|s| SupportForm::parse(s).ok())
+            .map(FoldVal::Support),
+        (
+            "support",
+            [FoldVal::Int(p), FoldVal::Int(q), FoldVal::Int(l), FoldVal::Bool(y)],
+        ) => SupportForm::new(p.clone(), q.clone(), l.clone(), *y)
+            .ok()
+            .map(FoldVal::Support),
+        ("proton_support", []) => SupportForm::parse("3:3:6").ok().map(FoldVal::Support),
+        ("electron_support", []) => SupportForm::parse("1:2:6").ok().map(FoldVal::Support),
+        ("saddle_337_support", []) => SupportForm::parse("3:3:7_yro").ok().map(FoldVal::Support),
+        ("shedding_excess", [FoldVal::Int(pd), FoldVal::Int(cc)]) => {
+            SupportForm::shedding_audit(pd, cc)
+                .ok()
+                .map(|r| FoldVal::Int(r.x_shedding))
+        }
+        ("array", items) => Some(FoldVal::Seq(items.to_vec())),
         _ => None,
     }
 }
@@ -586,6 +587,15 @@ fn has_non_pass_stmt(stmts: &[Stmt]) -> bool {
 fn audit_program(prog: &Program, is_entry: bool, acc: &mut AuditState) {
     let mut top_env = ConstEnv::new();
     let mut dec_fn_count = 0usize;
+
+    for item in &prog.items {
+        if let Item::Struct(sd) = item {
+            acc.struct_fields.insert(
+                sd.name.clone(),
+                sd.fields.iter().map(|(n, _)| n.clone()).collect(),
+            );
+        }
+    }
 
     for item in &prog.items {
         match item {
@@ -642,8 +652,11 @@ fn audit_program(prog: &Program, is_entry: bool, acc: &mut AuditState) {
                         ProbeDecl::Declarative { region, .. } => {
                             audit_expr(region, false, &top_env, acc);
                         }
-                        ProbeDecl::Procedural { body, .. } => {
+                        ProbeDecl::Procedural {
+                            param_name, body, ..
+                        } => {
                             let mut p_env = top_env.clone();
+                            p_env.remove(param_name);
                             for s in body {
                                 audit_stmt(s, &mut p_env, acc);
                             }
@@ -669,83 +682,52 @@ fn audit_program(prog: &Program, is_entry: bool, acc: &mut AuditState) {
                     }
                 }
             }
-            Item::Struct(sd) => {
-                acc.struct_fields.insert(
-                    sd.name.clone(),
-                    sd.fields.iter().map(|(n, _)| n.clone()).collect(),
-                );
-            }
-            Item::Enum(_) | Item::Use(_) => {}
+            Item::Struct(_) | Item::Enum(_) | Item::Use(_) => {}
         }
     }
 
     if is_entry && dec_fn_count == 0 {
         acc.spine_audit
-            .record("entry module declares zero Dec functions");
+            .record("entry module declares zero dec functions");
     }
 }
 
 fn audit_dec_fn(fd: &DecFnDecl, top_env: &ConstEnv, acc: &mut AuditState) {
-    match &fd.kind {
-        DecFnKind::SingleArm {
-            params,
-            has_arrow,
-            body,
-            ..
-        } => {
-            if !has_arrow {
-                acc.spine_audit.record(format!(
-                    "line {}: Dec {} missing explicit `->` structural hinge",
-                    fd.line, fd.name
-                ));
-            }
-            if !has_non_pass_stmt(body) {
-                acc.spine_audit.record(format!(
-                    "line {}: Dec {} has empty or pass-only body",
-                    fd.line, fd.name
-                ));
-            }
-            let mut env = top_env.clone();
-            for p in params {
-                env.remove(&p.name);
-            }
-            for s in body {
-                audit_stmt(s, &mut env, acc);
+    if fd.arms.is_empty() {
+        acc.spine_audit.record(format!(
+            "line {}: dec {} declares zero pattern arms",
+            fd.line, fd.name
+        ));
+    }
+    for arm in &fd.arms {
+        if !arm.has_arrow {
+            acc.spine_audit.record(format!(
+                "line {}: dec {} missing explicit `->` structural hinge",
+                arm.line, fd.name
+            ));
+        }
+        if !has_non_pass_stmt(&arm.body) {
+            acc.spine_audit.record(format!(
+                "line {}: dec {} arm has empty or pass-only body",
+                arm.line, fd.name
+            ));
+        }
+        let mut env = top_env.clone();
+        for p in &arm.params {
+            match p {
+                DecArmParam::TypedVar { name, .. } => {
+                    env.remove(name);
+                }
+                DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+                    audit_pattern(pattern, arm.line, &mut env, acc);
+                }
             }
         }
-        DecFnKind::MultiArm { arms, .. } => {
-            if arms.is_empty() {
-                acc.spine_audit.record(format!(
-                    "line {}: Dec {} declares zero pattern arms",
-                    fd.line, fd.name
-                ));
-            }
-            for arm in arms {
-                if !has_non_pass_stmt(&arm.body) {
-                    acc.spine_audit.record(format!(
-                        "line {}: Dec {} arm has empty or pass-only body",
-                        arm.line, fd.name
-                    ));
-                }
-                let mut env = top_env.clone();
-                for p in &arm.params {
-                    match p {
-                        crate::ast::DecArmParam::TypedVar { name, .. } => {
-                            env.remove(name);
-                        }
-                        crate::ast::DecArmParam::TypedPattern { pattern, .. }
-                        | crate::ast::DecArmParam::Pattern(pattern) => {
-                            audit_pattern(pattern, arm.line, &mut env, acc);
-                        }
-                    }
-                }
-                if let Some(ref g) = arm.guard {
-                    audit_expr(g, false, &env, acc);
-                }
-                for s in &arm.body {
-                    audit_stmt(s, &mut env, acc);
-                }
-            }
+        if let Some(ref g) = arm.guard {
+            audit_expr(g, false, &env, acc);
+        }
+        for s in &arm.body {
+            audit_stmt(s, &mut env, acc);
         }
     }
 }
@@ -772,98 +754,41 @@ fn audit_pattern(pat: &Pattern, line: usize, env: &mut ConstEnv, acc: &mut Audit
 
 fn audit_stmt(stmt: &Stmt, env: &mut ConstEnv, acc: &mut AuditState) {
     match &stmt.kind {
-        StmtKind::Let { name, value, .. } => {
+        StmtKind::Let { pattern, value, .. } => {
             audit_expr(value, false, env, acc);
-            if let Some(fv) = fold_expr(value, env) {
-                env.insert(name.clone(), fv);
-            } else {
-                env.remove(name);
-            }
-        }
-        StmtKind::LetTuple { elems, value, .. } => {
-            audit_expr(value, false, env, acc);
-            match fold_expr(value, env) {
-                Some(FoldVal::Tuple(items)) if items.len() == elems.len() => {
-                    for (el, fv) in elems.iter().zip(items) {
-                        if el.name != "_" {
-                            env.insert(el.name.clone(), fv);
+            match pattern {
+                LetPattern::Single(name) => {
+                    if name != "_" {
+                        if let Some(fv) = fold_expr(value, env) {
+                            env.insert(name.clone(), fv);
+                        } else {
+                            env.remove(name);
                         }
                     }
                 }
-                _ => {
-                    for el in elems {
-                        if el.name != "_" {
-                            env.remove(&el.name);
+                LetPattern::Tuple(elems) => match fold_expr(value, env) {
+                    Some(FoldVal::Tuple(items)) if items.len() == elems.len() => {
+                        for ((n, _), fv) in elems.iter().zip(items) {
+                            if n != "_" {
+                                env.insert(n.clone(), fv);
+                            }
                         }
                     }
-                }
+                    _ => {
+                        for (n, _) in elems {
+                            if n != "_" {
+                                env.remove(n);
+                            }
+                        }
+                    }
+                },
             }
-        }
-        StmtKind::Mut { name, value, .. } | StmtKind::TypedLocal { name, value, .. } => {
-            audit_expr(value, false, env, acc);
-            env.remove(name);
-        }
-        StmtKind::Assign { target, value } => {
-            match target {
-                AssignTarget::Ident(name) => {
-                    env.remove(name);
-                }
-                AssignTarget::Field { base, .. } => audit_expr(base, false, env, acc),
-                AssignTarget::Index { base, index } => {
-                    audit_expr(base, false, env, acc);
-                    audit_expr(index, false, env, acc);
-                }
-            }
-            audit_expr(value, false, env, acc);
         }
         StmtKind::Assert(e) | StmtKind::Emit(e) | StmtKind::ExprStmt(e) => {
             audit_expr(e, false, env, acc);
         }
         StmtKind::Return(Some(e)) => audit_expr(e, false, env, acc),
-        StmtKind::Return(None) | StmtKind::Break | StmtKind::Continue | StmtKind::Pass => {}
-        StmtKind::If {
-            cond,
-            then_body,
-            elifs,
-            else_body,
-        } => {
-            audit_expr(cond, false, env, acc);
-            let mut t_env = env.clone();
-            for s in then_body {
-                audit_stmt(s, &mut t_env, acc);
-            }
-            for (ec, eb) in elifs {
-                audit_expr(ec, false, env, acc);
-                let mut e_env = env.clone();
-                for s in eb {
-                    audit_stmt(s, &mut e_env, acc);
-                }
-            }
-            let mut f_env = env.clone();
-            for s in else_body {
-                audit_stmt(s, &mut f_env, acc);
-            }
-        }
-        StmtKind::Match { scrutinee, arms } => {
-            audit_expr(scrutinee, false, env, acc);
-            for arm in arms {
-                let mut a_env = env.clone();
-                audit_pattern(&arm.pattern, arm.line, &mut a_env, acc);
-                if let Some(ref g) = arm.guard {
-                    audit_expr(g, false, &a_env, acc);
-                }
-                for s in &arm.body {
-                    audit_stmt(s, &mut a_env, acc);
-                }
-            }
-        }
-        StmtKind::For { iter, body, .. } | StmtKind::While { cond: iter, body } => {
-            audit_expr(iter, false, env, acc);
-            let mut l_env = env.clone();
-            for s in body {
-                audit_stmt(s, &mut l_env, acc);
-            }
-        }
+        StmtKind::Return(None) | StmtKind::Pass => {}
         StmtKind::QuarantineBlock { body } => {
             let mut q_env = env.clone();
             for s in body {
@@ -912,7 +837,7 @@ fn audit_expr(expr: &Expr, negated: bool, env: &ConstEnv, acc: &mut AuditState) 
                 }
             }
         }
-        ExprKind::List(items) | ExprKind::ArrayLit(items) | ExprKind::Tuple(items) => {
+        ExprKind::SeqLit(items) | ExprKind::Tuple(items) => {
             for it in items {
                 audit_expr(it, false, env, acc);
             }
@@ -923,39 +848,12 @@ fn audit_expr(expr: &Expr, negated: bool, env: &ConstEnv, acc: &mut AuditState) 
                 audit_expr(v, false, env, acc);
             }
         }
-        ExprKind::StructLit { path, fields } => {
-            for (_, fe) in fields {
-                audit_expr(fe, false, env, acc);
-            }
-            if path.last().is_some_and(|s| s == "DoubleSlitBin") {
-                let mut t0_opt = None;
-                let mut cx_opt = None;
-                let mut tx_opt = None;
-                for (fnm, fe) in fields {
-                    if let Some(FoldVal::Int(v)) = fold_expr(fe, env) {
-                        match fnm.as_str() {
-                            "t0" => t0_opt = Some(v),
-                            "cx" => cx_opt = Some(v),
-                            "tx" => tx_opt = Some(v),
-                            _ => {}
-                        }
-                    }
-                }
-                if let (Some(t0), Some(cx), Some(tx)) = (t0_opt, cx_opt, tx_opt) {
-                    if &(&tx - &t0) != &cx {
-                        acc.frg_audit.record(format!(
-                            "line {}: DoubleSlitBin violates FRG identity tx - t0 == cx ({tx} - {t0} != {cx})",
-                            expr.line
-                        ));
-                    }
-                }
-            }
-        }
         ExprKind::Simulate { ticks, .. } => audit_expr(ticks, false, env, acc),
         ExprKind::Unary { op, operand } => {
             let child_negated = matches!(op, UnaryOp::Not) && !negated;
             audit_expr(operand, child_negated, env, acc);
         }
+        ExprKind::Adverb { operand, .. } => audit_expr(operand, false, env, acc),
         ExprKind::Field { base, .. } => audit_expr(base, false, env, acc),
         ExprKind::Binary { op, left, right } => {
             let left_neg = (*op == BinaryOp::Eq
@@ -971,19 +869,42 @@ fn audit_expr(expr: &Expr, negated: bool, env: &ConstEnv, acc: &mut AuditState) 
             audit_expr(base, false, env, acc);
             audit_expr(index, false, env, acc);
         }
-        ExprKind::Ternary { cond, yes, no } => {
-            audit_expr(cond, false, env, acc);
-            audit_expr(yes, false, env, acc);
-            audit_expr(no, false, env, acc);
+        ExprKind::Match { scrutinee, arms } => {
+            audit_expr(scrutinee, false, env, acc);
+            for arm in arms {
+                let mut a_env = env.clone();
+                audit_pattern(&arm.pattern, arm.line, &mut a_env, acc);
+                if let Some(ref g) = arm.guard {
+                    audit_expr(g, false, &a_env, acc);
+                }
+                audit_expr(&arm.body, false, &a_env, acc);
+            }
         }
         ExprKind::Call { callee, args } => {
             audit_expr(callee, false, env, acc);
             for a in args {
-                audit_expr(&a.value, false, env, acc);
+                audit_expr(a, false, env, acc);
             }
-            if args.iter().all(|a| a.name.is_none()) {
-                if let Some(leaf) = callee_leaf_name(callee) {
-                    audit_call(leaf, args, expr.line, negated, env, acc);
+            if let Some(leaf) = callee_leaf_name(callee) {
+                audit_call(leaf, args, expr.line, negated, env, acc);
+            }
+        }
+        ExprKind::Pipe { input, stage } => {
+            audit_expr(input, false, env, acc);
+            match stage.as_ref() {
+                PipeStage::Adverb(_) | PipeStage::Boundary => {}
+                PipeStage::Section { rhs, .. } => audit_expr(rhs, false, env, acc),
+                PipeStage::Call { callee, extra_args } => {
+                    audit_expr(callee, false, env, acc);
+                    for a in extra_args {
+                        audit_expr(a, false, env, acc);
+                    }
+                    if let Some(leaf) = callee_leaf_name(callee) {
+                        let mut eff_args = Vec::with_capacity(1 + extra_args.len());
+                        eff_args.push((**input).clone());
+                        eff_args.extend(extra_args.iter().cloned());
+                        audit_call(leaf, &eff_args, expr.line, negated, env, acc);
+                    }
                 }
             }
         }
@@ -993,7 +914,7 @@ fn audit_expr(expr: &Expr, negated: bool, env: &ConstEnv, acc: &mut AuditState) 
 
 fn audit_call(
     leaf: &str,
-    args: &[crate::ast::CallArg],
+    args: &[Expr],
     line: usize,
     negated: bool,
     env: &ConstEnv,
@@ -1002,9 +923,9 @@ fn audit_call(
     match leaf {
         // Hook 3 (`sadar_audit`, §5.17.3): `c3 > 0`, `rho >= 0`, `|att| <= 1`, forward + reverse == 0/1r
         "sadar_promote" | "sadar_from_clipped" if args.len() == 3 => {
-            let c3_f = fold_expr(&args[0].value, env);
-            let rho_f = fold_expr(&args[1].value, env);
-            let att_f = fold_expr(&args[2].value, env);
+            let c3_f = fold_expr(&args[0], env);
+            let rho_f = fold_expr(&args[1], env);
+            let att_f = fold_expr(&args[2], env);
             if let Some(FoldVal::Int(ref c3)) = c3_f {
                 if !c3.is_positive() {
                     acc.sadar_audit
@@ -1052,28 +973,28 @@ fn audit_call(
             }
         }
         "scoped_channel_flux" if args.len() == 4 => {
-            if let Some(FoldVal::Int(c3)) = fold_expr(&args[0].value, env) {
+            if let Some(FoldVal::Int(c3)) = fold_expr(&args[0], env) {
                 if !c3.is_positive() {
                     acc.sadar_audit.record(format!(
                         "line {line}: scoped_channel_flux requires c3 > 0, got {c3}"
                     ));
                 }
             }
-            if let Some(FoldVal::Int(rho)) = fold_expr(&args[1].value, env) {
+            if let Some(FoldVal::Int(rho)) = fold_expr(&args[1], env) {
                 if rho.is_negative() {
                     acc.sadar_audit.record(format!(
                         "line {line}: scoped_channel_flux requires rho >= 0, got {rho}"
                     ));
                 }
             }
-            if let Some(FoldVal::Int(win_len)) = fold_expr(&args[2].value, env) {
+            if let Some(FoldVal::Int(win_len)) = fold_expr(&args[2], env) {
                 if win_len.is_negative() {
                     acc.sadar_audit.record(format!(
                         "line {line}: scoped_channel_flux requires win_len >= 0, got {win_len}"
                     ));
                 }
             }
-            if let Some(FoldVal::Ratio(att)) = fold_expr(&args[3].value, env) {
+            if let Some(FoldVal::Ratio(att)) = fold_expr(&args[3], env) {
                 if att.abs() > Ratio::one() {
                     acc.sadar_audit.record(format!(
                         "line {line}: scoped_channel_flux requires |att| <= 1, got {}",
@@ -1086,14 +1007,8 @@ fn audit_call(
         // Hook 4 (`sheddic_path_audit`, §5.17.5): `_yro` support parity + even sheddic route
         "support" => {
             if args.len() == 1 {
-                match fold_expr(&args[0].value, env) {
-                    Some(FoldVal::Str(s)) => {
-                        if let Err(e) = SupportForm::parse(&s) {
-                            acc.sheddic_path_audit
-                                .record(format!("line {line}: support({s:?}) failed _yro audit: {e}"));
-                        }
-                    }
-                    Some(FoldVal::Bytes(bs)) => match std::str::from_utf8(&bs) {
+                if let Some(FoldVal::Bytes(bs)) = fold_expr(&args[0], env) {
+                    match std::str::from_utf8(&bs) {
                         Ok(s) => {
                             if let Err(e) = SupportForm::parse(s) {
                                 acc.sheddic_path_audit.record(format!(
@@ -1102,12 +1017,10 @@ fn audit_call(
                             }
                         }
                         Err(_) => {
-                            acc.sheddic_path_audit.record(format!(
-                                "line {line}: support(bytes) received invalid UTF-8"
-                            ));
+                            acc.sheddic_path_audit
+                                .record(format!("line {line}: support(bytes) received invalid UTF-8"));
                         }
-                    },
-                    _ => {}
+                    }
                 }
             } else if args.len() == 4 {
                 if let (
@@ -1116,10 +1029,10 @@ fn audit_call(
                     Some(FoldVal::Int(l)),
                     Some(FoldVal::Bool(yro)),
                 ) = (
-                    fold_expr(&args[0].value, env),
-                    fold_expr(&args[1].value, env),
-                    fold_expr(&args[2].value, env),
-                    fold_expr(&args[3].value, env),
+                    fold_expr(&args[0], env),
+                    fold_expr(&args[1], env),
+                    fold_expr(&args[2], env),
+                    fold_expr(&args[3], env),
                 ) {
                     if let Err(e) = SupportForm::new(p, q, l, yro) {
                         acc.sheddic_path_audit
@@ -1129,12 +1042,12 @@ fn audit_call(
             }
         }
         "verify_sheddic_route" | "audit_sheddic_route" if !negated && args.len() == 2 => {
-            let xs_opt = match fold_expr(&args[0].value, env) {
+            let xs_opt = match fold_expr(&args[0], env) {
                 Some(FoldVal::Int(n)) => Some(n),
                 _ => None,
             };
-            let enc_opt = match fold_expr(&args[1].value, env) {
-                Some(FoldVal::U8(b)) => Some(b),
+            let enc_opt = match fold_expr(&args[1], env) {
+                Some(FoldVal::B8(b)) => Some(b),
                 Some(FoldVal::Int(n)) => n.to_u64().and_then(|v| u8::try_from(v).ok()),
                 _ => None,
             };
@@ -1149,7 +1062,7 @@ fn audit_call(
 
         // Hook 5 (`cycle_audit`, §5.17.7): DAG order `C_f[p:q]` before `RD` (`h_mu >= 1` & `close(...)` before `rate/beats/phases`)
         "support_rd" if args.len() == 2 => {
-            if let Some(FoldVal::Int(h_mu)) = fold_expr(&args[1].value, env) {
+            if let Some(FoldVal::Int(h_mu)) = fold_expr(&args[1], env) {
                 if !h_mu.is_positive() {
                     acc.cycle_audit.record(format!(
                         "line {line}: support_rd requires h_mu >= 1, got {h_mu}"
@@ -1158,7 +1071,7 @@ fn audit_call(
             }
         }
         "support_pressure" | "support_overhang" if args.len() == 4 => {
-            if let Some(FoldVal::Int(h_mu)) = fold_expr(&args[2].value, env) {
+            if let Some(FoldVal::Int(h_mu)) = fold_expr(&args[2], env) {
                 if !h_mu.is_positive() {
                     acc.cycle_audit.record(format!(
                         "line {line}: {leaf} requires h_mu >= 1, got {h_mu}"
@@ -1167,7 +1080,7 @@ fn audit_call(
             }
         }
         "rate" | "beats" | "phases" if args.len() == 1 => {
-            if is_unclosed_trace_expr(&args[0].value, env) {
+            if is_unclosed_trace_expr(&args[0], env) {
                 acc.cycle_audit.record(format!(
                     "line {line}: {leaf}(...) called on unclosed trace prior to close(...)"
                 ));
@@ -1193,7 +1106,7 @@ fn audit_call(
                 let mut cx_opt = None;
                 let mut tx_opt = None;
                 for (fname, arg) in field_names.iter().zip(args) {
-                    if let Some(FoldVal::Int(v)) = fold_expr(&arg.value, env) {
+                    if let Some(FoldVal::Int(v)) = fold_expr(arg, env) {
                         match fname.as_str() {
                             "t0" => t0_opt = Some(v),
                             "cx" => cx_opt = Some(v),
@@ -1217,9 +1130,9 @@ fn audit_call(
                 Some(FoldVal::Int(tx)),
                 Some(FoldVal::Int(cx)),
             ) = (
-                fold_expr(&args[0].value, env),
-                fold_expr(&args[1].value, env),
-                fold_expr(&args[2].value, env),
+                fold_expr(&args[0], env),
+                fold_expr(&args[1], env),
+                fold_expr(&args[2], env),
             ) {
                 if &(&tx - &t0) != &cx {
                     acc.frg_audit.record(format!(
@@ -1234,9 +1147,9 @@ fn audit_call(
                 Some(FoldVal::Int(cx)),
                 Some(FoldVal::Int(ob)),
             ) = (
-                fold_expr(&args[1].value, env),
-                fold_expr(&args[2].value, env),
-                fold_expr(&args[3].value, env),
+                fold_expr(&args[1], env),
+                fold_expr(&args[2], env),
+                fold_expr(&args[3], env),
             ) {
                 let t0 = &s + &s;
                 let tx = &t0 + &cx;
@@ -1247,12 +1160,13 @@ fn audit_call(
                 }
             }
         }
-        // Higher-order AFC scope & sequence callbacks (`P1-2`, `AC-13`)
+
+        // Higher-order AFC scope & sequence callbacks
         "evolve" | "scan" | "fold_seq" if args.len() == 3 || args.len() == 4 => {
-            if let Some(cb_leaf) = callee_leaf_name(&args[2].value) {
-                let init_fv = fold_expr(&args[0].value, env);
-                let env_fv = args.get(3).and_then(|a| fold_expr(&a.value, env));
-                let elems = fold_iter_elems(&args[1].value, env);
+            if let Some(cb_leaf) = callee_leaf_name(&args[2]) {
+                let init_fv = fold_expr(&args[0], env);
+                let env_fv = args.get(3).and_then(|a| fold_expr(a, env));
+                let elems = fold_iter_elems(&args[1], env);
                 if let Some(mut cur_s) = init_fv {
                     for el in elems {
                         let mut cb_args = vec![cur_s.clone(), el];
@@ -1269,13 +1183,33 @@ fn audit_call(
                 }
             }
         }
+        "fold" if args.len() == 3 => {
+            if let Some(cb_leaf) = callee_leaf_name(&args[2]) {
+                if let Some(mut cur_s) = fold_expr(&args[1], env) {
+                    for el in fold_iter_elems(&args[0], env) {
+                        let cb_args = vec![cur_s.clone(), el];
+                        audit_folded_builtin(cb_leaf, &cb_args, line, acc);
+                        if let Some(next_s) = fold_builtin_step(cb_leaf, &cb_args) {
+                            cur_s = next_s;
+                        }
+                    }
+                }
+            }
+        }
+        "each" if args.len() == 2 => {
+            if let Some(cb_leaf) = callee_leaf_name(&args[1]) {
+                for el in fold_iter_elems(&args[0], env) {
+                    audit_folded_builtin(cb_leaf, &[el], line, acc);
+                }
+            }
+        }
         "map_seq" | "filter_seq" | "tabulate" | "count" | "any" | "all"
             if args.len() == 2 || args.len() == 3 =>
         {
-            if let Some(cb_leaf) = callee_leaf_name(&args[1].value) {
-                let env_fv = args.get(2).and_then(|a| fold_expr(&a.value, env));
+            if let Some(cb_leaf) = callee_leaf_name(&args[1]) {
+                let env_fv = args.get(2).and_then(|a| fold_expr(a, env));
                 if args.len() == 2 || env_fv.is_some() {
-                    for el in fold_iter_elems(&args[0].value, env) {
+                    for el in fold_iter_elems(&args[0], env) {
                         let mut cb_args = vec![el];
                         if let Some(ref efv) = env_fv {
                             cb_args.push(efv.clone());
@@ -1292,7 +1226,7 @@ fn audit_call(
 fn fold_iter_elems(src: &Expr, env: &ConstEnv) -> Vec<FoldVal> {
     match fold_expr(src, env) {
         Some(FoldVal::Seq(items)) => items,
-        Some(FoldVal::Bytes(bs)) => bs.into_iter().map(FoldVal::U8).collect(),
+        Some(FoldVal::Bytes(bs)) => bs.into_iter().map(FoldVal::B8).collect(),
         Some(FoldVal::Range(a, b)) => {
             if let (Some(ai), Some(bi)) = (a.to_i64(), b.to_i64()) {
                 if ai < bi {
@@ -1334,12 +1268,7 @@ fn fold_builtin_step(cb_leaf: &str, cb_args: &[FoldVal]) -> Option<FoldVal> {
     }
 }
 
-fn audit_folded_builtin(
-    cb_leaf: &str,
-    cb_args: &[FoldVal],
-    line: usize,
-    acc: &mut AuditState,
-) {
+fn audit_folded_builtin(cb_leaf: &str, cb_args: &[FoldVal], line: usize, acc: &mut AuditState) {
     match (cb_leaf, cb_args) {
         ("sadar_promote" | "sadar_from_clipped", [c3_f, rho_f, att_f]) => {
             if let FoldVal::Int(c3) = c3_f {
@@ -1363,12 +1292,6 @@ fn audit_folded_builtin(
                 }
             }
         }
-        ("support", [FoldVal::Str(s)]) => {
-            if let Err(e) = SupportForm::parse(s) {
-                acc.sheddic_path_audit
-                    .record(format!("line {line}: support({s:?}) failed _yro audit: {e}"));
-            }
-        }
         ("support", [FoldVal::Bytes(bs)]) => match std::str::from_utf8(bs) {
             Ok(s) => {
                 if let Err(e) = SupportForm::parse(s) {
@@ -1389,7 +1312,7 @@ fn audit_folded_builtin(
         }
         ("verify_sheddic_route" | "audit_sheddic_route", [FoldVal::Int(xs), enc_fv]) => {
             let enc_opt = match enc_fv {
-                FoldVal::U8(b) => Some(*b),
+                FoldVal::B8(b) => Some(*b),
                 FoldVal::Int(n) => n.to_u64().and_then(|v| u8::try_from(v).ok()),
                 _ => None,
             };

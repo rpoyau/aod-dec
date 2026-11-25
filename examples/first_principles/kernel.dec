@@ -1,65 +1,65 @@
 use aod::core:
-    int, u8, b64, t1, t32, q4, ratio, popcnt_xor, min, max, select, verify_sheddic_route
+    int, b8, b64, b64_bits, u64_int, t1, q4, ratio, popcnt_xor, min, max, select, verify_sheddic_route
 
 struct SyscallGate:
-    nr: t32
+    nr: int
     arg1: b64
     arg2: b64
     arg3: b64
-    ret_click: t32
+    ret_click: int
 
 dec ring_syscall:
-    (nr: t32, a1: b64, a2: b64, a3: b64) -> SyscallGate:
-        let lane_sum = ((int((a1 & b64(255))) + int((a2 & b64(255)))) + int((a3 & b64(255))))
-        let y_click = (nr + t32(lane_sum))
+    (nr: int, a1: b64, a2: b64, a3: b64) -> SyscallGate:
+        let lane_sum = ((u64_int((a1 & b64_bits(255))) + u64_int((a2 & b64_bits(255)))) + u64_int((a3 & b64_bits(255))))
+        let y_click = (nr + lane_sum)
         return SyscallGate(nr, a1, a2, a3, y_click)
 
 dec neg_t32:
-    (wave: t32) -> t32:
+    (wave: int) -> int:
         let raw = b64(wave)
-        let lo = ((raw & b64(6148914691236517205)) << 1)
-        let hi = ((raw & b64(12297829382473034410)) >> 1)
-        return t32((lo | hi))
+        let lo = ((raw & b64_bits(6148914691236517205)) << 1)
+        let hi = ((raw & b64_bits(12297829382473034410)) >> 1)
+        return int((lo | hi))
 
 dec step_walk:
-    (v_curr: q4, _v_next: q4, t1(0), _dwell_m: t32) -> (q4, t1, u8):
-        return (v_curr, 0t, u8(0))
-    (v_curr: q4, v_next: q4, sigma: t1, t32(0)) -> (q4, t1, u8):
+    (v_curr: q4, _v_next: q4, 0t, _dwell_m: int) -> (q4, t1, b8):
+        return (v_curr, 0t, b8(0))
+    (v_curr: q4, v_next: q4, sigma: t1, 0) -> (q4, t1, b8):
         assert (popcnt_xor(v_curr, v_next) == 1)
-        return (v_next, -sigma, u8(1))
+        return (v_next, -sigma, b8(1))
 
 dec hinge_slide:
-    (w_neg1: t32, w_neg2: t32, t32(0), w_pos: t32) -> (ratio, ratio, t32):
+    (w_neg1: int, w_neg2: int, 0, w_pos: int) -> (ratio, ratio, int):
         let z_slide = ((w_neg1 + w_neg2) + w_pos)
-        assert (z_slide > t32(0))
-        return (ratio(int((w_neg1 + w_neg2)), int(z_slide)), ratio(int(w_pos), int(z_slide)), z_slide)
+        assert (z_slide > 0)
+        return (ratio((w_neg1 + w_neg2), z_slide), ratio(w_pos, z_slide), z_slide)
 
 dec audit_shedding:
-    (rd_support: t32, window_w: t32, c_close: t32, target_path: u8) -> (t32, t32, t32, t32, u8):
+    (rd_support: int, window_w: int, c_close: int, target_path: b8) -> (int, int, int, int, b8):
         let rho_w = min(rd_support, window_w)
-        let q_d = (t32(3) * max(t32(0), (rd_support - window_w)))
-        let p_d = (t32(3) * rho_w)
-        let x_shed = max(t32(0), (p_d - c_close))
-        let path_out = select((x_shed > t32(0)), target_path, u8(0))
-        assert verify_sheddic_route(int(x_shed), path_out)
+        let q_d = (3 * max(0, (rd_support - window_w)))
+        let p_d = (3 * rho_w)
+        let x_shed = max(0, (p_d - c_close))
+        let path_out = select((x_shed > 0), target_path, b8(0))
+        assert verify_sheddic_route(x_shed, path_out)
         return (rho_w, p_d, q_d, x_shed, path_out)
 
 dec main:
     () -> int:
-        let gate = ring_syscall(t32(1), b64(16), b64(32), b64(4))
-        assert (gate.ret_click == t32(53))
-        assert (neg_t32(t32(40)) == t32(-40))
-        assert (neg_t32(t32(-40)) == t32(40))
-        let (v_dwell, s_dwell, c_dwell) = step_walk(q4(2), q4(3), 0t, t32(3))
-        let (v_step, s_step, c_step) = step_walk(q4(2), q4(3), 1t, t32(0))
-        assert (((v_dwell == q4(2)) and (s_dwell == 0t)) and (c_dwell == u8(0)))
-        assert (((v_step == q4(3)) and (s_step == t1(-1))) and (c_step == u8(1)))
-        let (p_ret, p_out, z_sl) = hinge_slide(t32(3), t32(3), t32(0), t32(1))
-        assert (((p_ret == 6/7r) and (p_out == 1/7r)) and (z_sl == t32(7)))
-        let (rho_w, p_d, q_d, x_shed, path_out) = audit_shedding(t32(61), t32(9), t32(24), u8(6))
-        assert (((((rho_w == t32(9)) and (p_d == t32(27))) and (q_d == t32(156))) and (x_shed == t32(3))) and (path_out == u8(6)))
+        let gate = ring_syscall(1, b64_bits(16), b64_bits(32), b64_bits(4))
+        assert (gate.ret_click == 53)
+        assert (neg_t32(40) == -40)
+        assert (neg_t32(-40) == 40)
+        let (v_dwell, s_dwell, c_dwell) = step_walk(q4(2), q4(3), 0t, 3)
+        let (v_step, s_step, c_step) = step_walk(q4(2), q4(3), 1t, 0)
+        assert (((v_dwell == q4(2)) and (s_dwell == 0t)) and (c_dwell == b8(0)))
+        assert (((v_step == q4(3)) and (s_step == -1t)) and (c_step == b8(1)))
+        let (p_ret, p_out, z_sl) = hinge_slide(3, 3, 0, 1)
+        assert (((p_ret == 6/7r) and (p_out == 1/7r)) and (z_sl == 7))
+        let (rho_w, p_d, q_d, x_shed, path_out) = audit_shedding(61, 9, 24, b8(6))
+        assert (((((rho_w == 9) and (p_d == 27)) and (q_d == 156)) and (x_shed == 3)) and (path_out == b8(6)))
         emit gate.ret_click
-        emit neg_t32(t32(40))
+        emit neg_t32(40)
         emit (v_step, s_step, c_step)
         emit p_ret
         emit (q_d, x_shed, path_out)

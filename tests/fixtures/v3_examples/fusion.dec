@@ -1,0 +1,17 @@
+# The inner closures propose a fold. The outer trace must itself return.
+dec recur(t: trace) -> trace:
+    let t1 = step(t, q4(1), +1t)
+    let t2 = hinge(t1)
+    let t3 = step(t2, q4(0), -1t)
+    close(t3)
+
+dec main() -> int:
+    let a = recur(trace(b"inner", b"a", q4(0)))
+    let b = recur(trace(b"inner", b"b", q4(0)))
+    let proposal = fold(a, b, b"outer", b"ab")
+    let c0 = outer(proposal, q4(0))
+    let c1 = recur(c0)
+    let c = close(fuse(proposal, c1))
+    assert phases(c) == 1
+    emit c
+    0

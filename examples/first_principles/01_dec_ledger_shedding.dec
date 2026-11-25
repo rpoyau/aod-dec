@@ -1,27 +1,27 @@
 use aod::core:
-    int, u8, t1, t9, t32, q4, ratio, popcnt_xor, min, max, pow, select, verify_sheddic_route
+    int, b8, t1, q4, ratio, num, den, popcnt_xor, min, max, pow, select, verify_sheddic_route
 
 use aod::ledger::sadar_promote
 
 struct ScopeB:
-    boundary_id: u8
-    window_w: t32
-    c3: t32
+    boundary_id: b8
+    window_w: int
+    c3: int
 
 struct DecRow:
-    b_id: u8
+    b_id: b8
     v: q4
-    edge: u8
+    edge: b8
     ve: q4
     sigma: t1
-    adm: u8
-    w: t32
+    adm: b8
+    w: int
     p: ratio
-    route: u8
+    route: b8
 
 struct DecNode4:
-    rows: array[DecRow, 4]
-    z_norm: t32
+    rows: [DecRow; 4]
+    z_norm: int
     p_neg: ratio
     p_zero: ratio
     p_pos: ratio
@@ -30,124 +30,124 @@ struct SlidePool3:
     s1: DecRow
     s2: DecRow
     s3_tunnel: DecRow
-    z_slide: t32
+    z_slide: int
     p_returned: ratio
     p_outgoing: ratio
 
 struct TunnelRecord:
-    adm_direct_hinge: u8
+    adm_direct_hinge: b8
     p_tunnel: ratio
-    rd_s: t32
-    window_s: t32
-    rho_w_s: t32
-    c3_s: t32
-    p_d_s: t32
+    rd_s: int
+    window_s: int
+    rho_w_s: int
+    c3_s: int
+    p_d_s: int
     t_tunnel: ratio
 
 struct MotifSupport:
-    p_arg: t9
-    q_arg: t9
-    pi_support: t32
-    h_hinge: t32
-    rd: t32
+    p_arg: int
+    q_arg: int
+    pi_support: int
+    h_hinge: int
+    rd: int
 
 struct SheddingAuditRow:
-    p_arg: t9
-    q_arg: t9
-    l_window: t32
-    is_yro: u8
-    rd: t32
-    rho_w: t32
-    q_overhang: t32
-    p_d: t32
-    c_close: t32
-    delta_close: t32
-    x_shedding: t32
-    sheddic_path: u8
+    p_arg: int
+    q_arg: int
+    l_window: int
+    is_yro: b8
+    rd: int
+    rho_w: int
+    q_overhang: int
+    p_d: int
+    c_close: int
+    delta_close: int
+    x_shedding: int
+    sheddic_path: b8
     tau_miss_exact: ratio
 
 dec build_dec_row:
-    (b: ScopeB, v: q4, edge: u8, ve: q4, sigma: t1, u8(1), w_in: t32, route_in: u8) -> DecRow:
+    (b: ScopeB, v: q4, edge: b8, ve: q4, sigma: t1, b8(1), w_in: int, route_in: b8) -> DecRow:
         assert (popcnt_xor(v, ve) == 1)
-        return DecRow(b.boundary_id, v, edge, ve, sigma, u8(1), w_in, ratio(int(w_in), 1), route_in)
-    (b: ScopeB, v: q4, edge: u8, ve: q4, sigma: t1, u8(0), _w_in: t32, _route_in: u8) -> DecRow:
+        return DecRow(b.boundary_id, v, edge, ve, sigma, b8(1), w_in, ratio(w_in, 1), route_in)
+    (b: ScopeB, v: q4, edge: b8, ve: q4, sigma: t1, b8(0), _w_in: int, _route_in: b8) -> DecRow:
         assert (popcnt_xor(v, ve) == 1)
-        return DecRow(b.boundary_id, v, edge, ve, sigma, u8(0), t32(0), 0/1r, u8(0))
+        return DecRow(b.boundary_id, v, edge, ve, sigma, b8(0), 0, 0/1r, b8(0))
 
 dec build_dec_node4:
     (r0: DecRow, r1: DecRow, r2: DecRow, r3: DecRow) -> DecNode4:
         let z = (((r0.w + r1.w) + r2.w) + r3.w)
-        assert (z > t32(0))
-        return DecNode4([r0, r1, r2, r3], z, ratio(int((r0.w + r1.w)), int(z)), ratio(int(r2.w), int(z)), ratio(int(r3.w), int(z)))
+        assert (z > 0)
+        return DecNode4([r0, r1, r2, r3], z, ratio((r0.w + r1.w), z), ratio(r2.w, z), ratio(r3.w, z))
 
 dec hinge_slide:
-    (b: ScopeB, v: q4, u8(0), w1_neg: t32, w2_neg: t32, w3_pos: t32) -> SlidePool3:
+    (b: ScopeB, v: q4, b8(0), w1_neg: int, w2_neg: int, w3_pos: int) -> SlidePool3:
         let z_slide = ((w1_neg + w2_neg) + w3_pos)
-        assert (z_slide > t32(0))
-        let s1 = DecRow(b.boundary_id, v, u8(1), (v ^ q4(1)), t1(-1), u8(1), w1_neg, ratio(int(w1_neg), int(z_slide)), u8(1))
-        let s2 = DecRow(b.boundary_id, v, u8(2), (v ^ q4(2)), t1(-1), u8(1), w2_neg, ratio(int(w2_neg), int(z_slide)), u8(1))
-        let s3 = DecRow(b.boundary_id, v, u8(3), (v ^ q4(4)), 1t, u8(1), w3_pos, ratio(int(w3_pos), int(z_slide)), u8(4))
-        return SlidePool3(s1, s2, s3, z_slide, ratio(int((w1_neg + w2_neg)), int(z_slide)), ratio(int(w3_pos), int(z_slide)))
+        assert (z_slide > 0)
+        let s1 = DecRow(b.boundary_id, v, b8(1), (v ^ q4(1)), -1t, b8(1), w1_neg, ratio(w1_neg, z_slide), b8(1))
+        let s2 = DecRow(b.boundary_id, v, b8(2), (v ^ q4(2)), -1t, b8(1), w2_neg, ratio(w2_neg, z_slide), b8(1))
+        let s3 = DecRow(b.boundary_id, v, b8(3), (v ^ q4(4)), 1t, b8(1), w3_pos, ratio(w3_pos, z_slide), b8(4))
+        return SlidePool3(s1, s2, s3, z_slide, ratio((w1_neg + w2_neg), z_slide), ratio(w3_pos, z_slide))
 
 dec field_tunnel_clip:
-    (pool: SlidePool3, rd_s: t32, window_s: t32, c3_s: t32) -> TunnelRecord:
+    (pool: SlidePool3, rd_s: int, window_s: int, c3_s: int) -> TunnelRecord:
         let rho_w_s = min(rd_s, window_s)
         let p_d_s = (c3_s * rho_w_s)
         let p_tun = pool.s3_tunnel.p
-        let t_tun = ratio((p_tun.num * int(p_d_s)), p_tun.den)
-        return TunnelRecord(u8(0), p_tun, rd_s, window_s, rho_w_s, c3_s, p_d_s, t_tun)
+        let t_tun = ratio((num(p_tun) * p_d_s), den(p_tun))
+        return TunnelRecord(b8(0), p_tun, rd_s, window_s, rho_w_s, c3_s, p_d_s, t_tun)
 
 dec promote_sadar_pair:
-    (rho_w: t32, c3: t32, a_12: ratio) -> (t32, ratio, ratio):
-        let promoted = sadar_promote(int(rho_w), int(c3), a_12)
+    (rho_w: int, c3: int, a_12: ratio) -> (int, ratio, ratio):
+        let promoted = sadar_promote(c3, rho_w, a_12)
         let p_d = (c3 * rho_w)
-        let sadar_12 = ratio((int(p_d) * a_12.num), a_12.den)
+        let sadar_12 = ratio((p_d * num(a_12)), den(a_12))
         assert (promoted == sadar_12)
         return (p_d, sadar_12, -sadar_12)
 
 dec build_motif_support:
-    (p_arg: t9, q_arg: t9, t32(1)) -> MotifSupport:
-        let pi_val = (pow(t32(q_arg), int(p_arg)) + t32(q_arg))
-        let rd_val = ((t32(2) * pi_val) + t32(1))
-        return MotifSupport(p_arg, q_arg, pi_val, t32(1), rd_val)
+    (p_arg: int, q_arg: int, 1) -> MotifSupport:
+        let pi_val = (pow(q_arg, p_arg) + q_arg)
+        let rd_val = ((2 * pi_val) + 1)
+        return MotifSupport(p_arg, q_arg, pi_val, 1, rd_val)
 
 dec audit_short_window:
-    (b: ScopeB, sup: MotifSupport, c_close: t32, target_path: u8, m_miss: t32, m_ref: t32) -> SheddingAuditRow:
+    (b: ScopeB, sup: MotifSupport, c_close: int, target_path: b8, m_miss: int, m_ref: int) -> SheddingAuditRow:
         let rho_d = sup.rd
         let w_len = b.window_w
-        let yro_flag = u8((int(w_len) & 1))
+        let yro_flag = (b8(w_len) & b8(1))
         let rho_w = min(rho_d, w_len)
-        let q_d = (b.c3 * max(t32(0), (rho_d - w_len)))
+        let q_d = (b.c3 * max(0, (rho_d - w_len)))
         let p_d = (b.c3 * rho_w)
         let delta_close = (p_d - c_close)
-        let x_shed = max(t32(0), delta_close)
-        let active_path = select((x_shed != t32(0)), target_path, u8(0))
-        assert verify_sheddic_route(int(x_shed), active_path)
-        return SheddingAuditRow(sup.p_arg, sup.q_arg, w_len, yro_flag, rho_d, rho_w, q_d, p_d, c_close, delta_close, x_shed, active_path, ratio(int(m_miss), int(m_ref)))
+        let x_shed = max(0, delta_close)
+        let active_path = select((x_shed != 0), target_path, b8(0))
+        assert verify_sheddic_route(x_shed, active_path)
+        return SheddingAuditRow(sup.p_arg, sup.q_arg, w_len, yro_flag, rho_d, rho_w, q_d, p_d, c_close, delta_close, x_shed, active_path, ratio(m_miss, m_ref))
 
 dec main:
     () -> int:
-        let scope = ScopeB(u8(1), t32(9), t32(3))
-        let r0 = build_dec_row(scope, q4(0), u8(1), q4(1), t1(-1), u8(1), t32(3), u8(1))
-        let r1 = build_dec_row(scope, q4(0), u8(2), q4(2), t1(-1), u8(1), t32(3), u8(1))
-        let r2 = build_dec_row(scope, q4(0), u8(3), q4(4), 0t, u8(0), t32(4), u8(0))
-        let r3 = build_dec_row(scope, q4(0), u8(4), q4(8), 1t, u8(1), t32(1), u8(4))
+        let scope = ScopeB(b8(1), 9, 3)
+        let r0 = build_dec_row(scope, q4(0), b8(1), q4(1), -1t, b8(1), 3, b8(1))
+        let r1 = build_dec_row(scope, q4(0), b8(2), q4(2), -1t, b8(1), 3, b8(1))
+        let r2 = build_dec_row(scope, q4(0), b8(3), q4(4), 0t, b8(0), 4, b8(0))
+        let r3 = build_dec_row(scope, q4(0), b8(4), q4(8), 1t, b8(1), 1, b8(4))
         let node = build_dec_node4(r0, r1, r2, r3)
-        assert ((((node.z_norm == t32(7)) and (node.p_neg == 6/7r)) and (node.p_zero == 0/1r)) and (node.p_pos == 1/7r))
-        let pool = hinge_slide(scope, q4(0), u8(0), t32(3), t32(3), t32(1))
+        assert ((((node.z_norm == 7) and (node.p_neg == 6/7r)) and (node.p_zero == 0/1r)) and (node.p_pos == 1/7r))
+        let pool = hinge_slide(scope, q4(0), b8(0), 3, 3, 1)
         assert ((pool.p_returned == 6/7r) and (pool.p_outgoing == 1/7r))
-        let tun = field_tunnel_clip(pool, t32(5), t32(2), t32(3))
-        assert (((tun.rho_w_s == t32(2)) and (tun.p_d_s == t32(6))) and (tun.t_tunnel == 6/7r))
-        let (p_d, s12, s21) = promote_sadar_pair(t32(2), t32(3), 1/2r)
-        assert (((p_d == t32(6)) and (s12 == 3/1r)) and (s21 == -3/1r))
+        let tun = field_tunnel_clip(pool, 5, 2, 3)
+        assert (((tun.rho_w_s == 2) and (tun.p_d_s == 6)) and (tun.t_tunnel == 6/7r))
+        let (p_d, s12, s21) = promote_sadar_pair(2, 3, 1/2r)
+        assert (((p_d == 6) and (s12 == 3/1r)) and (s21 == -3/1r))
         let yro_lit = 1:2:9_yro
         assert yro_lit.is_yro
-        let sup_129 = build_motif_support(t9(1), t9(2), t32(1))
-        assert ((sup_129.pi_support == t32(4)) and (sup_129.rd == t32(9)))
-        let aud = audit_short_window(scope, sup_129, t32(24), u8(6), t32(31), t32(50))
-        assert (((aud.is_yro == u8(1)) and (aud.x_shedding == t32(3))) and (aud.sheddic_path == u8(6)))
+        let sup_129 = build_motif_support(1, 2, 1)
+        assert ((sup_129.pi_support == 4) and (sup_129.rd == 9))
+        let aud = audit_short_window(scope, sup_129, 24, b8(6), 31, 50)
+        assert (((aud.is_yro == b8(1)) and (aud.x_shedding == 3)) and (aud.sheddic_path == b8(6)))
         assert (aud.tau_miss_exact == 31/50r)
-        assert not verify_sheddic_route(3, u8(7))
+        assert not verify_sheddic_route(3, b8(7))
         emit pool.p_returned
         emit tun.t_tunnel
         emit s12

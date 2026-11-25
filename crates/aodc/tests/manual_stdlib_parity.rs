@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use aodc::diagnostics::{CompatMode, DiagnosticCode};
+use aodc::diagnostics::DiagnosticCode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::ir::loads_ir;
 use aodc::{
@@ -32,7 +32,7 @@ fn temp_dir(tag: &str) -> PathBuf {
 
 fn assert_5mode_manual_parity(path: &Path, expected_stdout: &str, tmp: &Path, stem: &str) {
     // 1. Exact VM under DEFAULT_FUEL = 100_000
-    let vm = run_file(path, CompatMode::V2)
+    let vm = run_file(path)
         .unwrap_or_else(|e| panic!("VM failed on {}: {e}", path.display()))
         .to_stdout_string();
     assert_eq!(vm, expected_stdout, "VM stdout mismatch on {}", path.display());
@@ -40,7 +40,7 @@ fn assert_5mode_manual_parity(path: &Path, expected_stdout: &str, tmp: &Path, st
     // 2 & 3. AOT -O0 and AOT -O2
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
         let exe = tmp.join(format!("{stem}_{tag}"));
-        build_aot_file(path, CompatMode::V2, opt, &exe)
+        build_aot_file(path, opt, &exe)
             .unwrap_or_else(|e| panic!("AOT -{tag} build failed on {}: {e}", path.display()));
         let out = Command::new(&exe).output().unwrap();
         assert!(
@@ -59,9 +59,8 @@ fn assert_5mode_manual_parity(path: &Path, expected_stdout: &str, tmp: &Path, st
 
     // 4 & 5. ORC LLJIT -O0 and ORC LLJIT -O2
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
-        let (stdout, res) =
-            jit_file_captured(path, CompatMode::V2, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-                .unwrap_or_else(|e| panic!("JIT -{tag} compile failed on {}: {e}", path.display()));
+        let (stdout, res) = jit_file_captured(path, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+            .unwrap_or_else(|e| panic!("JIT -{tag} compile failed on {}: {e}", path.display()));
         res.unwrap_or_else(|e| panic!("JIT -{tag} runtime failed on {}: {e}", path.display()));
         assert_eq!(
             stdout,
@@ -82,12 +81,9 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
     // 1. Explicit `--stdlib <nonexistent>` MUST fail with ModuleNotFound (ZERO silent fallback, P0-2!)
     let bad_opt = LoadOptions {
         stdlib_dir: Some(missing_stdlib.clone()),
-        ..LoadOptions::default()
     };
     assert_eq!(
-        check_file_with_options(&ex01, CompatMode::V2, &bad_opt)
-            .unwrap_err()
-            .code,
+        check_file_with_options(&ex01, &bad_opt).unwrap_err().code,
         DiagnosticCode::ModuleNotFound
     );
 
@@ -120,18 +116,15 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
 
     // 3. Bare `use stdlib` and missing stdlib module rejected with ModuleNotFound
     assert_eq!(
-        check_source("use stdlib\ndec main:\n    () -> int:\n        return 0\n", CompatMode::V2)
+        check_source("use stdlib\ndec main() -> int:\n    0\n")
             .unwrap_err()
             .code,
         DiagnosticCode::ModuleNotFound
     );
     assert_eq!(
-        check_source(
-            "use stdlib::aod::no_such_module\ndec main:\n    () -> int:\n        return 0\n",
-            CompatMode::V2
-        )
-        .unwrap_err()
-        .code,
+        check_source("use stdlib::aod::no_such_module\ndec main() -> int:\n    0\n")
+            .unwrap_err()
+            .code,
         DiagnosticCode::ModuleNotFound
     );
 
@@ -175,14 +168,14 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
 fn ac03_cross_module_qext_2seg_3seg_firewalls_and_topological_consts() {
     // 1. Hostile 2-segment & 3-segment Q_ext const and fn leaks MUST fail with QExtLeakageForbidden!
     let hostile_qext_cases = [
-        "use stdlib::aod::metrology::SiMetrology\ndec main:\n    () -> int:\n        let x = SiMetrology::DELTA_NU_CS\n        return 0\n",
-        "use stdlib::aod::metrology::SiMetrology\ndec main:\n    () -> int:\n        let x = SiMetrology::duration_seconds(1/1r)\n        return 0\n",
-        "use stdlib::aod::metrology\ndec main:\n    () -> int:\n        let x = metrology::SiMetrology::DELTA_NU_CS\n        return 0\n",
-        "use stdlib::aod::metrology\ndec main:\n    () -> int:\n        let x = metrology::SiMetrology::duration_seconds(1/1r)\n        return 0\n",
+        "use stdlib::aod::metrology:\n    SiMetrology\ndec main() -> int:\n    let x = SiMetrology::DELTA_NU_CS\n    0\n",
+        "use stdlib::aod::metrology:\n    SiMetrology\ndec main() -> int:\n    let x = SiMetrology::duration_seconds(1/1r)\n    0\n",
+        "use stdlib::aod::metrology\ndec main() -> int:\n    let x = metrology::SiMetrology::DELTA_NU_CS\n    0\n",
+        "use stdlib::aod::metrology\ndec main() -> int:\n    let x = metrology::SiMetrology::duration_seconds(1/1r)\n    0\n",
     ];
     for src in hostile_qext_cases {
         assert_eq!(
-            check_source(src, CompatMode::V2).unwrap_err().code,
+            check_source(src).unwrap_err().code,
             DiagnosticCode::QExtLeakageForbidden,
             "expected QExtLeakageForbidden for:\n{src}"
         );
@@ -190,58 +183,48 @@ fn ac03_cross_module_qext_2seg_3seg_firewalls_and_topological_consts() {
 
     // 2. Positive 2-segment & 3-segment Q_ext calls inside `quarantine Q_ext:` across VM, AOT, JIT
     let ok_src = r#"
-use aod::qext::qext_render
+use aod::qext:
+    qext_render
 use stdlib::aod::metrology
-use stdlib::aod::metrology::SiMetrology
+use stdlib::aod::metrology:
+    SiMetrology
 
-dec main:
-    () -> int:
-        let two = 2/1r
-        quarantine Q_ext:
-            let a = SiMetrology::duration_seconds(two)
-            let b = metrology::SiMetrology::duration_seconds(two)
-            assert a == b
-            assert SiMetrology::DELTA_NU_CS == metrology::SiMetrology::DELTA_NU_CS
-            emit qext_render(a)
-        return 0
+dec main() -> int:
+    let two = 2/1r
+    quarantine Q_ext:
+        let a = SiMetrology::duration_seconds(two)
+        let b = metrology::SiMetrology::duration_seconds(two)
+        assert a == b
+        assert SiMetrology::DELTA_NU_CS == metrology::SiMetrology::DELTA_NU_CS
+        emit qext_render(a)
+    0
 "#;
-    let expected = run_source(ok_src, CompatMode::V2).unwrap().to_stdout_string();
+    let expected = run_source(ok_src).unwrap().to_stdout_string();
     assert_eq!(expected, "Q_ext(b\"1/4596315885\")\n0\n");
 
     let tmp = temp_dir("ac03_qext_topo");
     let exe = tmp.join("qext_ok");
-    build_aot_source(ok_src, CompatMode::V2, OptLevel::O2, &exe).unwrap();
+    build_aot_source(ok_src, OptLevel::O2, &exe).unwrap();
     let aot_out = Command::new(&exe).output().unwrap();
     assert!(aot_out.status.success());
     assert_eq!(String::from_utf8_lossy(&aot_out.stdout), expected);
 
-    let (jout, jres) = jit_source_captured(
-        ok_src,
-        CompatMode::V2,
-        OptLevel::O2,
-        DEFAULT_FUEL,
-        DEFAULT_MAX_DEPTH,
-    )
-    .unwrap();
+    let (jout, jres) =
+        jit_source_captured(ok_src, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
     jres.unwrap();
     assert_eq!(jout, expected);
 
     // 3. P0-1 Topological `module_load_order` const test:
-    // `a_mid` sorts alphabetically BEFORE `z_leaf`, yet `a_mid` depends on `z_leaf::LEAF_ARR`!
-    std::fs::write(
-        tmp.join("z_leaf.dec"),
-        "const LEAF_ARR = [11, 22, 33]\n",
-    )
-    .unwrap();
+    std::fs::write(tmp.join("z_leaf.dec"), "const LEAF_ARR = [11, 22, 33]\n").unwrap();
     std::fs::write(
         tmp.join("a_mid.dec"),
-        "use z_leaf::LEAF_ARR\nconst MID_ARR = LEAF_ARR\n",
+        "use z_leaf:\n    LEAF_ARR\nconst MID_ARR = LEAF_ARR\n",
     )
     .unwrap();
     let entry_file = tmp.join("entry.dec");
     std::fs::write(
         &entry_file,
-        "use a_mid::MID_ARR\nconst TOP_ARR = MID_ARR\ndec main:\n    () -> int:\n        emit TOP_ARR[0]\n        emit TOP_ARR[2]\n        return 0\n",
+        "use a_mid:\n    MID_ARR\nconst TOP_ARR = MID_ARR\ndec main() -> int:\n    emit TOP_ARR[0]\n    emit TOP_ARR[2]\n    0\n",
     )
     .unwrap();
     let topo_expected = "11\n33\n0\n";
@@ -276,15 +259,15 @@ fn ac04_to_ac10_all_6_manual_examples_5mode_parity_against_stdout() {
 }
 
 #[test]
-fn ac11_hermetic_dec_ir_v2_with_stdlib_ignores_bad_env_and_rejects_tamper() {
+fn ac11_hermetic_dec_ir_v3_with_stdlib_ignores_bad_env_and_rejects_tamper() {
     let root = repo_root();
     let tmp = temp_dir("ac11_hermetic_stdlib");
 
     for stem in ["03_short_window_boundary", "05_conditional_si_metrology"] {
         let src = root.join(format!("manual_examples/{stem}.dec"));
-        let expected = std::fs::read_to_string(root.join(format!("manual_examples/{stem}.stdout")))
-            .unwrap();
-        let ir_text = compile_file_to_ir(&src, CompatMode::V2).unwrap();
+        let expected =
+            std::fs::read_to_string(root.join(format!("manual_examples/{stem}.stdout"))).unwrap();
+        let ir_text = compile_file_to_ir(&src).unwrap();
 
         if stem == "03_short_window_boundary" {
             assert!(ir_text.contains("\"stdlib::aod::boundary\""));
@@ -347,17 +330,17 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
     ];
     for (stem, expected_code) in ct_cases {
         let p = nc_dir.join(format!("{stem}.dec"));
-        assert_eq!(check_file(&p, CompatMode::V2).unwrap_err().code, expected_code);
+        assert_eq!(check_file(&p).unwrap_err().code, expected_code);
         let out_exe = tmp.join(format!("{stem}_should_not_exist"));
         assert_eq!(
-            build_aot_file(&p, CompatMode::V2, OptLevel::O2, &out_exe)
+            build_aot_file(&p, OptLevel::O2, &out_exe)
                 .unwrap_err()
                 .code,
             expected_code
         );
         assert!(!out_exe.exists());
         assert_eq!(
-            jit_file_captured(&p, CompatMode::V2, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+            jit_file_captured(&p, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
                 .unwrap_err()
                 .code,
             expected_code
@@ -371,20 +354,16 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
         "nc06_duad_drops_hinge_0h",
     ] {
         let p = nc_dir.join(format!("{stem}.dec"));
-        assert_eq!(
-            run_file(&p, CompatMode::V2).unwrap_err().code,
-            DiagnosticCode::AssertionFailed
-        );
+        assert_eq!(run_file(&p).unwrap_err().code, DiagnosticCode::AssertionFailed);
 
         let exe = tmp.join(format!("{stem}_o2"));
-        build_aot_file(&p, CompatMode::V2, OptLevel::O2, &exe).unwrap();
+        build_aot_file(&p, OptLevel::O2, &exe).unwrap();
         let aot = Command::new(&exe).output().unwrap();
         assert!(!aot.status.success(), "AOT expected failure on {stem}");
         assert!(String::from_utf8_lossy(&aot.stderr).contains("AssertionFailed"));
 
         let (_, jres) =
-            jit_file_captured(&p, CompatMode::V2, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-                .unwrap();
+            jit_file_captured(&p, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
         assert!(
             jres.unwrap_err().contains("AssertionFailed"),
             "JIT expected AssertionFailed on {stem}"
@@ -393,24 +372,24 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
 
     // 3. P1-1 `.expect_error` hardening: empty file, dual `.stdout`+`.expect_error`, unexpected pass ALL FAIL!
     let empty_f = tmp.join("empty_exp.dec");
-    std::fs::write(&empty_f, "dec main:\n    () -> int:\n        assert false\n        return 0\n").unwrap();
+    std::fs::write(&empty_f, "dec main() -> int:\n    assert false\n    0\n").unwrap();
     std::fs::write(tmp.join("empty_exp.expect_error"), "   \n").unwrap();
-    let r_empty = run_dec_tests(&empty_f, CompatMode::V2).unwrap();
+    let r_empty = run_dec_tests(&empty_f).unwrap();
     assert_eq!(r_empty.len(), 1);
     assert!(!r_empty[0].passed, "empty .expect_error must FAIL");
 
     let dual_f = tmp.join("dual_exp.dec");
-    std::fs::write(&dual_f, "dec main:\n    () -> int:\n        return 0\n").unwrap();
+    std::fs::write(&dual_f, "dec main() -> int:\n    0\n").unwrap();
     std::fs::write(tmp.join("dual_exp.stdout"), "0\n").unwrap();
     std::fs::write(tmp.join("dual_exp.expect_error"), "AssertionFailed\n").unwrap();
-    let r_dual = run_dec_tests(&dual_f, CompatMode::V2).unwrap();
+    let r_dual = run_dec_tests(&dual_f).unwrap();
     assert_eq!(r_dual.len(), 1);
     assert!(!r_dual[0].passed, "dual .stdout+.expect_error must FAIL");
 
     let unexp_ok = tmp.join("unexp_ok.dec");
-    std::fs::write(&unexp_ok, "dec main:\n    () -> int:\n        return 0\n").unwrap();
+    std::fs::write(&unexp_ok, "dec main() -> int:\n    0\n").unwrap();
     std::fs::write(tmp.join("unexp_ok.expect_error"), "AssertionFailed\n").unwrap();
-    let r_ok = run_dec_tests(&unexp_ok, CompatMode::V2).unwrap();
+    let r_ok = run_dec_tests(&unexp_ok).unwrap();
     assert_eq!(r_ok.len(), 1);
     assert!(!r_ok[0].passed, "unexpected Ok(_) on .expect_error must FAIL");
 

@@ -6,13 +6,12 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use aod_core::json::{parse_strict_json, JsonValue};
-use aodc::diagnostics::{CompatMode, SyntaxDiscipline};
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
     audit_dec_file_with_options, audit_pdf_file, bench_file_with_options,
     build_aot_file_with_options, check_file_with_options, collect_guarded_roots,
-    compile_file_to_ir_with_options, emit_llvm_file_with_options,
-    eval_operation, exec_ir_file_with_budget_capturing, format_source_with_discipline, format_x100,
+    compile_file_to_ir_with_options, emit_llvm_file_with_options, eval_operation,
+    exec_ir_file_with_budget_capturing, format_source, format_x100,
     jit_file_with_profile_and_parallel_captured, learn_file_with_options,
     read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_options,
     run_file_with_parallel_observers_capturing, run_manual_data, validate_runtime_output_path,
@@ -27,9 +26,10 @@ struct CliErr {
 
 impl CliErr {
     fn fail(msg: impl Into<String>) -> Self {
-        let msg = msg.into();
-        let code = if msg.starts_with("UsageError: ") { 2 } else { 1 };
-        Self { code, msg }
+        Self {
+            code: 1,
+            msg: msg.into(),
+        }
     }
 
     fn usage(msg: impl Into<String>) -> Self {
@@ -108,7 +108,6 @@ fn parse_opt_level(arg: &str, next: Option<&String>) -> Result<(OptLevel, usize)
 }
 
 struct ExecOptions {
-    compat: CompatMode,
     opt: OptLevel,
     baseline_opt: OptLevel,
     fuel: usize,
@@ -126,7 +125,6 @@ struct ExecOptions {
 #[allow(clippy::too_many_arguments)]
 fn parse_options(
     args: &[String],
-    allow_compat: bool,
     allow_opt: bool,
     allow_budget: bool,
     allow_output: bool,
@@ -136,8 +134,6 @@ fn parse_options(
     allow_learn: bool,
     allow_parallel: bool,
 ) -> Result<ExecOptions, String> {
-    let mut compat = CompatMode::V2;
-    let mut saw_strict_wave_flag = false;
     let mut opt = OptLevel::O2;
     let mut baseline_opt = OptLevel::O0;
     let mut fuel = DEFAULT_FUEL;
@@ -153,18 +149,9 @@ fn parse_options(
     let mut i = 0usize;
     while i < args.len() {
         let a = args[i].as_str();
-        if allow_compat && a == "--compat" {
-            let val = args
-                .get(i + 1)
-                .ok_or_else(|| "missing value after --compat (expected v1 or v2)".to_string())?;
-            compat = match val.as_str() {
-                "v1" => CompatMode::V1,
-                "v2" => CompatMode::V2,
-                other => return Err(format!("unknown --compat mode {other:?} (expected v1 or v2)")),
-            };
-            i += 2;
-        } else if allow_compat && (a == "--strict-wave" || a == "--pure-wave") {
-            saw_strict_wave_flag = true;
+        if a == "--compat" {
+            return Err("legacy --compat flag has been removed in clean-break Dec".to_string());
+        } else if a == "--strict-wave" || a == "--pure-wave" {
             i += 1;
         } else if allow_stdlib && a == "--stdlib" {
             let val = args
@@ -220,17 +207,14 @@ fn parse_options(
         } else if allow_learn && a == "--heldout" {
             heldout = parse_positive_usize("--heldout", args.get(i + 1))?;
             i += 2;
+        } else if a.starts_with('-') {
+            return Err(format!("unknown flag {a:?}\n{}", usage()));
         } else {
             rest.push(args[i].clone());
             i += 1;
         }
     }
-    if compat == CompatMode::V1 && saw_strict_wave_flag {
-        return Err("UsageError: --strict-wave cannot be combined with --compat v1".to_string());
-    }
-    let discipline = SyntaxDiscipline::for_compat(compat);
     Ok(ExecOptions {
-        compat,
         opt,
         baseline_opt,
         fuel,
@@ -241,10 +225,7 @@ fn parse_options(
         output,
         profile,
         parallel_observers,
-        load: LoadOptions {
-            stdlib_dir,
-            discipline,
-        },
+        load: LoadOptions { stdlib_dir },
         rest,
     })
 }
@@ -271,7 +252,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v2 | --strict-wave] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v2 | --strict-wave] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-ir [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc fmt [--compat v1|v2 | --strict-wave] [--check | --write | -o <out.dec>] <source.dec>\n  aodc jit [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc audit [--compat v1|v2 | --strict-wave] [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--compat v1|v2 | --strict-wave] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--stdlib <dir>] <source.dec>\n  aodc run [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc test [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -289,28 +270,24 @@ fn main() -> ExitCode {
     let sub_args = &raw_args[1..];
 
     let result: Result<(), CliErr> = match cmd {
-        "check" => parse_options(sub_args, true, false, false, false, false, true, false, false, false)
+        "check" => parse_options(sub_args, false, false, false, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
-                check_file_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+                check_file_with_options(Path::new(&opts.rest[0]), &opts.load)
                     .map_err(|e| e.to_string())?;
-                match opts.compat {
-                    CompatMode::V1 => println!("OK: Dec core v1"),
-                    CompatMode::V2 => println!("OK: Dec v2 (pure-wave)"),
-                }
+                println!("OK: Dec");
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "run" => parse_options(sub_args, true, false, true, false, false, true, false, false, true)
+        "run" => parse_options(sub_args, false, true, false, false, true, false, false, true)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let (emits, outcome) = run_file_with_parallel_observers_capturing(
                     Path::new(&opts.rest[0]),
-                    opts.compat,
                     opts.fuel,
                     opts.max_depth,
                     &opts.load,
@@ -320,7 +297,7 @@ fn main() -> ExitCode {
                 flush_emits_and_result(emits, outcome)
             })
             .map_err(CliErr::fail),
-        "compile" => parse_options(sub_args, true, false, false, true, false, true, false, false, false)
+        "compile" => parse_options(sub_args, false, false, true, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -331,13 +308,13 @@ fn main() -> ExitCode {
                         .ok_or_else(|| "missing -o <out.ir.json>".to_string())?,
                 );
                 ensure_out_differs_from_src(&src_path, &out_path)?;
-                let ir_text = compile_file_to_ir_with_options(&src_path, opts.compat, &opts.load)
+                let ir_text = compile_file_to_ir_with_options(&src_path, &opts.load)
                     .map_err(|e| e.to_string())?;
                 std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "exec" => parse_options(sub_args, false, false, true, false, false, false, false, false, false)
+        "exec" => parse_options(sub_args, false, true, false, false, false, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <program.ir.json>\n{}", usage()));
@@ -351,10 +328,9 @@ fn main() -> ExitCode {
                 flush_emits_and_result(emits, outcome)
             })
             .map_err(CliErr::fail),
-        "emit-llvm" | "emit-ir" => parse_options(
-            sub_args, true, true, false, true, false, true, false, false, false,
-        )
-            .and_then(|opts| {
+        "emit-llvm" | "emit-ir" => {
+            parse_options(sub_args, true, false, true, false, true, false, false, false)
+                .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
@@ -362,7 +338,7 @@ fn main() -> ExitCode {
                 if let Some(ref out) = opts.output {
                     ensure_out_differs_from_src(&src_path, Path::new(out))?;
                 }
-                let ir = emit_llvm_file_with_options(&src_path, opts.compat, opts.opt, &opts.load)
+                let ir = emit_llvm_file_with_options(&src_path, opts.opt, &opts.load)
                     .map_err(|e| e.to_string())?;
                 if let Some(out) = opts.output {
                     std::fs::write(&out, ir).map_err(|e| format!("write error: {e}"))?;
@@ -371,8 +347,9 @@ fn main() -> ExitCode {
                 }
                 Ok(())
             })
-            .map_err(CliErr::fail),
-        "build" => parse_options(sub_args, true, true, false, true, false, true, false, false, false)
+            .map_err(CliErr::fail)
+        }
+        "build" => parse_options(sub_args, true, false, true, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -383,11 +360,11 @@ fn main() -> ExitCode {
                         .ok_or_else(|| "missing -o <out_exe>".to_string())?,
                 );
                 ensure_out_differs_from_src(&src_path, &out_path)?;
-                build_aot_file_with_options(&src_path, opts.compat, opts.opt, &out_path, &opts.load)
+                build_aot_file_with_options(&src_path, opts.opt, &out_path, &opts.load)
                     .map_err(|e| e.to_string())
             })
             .map_err(CliErr::fail),
-        "jit" => parse_options(sub_args, true, true, true, false, false, true, true, false, true)
+        "jit" => parse_options(sub_args, true, true, false, false, true, true, false, true)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -396,7 +373,6 @@ fn main() -> ExitCode {
                 let (stdout, res, _plan, fallback_note) =
                     jit_file_with_profile_and_parallel_captured(
                         Path::new(&opts.rest[0]),
-                        opts.compat,
                         opts.opt,
                         opts.fuel,
                         opts.max_depth,
@@ -416,14 +392,13 @@ fn main() -> ExitCode {
                 res
             })
             .map_err(CliErr::fail),
-        "bench" => parse_options(sub_args, true, false, true, false, true, true, false, false, false)
+        "bench" => parse_options(sub_args, false, true, false, true, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let r = bench_file_with_options(
                     Path::new(&opts.rest[0]),
-                    opts.compat,
                     opts.iters,
                     opts.fuel,
                     opts.max_depth,
@@ -456,92 +431,94 @@ fn main() -> ExitCode {
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "probe-hw" => parse_options(
-            sub_args, false, false, false, true, false, false, false, false, false,
-        )
-        .and_then(|opts| {
-            if !opts.rest.is_empty() {
-                return Err(format!("unexpected positional arguments {:?}\n{}", opts.rest, usage()));
-            }
-            let report = run_all_hw_probes().map_err(|e| e.to_string())?;
-            let json_text = format!("{}\n", report.to_json().to_compact_ascii_json());
-            if let Some(out) = opts.output {
-                std::fs::write(&out, &json_text).map_err(|e| format!("write error: {e}"))?;
-            }
-            println!("aodc probe-hw [{}]", report.policy_scope);
-            println!(
-                "  cpu:           {} ({}, cores={}, llvm_cpu={})",
-                report.hardware.model_name,
-                report.hardware.arch,
-                report.hardware.logical_cores,
-                report.hardware.llvm_host_cpu
-            );
-            println!("  cpu_sig:       {}", report.hardware.cpu_sig_sha256);
-            println!(
-                "  caches:        L1d={}B, L2={}B, L3={}B, line={}B",
-                report.hardware.l1d_bytes,
-                report.hardware.l2_bytes,
-                report.hardware.l3_bytes,
-                report.hardware.cache_line_bytes
-            );
-            println!(
-                "  clocks:        {} (perf_event_open={}, paranoid={:?})",
-                report.clock_source,
-                report.perf_event_open.as_str(),
-                report.hardware.perf_event_paranoid
-            );
-            println!(
-                "  memory_tiers:  recommended_l1_working_set={}B (verified={})",
-                report.memory_tiers.recommended_l1_working_set_bytes,
-                report.memory_tiers.verified
-            );
-            println!(
-                "  exact_arith:   i64={}*0.01ns, t32={}*0.01ns, ratio={}*0.01ns, bigint_spill={}*0.01ns (spill/fast={}x/100)",
-                report.exact_arith.i64_checked_add_ns_per_op_x100,
-                report.exact_arith.t32_checked_add_ns_per_op_x100,
-                report.exact_arith.ratio_inline_gcd_ns_per_op_x100,
-                report.exact_arith.bigint_spill_add_ns_per_op_x100,
-                report.exact_arith.spill_to_fast_ratio_x100
-            );
-            println!(
-                "  branch_pred:   irregular branch={}ns vs select={}ns (prefer_branchless={})",
-                report.branch_predictor.irregular_branch_ns,
-                report.branch_predictor.irregular_select_ns,
-                report.branch_predictor.prefer_branchless_irregular
-            );
-            println!(
-                "  unroll_layout: unroll={}, native_cpu={}, soa={} (aos={}ns vs soa={}ns)",
-                report.unroll_layout.recommended_unroll.as_str(),
-                report.unroll_layout.prefer_native_cpu,
-                report.unroll_layout.prefer_soa,
-                report.unroll_layout.aos_ns,
-                report.unroll_layout.soa_ns
-            );
-            println!(
-                "  multicore:     workers={} scaling={}x/100 (recommended_workers={})",
-                report.multicore.tested_workers,
-                report.multicore.scaling_x100,
-                report.multicore.recommended_workers
-            );
-            println!(
-                "  frg_ring_gate: E4(RD={})={} C6(RD={})={} C8(RD={}, T_sync={}): t0={} tx={} r_e={} handoffs={} (op_certified={})",
-                report.frg_ring_gate.tier0_e4.rd_cadence,
-                report.frg_ring_gate.tier0_e4.verified,
-                report.frg_ring_gate.tier1_c6.rd_cadence,
-                report.frg_ring_gate.tier1_c6.verified,
-                report.frg_ring_gate.tier2_c8.rd_cadence,
-                report.frg_ring_gate.t_sync,
-                report.frg_ring_gate.t_zero,
-                report.frg_ring_gate.t_cross,
-                report.frg_ring_gate.r_e,
-                report.frg_ring_gate.inter_thread_handoffs,
-                report.frg_ring_gate.op_certified
-            );
-            println!("  total_ms:      {} ms", report.total_probe_ms);
-            Ok(())
-        })
-        .map_err(CliErr::fail),
-        "learn" => parse_options(sub_args, true, false, true, false, false, true, true, true, false)
+        "probe-hw" => parse_options(sub_args, false, false, true, false, false, false, false, false)
+            .and_then(|opts| {
+                if !opts.rest.is_empty() {
+                    return Err(format!(
+                        "unexpected positional arguments {:?}\n{}",
+                        opts.rest,
+                        usage()
+                    ));
+                }
+                let report = run_all_hw_probes().map_err(|e| e.to_string())?;
+                let json_text = format!("{}\n", report.to_json().to_compact_ascii_json());
+                if let Some(out) = opts.output {
+                    std::fs::write(&out, &json_text).map_err(|e| format!("write error: {e}"))?;
+                }
+                println!("aodc probe-hw [{}]", report.policy_scope);
+                println!(
+                    "  cpu:           {} ({}, cores={}, llvm_cpu={})",
+                    report.hardware.model_name,
+                    report.hardware.arch,
+                    report.hardware.logical_cores,
+                    report.hardware.llvm_host_cpu
+                );
+                println!("  cpu_sig:       {}", report.hardware.cpu_sig_sha256);
+                println!(
+                    "  caches:        L1d={}B, L2={}B, L3={}B, line={}B",
+                    report.hardware.l1d_bytes,
+                    report.hardware.l2_bytes,
+                    report.hardware.l3_bytes,
+                    report.hardware.cache_line_bytes
+                );
+                println!(
+                    "  clocks:        {} (perf_event_open={}, paranoid={:?})",
+                    report.clock_source,
+                    report.perf_event_open.as_str(),
+                    report.hardware.perf_event_paranoid
+                );
+                println!(
+                    "  memory_tiers:  recommended_l1_working_set={}B (verified={})",
+                    report.memory_tiers.recommended_l1_working_set_bytes,
+                    report.memory_tiers.verified
+                );
+                println!(
+                    "  exact_arith:   i64={}*0.01ns, trit_swar={}*0.01ns, ratio={}*0.01ns, bigint_spill={}*0.01ns (spill/fast={}x/100)",
+                    report.exact_arith.i64_checked_add_ns_per_op_x100,
+                    report.exact_arith.t32_checked_add_ns_per_op_x100,
+                    report.exact_arith.ratio_inline_gcd_ns_per_op_x100,
+                    report.exact_arith.bigint_spill_add_ns_per_op_x100,
+                    report.exact_arith.spill_to_fast_ratio_x100
+                );
+                println!(
+                    "  branch_pred:   irregular branch={}ns vs select={}ns (prefer_branchless={})",
+                    report.branch_predictor.irregular_branch_ns,
+                    report.branch_predictor.irregular_select_ns,
+                    report.branch_predictor.prefer_branchless_irregular
+                );
+                println!(
+                    "  unroll_layout: unroll={}, native_cpu={}, soa={} (aos={}ns vs soa={}ns)",
+                    report.unroll_layout.recommended_unroll.as_str(),
+                    report.unroll_layout.prefer_native_cpu,
+                    report.unroll_layout.prefer_soa,
+                    report.unroll_layout.aos_ns,
+                    report.unroll_layout.soa_ns
+                );
+                println!(
+                    "  multicore:     workers={} scaling={}x/100 (recommended_workers={})",
+                    report.multicore.tested_workers,
+                    report.multicore.scaling_x100,
+                    report.multicore.recommended_workers
+                );
+                println!(
+                    "  frg_ring_gate: E4(RD={})={} C6(RD={})={} C8(RD={}, T_sync={}): t0={} tx={} r_e={} handoffs={} (op_certified={})",
+                    report.frg_ring_gate.tier0_e4.rd_cadence,
+                    report.frg_ring_gate.tier0_e4.verified,
+                    report.frg_ring_gate.tier1_c6.rd_cadence,
+                    report.frg_ring_gate.tier1_c6.verified,
+                    report.frg_ring_gate.tier2_c8.rd_cadence,
+                    report.frg_ring_gate.t_sync,
+                    report.frg_ring_gate.t_zero,
+                    report.frg_ring_gate.t_cross,
+                    report.frg_ring_gate.r_e,
+                    report.frg_ring_gate.inter_thread_handoffs,
+                    report.frg_ring_gate.op_certified
+                );
+                println!("  total_ms:      {} ms", report.total_probe_ms);
+                Ok(())
+            })
+            .map_err(CliErr::fail),
+        "learn" => parse_options(sub_args, false, true, false, false, true, true, true, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
@@ -552,7 +529,6 @@ fn main() -> ExitCode {
                 }
                 let (_hw, report) = learn_file_with_options(
                     &src_path,
-                    opts.compat,
                     opts.baseline_opt,
                     opts.pairs,
                     opts.heldout,
@@ -594,6 +570,107 @@ fn main() -> ExitCode {
                 Ok(())
             })
             .map_err(CliErr::fail),
+        "bootstrap-verify" => {
+            let mut source_path: Option<PathBuf> = None;
+            let mut sample_path: Option<PathBuf> = None;
+            let mut emit_stage2_path: Option<PathBuf> = None;
+            let mut stdlib_dir: Option<PathBuf> = None;
+            let mut json_mode = false;
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--source" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            source_path = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing file path after --source".to_string());
+                            break;
+                        }
+                    },
+                    "--sample" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            sample_path = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing file path after --sample".to_string());
+                            break;
+                        }
+                    },
+                    "--emit-stage2" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            emit_stage2_path = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing file path after --emit-stage2".to_string());
+                            break;
+                        }
+                    },
+                    "--stdlib" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            stdlib_dir = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing directory path after --stdlib".to_string());
+                            break;
+                        }
+                    },
+                    "--json" => {
+                        json_mode = true;
+                        idx += 1;
+                    }
+                    other => {
+                        parse_err = Some(format!(
+                            "unexpected argument {other:?} for bootstrap-verify\n{}",
+                            usage()
+                        ));
+                        break;
+                    }
+                }
+            }
+            if let Some(e) = parse_err {
+                Err(CliErr::usage(e))
+            } else {
+                match aodc::bootstrap_verify_with_stage2_out(
+                    source_path.as_deref(),
+                    sample_path.as_deref(),
+                    emit_stage2_path.as_deref(),
+                    &LoadOptions { stdlib_dir },
+                ) {
+                    Ok(rep) => {
+                        if json_mode {
+                            println!("{}", rep.to_json().to_compact_ascii_json());
+                        } else {
+                            println!(
+                                "aodc bootstrap-verify ({}) -> PASS",
+                                rep.self_host_path.display()
+                            );
+                            println!(
+                                "  stage1 (Stage0 AOT): {} bytes (sha256={})",
+                                rep.stage1_bytes, rep.stage1_sha256
+                            );
+                            println!(
+                                "  stage2 (Self ELF64): {} bytes (sha256={})",
+                                rep.stage2_bytes, rep.stage2_sha256
+                            );
+                            println!(
+                                "  stage3 (Self ELF64): {} bytes (sha256={})",
+                                rep.stage3_bytes, rep.stage3_sha256
+                            );
+                            println!("  fixed_point:         SHA256(stage2) == SHA256(stage3) (VERIFIED)");
+                            println!("  sample_parity:       stage2 == VM == ORC-LLJIT (VERIFIED)");
+                        }
+                        Ok(())
+                    }
+                    Err(e) => Err(CliErr::fail(e.to_string())),
+                }
+            }
+        }
         "manual-data" => {
             let mut check_only = false;
             let mut output_dir: Option<PathBuf> = None;
@@ -878,7 +955,6 @@ fn main() -> ExitCode {
             if let Some(e) = parse_err {
                 Err(CliErr::usage(e))
             } else {
-                // P0-3 / P1-1: Validate `--report` BEFORE reading any inputs or creating dirs!
                 let validated_report = if let Some(ref raw_rp) = report_path {
                     let mut explicit: Vec<&Path> = Vec::new();
                     if let Some(ref v) = vectors_dir {
@@ -893,10 +969,10 @@ fn main() -> ExitCode {
                     let guarded = collect_guarded_roots(raw_rp, &explicit);
                     match validate_runtime_output_path(raw_rp, &guarded) {
                         Ok(p) => Some(p),
-                        Err(err) => return {
+                        Err(err) => {
                             eprintln!("aodc: {err}");
-                            ExitCode::from(2)
-                        },
+                            return ExitCode::from(2);
+                        }
                     }
                 } else {
                     None
@@ -1078,7 +1154,6 @@ fn main() -> ExitCode {
                         .to_string(),
                 ))
             } else {
-                // P0-3 / P1-1: Validate `--report` BEFORE reading any inputs or evaluating `<op>`!
                 let validated_report = if let Some(ref raw_rp) = report_path {
                     let mut explicit: Vec<&Path> = Vec::new();
                     if let Some(ref inp) = input_file {
@@ -1126,7 +1201,6 @@ fn main() -> ExitCode {
                         eval_operation(&positional[0], &inputs).map_err(|e| e.to_string())
                     });
 
-                // NEVER create or write `--report` when eval-op fails with exit 1 (`P0-3`)!
                 match eval_res {
                     Ok(result) => {
                         let pretty = result.to_pretty_utf8_json();
@@ -1235,9 +1309,6 @@ fn main() -> ExitCode {
             }
         }
         "fmt" => {
-            let mut compat = CompatMode::V2;
-            let mut saw_compat = false;
-            let mut saw_strict_wave_flag = false;
             let mut check_only = false;
             let mut write_in_place = false;
             let mut out_path: Option<PathBuf> = None;
@@ -1247,36 +1318,12 @@ fn main() -> ExitCode {
             while idx < sub_args.len() {
                 match sub_args[idx].as_str() {
                     "--compat" => {
-                        if saw_compat {
-                            parse_err = Some("duplicate flag --compat".to_string());
-                            break;
-                        }
-                        saw_compat = true;
-                        match sub_args.get(idx + 1).map(String::as_str) {
-                            Some("v1") => {
-                                compat = CompatMode::V1;
-                                idx += 2;
-                            }
-                            Some("v2") => {
-                                compat = CompatMode::V2;
-                                idx += 2;
-                            }
-                            Some(other) => {
-                                parse_err = Some(format!(
-                                    "unsupported --compat mode {other:?} (expected v1 or v2)"
-                                ));
-                                break;
-                            }
-                            None => {
-                                parse_err = Some(
-                                    "missing mode after --compat (expected v1 or v2)".to_string(),
-                                );
-                                break;
-                            }
-                        }
+                        parse_err = Some(
+                            "legacy --compat flag has been removed in clean-break Dec".to_string(),
+                        );
+                        break;
                     }
                     "--strict-wave" | "--pure-wave" => {
-                        saw_strict_wave_flag = true;
                         idx += 1;
                     }
                     "--check" => {
@@ -1313,11 +1360,6 @@ fn main() -> ExitCode {
                     }
                 }
             }
-            if parse_err.is_none() && compat == CompatMode::V1 && saw_strict_wave_flag {
-                parse_err =
-                    Some("--strict-wave cannot be combined with --compat v1".to_string());
-            }
-            let discipline = SyntaxDiscipline::for_compat(compat);
             let mode_count = usize::from(check_only)
                 + usize::from(write_in_place)
                 + usize::from(out_path.is_some());
@@ -1335,14 +1377,12 @@ fn main() -> ExitCode {
                 )))
             } else {
                 let src_path = Path::new(&positional[0]);
-                // Pre-execution symlink checks on `--write` and `-o` (`[P1-1]`, exit 2 without touching target!).
+                // Pre-execution symlink checks on `--write` and `-o` (exit 2 without touching target!).
                 if write_in_place {
                     match std::fs::symlink_metadata(src_path) {
                         Ok(meta) if meta.file_type().is_symlink() => {
-                            return {
-                                eprintln!("aodc: fmt --write target must not be a symlink");
-                                ExitCode::from(2)
-                            };
+                            eprintln!("aodc: fmt --write target must not be a symlink");
+                            return ExitCode::from(2);
                         }
                         _ => {}
                     }
@@ -1382,8 +1422,8 @@ fn main() -> ExitCode {
                 let src_res = String::from_utf8(raw_bytes)
                     .map_err(|_| CliErr::fail("source: file is not valid UTF-8".to_string()));
                 src_res.and_then(|src| {
-                    let formatted = format_source_with_discipline(&src, compat, discipline)
-                        .map_err(|e| CliErr::fail(e.to_string()))?;
+                    let formatted =
+                        format_source(&src).map_err(|e| CliErr::fail(e.to_string()))?;
                     if check_only {
                         if src == formatted {
                             Ok(())
@@ -1405,9 +1445,6 @@ fn main() -> ExitCode {
             }
         }
         "audit-dec" | "audit" => {
-            let mut compat = CompatMode::V2;
-            let mut saw_compat = false;
-            let mut saw_strict_wave_flag = false;
             let mut stdlib_dir: Option<PathBuf> = None;
             let mut report_path: Option<PathBuf> = None;
             let mut json_mode = false;
@@ -1417,35 +1454,12 @@ fn main() -> ExitCode {
             while idx < sub_args.len() {
                 match sub_args[idx].as_str() {
                     "--compat" => {
-                        if saw_compat {
-                            parse_err = Some("duplicate flag --compat".to_string());
-                            break;
-                        }
-                        saw_compat = true;
-                        match sub_args.get(idx + 1).map(String::as_str) {
-                            Some("v1") => {
-                                compat = CompatMode::V1;
-                                idx += 2;
-                            }
-                            Some("v2") => {
-                                compat = CompatMode::V2;
-                                idx += 2;
-                            }
-                            Some(other) => {
-                                parse_err = Some(format!(
-                                    "unsupported --compat mode {other:?} (expected v1 or v2)"
-                                ));
-                                break;
-                            }
-                            None => {
-                                parse_err =
-                                    Some("missing mode after --compat (expected v1 or v2)".to_string());
-                                break;
-                            }
-                        }
+                        parse_err = Some(
+                            "legacy --compat flag has been removed in clean-break Dec".to_string(),
+                        );
+                        break;
                     }
                     "--strict-wave" | "--pure-wave" => {
-                        saw_strict_wave_flag = true;
                         idx += 1;
                     }
                     "--stdlib" => {
@@ -1496,11 +1510,6 @@ fn main() -> ExitCode {
                     }
                 }
             }
-            if parse_err.is_none() && compat == CompatMode::V1 && saw_strict_wave_flag {
-                parse_err =
-                    Some("--strict-wave cannot be combined with --compat v1".to_string());
-            }
-            let discipline = SyntaxDiscipline::for_compat(compat);
             if let Some(e) = parse_err {
                 Err(CliErr::usage(e))
             } else if positional.len() != 1 {
@@ -1510,7 +1519,7 @@ fn main() -> ExitCode {
                 )))
             } else {
                 let src_path = Path::new(&positional[0]);
-                // P1-2: Pre-execution `--report` validation BEFORE reading `<source.dec>`!
+                // Pre-execution `--report` validation BEFORE reading `<source.dec>`!
                 let validated_report = if let Some(ref raw_rp) = report_path {
                     let mut explicit: Vec<&Path> = vec![src_path];
                     if let Some(ref sd) = stdlib_dir {
@@ -1528,11 +1537,8 @@ fn main() -> ExitCode {
                     None
                 };
 
-                let load_opts = LoadOptions {
-                    stdlib_dir,
-                    discipline,
-                };
-                let report = audit_dec_file_with_options(src_path, compat, &load_opts);
+                let load_opts = LoadOptions { stdlib_dir };
+                let report = audit_dec_file_with_options(src_path, &load_opts);
                 let json_val = report.to_json();
                 if let Some(ref rp) = validated_report {
                     let pretty = json_val.to_pretty_utf8_json();
@@ -1568,13 +1574,13 @@ fn main() -> ExitCode {
                 }
             }
         }
-        "test" => parse_options(sub_args, true, false, false, false, false, true, false, false, false)
+        "test" => parse_options(sub_args, false, false, false, false, true, false, false, false)
             .and_then(|opts| {
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <file_or_dir>\n{}", usage()));
                 }
                 let cases =
-                    run_dec_tests_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
+                    run_dec_tests_with_options(Path::new(&opts.rest[0]), &opts.load)
                         .map_err(|e| e.to_string())?;
                 if cases.is_empty() {
                     return Err("no Dec test cases discovered".to_string());

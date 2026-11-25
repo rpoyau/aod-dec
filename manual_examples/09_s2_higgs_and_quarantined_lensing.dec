@@ -5,104 +5,101 @@
 #   exact rounding residuals, and half-ULP enclosure (RC-011, RC-020, SD-004..SD-006).
 
 use aod::qext:
-    ext_decimal, qext_from_ratio, qext_render_bytes
-
+    ext_decimal, qext_from_ratio, qext_render
 use stdlib::aod::sectors:
     HiggsCandidate, ScientificStatus, higgs_candidate_score, higgs_select_winner_index, swells_delta3_tau_audit
-
 use stdlib::aod::metrology
 use stdlib::aod::metrology::DisplayQuarantine
 
-dec main:
-    () -> int:
-        # Phase 1: Purely native dimensionless Higgs scoring (zero MeV/GeV, zero LHC targets!)
-        let c0 = HiggsCandidate(3, 3, 7, 3, 18, 24)
-        let c1 = HiggsCandidate(3, 2, 7, 3, 18, 24)
-        let s0 = higgs_candidate_score(c0)
-        let s1 = higgs_candidate_score(c1)
-        assert s0.score == 0/1r and s1.score == 79/50r
-        let winner_idx = higgs_select_winner_index([s0.score, s1.score])
-        assert winner_idx == 0
-        assert s0.pi_val == 30 and s0.rd_val == 61 and s0.pd_val == 21 and s0.qd_val == 162
+dec main() -> int:
+    # Phase 1: Purely native dimensionless Higgs scoring (zero MeV/GeV, zero LHC targets!)
+    let c0 = HiggsCandidate(3, 3, 7, 3, 18, 24)
+    let c1 = HiggsCandidate(3, 2, 7, 3, 18, 24)
+    let s0 = higgs_candidate_score(c0)
+    let s1 = higgs_candidate_score(c1)
+    assert s0.score == 0/1r and s1.score == 79/50r
+    let winner_idx = higgs_select_winner_index([s0.score, s1.score])
+    assert winner_idx == 0
+    assert s0.pi_val == 30 and s0.rd_val == 61 and s0.pd_val == 21 and s0.qd_val == 162
 
-        # Freeze immutable native winner invariants prior to entering Q_ext
-        let frozen_rd = s0.rd_val
-        let frozen_l = c0.win_l
+    # Freeze immutable native winner invariants prior to entering Q_ext
+    let frozen_rd = s0.rd_val
+    let frozen_l = c0.win_l
 
-        # Native SWELLS K1 delta_3 & Tau non-conflation provenance guard (RC-020)
-        let audit = swells_delta3_tau_audit([2, 12, 1], [2, 8, 5], 9/20r, 23/50r)
-        assert audit.sum_delta_z == 0 and audit.sum_m == 8
-        assert audit.tau_difference == 1/100r and audit.tau_distinct
-        assert audit.scientific_status == ScientificStatus::UnresolvedProvenanceQuarantined
+    # Native SWELLS K1 delta_3 & Tau non-conflation provenance guard (RC-020)
+    let audit = swells_delta3_tau_audit([2, 12, 1], [2, 8, 5], 9/20r, 23/50r)
+    assert audit.sum_delta_z == 0 and audit.sum_m == 8
+    assert audit.tau_difference == 1/100r and audit.tau_distinct
+    assert audit.scientific_status == ScientificStatus::UnresolvedProvenanceQuarantined
 
-        emit s0.score
-        emit s1.score
-        emit winner_idx
-        emit frozen_rd
-        emit audit.sum_m
-        emit audit.tau_difference
-        emit audit.scientific_status
+    emit s0.score
+    emit s1.score
+    emit winner_idx
+    emit frozen_rd
+    emit audit.sum_m
+    emit audit.tau_difference
+    emit audit.scientific_status
 
-        # Phase 2: One-way quarantine Q_ext sink (both 2-segment & 3-segment DisplayQuarantine access)
-        quarantine Q_ext:
-            let e_mev = DisplayQuarantine::higgs_freeze_mev(frozen_rd, frozen_l)
-            let e_gev = metrology::DisplayQuarantine::higgs_freeze_gev(frozen_rd, frozen_l)
-            assert e_mev == qext_from_ratio(124928/1r)
-            assert e_gev == qext_from_ratio(15616/125r)
+    # Phase 2: One-way quarantine Q_ext sink (both 2-segment & 3-segment DisplayQuarantine access)
+    quarantine Q_ext:
+        let e_mev = DisplayQuarantine::higgs_freeze_mev(frozen_rd, frozen_l)
+        let e_gev = metrology::DisplayQuarantine::higgs_freeze_gev(frozen_rd, frozen_l)
+        assert e_mev == qext_from_ratio(124928/1r)
+        assert e_gev == qext_from_ratio(15616/125r)
 
-            # SD-004: CMS H->4l Run 2 (125.04 +- 0.12 GeV)
-            let cms_delta = DisplayQuarantine::lhc_delta_gev(e_gev, DisplayQuarantine::LHC_CMS_H4L_MASS_GEV)
-            let cms_z = DisplayQuarantine::lhc_z_score_exact(
-                e_gev,
-                DisplayQuarantine::LHC_CMS_H4L_MASS_GEV,
-                DisplayQuarantine::LHC_CMS_H4L_SIGMA_GEV
-            )
-            let cms_ape = DisplayQuarantine::lhc_abs_percent_error_exact(
-                e_gev,
-                DisplayQuarantine::LHC_CMS_H4L_MASS_GEV
-            )
-            assert cms_delta == qext_from_ratio(-14/125r)
-            assert cms_z == qext_from_ratio(-14/15r)
-            let cms_z_disp = DisplayQuarantine::round_display(cms_z, 6)
-            let cms_z_res = DisplayQuarantine::rounding_residual(cms_z, 6)
-            let cms_ape_disp = metrology::DisplayQuarantine::round_display(cms_ape, 6)
-            let cms_ape_res = metrology::DisplayQuarantine::rounding_residual(cms_ape, 6)
-            assert cms_z_res == qext_from_ratio(1/3000000r)
-            assert cms_ape_res == qext_from_ratio(527/1563000000r)
+        # SD-004: CMS H->4l Run 2 (125.04 +- 0.12 GeV)
+        let cms_delta = DisplayQuarantine::lhc_delta_gev(e_gev, DisplayQuarantine::LHC_CMS_H4L_MASS_GEV)
+        let cms_z = DisplayQuarantine::lhc_z_score_exact(
+            e_gev,
+            DisplayQuarantine::LHC_CMS_H4L_MASS_GEV,
+            DisplayQuarantine::LHC_CMS_H4L_SIGMA_GEV
+        )
+        let cms_ape = DisplayQuarantine::lhc_abs_percent_error_exact(
+            e_gev,
+            DisplayQuarantine::LHC_CMS_H4L_MASS_GEV
+        )
+        assert cms_delta == qext_from_ratio(-14/125r)
+        assert cms_z == qext_from_ratio(-14/15r)
+        let cms_z_disp = DisplayQuarantine::round_display(cms_z, 6)
+        let cms_z_res = DisplayQuarantine::rounding_residual(cms_z, 6)
+        let cms_ape_disp = metrology::DisplayQuarantine::round_display(cms_ape, 6)
+        let cms_ape_res = metrology::DisplayQuarantine::rounding_residual(cms_ape, 6)
+        assert cms_z_res == qext_from_ratio(1/3000000r)
+        assert cms_ape_res == qext_from_ratio(527/1563000000r)
 
-            # SD-005: ATLAS H->gammagamma (125.22 +- 0.14 GeV)
-            let atl_z = metrology::DisplayQuarantine::lhc_z_score_exact(
-                e_gev,
-                metrology::DisplayQuarantine::LHC_ATLAS_HGG_MASS_GEV,
-                metrology::DisplayQuarantine::LHC_ATLAS_HGG_SIGMA_GEV
-            )
-            let atl_ape = DisplayQuarantine::lhc_abs_percent_error_exact(
-                e_gev,
-                DisplayQuarantine::LHC_ATLAS_HGG_MASS_GEV
-            )
-            assert atl_z == qext_from_ratio(-73/35r)
-            let atl_z_disp = DisplayQuarantine::round_display(atl_z, 6)
-            let atl_z_res = DisplayQuarantine::rounding_residual(atl_z, 6)
-            let atl_ape_disp = DisplayQuarantine::round_display(atl_ape, 6)
-            let atl_ape_res = DisplayQuarantine::rounding_residual(atl_ape, 6)
-            assert atl_z_res == qext_from_ratio(1/3500000r)
-            assert atl_ape_res == qext_from_ratio(259/626100000r)
+        # SD-005: ATLAS H->gammagamma (125.22 +- 0.14 GeV)
+        let atl_z = metrology::DisplayQuarantine::lhc_z_score_exact(
+            e_gev,
+            metrology::DisplayQuarantine::LHC_ATLAS_HGG_MASS_GEV,
+            metrology::DisplayQuarantine::LHC_ATLAS_HGG_SIGMA_GEV
+        )
+        let atl_ape = DisplayQuarantine::lhc_abs_percent_error_exact(
+            e_gev,
+            DisplayQuarantine::LHC_ATLAS_HGG_MASS_GEV
+        )
+        assert atl_z == qext_from_ratio(-73/35r)
+        let atl_z_disp = DisplayQuarantine::round_display(atl_z, 6)
+        let atl_z_res = DisplayQuarantine::rounding_residual(atl_z, 6)
+        let atl_ape_disp = DisplayQuarantine::round_display(atl_ape, 6)
+        let atl_ape_res = DisplayQuarantine::rounding_residual(atl_ape, 6)
+        assert atl_z_res == qext_from_ratio(1/3500000r)
+        assert atl_ape_res == qext_from_ratio(259/626100000r)
 
-            # SD-006: Printed token half-ULP enclosure on 0.0001234 (7 decimal places)
-            let tok_val = ext_decimal(b"0.0001234")
-            let h_ulp = DisplayQuarantine::half_ulp_bound(7)
-            let lo = DisplayQuarantine::half_ulp_lower(tok_val, 7)
-            let hi = metrology::DisplayQuarantine::half_ulp_upper(tok_val, 7)
-            assert h_ulp == qext_from_ratio(1/20000000r)
-            assert lo == qext_from_ratio(2467/20000000r)
-            assert hi == qext_from_ratio(2469/20000000r)
+        # SD-006: Printed token half-ULP enclosure on 0.0001234 (7 decimal places)
+        let tok_val = ext_decimal(b"0.0001234")
+        let h_ulp = DisplayQuarantine::half_ulp_bound(7)
+        let lo = DisplayQuarantine::half_ulp_lower(tok_val, 7)
+        let hi = metrology::DisplayQuarantine::half_ulp_upper(tok_val, 7)
+        assert h_ulp == qext_from_ratio(1/20000000r)
+        assert lo == qext_from_ratio(2467/20000000r)
+        assert hi == qext_from_ratio(2469/20000000r)
 
-            emit qext_render_bytes(e_gev)
-            emit cms_z_disp
-            emit qext_render_bytes(cms_z_res)
-            emit cms_ape_disp
-            emit atl_z_disp
-            emit atl_ape_disp
-            emit qext_render_bytes(lo)
-            emit qext_render_bytes(hi)
-        return 0
+        emit qext_render(e_gev)
+        emit cms_z_disp
+        emit qext_render(cms_z_res)
+        emit cms_ape_disp
+        emit atl_z_disp
+        emit atl_ape_disp
+        emit qext_render(lo)
+        emit qext_render(hi)
+    0

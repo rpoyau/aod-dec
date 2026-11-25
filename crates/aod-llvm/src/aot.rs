@@ -124,29 +124,33 @@ pub fn emit_object_file_with_plan(
     result
 }
 
+fn collect_matching_rt_archives(dir: &Path, out: &mut Vec<PathBuf>) {
+    if let Ok(files) = std::fs::read_dir(dir) {
+        for f in files.flatten() {
+            let p = f.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("a")
+                && p.file_name()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|n| n.starts_with("libaod_rt"))
+                && p.is_file()
+            {
+                out.push(p);
+            }
+        }
+    }
+}
+
 fn collect_profile_rt_libs(root: &Path, profile: &str, out: &mut Vec<PathBuf>) {
     let prof_dir = root.join("target").join(profile);
     let top = prof_dir.join("libaod_rt.a");
     if top.is_file() {
         out.push(top);
     }
+    collect_matching_rt_archives(&prof_dir.join("deps"), out);
     let build_rt = prof_dir.join("build").join("aod-rt");
     if let Ok(entries) = std::fs::read_dir(build_rt) {
         for ent in entries.flatten() {
-            let out_dir = ent.path().join("out");
-            if let Ok(files) = std::fs::read_dir(out_dir) {
-                for f in files.flatten() {
-                    let p = f.path();
-                    if p.extension().and_then(|s| s.to_str()) == Some("a")
-                        && p.file_name()
-                            .and_then(|s| s.to_str())
-                            .is_some_and(|n| n.starts_with("libaod_rt"))
-                        && p.is_file()
-                    {
-                        out.push(p);
-                    }
-                }
-            }
+            collect_matching_rt_archives(&ent.path().join("out"), out);
         }
     }
 }
@@ -171,8 +175,10 @@ pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             exe_near.push(dir.join("libaod_rt.a"));
+            collect_matching_rt_archives(dir, &mut exe_near);
             if let Some(p1) = dir.parent() {
                 exe_near.push(p1.join("libaod_rt.a"));
+                collect_matching_rt_archives(&p1.join("deps"), &mut exe_near);
                 if let Some(p2) = p1.parent() {
                     exe_near.push(p2.join("libaod_rt.a"));
                     if let Some(p3) = p2.parent() {

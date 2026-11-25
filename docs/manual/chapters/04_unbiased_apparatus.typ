@@ -4,7 +4,7 @@
 = Unbiased Chamber Sandbox Apparatus <sec:apparatus>
 
 #aod-paragraph("Setup.")
-Dec v2 provides first-class declarative apparatus blocks (`chamber`, `prepare`, `observe`, `simulate`)
+Dec provides first-class declarative apparatus blocks (`chamber`, `prepare`, `observe`, `simulate`)
 backed by a shared deterministic sandbox engine in `crates/aod-rt/src/sim.rs`. Both the Exact Reference VM
 and compiled native binaries invoke the exact same sandbox stepper so tick transitions, carrier shedding,
 hinge saturation (#mainsection("main:sec:afc-stokes-seed"), #mainequation("main:eq:hinge-saturation")),
@@ -13,16 +13,15 @@ pending overhang (#mainequation("main:eq:burden-overhang")), closure residual
 byte-identical across all five execution modes.
 
 #aod-noteblock("Model Provenance")[
-  Every `SimResult` emitted by the sandbox engine carries the typed status enum
-  `ModelStatus::DeclaredSandboxNotS3Authenticated` (`DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED`). The
-  chamber apparatus is a declared computational testbed for observer isolation and deterministic replay
-  (#mainsection("main:sec:awareness-learning")); it makes zero unproven physical claims and contains zero
-  hardcoded physical outcome targets.
+  Every `SimResult` emitted by the sandbox engine carries the explicit status string
+  `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED`. The chamber apparatus is a declared computational testbed
+  for observer isolation and deterministic replay (#mainsection("main:sec:awareness-learning")); it makes zero
+  unproven physical claims and contains zero hardcoded physical outcome targets.
 ]
 
 #aod-paragraph("Derivation.")
 In `06_unbiased_chamber_sandbox.dec`, two opposing `3:3:6` supports (`proton_support()`) are injected inside
-`box([0..64, 0..64, 0..64])` with open walls and stepped for `12` ticks under three observer configurations:
+`box([0..64, 0..64, 0..64])` with open walls and stepped across `12` ticks under three observer configurations:
 zero observers (`r0`), one declarative sensor (`r1`), and combined declarative plus procedural read-only
 observers (`r2`). As illustrated in #figref("fig:sandbox-chamber"), the read-only firewall ensures all
 three runs produce identical SHA-256 final state hashes (`0` bytes of observer back-reaction).
@@ -43,24 +42,22 @@ chamber MiniBox:
     walls = open
 
 prepare SingleCarrier in MiniBox:
-    inject 3:3:6 at (8, 16, 16) dir +X orient 1t shells 1
+    inject 3:3:6 at (8, 16, 16) dir +X orient +1t shells 1
 
 observe PassiveEye:
-    tracer count_eye:
-        (view: ReadOnly<ChamberView>) -> Null:
-            assert view.carrier_count >= 1
-            return null
+    tracer count_eye(view):
+        let _k = view.carrier_count
 
-dec main:
-    () -> int:
-        let a = simulate SingleCarrier for 4 ticks
-        let b = simulate SingleCarrier for 4 ticks with PassiveEye
-        assert a.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
-        assert a.final_state_hash == b.final_state_hash
-        emit a.model_status
-        emit a.ticks
-        emit a.carrier_count
-        return 0
+dec main() -> int:
+    let a = simulate SingleCarrier over 4 ticks
+    let b = simulate SingleCarrier over 4 ticks with PassiveEye
+    assert a.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+    assert a.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert a.final_state_hash == b.final_state_hash
+    emit a.model_status
+    emit a.ticks
+    emit a.carrier_count
+    0
 ```
 
 ```dec-expect

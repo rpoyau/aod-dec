@@ -1,8 +1,9 @@
 #![forbid(unsafe_code)]
 
-//! `aodc`: Dec v2 frontend, compile-time firewalls, hermetic `DecIR` v1/v2 serializer &
-//! verifier, exact reference evaluator, unboxed-first safe textual LLVM 18 IR lowering,
-//! AOT ELF / ORC LLJIT execution, hardware discovery & zero-float learner, and CLI.
+//! `aodc`: Clean-break Dec compiler frontend, compile-time firewalls, hermetic `DecIR` v3
+//! serializer & verifier, exact reference evaluator, Trit-Boxed 2-bit balanced ternary
+//! LLVM 18 IR lowering, AOT ELF / ORC LLJIT execution, hardware discovery & zero-float
+//! learner, fixed-point self-hosting bootstrap verifier, and CLI.
 
 pub mod ast;
 pub mod checker;
@@ -22,11 +23,7 @@ pub mod report_guard;
 pub mod sim;
 pub mod types;
 
-pub use crate::fmt::{
-    format_program, format_program_with_mode, format_source, format_source_with_discipline,
-};
-pub use crate::parser::{parse_program, parse_program_with_discipline};
-
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -52,12 +49,14 @@ pub use crate::dec_audit::{
     audit_dec_source_with_options, failed_read_audit_report, lex_live_walk, verify_frg_identity,
     verify_sheddic_route, DecAuditReport, HookAuditResult, LiveWalkSummary, DEC_AUDIT_SCHEMA,
 };
+pub use crate::fmt::{format_file, format_program, format_source};
 pub use crate::manual_data::{
     run_manual_data, validate_manual_data_output_dir, ManualDataOptions, ManualDataReport,
     MANUAL_DATA_FILENAMES, MANUAL_DATA_SCHEMA,
 };
 pub use crate::manual_verify::{verify_manual_dir, ManualVerifyOptions, ManualVerifyReport};
 pub use crate::modules::LoadOptions;
+pub use crate::parser::parse_source;
 pub use crate::pdf_audit::{
     adler32, audit_pdf_bytes, audit_pdf_file, inflate_deflate, inflate_zlib, InflateError,
     PdfAuditOptions, PdfAuditReport, MAX_PDF_BYTES, MAX_STREAMS, MAX_STREAM_DECOMP_BYTES,
@@ -68,48 +67,49 @@ pub use crate::report_guard::{
     validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
 };
 
-pub use crate::diagnostics::SyntaxDiscipline;
 use crate::checker::{check_unit, CheckedUnit};
 use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::eval::{EvalOutput, Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::ir::{dumps_ir, loads_ir};
 use crate::modules::load_from_source_with_options;
 
 static BENCH_TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
-pub fn check_source(source: &str, compat: CompatMode) -> DecResult<CheckedUnit> {
-    check_source_with_options(source, compat, &LoadOptions::for_compat(compat))
+pub fn check_source(source: &str) -> DecResult<CheckedUnit> {
+    check_source_with_options(source, &LoadOptions::default())
 }
 
-pub fn check_source_with_options(
-    source: &str,
-    compat: CompatMode,
-    options: &LoadOptions,
-) -> DecResult<CheckedUnit> {
-    let loaded = load_from_source_with_options(source, None, compat, options)?;
+pub fn check_source_with_options(source: &str, options: &LoadOptions) -> DecResult<CheckedUnit> {
+    let loaded = load_from_source_with_options(source, None, options)?;
     check_unit(loaded, true)
 }
 
-pub fn check_file(path: &Path, compat: CompatMode) -> DecResult<CheckedUnit> {
-    check_file_with_options(path, compat, &LoadOptions::for_compat(compat))
+pub fn check_file(path: &Path) -> DecResult<CheckedUnit> {
+    check_file_with_options(path, &LoadOptions::default())
 }
 
-pub fn audit_dec_source(source: &str, compat: CompatMode) -> DecAuditReport {
-    audit_dec_source_with_options(
-        source,
-        "<memory>",
-        None,
-        compat,
-        LoadOptions::for_compat(compat),
-    )
+pub fn check_file_with_options(path: &Path, options: &LoadOptions) -> DecResult<CheckedUnit> {
+    let source = std::fs::read_to_string(path).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::ParseError,
+            format!("failed reading {}: {e}", path.display()),
+        )
+    })?;
+    let base_dir = path.parent();
+    let loaded = load_from_source_with_options(&source, base_dir, options)?;
+    check_unit(loaded, true)
 }
 
-pub fn audit_dec_file_with_options(
-    path: &Path,
-    compat: CompatMode,
-    options: &LoadOptions,
-) -> DecAuditReport {
+pub fn audit_dec_source(source: &str) -> DecAuditReport {
+    audit_dec_source_with_options(source, "<memory>", None, &LoadOptions::default())
+}
+
+pub fn audit_dec_file(path: &Path) -> DecAuditReport {
+    audit_dec_file_with_options(path, &LoadOptions::default())
+}
+
+pub fn audit_dec_file_with_options(path: &Path, options: &LoadOptions) -> DecAuditReport {
     let bytes = match read_bounded_regular_file(path, "source", crate::parser::MAX_SOURCE_BYTES) {
         Ok(b) => b,
         Err(err) => return failed_read_audit_report(&path.to_string_lossy(), &err),
@@ -123,94 +123,64 @@ pub fn audit_dec_file_with_options(
             );
         }
     };
-    audit_dec_source_with_options(
-        &source,
-        &path.to_string_lossy(),
-        path.parent(),
-        compat,
-        options.clone(),
-    )
+    audit_dec_source_with_options(&source, &path.to_string_lossy(), path.parent(), options)
 }
 
-pub fn check_file_with_options(
-    path: &Path,
-    compat: CompatMode,
-    options: &LoadOptions,
-) -> DecResult<CheckedUnit> {
-    let source = std::fs::read_to_string(path).map_err(|e| {
-        Diagnostic::new(
-            DiagnosticCode::ParseError,
-            format!("failed reading {}: {e}", path.display()),
-        )
-    })?;
-    let base_dir = path.parent();
-    let loaded = load_from_source_with_options(&source, base_dir, compat, options)?;
-    check_unit(loaded, true)
-}
-
-pub fn run_source(source: &str, compat: CompatMode) -> DecResult<EvalOutput> {
-    let checked = check_source(source, compat)?;
+pub fn run_source(source: &str) -> DecResult<EvalOutput> {
+    let checked = check_source(source)?;
     Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)?.run_main()
 }
 
 pub fn run_source_with_budget(
     source: &str,
-    compat: CompatMode,
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<EvalOutput> {
-    let checked = check_source(source, compat)?;
+    let checked = check_source(source)?;
     Evaluator::new(&checked, fuel, max_depth)?.run_main()
 }
 
-pub fn run_file(path: &Path, compat: CompatMode) -> DecResult<EvalOutput> {
-    let checked = check_file(path, compat)?;
+pub fn run_file(path: &Path) -> DecResult<EvalOutput> {
+    let checked = check_file(path)?;
     Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)?.run_main()
 }
 
 pub fn run_file_with_budget_capturing(
     path: &Path,
-    compat: CompatMode,
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    run_file_with_options_capturing(path, compat, fuel, max_depth, &LoadOptions::for_compat(compat))
+    run_file_with_options_capturing(path, fuel, max_depth, &LoadOptions::default())
 }
 
 pub fn run_file_with_options_capturing(
     path: &Path,
-    compat: CompatMode,
     fuel: usize,
     max_depth: usize,
     options: &LoadOptions,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    run_file_with_parallel_observers_capturing(path, compat, fuel, max_depth, options, false)
+    run_file_with_parallel_observers_capturing(path, fuel, max_depth, options, false)
 }
 
 pub fn run_file_with_parallel_observers_capturing(
     path: &Path,
-    compat: CompatMode,
     fuel: usize,
     max_depth: usize,
     options: &LoadOptions,
     parallel_observers: bool,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     Ok(Evaluator::new(&checked, fuel, max_depth)?
         .with_parallel_observers(parallel_observers)
         .run_main_capturing())
 }
 
-pub fn compile_file_to_ir(path: &Path, compat: CompatMode) -> DecResult<String> {
-    compile_file_to_ir_with_options(path, compat, &LoadOptions::for_compat(compat))
+pub fn compile_file_to_ir(path: &Path) -> DecResult<String> {
+    compile_file_to_ir_with_options(path, &LoadOptions::default())
 }
 
-pub fn compile_file_to_ir_with_options(
-    path: &Path,
-    compat: CompatMode,
-    options: &LoadOptions,
-) -> DecResult<String> {
-    let checked = check_file_with_options(path, compat, options)?;
+pub fn compile_file_to_ir_with_options(path: &Path, options: &LoadOptions) -> DecResult<String> {
+    let checked = check_file_with_options(path, options)?;
     Ok(dumps_ir(&checked))
 }
 
@@ -245,127 +215,96 @@ pub fn exec_ir_file_with_budget_capturing(
 }
 
 // ============================================================================
-// PR 2 + PR 3 + PR 4: Native LLVM 18 Lowering, AOT ELF, ORC LLJIT, & Learner
+// Native LLVM 18 Lowering, AOT ELF, ORC LLJIT, & Zero-Float Learner
 // ============================================================================
 
-pub fn emit_llvm_source(source: &str, compat: CompatMode, opt: OptLevel) -> DecResult<String> {
-    emit_llvm_source_with_plan(source, compat, &CodegenPlan::for_opt_level(opt))
+pub fn emit_llvm_source(source: &str, opt: OptLevel) -> DecResult<String> {
+    emit_llvm_source_with_plan(source, &CodegenPlan::for_opt_level(opt))
 }
 
-pub fn emit_llvm_source_with_plan(
-    source: &str,
-    compat: CompatMode,
-    plan: &CodegenPlan,
-) -> DecResult<String> {
-    let checked = check_source(source, compat)?;
+pub fn emit_llvm_source_with_plan(source: &str, plan: &CodegenPlan) -> DecResult<String> {
+    let checked = check_source(source)?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
     aod_llvm::verify_and_optimize_ir_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
-pub fn emit_llvm_file(path: &Path, compat: CompatMode, opt: OptLevel) -> DecResult<String> {
-    emit_llvm_file_with_options(path, compat, opt, &LoadOptions::for_compat(compat))
+pub fn emit_llvm_file(path: &Path, opt: OptLevel) -> DecResult<String> {
+    emit_llvm_file_with_options(path, opt, &LoadOptions::default())
 }
 
 pub fn emit_llvm_file_with_options(
     path: &Path,
-    compat: CompatMode,
     opt: OptLevel,
     options: &LoadOptions,
 ) -> DecResult<String> {
-    emit_llvm_file_with_plan(path, compat, &CodegenPlan::for_opt_level(opt), options)
+    emit_llvm_file_with_plan(path, &CodegenPlan::for_opt_level(opt), options)
 }
 
 pub fn emit_llvm_file_with_plan(
     path: &Path,
-    compat: CompatMode,
     plan: &CodegenPlan,
     options: &LoadOptions,
 ) -> DecResult<String> {
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
     aod_llvm::verify_and_optimize_ir_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
-pub fn build_aot_source(
-    source: &str,
-    compat: CompatMode,
-    opt: OptLevel,
-    out_exe: &Path,
-) -> DecResult<()> {
-    let checked = check_source(source, compat)?;
+pub fn build_aot_source(source: &str, opt: OptLevel, out_exe: &Path) -> DecResult<()> {
+    let checked = check_source(source)?;
     let raw_ir = lower_to_llvm_ir(&checked)?;
     aod_llvm::link_aot_executable(&raw_ir, opt, out_exe)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
-pub fn build_aot_file(
-    path: &Path,
-    compat: CompatMode,
-    opt: OptLevel,
-    out_exe: &Path,
-) -> DecResult<()> {
-    build_aot_file_with_options(path, compat, opt, out_exe, &LoadOptions::for_compat(compat))
+pub fn build_aot_file(path: &Path, opt: OptLevel, out_exe: &Path) -> DecResult<()> {
+    build_aot_file_with_options(path, opt, out_exe, &LoadOptions::default())
 }
 
 pub fn build_aot_file_with_options(
     path: &Path,
-    compat: CompatMode,
     opt: OptLevel,
     out_exe: &Path,
     options: &LoadOptions,
 ) -> DecResult<()> {
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     let plan = CodegenPlan::for_opt_level(opt);
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &plan)?;
     aod_llvm::link_aot_executable_with_plan(&raw_ir, &plan, out_exe)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
-pub fn compile_jit_source(
-    source: &str,
-    compat: CompatMode,
-    opt: OptLevel,
-) -> DecResult<OrcJitSession> {
-    compile_jit_source_with_plan(source, compat, &CodegenPlan::for_opt_level(opt))
+pub fn compile_jit_source(source: &str, opt: OptLevel) -> DecResult<OrcJitSession> {
+    compile_jit_source_with_plan(source, &CodegenPlan::for_opt_level(opt))
 }
 
-pub fn compile_jit_source_with_plan(
-    source: &str,
-    compat: CompatMode,
-    plan: &CodegenPlan,
-) -> DecResult<OrcJitSession> {
-    let checked = check_source(source, compat)?;
+pub fn compile_jit_source_with_plan(source: &str, plan: &CodegenPlan) -> DecResult<OrcJitSession> {
+    let checked = check_source(source)?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
     OrcJitSession::compile_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
-pub fn compile_jit_file(
-    path: &Path,
-    compat: CompatMode,
-    opt: OptLevel,
-) -> DecResult<OrcJitSession> {
-    compile_jit_file_with_options(path, compat, opt, &LoadOptions::for_compat(compat))
+pub fn compile_jit_file(path: &Path, opt: OptLevel) -> DecResult<OrcJitSession> {
+    compile_jit_file_with_options(path, opt, &LoadOptions::default())
 }
 
 pub fn compile_jit_file_with_options(
     path: &Path,
-    compat: CompatMode,
     opt: OptLevel,
     options: &LoadOptions,
 ) -> DecResult<OrcJitSession> {
-    compile_jit_file_with_plan(path, compat, &CodegenPlan::for_opt_level(opt), options)
+    compile_jit_file_with_plan(path, &CodegenPlan::for_opt_level(opt), options)
 }
 
 pub fn compile_jit_file_with_plan(
     path: &Path,
-    compat: CompatMode,
     plan: &CodegenPlan,
     options: &LoadOptions,
 ) -> DecResult<OrcJitSession> {
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
     OrcJitSession::compile_with_plan(&raw_ir, plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
@@ -373,81 +312,60 @@ pub fn compile_jit_file_with_plan(
 
 pub fn jit_source_captured(
     source: &str,
-    compat: CompatMode,
     opt: OptLevel,
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
-    let session = compile_jit_source(source, compat, opt)?;
+    let session = compile_jit_source(source, opt)?;
     Ok(session.run_captured(fuel as i64, max_depth as i32))
 }
 
 pub fn jit_source_with_plan_captured(
     source: &str,
-    compat: CompatMode,
     plan: &CodegenPlan,
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
-    let session = compile_jit_source_with_plan(source, compat, plan)?;
+    let session = compile_jit_source_with_plan(source, plan)?;
     Ok(session.run_captured(fuel as i64, max_depth as i32))
 }
 
 pub fn jit_file_captured(
     path: &Path,
-    compat: CompatMode,
     opt: OptLevel,
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
-    jit_file_with_options_captured(
-        path,
-        compat,
-        opt,
-        fuel,
-        max_depth,
-        &LoadOptions::for_compat(compat),
-    )
+    jit_file_with_options_captured(path, opt, fuel, max_depth, &LoadOptions::default())
 }
 
 pub fn jit_file_with_options_captured(
     path: &Path,
-    compat: CompatMode,
     opt: OptLevel,
     fuel: usize,
     max_depth: usize,
     options: &LoadOptions,
 ) -> DecResult<(String, Result<(), String>)> {
-    let session = compile_jit_file_with_options(path, compat, opt, options)?;
+    let session = compile_jit_file_with_options(path, opt, options)?;
     Ok(session.run_captured(fuel as i64, max_depth as i32))
 }
 
 pub fn compute_profile_bindings(
     checked: &CheckedUnit,
-    compat: CompatMode,
     fuel: usize,
     max_depth: usize,
 ) -> (String, String) {
     let ir_json = dumps_ir(checked);
     let kernel_ir_sha256 = Sha256::digest_hex(ir_json.as_bytes());
-    let workload_desc = match checked.unit.discipline {
-        SyntaxDiscipline::LegacyV1 => {
-            format!("compat={compat:?};fuel={fuel};max_depth={max_depth}")
-        }
-        SyntaxDiscipline::PureWaveV2 => {
-            format!("compat={compat:?};discipline=PureWaveV2;fuel={fuel};max_depth={max_depth}")
-        }
-    };
+    let workload_desc = format!("abi=trit_boxed_v3;fuel={fuel};max_depth={max_depth}");
     let workload_sha256 = Sha256::digest_hex(workload_desc.as_bytes());
     (kernel_ir_sha256, workload_sha256)
 }
 
 /// Execute via ORC LLJIT honoring an optional validated `RetainedProfile` (falling back safely
 /// to `fallback_opt` on any corruption, tampering, or CPU/IR/workload mismatch!).
-#[allow(clippy::too_many_arguments)]
 pub fn jit_file_with_profile_captured(
     path: &Path,
-    compat: CompatMode,
     fallback_opt: OptLevel,
     fuel: usize,
     max_depth: usize,
@@ -456,7 +374,6 @@ pub fn jit_file_with_profile_captured(
 ) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
     jit_file_with_profile_and_parallel_captured(
         path,
-        compat,
         fallback_opt,
         fuel,
         max_depth,
@@ -466,10 +383,8 @@ pub fn jit_file_with_profile_captured(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn jit_file_with_profile_and_parallel_captured(
     path: &Path,
-    compat: CompatMode,
     fallback_opt: OptLevel,
     fuel: usize,
     max_depth: usize,
@@ -477,13 +392,13 @@ pub fn jit_file_with_profile_and_parallel_captured(
     options: &LoadOptions,
     parallel_observers: bool,
 ) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     let fallback_plan = CodegenPlan::for_opt_level(fallback_opt);
 
     let (mut chosen_plan, note) = if let Some(pp) = profile_path {
         let hw = HostHardwareInfo::discover()
             .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
-        let (kernel_sha, workload_sha) = compute_profile_bindings(&checked, compat, fuel, max_depth);
+        let (kernel_sha, workload_sha) = compute_profile_bindings(&checked, fuel, max_depth);
         match RetainedProfile::load_validated(pp, &hw.cpu_sig_sha256, &kernel_sha, &workload_sha) {
             ProfileLoadOutcome::Loaded(prof) => (prof.active_plan, None),
             ProfileLoadOutcome::FallbackToBaseline { reason } => (fallback_plan, Some(reason)),
@@ -507,7 +422,6 @@ pub fn jit_file_with_profile_and_parallel_captured(
 #[allow(clippy::too_many_arguments)]
 pub fn learn_file_with_options(
     path: &Path,
-    compat: CompatMode,
     baseline_opt: OptLevel,
     training_pairs: usize,
     heldout_pairs: usize,
@@ -516,11 +430,10 @@ pub fn learn_file_with_options(
     profile_out: Option<&Path>,
     options: &LoadOptions,
 ) -> DecResult<(HwProbeReport, LearnSessionReport)> {
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     let hw_report = run_all_hw_probes()
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
-    let (kernel_ir_sha256, workload_sha256) =
-        compute_profile_bindings(&checked, compat, fuel, max_depth);
+    let (kernel_ir_sha256, workload_sha256) = compute_profile_bindings(&checked, fuel, max_depth);
 
     let baseline_plan = match baseline_opt {
         OptLevel::O0 => CodegenPlan::baseline_o0(),
@@ -593,33 +506,19 @@ pub fn format_x100(v: u128) -> String {
     format!("{}.{:02}x", v / 100, v % 100)
 }
 
-pub fn bench_file(
-    path: &Path,
-    compat: CompatMode,
-    iters: usize,
-    fuel: usize,
-    max_depth: usize,
-) -> DecResult<BenchReport> {
-    bench_file_with_options(
-        path,
-        compat,
-        iters,
-        fuel,
-        max_depth,
-        &LoadOptions::for_compat(compat),
-    )
+pub fn bench_file(path: &Path, iters: usize, fuel: usize, max_depth: usize) -> DecResult<BenchReport> {
+    bench_file_with_options(path, iters, fuel, max_depth, &LoadOptions::default())
 }
 
 pub fn bench_file_with_options(
     path: &Path,
-    compat: CompatMode,
     iters: usize,
     fuel: usize,
     max_depth: usize,
     options: &LoadOptions,
 ) -> DecResult<BenchReport> {
     let iters = iters.max(1);
-    let checked = check_file_with_options(path, compat, options)?;
+    let checked = check_file_with_options(path, options)?;
     let raw_ir = lower_to_llvm_ir(&checked)?;
 
     let vm_out = Evaluator::new(&checked, fuel, max_depth)?
@@ -761,7 +660,349 @@ pub fn bench_file_with_options(
 }
 
 // ============================================================================
-// Dec Test Runner (PR 1 `P0-3` + PR 3 `P1-1` hardened `.expect_error`!)
+// Genuine Fixed-Point Self-Hosting Bootstrap Verifier (`Stage 0 -> 1 -> 2 -> 3`)
+// ============================================================================
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BootstrapVerifyReport {
+    pub self_host_path: PathBuf,
+    pub stage1_bytes: usize,
+    pub stage2_bytes: usize,
+    pub stage3_bytes: usize,
+    pub stage1_sha256: String,
+    pub stage2_sha256: String,
+    pub stage3_sha256: String,
+    pub fixed_point_verified: bool,
+    pub sample_stdout_parity_verified: bool,
+}
+
+impl BootstrapVerifyReport {
+    pub fn to_json(&self) -> JsonValue {
+        let mut m = BTreeMap::new();
+        m.insert(
+            "fixed_point_verified".to_string(),
+            JsonValue::Bool(self.fixed_point_verified),
+        );
+        m.insert(
+            "sample_stdout_parity_verified".to_string(),
+            JsonValue::Bool(self.sample_stdout_parity_verified),
+        );
+        m.insert(
+            "schema".to_string(),
+            JsonValue::from_str_val("aod.dec.bootstrap_verify.v1"),
+        );
+        m.insert(
+            "self_host_path".to_string(),
+            JsonValue::from_str_val(self.self_host_path.display().to_string()),
+        );
+        m.insert(
+            "stage1_bytes".to_string(),
+            JsonValue::from_usize(self.stage1_bytes),
+        );
+        m.insert(
+            "stage1_sha256".to_string(),
+            JsonValue::from_str_val(self.stage1_sha256.clone()),
+        );
+        m.insert(
+            "stage2_bytes".to_string(),
+            JsonValue::from_usize(self.stage2_bytes),
+        );
+        m.insert(
+            "stage2_sha256".to_string(),
+            JsonValue::from_str_val(self.stage2_sha256.clone()),
+        );
+        m.insert(
+            "stage3_bytes".to_string(),
+            JsonValue::from_usize(self.stage3_bytes),
+        );
+        m.insert(
+            "stage3_sha256".to_string(),
+            JsonValue::from_str_val(self.stage3_sha256.clone()),
+        );
+        m.insert("status".to_string(), JsonValue::from_str_val("PASS"));
+        JsonValue::Object(m)
+    }
+}
+
+struct BootstrapTmpGuard(PathBuf);
+
+impl Drop for BootstrapTmpGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+const DEFAULT_SELF_HOST_SAMPLE_DEC: &str = "\
+struct Pair:
+    lhs: int
+    rhs: int
+
+dec classify:
+    (x: int) where x > 0 -> int:
+        x * 3
+    (0: int) -> int:
+        108
+    (x: int) -> int:
+        -x + 7
+
+dec step_sum(acc: int) -> int:
+    acc + 9
+
+dec main() -> int:
+    let anchor_ok = 00_8
+    let p = Pair(14, -5)
+    let c1 = classify(p.lhs)
+    let c2 = classify(0)
+    let c3 = classify(p.rhs)
+    let w = walk(0, 6, step_sum)
+    let role = p.lhs <=> p.rhs
+    let m = mux(role, -10, 0, 25)
+    emit c1
+    emit c2
+    emit c3
+    emit w + m
+    0
+";
+
+/// Execute the full 4-stage self-hosting bootstrap verification:
+/// 1. `Stage 0` (`aodc build`) compiles `self_host/aodc_self.dec` -> `stage1`.
+/// 2. `stage1` compiles `self_host/aodc_self.dec` -> `stage2` (standalone libc-free x86-64 ELF64).
+/// 3. `stage2` compiles `self_host/aodc_self.dec` -> `stage3`.
+/// 4. Strictly asserts `SHA256(stage2) == SHA256(stage3)` (byte-for-byte fixed point).
+/// 5. Compiles a clean-break `.dec` program via `stage2` and asserts exact stdout parity against
+///    both `aodc run` (Exact Reference VM) and `aodc jit` (LLVM 18 ORC LLJIT).
+pub fn bootstrap_verify(
+    self_host_src: Option<&Path>,
+    sample_prog: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<BootstrapVerifyReport> {
+    bootstrap_verify_with_stage2_out(self_host_src, sample_prog, None, options)
+}
+
+pub fn bootstrap_verify_with_stage2_out(
+    self_host_src: Option<&Path>,
+    sample_prog: Option<&Path>,
+    emit_stage2: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<BootstrapVerifyReport> {
+    let resolved_src = match self_host_src {
+        Some(p) => p.to_path_buf(),
+        None => discover_default_s2_root().join("self_host/aodc_self.dec"),
+    };
+    if !resolved_src.is_file() {
+        return Err(Diagnostic::new(
+            DiagnosticCode::ModuleNotFound,
+            format!(
+                "self-host compiler source not found at {}",
+                resolved_src.display()
+            ),
+        ));
+    }
+
+    let seq = BENCH_TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let work_dir = std::env::temp_dir().join(format!("aodc_bootstrap_{}_{}", std::process::id(), seq));
+    std::fs::create_dir_all(&work_dir).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!("failed creating bootstrap workspace: {e}"),
+        )
+    })?;
+    let _guard = BootstrapTmpGuard(work_dir.clone());
+
+    let stage1_exe = work_dir.join("aodc_stage1");
+    let stage2_exe = work_dir.join("aodc_stage2");
+    let stage3_exe = work_dir.join("aodc_stage3");
+
+    // 1. Stage 0 -> Stage 1
+    build_aot_file_with_options(&resolved_src, OptLevel::O2, &stage1_exe, options)?;
+    let stage1_bytes_raw = std::fs::read(&stage1_exe).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!("failed reading stage1 binary: {e}"),
+        )
+    })?;
+    let stage1_sha256 = Sha256::digest_hex(&stage1_bytes_raw);
+
+    // 2. Stage 1 -> Stage 2
+    let s1_out = Command::new(&stage1_exe)
+        .args([
+            "--fuel",
+            "100000000",
+            "--max-depth",
+            "512",
+            &resolved_src.to_string_lossy(),
+            &stage2_exe.to_string_lossy(),
+        ])
+        .output()
+        .map_err(|e| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                format!("failed spawning stage1 compiler: {e}"),
+            )
+        })?;
+    if !s1_out.status.success() {
+        return Err(Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!(
+                "stage1 failed compiling {}: status={}, stderr={}",
+                resolved_src.display(),
+                s1_out.status,
+                String::from_utf8_lossy(&s1_out.stderr)
+            ),
+        ));
+    }
+    let stage2_bytes_raw = std::fs::read(&stage2_exe).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!("failed reading stage2 ELF binary: {e}"),
+        )
+    })?;
+    let stage2_sha256 = Sha256::digest_hex(&stage2_bytes_raw);
+
+    // 3. Stage 2 -> Stage 3 (standalone self-hosted ELF64 compiling itself!)
+    let s2_out = Command::new(&stage2_exe)
+        .args([
+            resolved_src.as_os_str(),
+            stage3_exe.as_os_str(),
+        ])
+        .output()
+        .map_err(|e| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                format!("failed spawning stage2 self-hosted ELF: {e}"),
+            )
+        })?;
+    if !s2_out.status.success() {
+        return Err(Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!(
+                "stage2 self-hosted compiler failed compiling {}: status={}, stderr={}",
+                resolved_src.display(),
+                s2_out.status,
+                String::from_utf8_lossy(&s2_out.stderr)
+            ),
+        ));
+    }
+    let stage3_bytes_raw = std::fs::read(&stage3_exe).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!("failed reading stage3 ELF binary: {e}"),
+        )
+    })?;
+    let stage3_sha256 = Sha256::digest_hex(&stage3_bytes_raw);
+
+    // 4. Fixed-point equality gate: SHA256(stage2) == SHA256(stage3)
+    if stage2_bytes_raw != stage3_bytes_raw || stage2_sha256 != stage3_sha256 {
+        return Err(Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!(
+                "bootstrap fixed-point mismatch: stage2 ({} bytes, sha256={stage2_sha256}) != stage3 ({} bytes, sha256={stage3_sha256})",
+                stage2_bytes_raw.len(),
+                stage3_bytes_raw.len()
+            ),
+        ));
+    }
+
+    if let Some(out_p) = emit_stage2 {
+        std::fs::write(out_p, &stage2_bytes_raw).map_err(|e| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                format!("failed writing emitted stage2 binary {}: {e}", out_p.display()),
+            )
+        })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(out_p, std::fs::Permissions::from_mode(0o755));
+        }
+    }
+
+    // 5. Behavioral parity gate: compile & run a clean-break `.dec` program via `stage2`
+    let sample_dec_path = match sample_prog {
+        Some(p) => p.to_path_buf(),
+        None => {
+            let p = work_dir.join("sample_verify.dec");
+            std::fs::write(&p, DEFAULT_SELF_HOST_SAMPLE_DEC).map_err(|e| {
+                Diagnostic::new(
+                    DiagnosticCode::RuntimeError,
+                    format!("failed writing sample Dec program: {e}"),
+                )
+            })?;
+            p
+        }
+    };
+    let sample_elf_path = work_dir.join("sample_verify_exe");
+    let sample_compile = Command::new(&stage2_exe)
+        .args([sample_dec_path.as_os_str(), sample_elf_path.as_os_str()])
+        .output()
+        .map_err(|e| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                format!("failed running stage2 on sample Dec program: {e}"),
+            )
+        })?;
+    if !sample_compile.status.success() {
+        return Err(Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!(
+                "stage2 failed compiling sample {}: status={}, stderr={}",
+                sample_dec_path.display(),
+                sample_compile.status,
+                String::from_utf8_lossy(&sample_compile.stderr)
+            ),
+        ));
+    }
+    let sample_run = Command::new(&sample_elf_path).output().map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!("failed executing stage2-emitted sample ELF: {e}"),
+        )
+    })?;
+    if !sample_run.status.success() {
+        return Err(Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!(
+                "stage2-emitted sample ELF exited non-zero: {}",
+                 sample_run.status
+            ),
+        ));
+    }
+    let self_stdout = String::from_utf8_lossy(&sample_run.stdout).to_string();
+
+    let vm_out = run_file(&sample_dec_path)?.to_stdout_string();
+    let (jit_out, jit_res) = jit_file_with_options_captured(
+        &sample_dec_path,
+        OptLevel::O2,
+        DEFAULT_FUEL,
+        DEFAULT_MAX_DEPTH,
+        options,
+    )?;
+    jit_res.map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+
+    if self_stdout != vm_out || self_stdout != jit_out {
+        return Err(Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            format!(
+                "stage2 stdout parity mismatch: stage2={self_stdout:?}, vm={vm_out:?}, jit={jit_out:?}"
+            ),
+        ));
+    }
+
+    Ok(BootstrapVerifyReport {
+        self_host_path: resolved_src,
+        stage1_bytes: stage1_bytes_raw.len(),
+        stage2_bytes: stage2_bytes_raw.len(),
+        stage3_bytes: stage3_bytes_raw.len(),
+        stage1_sha256,
+        stage2_sha256,
+        stage3_sha256,
+        fixed_point_verified: true,
+        sample_stdout_parity_verified: true,
+    })
+}
+
+// ============================================================================
+// Dec Test Runner
 // ============================================================================
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -772,13 +1013,12 @@ pub struct TestCaseResult {
     pub error: Option<String>,
 }
 
-pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCaseResult>> {
-    run_dec_tests_with_options(target, compat, &LoadOptions::for_compat(compat))
+pub fn run_dec_tests(target: &Path) -> DecResult<Vec<TestCaseResult>> {
+    run_dec_tests_with_options(target, &LoadOptions::default())
 }
 
 pub fn run_dec_tests_with_options(
     target: &Path,
-    compat: CompatMode,
     options: &LoadOptions,
 ) -> DecResult<Vec<TestCaseResult>> {
     let mut files = Vec::new();
@@ -842,9 +1082,7 @@ pub fn run_dec_tests_with_options(
 
             let outcome = std::fs::read_to_string(&file)
                 .map_err(|e| Diagnostic::new(DiagnosticCode::ParseError, e.to_string()))
-                .and_then(|src| {
-                    load_from_source_with_options(&src, file.parent(), compat, options)
-                })
+                .and_then(|src| load_from_source_with_options(&src, file.parent(), options))
                 .and_then(|loaded| check_unit(loaded, true))
                 .and_then(|checked| {
                     Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)?.run_main()
@@ -896,7 +1134,7 @@ pub fn run_dec_tests_with_options(
                 continue;
             }
         };
-        let loaded = match load_from_source_with_options(&source, file.parent(), compat, options) {
+        let loaded = match load_from_source_with_options(&source, file.parent(), options) {
             Ok(u) => u,
             Err(e) => {
                 results.push(TestCaseResult {
@@ -1048,13 +1286,7 @@ fn discover_default_s2_root() -> PathBuf {
 }
 
 /// Verify all 30 Stage 2 (`S2@3122c94`) cross-language golden vectors.
-///
-/// When `vectors_dir` or `binding_path` is explicitly provided (`Some`), strictly uses that path
-/// with zero silent fallback (`P1-2`).
-pub fn verify_s2_dir(
-    vectors_dir: Option<&Path>,
-    binding_path: Option<&Path>,
-) -> S2VerifyReport {
+pub fn verify_s2_dir(vectors_dir: Option<&Path>, binding_path: Option<&Path>) -> S2VerifyReport {
     let default_root = if vectors_dir.is_none() || binding_path.is_none() {
         Some(discover_default_s2_root())
     } else {
@@ -1078,10 +1310,7 @@ pub fn verify_s2_dir(
 }
 
 /// Verify all 30 S2/S4 golden vectors + 90-tick `wavelet_shedding_simulation.csv` + `aod-core`
-/// crate policy audit, returning a validated portable `aod.s4.rust.report.v1` JSON document,
-/// its canonical pretty UTF-8 serialization, and overall PASS boolean.
-///
-/// Explicitly provided paths (`Some`) are used strictly with zero silent fallback (`P1-2`).
+/// crate policy audit, returning a validated portable `aod.s4.rust.report.v1` JSON document.
 pub fn verify_s4_convergence_dir(
     vectors_dir: Option<&Path>,
     binding_path: Option<&Path>,

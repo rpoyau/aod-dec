@@ -1,32 +1,54 @@
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 
 use aod_core::bigint::BigInt;
 use aod_core::qext::QExtRatio;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{render_bytes_literal, Addr8, Q4, T1, T32, T9};
+use aod_core::ternary::{Addr8, B64, B8, Q4, T1};
 use aod_core::wavelet::{RecipientOutcome, RecipientOutcomeStage, SingleContactStageAssociation};
 use aod_core::witness::{Coupling, Fusion, Trace};
 
 use crate::sim::{BoxRegion, ChamberSnapshot, SimRunResult};
+
+/// Canonical ASCII escaping for `bytes` values (`b"..."`), shared with `aodc::eval`.
+pub fn render_bytes_literal(bs: &[u8]) -> String {
+    let mut out = String::with_capacity(bs.len() + 3);
+    out.push_str("b\"");
+    for &b in bs {
+        match b {
+            b'\\' => out.push_str("\\\\"),
+            b'"' => out.push_str("\\\""),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            0 => out.push_str("\\0"),
+            0x20..=0x7E => out.push(b as char),
+            other => {
+                let _ = write!(&mut out, "\\x{other:02x}");
+            }
+        }
+    }
+    out.push('"');
+    out
+}
 
 /// Deterministic totally-ordered map key matching `aodc::eval::MapKey`.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RtMapKey {
     Null,
     Int(BigInt),
-    U8(u8),
-    B64(u64),
     Bool(bool),
     Str(String),
-    Bytes(Vec<u8>),
     T1(T1),
-    T9(T9),
-    T32(T32),
+    B8(B8),
+    B64(B64),
+    Bytes(Vec<u8>),
     Q4(Q4),
     Ratio(Ratio),
     Addr8(Addr8),
     Support(SupportForm),
+    Array(Vec<RtMapKey>),
     Enum {
         module: String,
         name: String,
@@ -35,7 +57,6 @@ pub enum RtMapKey {
         payloads: Vec<RtMapKey>,
     },
     Tuple(Vec<RtMapKey>),
-    Array(Vec<RtMapKey>),
 }
 
 impl RtMapKey {
@@ -43,18 +64,23 @@ impl RtMapKey {
         match v {
             RtValue::Null => Ok(RtMapKey::Null),
             RtValue::Int(n) => Ok(RtMapKey::Int(n.clone())),
-            RtValue::U8(b) => Ok(RtMapKey::U8(*b)),
-            RtValue::B64(w) => Ok(RtMapKey::B64(*w)),
             RtValue::Bool(b) => Ok(RtMapKey::Bool(*b)),
             RtValue::Str(s) => Ok(RtMapKey::Str(s.clone())),
-            RtValue::Bytes(bs) => Ok(RtMapKey::Bytes(bs.clone())),
             RtValue::T1(t) => Ok(RtMapKey::T1(*t)),
-            RtValue::T9(t) => Ok(RtMapKey::T9(*t)),
-            RtValue::T32(t) => Ok(RtMapKey::T32(*t)),
+            RtValue::B8(b) => Ok(RtMapKey::B8(*b)),
+            RtValue::B64(b) => Ok(RtMapKey::B64(*b)),
+            RtValue::Bytes(bs) => Ok(RtMapKey::Bytes((**bs).clone())),
             RtValue::Q4(q) => Ok(RtMapKey::Q4(*q)),
             RtValue::Ratio(r) => Ok(RtMapKey::Ratio(r.clone())),
             RtValue::Addr8(a) => Ok(RtMapKey::Addr8(a.clone())),
             RtValue::Support(s) => Ok(RtMapKey::Support(s.clone())),
+            RtValue::Array(elems) => {
+                let mut ak = Vec::with_capacity(elems.len());
+                for e in elems.iter() {
+                    ak.push(Self::from_value(e)?);
+                }
+                Ok(RtMapKey::Array(ak))
+            }
             RtValue::Enum(ev) => {
                 let mut pk = Vec::with_capacity(ev.payloads.len());
                 for p in &ev.payloads {
@@ -75,13 +101,6 @@ impl RtMapKey {
                 }
                 Ok(RtMapKey::Tuple(tk))
             }
-            RtValue::Array(elems) => {
-                let mut ak = Vec::with_capacity(elems.len());
-                for e in elems {
-                    ak.push(Self::from_value(e)?);
-                }
-                Ok(RtMapKey::Array(ak))
-            }
             other => Err(format!("unsupported map key value: {}", other.render())),
         }
     }
@@ -90,25 +109,26 @@ impl RtMapKey {
         match self {
             RtMapKey::Null => RtValue::Null,
             RtMapKey::Int(n) => RtValue::Int(n.clone()),
-            RtMapKey::U8(b) => RtValue::U8(*b),
-            RtMapKey::B64(w) => RtValue::B64(*w),
             RtMapKey::Bool(b) => RtValue::Bool(*b),
             RtMapKey::Str(s) => RtValue::Str(s.clone()),
-            RtMapKey::Bytes(bs) => RtValue::Bytes(bs.clone()),
             RtMapKey::T1(t) => RtValue::T1(*t),
-            RtMapKey::T9(t) => RtValue::T9(*t),
-            RtMapKey::T32(t) => RtValue::T32(*t),
+            RtMapKey::B8(b) => RtValue::B8(*b),
+            RtMapKey::B64(b) => RtValue::B64(*b),
+            RtMapKey::Bytes(bs) => RtValue::Bytes(std::sync::Arc::new(bs.clone())),
             RtMapKey::Q4(q) => RtValue::Q4(*q),
             RtMapKey::Ratio(r) => RtValue::Ratio(r.clone()),
             RtMapKey::Addr8(a) => RtValue::Addr8(a.clone()),
             RtMapKey::Support(s) => RtValue::Support(s.clone()),
+            RtMapKey::Array(elems) => {
+                RtValue::Array(std::sync::Arc::new(elems.iter().map(RtMapKey::to_value).collect()))
+            }
             RtMapKey::Enum {
                 module,
                 name,
                 variant,
                 tag,
                 payloads,
-            } => RtValue::Enum(Box::new(RtEnumValue {
+            } => RtValue::Enum(std::sync::Arc::new(RtEnumValue {
                 module: module.clone(),
                 name: name.clone(),
                 variant: variant.clone(),
@@ -116,7 +136,6 @@ impl RtMapKey {
                 payloads: payloads.iter().map(RtMapKey::to_value).collect(),
             })),
             RtMapKey::Tuple(elems) => RtValue::Tuple(elems.iter().map(RtMapKey::to_value).collect()),
-            RtMapKey::Array(elems) => RtValue::Array(elems.iter().map(RtMapKey::to_value).collect()),
         }
     }
 }
@@ -143,14 +162,12 @@ pub enum RtValue {
     Unit,
     Null,
     Int(BigInt),
-    U8(u8),
-    B64(u64),
     Bool(bool),
     Str(String),
-    Bytes(Vec<u8>),
     T1(T1),
-    T9(T9),
-    T32(T32),
+    B8(B8),
+    B64(B64),
+    Bytes(std::sync::Arc<Vec<u8>>),
     Q4(Q4),
     Ratio(Ratio),
     Addr8(Addr8),
@@ -165,35 +182,32 @@ pub enum RtValue {
     CadenceAssociation(Box<SingleContactStageAssociation>),
     ChamberView(Box<ChamberSnapshot>),
     SimResult(Box<SimRunResult>),
-    Struct(Box<RtStructValue>),
-    Enum(Box<RtEnumValue>),
-    List(Vec<RtValue>),
-    Array(Vec<RtValue>),
+    Struct(std::sync::Arc<RtStructValue>),
+    Enum(std::sync::Arc<RtEnumValue>),
+    Array(std::sync::Arc<Vec<RtValue>>),
+    List(std::sync::Arc<Vec<RtValue>>),
     Map(Box<BTreeMap<RtMapKey, RtValue>>),
     Tuple(Vec<RtValue>),
     QExtRatio(QExtRatio),
     QExtBool(bool),
-    QExtStr(String),
-    QExtBytes(Vec<u8>),
+    QExtBytes(std::sync::Arc<Vec<u8>>),
 }
 
 impl RtValue {
-    /// Byte-for-byte identical rendering to `aodc::eval::Value::render` & v1 `dec_core.py`.
+    /// Byte-for-byte identical rendering to `aodc::eval::Value::render`.
     pub fn render(&self) -> String {
         match self {
             RtValue::Unit => "()".to_string(),
             RtValue::Null => "null".to_string(),
             RtValue::Int(n) => n.to_decimal_string(),
-            RtValue::U8(b) => format!("u8({b})"),
-            RtValue::B64(w) => format!("b64(0x{w:016x})"),
             RtValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
             RtValue::Str(s) => s.clone(),
+            RtValue::T1(v) => v.render(),
+            RtValue::B8(v) => v.render(),
+            RtValue::B64(v) => v.render(),
             RtValue::Bytes(bs) => render_bytes_literal(bs),
-            RtValue::T1(v) => v.render_v1(),
-            RtValue::T9(v) => v.render(),
-            RtValue::T32(v) => v.render_v1(),
-            RtValue::Q4(v) => v.render_v1(),
-            RtValue::Ratio(r) => r.render_v1(),
+            RtValue::Q4(v) => v.render(),
+            RtValue::Ratio(r) => r.render(),
             RtValue::Addr8(a) => a.render(),
             RtValue::Support(s) => s.render(),
             RtValue::Window(u, v) => format!("({u}, {v}]"),
@@ -239,7 +253,7 @@ impl RtValue {
                     format!("{}::{}({})", ev.name, ev.variant, inner.join(", "))
                 }
             }
-            RtValue::List(items) | RtValue::Array(items) => {
+            RtValue::Array(items) | RtValue::List(items) => {
                 let inner: Vec<String> = items.iter().map(RtValue::render).collect();
                 format!("[{}]", inner.join(", "))
             }
@@ -256,7 +270,6 @@ impl RtValue {
             }
             RtValue::QExtRatio(q) => q.render_quarantined(),
             RtValue::QExtBool(b) => format!("Q_ext({})", if *b { "true" } else { "false" }),
-            RtValue::QExtStr(s) => format!("Q_ext({s})"),
             RtValue::QExtBytes(bs) => format!("Q_ext({})", render_bytes_literal(bs)),
         }
     }

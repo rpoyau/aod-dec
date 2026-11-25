@@ -1,0 +1,17 @@
+# Balanced ternary arithmetic with Trit-Boxed int and coupled ratio.
+dec add:
+    (a: int, b: int) -> int:
+        a + b
+    (a: ratio, b: ratio) -> ratio:
+        a + b
+
+dec main() -> int:
+    let x = add(1, 1)
+    assert x == 2
+    assert int(b64(x)) == x
+    emit x
+    let r = add(1/4000000000r, 1/4000000000r)
+    assert r == 1/2000000000r
+    assert unpack_ratio(pack_ratio(1/3r)) == 1/3r
+    emit r
+    0

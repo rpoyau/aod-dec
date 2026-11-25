@@ -1,32 +1,27 @@
 # Native freeze -> one-way quarantine Q_ext sink smoke fixture (P0-1).
-
-use aod::core:
-    ratio
-
+use aod::core::ratio
 use aod::qext:
     ext_decimal, qext_from_ratio, qext_render
 
 quarantine Q_ext ReportCal:
     const SCALE_FACTOR = ext_decimal(b"1.25")
 
-    dec apply_scale:
-        (native_ratio: ratio) -> QExt<ratio>:
-            let lifted = qext_from_ratio(native_ratio)
-            return lifted * SCALE_FACTOR
+    dec apply_scale(native_ratio: ratio) -> QExt<ratio>:
+        let lifted = qext_from_ratio(native_ratio)
+        lifted * SCALE_FACTOR
 
-dec main:
-    () -> int:
-        # Frozen immutable native ratio computed strictly in native exact arithmetic
-        let frozen_native = 4/5r
-        assert frozen_native == ratio(4, 5)
+dec main() -> int:
+    # Frozen immutable native ratio computed strictly in native exact arithmetic
+    let frozen_native = 4/5r
+    assert frozen_native == ratio(4, 5)
 
-        # One-way quarantine sink: reads immutable native bindings, emits quarantined report,
-        # never writes back to native state and never returns into native control flow.
-        quarantine Q_ext:
-            let scaled = ReportCal::apply_scale(frozen_native)
-            let exact_one = ext_decimal(b"1.00")
-            assert scaled == exact_one
-            emit qext_render(scaled)
+    # One-way quarantine sink: reads immutable native bindings, emits quarantined report,
+    # never writes back to native state and never returns into native control flow.
+    quarantine Q_ext:
+        let scaled = ReportCal::apply_scale(frozen_native)
+        let exact_one = ext_decimal(b"1.00")
+        assert scaled == exact_one
+        emit qext_render(scaled)
 
-        emit frozen_native
-        return 0
+    emit frozen_native
+    0

@@ -1,107 +1,107 @@
 use aod::core:
-    int, u8, t1, t32, ratio, max, lcm, select, verify_frg_cross_return
+    int, b8, t1, ratio, max, lcm, select, verify_frg_cross_return
 
 struct RetainedRebalance:
-    edge_id: u8
-    scale_l: u8
-    cut_ke: t32
-    r_e: t32
-    adm_valid: u8
+    edge_id: b8
+    scale_l: b8
+    cut_ke: int
+    r_e: int
+    adm_valid: b8
 
 struct CompleteState:
-    x_now: t32
-    m_closure: t32
+    x_now: int
+    m_closure: int
     r_retained: RetainedRebalance
     role_self: t1
 
 struct FoldedCell:
-    tier_l: u8
-    enclosure_order: t32
-    rd_cadence: t32
-    ttl_retention: t32
-    inner_beats: t32
-    outer_closed: u8
+    tier_l: b8
+    enclosure_order: int
+    rd_cadence: int
+    ttl_retention: int
+    inner_beats: int
+    outer_closed: b8
     carried_r: RetainedRebalance
 
 struct PolyPairRt:
     biz_tf: ratio
     psi_bias: ratio
     lambda_lag: ratio
-    rho_ab: t32
-    rho_ba: t32
-    t_sync: t32
+    rho_ab: int
+    rho_ba: int
+    t_sync: int
 
 dec frg_layer_step:
-    (tier_l: u8, cut_k: t32, s_gate_a: t32, s_gate_b: t32, c_cross_ab: t32) -> (t32, t32, RetainedRebalance):
+    (tier_l: b8, cut_k: int, s_gate_a: int, s_gate_b: int, c_cross_ab: int) -> (int, int, RetainedRebalance):
         let t_zero = (s_gate_a + s_gate_b)
         let t_cross = (t_zero + c_cross_ab)
-        assert verify_frg_cross_return(int(t_zero), int(t_cross), int(c_cross_ab))
+        assert verify_frg_cross_return(t_zero, t_cross, c_cross_ab)
         let r_e = (t_cross - t_zero)
-        let r_rec = RetainedRebalance(u8(1), tier_l, cut_k, r_e, u8(1))
+        let r_rec = RetainedRebalance(b8(1), tier_l, cut_k, r_e, b8(1))
         return (t_zero, t_cross, r_rec)
 
 dec exoshed_lift_and_fuse:
-    (cell_in: FoldedCell, p_burden: t32, c_close_limit: t32, next_enclosure: t32, next_rd: t32, next_ttl: t32) -> (FoldedCell, t32):
-        assert (cell_in.outer_closed == u8(1))
+    (cell_in: FoldedCell, p_burden: int, c_close_limit: int, next_enclosure: int, next_rd: int, next_ttl: int) -> (FoldedCell, int):
+        assert (cell_in.outer_closed == b8(1))
         let delta_close = (p_burden - c_close_limit)
-        let x_exo = max(t32(0), delta_close)
-        let next_tier = (cell_in.tier_l + u8(1))
+        let x_exo = max(0, delta_close)
+        let next_tier = b8((int(cell_in.tier_l) + 1))
         let r_up = RetainedRebalance(cell_in.carried_r.edge_id, next_tier, cell_in.carried_r.cut_ke, cell_in.carried_r.r_e, cell_in.carried_r.adm_valid)
-        let cell_out = FoldedCell(next_tier, next_enclosure, next_rd, next_ttl, (cell_in.inner_beats + t32(1)), u8(1), r_up)
+        let cell_out = FoldedCell(next_tier, next_enclosure, next_rd, next_ttl, (cell_in.inner_beats + 1), b8(1), r_up)
         return (cell_out, x_exo)
 
 dec expose_cell:
-    (cell_outer: FoldedCell, window_w: t32, inner_enclosure: t32, inner_rd: t32) -> (FoldedCell, u8):
-        assert (cell_outer.outer_closed == u8(1))
-        let ttl_ok = u8((cell_outer.ttl_retention >= window_w))
-        let prev_tier = (cell_outer.tier_l - u8(1))
-        let cell_inner = FoldedCell(prev_tier, inner_enclosure, inner_rd, window_w, cell_outer.inner_beats, u8(1), cell_outer.carried_r)
+    (cell_outer: FoldedCell, window_w: int, inner_enclosure: int, inner_rd: int) -> (FoldedCell, b8):
+        assert (cell_outer.outer_closed == b8(1))
+        let ttl_ok = select((cell_outer.ttl_retention >= window_w), b8(1), b8(0))
+        let prev_tier = b8((int(cell_outer.tier_l) - 1))
+        let cell_inner = FoldedCell(prev_tier, inner_enclosure, inner_rd, window_w, cell_outer.inner_beats, b8(1), cell_outer.carried_r)
         return (cell_inner, ttl_ok)
 
 dec audit_awareness_operativity:
-    (s_full: CompleteState, pressure_p: t32) -> (ratio, ratio, u8, t1):
-        assert (pressure_p > t32(0))
-        let r_val = select((s_full.r_retained.adm_valid == u8(1)), s_full.r_retained.r_e, t32(0))
-        let j_with_r = ratio(int(((s_full.x_now * pressure_p) + r_val)), int(pressure_p))
-        let j_removed_r = ratio(int((s_full.x_now * pressure_p)), int(pressure_p))
-        let op_witness = u8((j_with_r != j_removed_r))
-        let role = select((op_witness == u8(1)), 1t, t1(-1))
+    (s_full: CompleteState, pressure_p: int) -> (ratio, ratio, b8, t1):
+        assert (pressure_p > 0)
+        let r_val = select((s_full.r_retained.adm_valid == b8(1)), s_full.r_retained.r_e, 0)
+        let j_with_r = ratio(((s_full.x_now * pressure_p) + r_val), pressure_p)
+        let j_removed_r = ratio((s_full.x_now * pressure_p), pressure_p)
+        let op_witness = select((j_with_r != j_removed_r), b8(1), b8(0))
+        let role = select((op_witness == b8(1)), 1t, -1t)
         return (j_with_r, j_removed_r, op_witness, role)
 
 dec compare_polyrhythm:
-    (rd_i: t32, rd_j: t32, bip_i: t32, bip_j: t32, n_i: t32, n_j: t32, bias_i: ratio, bias_j: ratio, r_ab1: t32, r_ab2: t32, r_ba1: t32, r_ba2: t32) -> PolyPairRt:
-        assert (bip_j > t32(0))
-        let biz = ratio(int(bip_i), int(bip_j))
+    (rd_i: int, rd_j: int, bip_i: int, bip_j: int, n_i: int, n_j: int, bias_i: ratio, bias_j: ratio, r_ab1: int, r_ab2: int, r_ba1: int, r_ba2: int) -> PolyPairRt:
+        assert (bip_j > 0)
+        let biz = ratio(bip_i, bip_j)
         let psi = (bias_i - bias_j)
         let dn = (n_i - n_j)
-        let lag = (ratio(int(dn), 1) + psi)
+        let lag = (ratio(dn, 1) + psi)
         let rho_ab = ((rd_i + r_ab1) + r_ab2)
         let rho_ba = ((rd_i + r_ba1) + r_ba2)
         let sync = lcm(rd_i, rd_j)
         return PolyPairRt(biz, psi, lag, rho_ab, rho_ba, sync)
 
 dec mindful_step:
-    (j_committed: t32, b_forcing: t32, p_press: t32) -> ratio:
-        assert ((t32(2) * p_press) > t32(1))
-        return ratio(int((((p_press - t32(1)) * j_committed) + b_forcing)), int(p_press))
+    (j_committed: int, b_forcing: int, p_press: int) -> ratio:
+        assert ((2 * p_press) > 1)
+        return ratio((((p_press - 1) * j_committed) + b_forcing), p_press)
 
 dec main:
     () -> int:
-        let (t0, tx, r_rec) = frg_layer_step(u8(1), t32(8), t32(137), t32(137), t32(64))
-        assert (((t0 == t32(274)) and (tx == t32(338))) and (r_rec.r_e == t32(64)))
+        let (t0, tx, r_rec) = frg_layer_step(b8(1), 8, 137, 137, 64)
+        assert (((t0 == 274) and (tx == 338)) and (r_rec.r_e == 64))
         assert not verify_frg_cross_return(274, 338, 63)
-        let base_cell = FoldedCell(u8(1), t32(4), t32(9), t32(12), t32(2), u8(1), r_rec)
-        let (lifted_cell, x_exo) = exoshed_lift_and_fuse(base_cell, t32(30), t32(24), t32(6), t32(61), t32(20))
-        assert ((lifted_cell.tier_l == u8(2)) and (x_exo == t32(6)))
-        let (inner_cell, ttl_ok) = expose_cell(lifted_cell, t32(16), t32(4), t32(9))
-        assert ((inner_cell.tier_l == u8(1)) and (ttl_ok == u8(1)))
-        let r_shared = RetainedRebalance(u8(1), u8(1), t32(8), t32(4), u8(1))
-        let st_active = CompleteState(t32(3), t32(1), r_shared, 1t)
-        let (jw, jr, op_ok, role) = audit_awareness_operativity(st_active, t32(4))
-        assert ((((jw == 4/1r) and (jr == 3/1r)) and (op_ok == u8(1))) and (role == 1t))
-        let poly = compare_polyrhythm(t32(61), t32(137), t32(3), t32(5), t32(10), t32(8), 1/2r, 1/4r, t32(2), t32(3), t32(4), t32(1))
-        assert ((((poly.biz_tf == 3/5r) and (poly.psi_bias == 1/4r)) and (poly.lambda_lag == 9/4r)) and (poly.t_sync == t32(8357)))
-        let m_step = mindful_step(t32(5), t32(3), t32(4))
+        let base_cell = FoldedCell(b8(1), 4, 9, 12, 2, b8(1), r_rec)
+        let (lifted_cell, x_exo) = exoshed_lift_and_fuse(base_cell, 30, 24, 6, 61, 20)
+        assert ((lifted_cell.tier_l == b8(2)) and (x_exo == 6))
+        let (inner_cell, ttl_ok) = expose_cell(lifted_cell, 16, 4, 9)
+        assert ((inner_cell.tier_l == b8(1)) and (ttl_ok == b8(1)))
+        let r_shared = RetainedRebalance(b8(1), b8(1), 8, 4, b8(1))
+        let st_active = CompleteState(3, 1, r_shared, 1t)
+        let (jw, jr, op_ok, role) = audit_awareness_operativity(st_active, 4)
+        assert ((((jw == 4/1r) and (jr == 3/1r)) and (op_ok == b8(1))) and (role == 1t))
+        let poly = compare_polyrhythm(61, 137, 3, 5, 10, 8, 1/2r, 1/4r, 2, 3, 4, 1)
+        assert ((((poly.biz_tf == 3/5r) and (poly.psi_bias == 1/4r)) and (poly.lambda_lag == 9/4r)) and (poly.t_sync == 8357))
+        let m_step = mindful_step(5, 3, 4)
         assert (m_step == 9/2r)
         emit r_rec.r_e
         emit x_exo

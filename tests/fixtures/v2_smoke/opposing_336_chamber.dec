@@ -1,11 +1,8 @@
 # Unbiased opposing 3:3:6 chamber smoke fixture (zero hardcoded physical target outcomes).
 # Explicitly tagged as ModelStatus::DeclaredSandboxNotS3Authenticated by the sandbox engine.
 
-use aod::core:
-    t1, len
-
-use aod::sim:
-    ModelStatus
+use aod::core::len
+use aod::sim::ModelStatus
 
 chamber OpposingChamber:
     space = box([0..64, 0..64, 0..64])
@@ -14,8 +11,8 @@ chamber OpposingChamber:
 
 prepare TwoOpposing336 in OpposingChamber:
     clock ref_clock = 3
-    inject 3:3:6 at (24, 32, 32) dir +X orient 1t shells 2
-    inject 3:3:6 at (40, 32, 32) dir -X orient t1(-1) shells 2
+    inject 3:3:6 at (24, 32, 32) dir +X orient +1t shells 2
+    inject 3:3:6 at (40, 32, 32) dir -X orient -1t shells 2
 
 observe CoreProbe:
     tracer center_window:
@@ -29,28 +26,26 @@ observe ExtraProbes:
     tracer north_watch:
         region = box([20..44, 28..36, 28..36])
         capture = [support, shedding]
-    sensor tick_counter:
-        (view: ReadOnly<ChamberView>) -> int:
-            assert view.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
-            return view.carrier_count
+    sensor tick_counter(view) -> int:
+        assert view.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+        view.carrier_count
 
-dec main:
-    () -> int:
-        let run_zero = simulate TwoOpposing336 for 16 ticks
-        let run_one = simulate TwoOpposing336 for 16 ticks with CoreProbe
-        let run_multi = simulate TwoOpposing336 for 16 ticks with CoreProbe, ExtraProbes
+dec main() -> int:
+    let run_zero = simulate TwoOpposing336 over 16 ticks
+    let run_one = simulate TwoOpposing336 over 16 ticks with CoreProbe
+    let run_multi = simulate TwoOpposing336 over 16 ticks with CoreProbe, ExtraProbes
 
-        assert run_zero.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
-        assert run_zero.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
-        assert run_zero.final_state_hash == run_one.final_state_hash
-        assert run_zero.final_state_hash == run_multi.final_state_hash
-        assert len(run_zero.final_state_sha256) == 32
-        assert run_zero.carrier_count == 2
-        assert run_zero.shedding_event_count >= 1
-        assert run_zero.wavelet_event_count >= 1
+    assert run_zero.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+    assert run_zero.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert run_zero.final_state_hash == run_one.final_state_hash
+    assert run_zero.final_state_hash == run_multi.final_state_hash
+    assert len(run_zero.final_state_sha256) == 32
+    assert run_zero.carrier_count == 2
+    assert run_zero.shedding_event_count >= 1
+    assert run_zero.wavelet_event_count >= 1
 
-        emit run_zero.model_status
-        emit run_zero.final_state_hash
-        emit run_zero.shedding_event_count
-        emit run_zero.total_returns
-        return 0
+    emit run_zero.model_status
+    emit run_zero.final_state_hash
+    emit run_zero.shedding_event_count
+    emit run_zero.total_returns
+    0

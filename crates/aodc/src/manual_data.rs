@@ -19,7 +19,6 @@ use aod_core::s4_report::MAX_S4_INPUT_BYTES;
 use aod_core::sha256::Sha256;
 
 use crate::checker::check_unit;
-use crate::diagnostics::CompatMode;
 use crate::eval::{Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::modules::{load_from_source_with_options, LoadOptions};
 use crate::report_guard::{
@@ -350,7 +349,7 @@ fn eval_dec_source_vm(
     load_opts: &LoadOptions,
     label: &str,
 ) -> Result<Vec<String>, String> {
-    let unit = load_from_source_with_options(source, base_dir, CompatMode::V2, load_opts)
+    let unit = load_from_source_with_options(source, base_dir, load_opts)
         .map_err(|e| format!("{label}: load error: {e}"))?;
     let checked = check_unit(unit, true).map_err(|e| format!("{label}: check error: {e}"))?;
     let ev = Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
@@ -376,7 +375,7 @@ fn parse_bigint_line(s: &str, ctx: &str) -> Result<BigInt, String> {
 }
 
 /// Generate `double_slit_delta3.json` strictly by running `manual_examples/03_short_window_boundary.dec`
-/// and `stdlib::aod::boundary::{double_slit_eval, double_slit_bins}` in the Exact Reference VM.
+/// and `stdlib::aod::boundary` (`double_slit_eval`, `double_slit_bins`) in the Exact Reference VM.
 fn generate_double_slit_json(
     repo_root: &Path,
     load_opts: &LoadOptions,
@@ -389,39 +388,36 @@ fn generate_double_slit_json(
 
     let driver = "\
 use aod::core:
-    int, len, fold_seq
-
+    int, len, each
 use stdlib::aod::boundary:
     DoubleSlitBin, double_slit_eval, double_slit_bins
 
-dec emit_slit_bin:
-    (_: Null, b: DoubleSlitBin) -> Null:
-        emit b.k
-        emit b.s
-        emit b.t0
-        emit b.cx
-        emit b.tx
-        emit b.obs
-        emit b.delta
-        emit int(b.sign)
-        emit b.mag
-        return null
+dec emit_bin(b: DoubleSlitBin) -> int:
+    emit b.k
+    emit b.s
+    emit b.t0
+    emit b.cx
+    emit b.tx
+    emit b.obs
+    emit b.delta
+    emit int(b.sign)
+    emit b.mag
+    0
 
-dec main:
-    () -> int:
-        let ds = double_slit_eval()
-        emit ds.sum_t0
-        emit ds.sum_cx
-        emit ds.sum_tx
-        emit ds.sum_obs
-        emit ds.sum_delta
-        emit ds.sum_mag
-        emit int(ds.center_sign)
-        emit ds.center_mag
-        let bins = double_slit_bins()
-        emit len(bins)
-        let _done = fold_seq(null, bins, emit_slit_bin)
-        return 0
+dec main() -> int:
+    let ds = double_slit_eval()
+    emit ds.sum_t0
+    emit ds.sum_cx
+    emit ds.sum_tx
+    emit ds.sum_obs
+    emit ds.sum_delta
+    emit ds.sum_mag
+    emit int(ds.center_sign)
+    emit ds.center_mag
+    let bins = double_slit_bins()
+    emit len(bins)
+    each(bins, emit_bin)
+    0
 ";
     let emits = eval_dec_source_vm(
         driver,
@@ -560,27 +556,23 @@ fn generate_disk_enclosure_json(
 
     let driver = "\
 use aod::core:
-    len, fold_seq
+    len, each
+use stdlib::aod::cells::disk_enclosure
 
-use stdlib::aod::cells:
-    disk_enclosure
+dec emit_disk(n: int) -> int:
+    let d = disk_enclosure(n)
+    emit d.n
+    emit d.a_minus
+    emit d.a_plus
+    emit d.c_n
+    emit d.excess
+    0
 
-dec emit_disk_row:
-    (_: Null, n: int) -> Null:
-        let d = disk_enclosure(n)
-        emit d.n
-        emit d.a_minus
-        emit d.a_plus
-        emit d.c_n
-        emit d.excess
-        return null
-
-dec main:
-    () -> int:
-        let ns = [1, 2, 4, 8, 16]
-        emit len(ns)
-        let _done = fold_seq(null, ns, emit_disk_row)
-        return 0
+dec main() -> int:
+    let ns = [1, 2, 4, 8, 16]
+    emit len(ns)
+    each(ns, emit_disk)
+    0
 ";
     let emits = eval_dec_source_vm(
         driver,
@@ -672,6 +664,9 @@ fn generate_sandbox_chamber_json(
         JsonValue::Int(parse_bigint_line(&emits[2], "sandbox.carrier_count")?),
     );
     let unquote = |s: &str| -> String {
+        if s == "ModelStatus::DeclaredSandboxNotS3Authenticated" {
+            return "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED".to_string();
+        }
         s.strip_prefix("b\"")
             .and_then(|t| t.strip_suffix('"'))
             .unwrap_or(s)
@@ -754,7 +749,6 @@ pub fn run_manual_data(options: &ManualDataOptions) -> Result<ManualDataReport, 
 
     let load_opts = LoadOptions {
         stdlib_dir: options.stdlib_dir.clone(),
-        ..LoadOptions::default()
     };
 
     let mode = if options.check_only { "check" } else { "write" };

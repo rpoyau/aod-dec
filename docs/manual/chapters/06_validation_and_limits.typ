@@ -25,6 +25,7 @@ checker, the `std`-only zero-raster PDF auditor (`aodc audit-pdf`), and continuo
     [`aodc eval-op <op>`], [Offline + CI], [Exact single-operation JSON evaluator covering all 24 positive S2/S4 operations plus multi-tick `cycle_shedding_trace`, enforcing `16 MiB` bounded reads, pre-execution symlink-safe `--report` validation (exit `2`), and atomic output writes.],
     [`aodc manual-verify docs/manual`], [Offline + CI], [6 passes: Typst lexer/containment, `SOURCE_BINDING.json` hashes (including S2 `.jsonl` and S4 `.csv` digests), Main registry & BibTeX refs, zero rasters, exact 4 `aod-lint` rules, 3-mode inline/file Dec execution (`18` `@dec-file` checks), and live JSON data parity.],
     [`aodc audit-pdf [--json]`], [Offline + CI], [Pure-Rust `std`-only RFC 1950/1951 inflater (`#![forbid(unsafe_code)]`, zero LLVM dependency), masks binary stream payloads before root scanning, fails closed on disallowed or corrupt filters, rejects `/Subtype /Image` XObjects, inline `BI..ID..EI` images, and unresolved reference markers, and enforces `--min-pages` and byte-identical `--compare-pdf` SHA-256.],
+    [`aodc bootstrap-verify`], [Offline + CI], [Fixed-point self-hosting bootstrap (`Stage 0 -> stage1 -> stage2 -> stage3`) compiling `self_host/aodc_self.dec` to standalone static libc-free Linux x86-64 ELF64 binaries and verifying `SHA256(stage2) == SHA256(stage3)` plus VM/JIT stdout parity.],
     [`aod-lint check --strict`], [CI], [External `rpoyau/aod-lint` AST verification across every `.typ` chapter and figure under `docs/manual/`.],
     bottomrule,
   ),

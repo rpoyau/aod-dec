@@ -4,69 +4,67 @@
 
 use aod::core:
     support_pi, support_rd
-
 use stdlib::aod::boundary:
-    double_slit_eval, eval_short_window, moving_boundary_flux
-    scoped_channel_flux, stokes_cancellation
-    proton_support, electron_support, saddle_337_support
+    double_slit_eval, eval_short_window, moving_boundary_flux,
+    scoped_channel_flux, stokes_cancellation, proton_support,
+    electron_support, saddle_337_support
 
-dec main:
-    () -> int:
-        # 1. 11-bin Dimonhexon double-slit cross-return delta_3 tally
-        let ds = double_slit_eval()
-        assert ds.sum_t0 == 410 and ds.sum_cx == 38 and ds.sum_tx == 448 and ds.sum_obs == 448
-        assert ds.sum_delta == 0 and ds.sum_mag == 6
-        assert ds.center_sign == 1t and ds.center_mag == 1
+dec main() -> int:
+    # 1. 11-bin Dimonhexon double-slit cross-return delta_3 tally
+    let ds = double_slit_eval()
+    assert ds.sum_t0 == 410 and ds.sum_cx == 38 and ds.sum_tx == 448 and ds.sum_obs == 448
+    assert ds.sum_delta == 0 and ds.sum_mag == 6
+    assert ds.center_sign == +1t and ds.center_mag == 1
 
-        # 2. Short-window clipping table: 1:2:7_yro, 1:2:9_yro, 1:2:10
-        let r127_c6 = eval_short_window(1:2:7_yro, 3, 1, 7, 18)
-        let r127_c8 = eval_short_window(1:2:7_yro, 3, 1, 7, 24)
-        let r129_c8 = eval_short_window(1:2:9_yro, 3, 1, 9, 24)
-        let r1210_c10 = eval_short_window(1:2:10, 3, 1, 10, 27)
-        assert r127_c6.pressure == 21 and r127_c6.overhang == 6 and r127_c6.delta_close == 3 and r127_c6.x_shedding == 3
-        assert r127_c8.delta_close == -3 and r127_c8.x_shedding == 0
-        assert r129_c8.pressure == 27 and r129_c8.overhang == 0 and r129_c8.delta_close == 3 and r129_c8.x_shedding == 3
-        assert r1210_c10.rho_clipped == 9 and r1210_c10.pressure == 27 and r1210_c10.delta_close == 0
+    # 2. Short-window clipping table: 1:2:7_yro, 1:2:9_yro, 1:2:10
+    let r127_c6 = eval_short_window(1:2:7_yro, 3, 1, 7, 18)
+    let r127_c8 = eval_short_window(1:2:7_yro, 3, 1, 7, 24)
+    let r129_c8 = eval_short_window(1:2:9_yro, 3, 1, 9, 24)
+    let r1210_c10 = eval_short_window(1:2:10, 3, 1, 10, 27)
+    assert r127_c6.pressure == 21 and r127_c6.overhang == 6 and r127_c6.delta_close == 3 and r127_c6.x_shedding == 3
+    assert r127_c8.delta_close == -3 and r127_c8.x_shedding == 0
+    assert r129_c8.pressure == 27 and r129_c8.overhang == 0 and r129_c8.delta_close == 3 and r129_c8.x_shedding == 3
+    assert r1210_c10.rho_clipped == 9 and r1210_c10.pressure == 27 and r1210_c10.delta_close == 0
 
-        # 3. Purely native 3:3:7_yro saddle (Pi=30, RD=61, rho=7, P^D=21, Q^D=162, +3/-3; zero mass map!)
-        let s337 = saddle_337_support()
-        let s337_c6 = eval_short_window(s337, 3, 1, 7, 18)
-        let s337_c8 = eval_short_window(s337, 3, 1, 7, 24)
-        assert s337_c6.pi_val == 30 and s337_c6.rd_val == 61 and s337_c6.rho_clipped == 7
-        assert s337_c6.pressure == 21 and s337_c6.overhang == 162
-        assert s337_c6.delta_close == 3 and s337_c8.delta_close == -3
+    # 3. Purely native 3:3:7_yro saddle (Pi=30, RD=61, rho=7, P^D=21, Q^D=162, +3/-3; zero mass map!)
+    let s337 = saddle_337_support()
+    let s337_c6 = eval_short_window(s337, 3, 1, 7, 18)
+    let s337_c8 = eval_short_window(s337, 3, 1, 7, 24)
+    assert s337_c6.pi_val == 30 and s337_c6.rd_val == 61 and s337_c6.rho_clipped == 7
+    assert s337_c6.pressure == 21 and s337_c6.overhang == 162
+    assert s337_c6.delta_close == 3 and s337_c8.delta_close == -3
 
-        # 4. Moving boundary (8 - 3 + 2 = 7), scoped channel (4/1, -4/1), Stokes cancellation (0/1)
-        let mov = moving_boundary_flux(8, 3, 2)
-        let phi_fwd = scoped_channel_flux(3, 5, 4, 1/3r)
-        let phi_rev = scoped_channel_flux(3, 5, 4, -1/3r)
-        let stokes = stokes_cancellation(phi_fwd, phi_rev)
-        assert mov == 7 and phi_fwd == 4/1r and phi_rev == -4/1r and stokes == 0/1r
+    # 4. Moving boundary (8 - 3 + 2 = 7), scoped channel (4/1, -4/1), Stokes cancellation (0/1)
+    let mov = moving_boundary_flux(8, 3, 2)
+    let phi_fwd = scoped_channel_flux(3, 5, 4, 1/3r)
+    let phi_rev = scoped_channel_flux(3, 5, 4, -1/3r)
+    let stokes = stokes_cancellation(phi_fwd, phi_rev)
+    assert mov == 7 and phi_fwd == 4/1r and phi_rev == -4/1r and stokes == 0/1r
 
-        # 5. Native proton (3:3:6) and electron (1:2:6) support accessors
-        let p_sup = proton_support()
-        let e_sup = electron_support()
-        assert support_pi(p_sup) == 30 and support_rd(p_sup, 1) == 61
-        assert support_pi(e_sup) == 4 and support_rd(e_sup, 1) == 9
+    # 5. Native proton (3:3:6) and electron (1:2:6) support accessors
+    let p_sup = proton_support()
+    let e_sup = electron_support()
+    assert support_pi(p_sup) == 30 and support_rd(p_sup, 1) == 61
+    assert support_pi(e_sup) == 4 and support_rd(e_sup, 1) == 9
 
-        emit ds.sum_t0
-        emit ds.sum_cx
-        emit ds.sum_tx
-        emit ds.sum_obs
-        emit ds.sum_delta
-        emit ds.sum_mag
-        emit ds.center_sign
-        emit ds.center_mag
-        emit s337_c6.pi_val
-        emit s337_c6.rd_val
-        emit s337_c6.pressure
-        emit s337_c6.overhang
-        emit s337_c6.delta_close
-        emit s337_c8.delta_close
-        emit mov
-        emit phi_fwd
-        emit phi_rev
-        emit stokes
-        emit p_sup
-        emit e_sup
-        return 0
+    emit ds.sum_t0
+    emit ds.sum_cx
+    emit ds.sum_tx
+    emit ds.sum_obs
+    emit ds.sum_delta
+    emit ds.sum_mag
+    emit ds.center_sign
+    emit ds.center_mag
+    emit s337_c6.pi_val
+    emit s337_c6.rd_val
+    emit s337_c6.pressure
+    emit s337_c6.overhang
+    emit s337_c6.delta_close
+    emit s337_c8.delta_close
+    emit mov
+    emit phi_fwd
+    emit phi_rev
+    emit stokes
+    emit p_sup
+    emit e_sup
+    0

@@ -1,7 +1,7 @@
 use crate::value::RtValue;
 
 /// Default hard cap on arena entries (`AC-13`) preventing unbounded heap exhaustion.
-pub const DEFAULT_MAX_ARENA_ENTRIES: usize = 1_048_576;
+pub const DEFAULT_MAX_ARENA_ENTRIES: usize = 16_777_216;
 
 /// Safe, 1-based handle-indexed runtime arena (`handle == 0` is always invalid!).
 ///

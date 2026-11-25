@@ -6,18 +6,20 @@ use std::io::Write;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use aod_core::bigint::BigInt;
-use aod_core::qext::{parse_decimal_exact, QExtRatio};
+use aod_core::qext::QExtRatio;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{T1, T32, T9, Q4};
+use aod_core::ternary::{B64, B8, Q4, T1};
+use aod_core::trit_int::{swar_superpose_complete, TAG_NULL_SENTINEL};
 use aod_core::witness::{Coupling, Fusion};
 
 use crate::arena::DEFAULT_MAX_ARENA_ENTRIES;
 use crate::ops::{
-    exact_addr8_parse, exact_b64, exact_coupling_contact, exact_q4, exact_qext_binop,
-    exact_support_parse, exact_t1, exact_t32, exact_t32_unpack_bigint, exact_t9,
-    exact_t9_unpack_bigint, exact_trace_new, exact_u8, exact_verify_frg_cross_return,
-    exact_verify_sheddic_route, RtState,
+    checked_trit_pow, checked_trit_pow_u32, exact_addr8_parse, exact_b64_from_trit_int, exact_b8,
+    exact_coupling_contact, exact_q4, exact_qext_binop, exact_support_parse, exact_t1,
+    exact_trace_new, exact_trit_int_from_b64, exact_unpack_t9_bits,
+    exact_verify_frg_cross_return, exact_verify_sheddic_route, exact_verify_sheddic_route_int,
+    RtState, MAX_POW_EXP,
 };
 use crate::sim::{BoxRegion, ChamberState};
 use crate::value::{RtMapKey, RtValue};
@@ -46,37 +48,32 @@ pub struct AodRtContext {
     pub inner: *mut RtState,
 }
 
-/// Unboxed-first exact integer (`%DecInt = type { i8, i64 }`).
-/// - `tag == 0`: inline signed `i64` in `val`.
-/// - `tag == 1`: 1-based arena handle `u64` (bit-cast to `i64`) referencing `RtValue::Int(BigInt)`.
-#[repr(C)]
+/// Single-register 8-byte Trit-Boxed exact integer (`i64` / `u64` in LLVM IR).
+/// - `0 < 0xC000_0000_0000_0000`: inline 32-trit balanced ternary scalar (`00=0, 01=+1, 10=-1`).
+/// - `0xD000_0000_0000_0000 | handle`: arena-spilled multi-limb `BigTrit`.
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DecInt {
-    pub tag: u8,
-    pub val: i64,
-}
+pub struct DecInt(pub u64);
 
 impl DecInt {
-    pub const ZERO: Self = Self { tag: 0, val: 0 };
+    pub const ZERO: Self = Self(0);
+    pub const ONE: Self = Self(1);
+    pub const NULL_SENTINEL: Self = Self(TAG_NULL_SENTINEL);
 }
 
-/// Unboxed-first exact canonical rational (`%DecRatio = type { i8, i64, i64 }`).
-/// - `tag == 0`: inline reduced `num / den` with `den >= 1`.
-/// - `tag == 1`: 1-based arena handle `u64` in `num` referencing `RtValue::Ratio(Ratio)`.
+/// Two-register 16-byte coupled Trit-Boxed exact rational (`%DecRatio = type { i64, i64 }`).
+/// - `(num | den) < 0xC000_0000_0000_0000` (`den != 0`): inline canonical 32-trit `(num, den)`.
+/// - `num == (0xD000_0000_0000_0000 | handle) && den == 0`: arena-spilled `Ratio`.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DecRatio {
-    pub tag: u8,
-    pub num: i64,
-    pub den: i64,
+    pub num: u64,
+    pub den: u64,
 }
 
 impl DecRatio {
-    pub const ZERO: Self = Self {
-        tag: 0,
-        num: 0,
-        den: 1,
-    };
+    pub const ZERO: Self = Self { num: 0, den: 1 };
+    pub const ONE: Self = Self { num: 1, den: 1 };
 }
 
 /// Safe Rust-side RAII owner for an `AodRtContext` used by ORC LLJIT and unit tests.
@@ -109,12 +106,18 @@ impl OwnedRtContext {
         }
     }
 
+    pub fn set_cli_args(&mut self, args: Vec<Vec<u8>>) {
+        if !self.raw.inner.is_null() {
+            let state = unsafe { &mut *self.raw.inner };
+            state.cli_args = args;
+        }
+    }
+
     pub fn as_mut_ptr(&mut self) -> *mut AodRtContext {
         &mut self.raw
     }
 
     pub fn state(&self) -> &RtState {
-        // SAFETY: `OwnedRtContext` owns `raw.inner` until `Drop`.
         unsafe { &*self.raw.inner }
     }
 
@@ -139,11 +142,9 @@ impl OwnedRtContext {
         self.state().error.as_deref()
     }
 
-    /// Safely mark this context as failed and record an error message without crossing C ABI.
     pub fn fail_with(&mut self, msg: impl Into<String>) {
         self.raw.failed = 1;
         if !self.raw.inner.is_null() {
-            // SAFETY: `OwnedRtContext` owns `raw.inner` exclusively via `&mut self` until `Drop`.
             let state = unsafe { &mut *self.raw.inner };
             state.record_error(msg.into());
         }
@@ -153,7 +154,6 @@ impl OwnedRtContext {
 impl Drop for OwnedRtContext {
     fn drop(&mut self) {
         if !self.raw.inner.is_null() {
-            // SAFETY: allocated via `Box::into_raw` in `OwnedRtContext::with_arena_cap`.
             unsafe {
                 drop(Box::from_raw(self.raw.inner));
             }
@@ -163,30 +163,24 @@ impl Drop for OwnedRtContext {
 }
 
 // ============================================================================
-// Panic-Safe FFI Boundary Guards (`P0-2`)
+// Panic-Safe FFI Boundary Guards
 // ============================================================================
 
 #[inline]
-unsafe fn read_bytes<'a>(ptr: *const u8, len: usize) -> Result<&'a str, String> {
-    if len == 0 {
-        return Ok("");
-    }
-    if ptr.is_null() {
-        return Err("null string pointer across runtime ABI".to_string());
-    }
-    let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
-    std::str::from_utf8(slice).map_err(|_| "invalid UTF-8 across runtime ABI".to_string())
-}
-
-#[inline]
-unsafe fn read_raw_bytes<'a>(ptr: *const u8, len: usize) -> Result<&'a [u8], String> {
+unsafe fn read_raw_slice<'a>(ptr: *const u8, len: usize) -> Result<&'a [u8], String> {
     if len == 0 {
         return Ok(&[]);
     }
     if ptr.is_null() {
-        return Err("null byte slice pointer across runtime ABI".to_string());
+        return Err("null byte pointer across runtime ABI".to_string());
     }
     Ok(unsafe { std::slice::from_raw_parts(ptr, len) })
+}
+
+#[inline]
+unsafe fn read_utf8_str<'a>(ptr: *const u8, len: usize) -> Result<&'a str, String> {
+    let slice = unsafe { read_raw_slice(ptr, len)? };
+    std::str::from_utf8(slice).map_err(|_| "invalid UTF-8 across runtime ABI".to_string())
 }
 
 #[inline]
@@ -230,46 +224,15 @@ where
 }
 
 #[inline]
-unsafe fn write_int_out(out: *mut DecInt, tag: u8, val: i64) -> Result<(), String> {
-    if out.is_null() {
-        return Err("null DecInt out-pointer".to_string());
-    }
-    unsafe {
-        (*out).tag = tag;
-        (*out).val = val;
-    }
-    Ok(())
-}
-
-#[inline]
-unsafe fn write_ratio_out(out: *mut DecRatio, tag: u8, num: i64, den: i64) -> Result<(), String> {
+unsafe fn write_ratio_out(out: *mut DecRatio, num: u64, den: u64) -> Result<(), String> {
     if out.is_null() {
         return Err("null DecRatio out-pointer".to_string());
     }
     unsafe {
-        (*out).tag = tag;
         (*out).num = num;
         (*out).den = den;
     }
     Ok(())
-}
-
-#[inline]
-unsafe fn read_int_in(state: &RtState, p: *const DecInt) -> Result<BigInt, String> {
-    if p.is_null() {
-        return Err("null DecInt pointer".to_string());
-    }
-    let d = unsafe { *p };
-    state.get_bigint(d.tag, d.val)
-}
-
-#[inline]
-unsafe fn read_ratio_in(state: &RtState, p: *const DecRatio) -> Result<Ratio, String> {
-    if p.is_null() {
-        return Err("null DecRatio pointer".to_string());
-    }
-    let d = unsafe { *p };
-    state.get_ratio(d.tag, d.num, d.den)
 }
 
 // ============================================================================
@@ -300,8 +263,8 @@ pub unsafe extern "C" fn aod_rt_ctx_init(
     }));
 }
 
-/// Standalone AOT ELF CLI flag parser (`--fuel <N>`, `--max-depth <N>`).
-/// Returns 0 on success, 1 on CLI usage error (printing `aodc: ...` to stderr).
+/// Standalone AOT ELF CLI parser: consumes `--fuel <N>` and `--max-depth <N>`, rejects unknown
+/// `--*` flags, and forwards positional arguments (plus arguments after `--`) into `state.cli_args`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_cli_parse_args(
     argc: i32,
@@ -314,18 +277,32 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
         let mut fuel = DEFAULT_NATIVE_FUEL;
         let mut max_depth = DEFAULT_NATIVE_MAX_DEPTH;
-        if argc > 1 && !argv.is_null() {
+        let mut positional: Vec<Vec<u8>> = Vec::new();
+        if argc > 0 && !argv.is_null() {
             let args = unsafe { std::slice::from_raw_parts(argv, argc as usize) };
+            if !args[0].is_null() {
+                positional.push(unsafe { CStr::from_ptr(args[0]) }.to_bytes().to_vec());
+            }
             let mut i = 1usize;
+            let mut after_ddash = false;
             while i < args.len() {
                 if args[i].is_null() {
                     i += 1;
                     continue;
                 }
-                let flag = unsafe { CStr::from_ptr(args[i]) }
-                    .to_str()
+                let raw_bytes = unsafe { CStr::from_ptr(args[i]) }.to_bytes();
+                if after_ddash {
+                    positional.push(raw_bytes.to_vec());
+                    i += 1;
+                    continue;
+                }
+                let flag = std::str::from_utf8(raw_bytes)
                     .map_err(|_| "non-UTF8 CLI argument".to_string())?;
                 match flag {
+                    "--" => {
+                        after_ddash = true;
+                        i += 1;
+                    }
                     "--fuel" => {
                         let next = args
                             .get(i + 1)
@@ -336,7 +313,9 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                             .to_str()
                             .map_err(|_| "invalid UTF-8 after --fuel".to_string())?;
                         let parsed: i64 = val_s.parse().map_err(|_| {
-                            format!("invalid integer {val_s:?} for --fuel; expected positive integer")
+                            format!(
+                                "invalid integer {val_s:?} for --fuel; expected positive integer"
+                            )
                         })?;
                         if parsed <= 0 {
                             return Err("--fuel must be a positive integer (>= 1)".to_string());
@@ -361,21 +340,30 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                             )
                         })?;
                         if parsed <= 0 {
-                            return Err("--max-depth must be a positive integer (>= 1)".to_string());
+                            return Err(
+                                "--max-depth must be a positive integer (>= 1)".to_string()
+                            );
                         }
                         max_depth = parsed;
                         i += 2;
                     }
-                    other => {
+                    other if other.starts_with('-') => {
                         return Err(format!(
                             "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>)"
                         ));
+                    }
+                    _ => {
+                        positional.push(raw_bytes.to_vec());
+                        i += 1;
                     }
                 }
             }
         }
         unsafe {
             aod_rt_ctx_init(ctx, fuel, max_depth, 0);
+            if !(*ctx).inner.is_null() {
+                (*(*ctx).inner).cli_args = positional;
+            }
         }
         Ok(())
     }));
@@ -424,7 +412,7 @@ pub unsafe extern "C" fn aod_rt_ctx_finish(ctx: *mut AodRtContext) -> i32 {
 pub unsafe extern "C" fn aod_rt_fail(ctx: *mut AodRtContext, ptr: *const u8, len: usize) {
     unsafe {
         guard_ret(ctx, (), |c, s| {
-            let msg = read_bytes(ptr, len)?.to_string();
+            let msg = read_utf8_str(ptr, len)?.to_string();
             c.failed = 1;
             s.record_error(msg);
             Ok(())
@@ -460,7 +448,7 @@ pub unsafe extern "C" fn aod_rt_budget_exhausted(ctx: *mut AodRtContext, kind: u
 }
 
 // ============================================================================
-// DecInt Exact Cold-Spill Operations (`P0-3`)
+// 1-GPR Trit-Boxed `DecInt` (`u64`) Operations (Zero stack out-pointers!)
 // ============================================================================
 
 #[unsafe(no_mangle)]
@@ -468,261 +456,219 @@ pub unsafe extern "C" fn aod_rt_int_from_str(
     ctx: *mut AodRtContext,
     ptr: *const u8,
     len: usize,
-    out: *mut DecInt,
-) {
+) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let text = read_bytes(ptr, len)?;
+        guard_ret(ctx, 0, |_, s| {
+            let text = read_utf8_str(ptr, len)?;
             let n = BigInt::parse_decimal(text).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(n)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-/// Spill an unsigned 64-bit value (e.g. `pack(t32)` with bit 63 set!) into `DecInt` (`P0-3`).
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_from_u64(
-    ctx: *mut AodRtContext,
-    uval: u64,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let (tag, val) = s.pack_bigint(BigInt::from_u64(uval))?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(n)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_neg(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_from_i64(ctx: *mut AodRtContext, val: i64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.pack_dec_int(BigInt::from_i64(val))) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_from_u64(ctx: *mut AodRtContext, uval: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.pack_dec_int(BigInt::from_u64(uval))) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_neg(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let (tag, val) = s.pack_bigint(-av)?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            s.pack_dec_int(-av)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_add(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_add(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let (tag, val) = s.pack_bigint(&av + &bv)?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
+            s.pack_dec_int(&av + &bv)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_sub(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_sub(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let (tag, val) = s.pack_bigint(&av - &bv)?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
+            s.pack_dec_int(&av - &bv)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_mul(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_mul(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let (tag, val) = s.pack_bigint(&av * &bv)?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
+            s.pack_dec_int(&av * &bv)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_div_floor(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_div_floor(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
             let q = av.div_floor(&bv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(q)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(q)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_rem_floor(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_rem_floor(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
             let r = av.rem_floor(&bv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(r)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(r)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_pow(ctx: *mut AodRtContext, a: u64, exp: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let ev = s.unpack_dec_int(exp)?;
+            let res = checked_trit_pow(&av, &ev)?;
+            s.pack_dec_int(res)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_gcd(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
+            s.pack_dec_int(av.gcd(&bv))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_lcm(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
+            s.pack_dec_int(av.lcm(&bv))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_superpose_cancel(
+    ctx: *mut AodRtContext,
+    a: u64,
+    b: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            if a < aod_core::trit_int::TOP_TAG_MASK
+                && b < aod_core::trit_int::TOP_TAG_MASK
+                && aod_core::trit_int::is_valid_trit_word(a)
+                && aod_core::trit_int::is_valid_trit_word(b)
+            {
+                return Ok(swar_superpose_complete(a, b).0);
+            }
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
+            s.pack_dec_int(av.superpose_cancel(&bv))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_trit_shl(ctx: *mut AodRtContext, a: u64, k: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let kv = s.unpack_dec_int(k)?;
+            let ku = kv
+                .to_u64()
+                .and_then(|u| u32::try_from(u).ok())
+                .ok_or_else(|| format!("trit_shl requires non-negative u32 shift, got {kv}"))?;
+            let p3 = BigInt::from_i64(3).pow(ku);
+            s.pack_dec_int(&av * &p3)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_trit_shr(ctx: *mut AodRtContext, a: u64, k: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let kv = s.unpack_dec_int(k)?;
+            let ku = kv
+                .to_u64()
+                .and_then(|u| u32::try_from(u).ok())
+                .ok_or_else(|| format!("trit_shr requires non-negative u32 shift, got {kv}"))?;
+            let p3 = BigInt::from_i64(3).pow(ku);
+            let res = av.div_floor(&p3).map_err(|e| e.to_string())?;
+            s.pack_dec_int(res)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_b64_from_unsigned_int(ctx: *mut AodRtContext, a: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            B64::from_unsigned_int(&av)
+                .map(B64::value)
+                .map_err(|e| e.to_string())
+        })
     }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_int_exact_div(
     ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
+    a: u64,
+    b: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
             let r = Ratio::new(av, bv).map_err(|e| e.to_string())?;
-            let (tag, num, den) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
 
+/// Three-way comparison returning `-1`, `0`, or `+1` (`i8` == `t1` `<=>`!).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_bitand(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let r = av.bitand(&bv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(r)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_bitor(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let r = av.bitor(&bv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(r)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_bitxor(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let r = av.bitxor(&bv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(r)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_shl(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let shift = bv
-                .to_u64()
-                .and_then(|v| u32::try_from(v).ok())
-                .ok_or_else(|| "invalid shift count".to_string())?;
-            let r = av.shl(shift).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(r)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_shr(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let shift = bv
-                .to_u64()
-                .and_then(|v| u32::try_from(v).ok())
-                .ok_or_else(|| "invalid shift count".to_string())?;
-            let r = av.shr(shift).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(r)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_cmp(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-) -> i32 {
+pub unsafe extern "C" fn aod_rt_int_cmp(ctx: *mut AodRtContext, a: u64, b: u64) -> i8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
             Ok(match av.cmp(&bv) {
                 std::cmp::Ordering::Less => -1,
                 std::cmp::Ordering::Equal => 0,
@@ -733,177 +679,69 @@ pub unsafe extern "C" fn aod_rt_int_cmp(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_t1(ctx: *mut AodRtContext, a: *const DecInt) -> i8 {
+pub unsafe extern "C" fn aod_rt_int_sgn(ctx: *mut AodRtContext, a: u64) -> i8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
+            let av = s.unpack_dec_int(a)?;
+            Ok(av.signum())
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_int_to_t1(ctx: *mut AodRtContext, a: u64) -> i8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
             exact_t1(&av)
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_t32(ctx: *mut AodRtContext, a: *const DecInt) -> i64 {
+pub unsafe extern "C" fn aod_rt_int_to_q4(ctx: *mut AodRtContext, a: u64) -> i8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            exact_t32(&av)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_q4(ctx: *mut AodRtContext, a: *const DecInt) -> i8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
+            let av = s.unpack_dec_int(a)?;
             exact_q4(&av)
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t32_unpack_bigint(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-) -> i64 {
+pub unsafe extern "C" fn aod_rt_int_to_b8(ctx: *mut AodRtContext, a: u64) -> u8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            exact_t32_unpack_bigint(&av)
+            let av = s.unpack_dec_int(a)?;
+            exact_b8(&av)
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_u8(ctx: *mut AodRtContext, a: *const DecInt) -> u8 {
+pub unsafe extern "C" fn aod_rt_int_to_b64_view(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            exact_u8(&av)
+            let av = s.unpack_dec_int(a)?;
+            exact_b64_from_trit_int(&av)
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_b64(ctx: *mut AodRtContext, a: *const DecInt) -> u64 {
+pub unsafe extern "C" fn aod_rt_int_from_b64_view(ctx: *mut AodRtContext, bits: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            exact_b64(&av)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_t9(ctx: *mut AodRtContext, a: *const DecInt) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            exact_t9(&av)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_to_shift(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    limit: u64,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            let sh = av
-                .to_u64()
-                .filter(|&v| v < limit)
-                .ok_or_else(|| format!("shift count {av} out of range 0..{limit}"))?;
-            Ok(sh)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t9_pack(ctx: *mut AodRtContext, v: i16) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            let t = T9::new(v as i64).map_err(|e| e.to_string())?;
-            Ok(t.pack() as u64)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t9_unpack_b64(ctx: *mut AodRtContext, bits: u64) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            T9::unpack(bits).map(T9::value).map_err(|e| e.to_string())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t9_unpack_int(ctx: *mut AodRtContext, a: *const DecInt) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            exact_t9_unpack_bigint(&av)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t1_superpose_cancel(
-    ctx: *mut AodRtContext,
-    a: i8,
-    b: i8,
-) -> i8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            let ta = T1::new(a).map_err(|e| e.to_string())?;
-            let tb = T1::new(b).map_err(|e| e.to_string())?;
-            Ok(ta.superpose_cancel(tb).value())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_verify_sheddic_route(
-    ctx: *mut AodRtContext,
-    x_shed: *const DecInt,
-    target_enc: u8,
-) -> u8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let xs = read_int_in(s, x_shed)?;
-            Ok(u8::from(exact_verify_sheddic_route(&xs, target_enc)))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_verify_frg_cross_return(
-    ctx: *mut AodRtContext,
-    t0: *const DecInt,
-    tx: *const DecInt,
-    cx: *const DecInt,
-) -> u8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let v0 = read_int_in(s, t0)?;
-            let vx = read_int_in(s, tx)?;
-            let vc = read_int_in(s, cx)?;
-            Ok(u8::from(exact_verify_frg_cross_return(&v0, &vx, &vc)))
+            let ti = exact_trit_int_from_b64(bits)?;
+            s.pack_dec_int(ti)
         })
     }
 }
 
 // ============================================================================
-// DecRatio Exact Cold-Spill Operations (`P0-1`: zero `__udivti3` in JIT!)
+// 2-GPR `DecRatio` (`{ u64, u64 }`) Operations
 // ============================================================================
 
-/// Reduce a split-128-bit fraction `(num_lo, num_hi) / (den_lo, den_hi)` into canonical `DecRatio`
-/// without emitting `sdiv/urem i128` in ORC JIT (`P0-1`).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_reduce_i128(
     ctx: *mut AodRtContext,
@@ -917,10 +755,9 @@ pub unsafe extern "C" fn aod_rt_ratio_reduce_i128(
         guard_ret(ctx, (), |_, s| {
             let n = ((num_hi as i128) << 64) | (num_lo as i128);
             let d = ((den_hi as i128) << 64) | (den_lo as i128);
-            let r = Ratio::new(BigInt::from_i128(n), BigInt::from_i128(d))
-                .map_err(|e| e.to_string())?;
-            let (tag, num, den) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, num, den)
+            let r = Ratio::from_i128(n, d).map_err(|e| e.to_string())?;
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -928,17 +765,17 @@ pub unsafe extern "C" fn aod_rt_ratio_reduce_i128(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_from_ints(
     ctx: *mut AodRtContext,
-    num: *const DecInt,
-    den: *const DecInt,
+    num: u64,
+    den: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let nv = read_int_in(s, num)?;
-            let dv = read_int_in(s, den)?;
+            let nv = s.unpack_dec_int(num)?;
+            let dv = s.unpack_dec_int(den)?;
             let r = Ratio::new(nv, dv).map_err(|e| e.to_string())?;
-            let (tag, rn, rd) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, rn, rd)
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -954,13 +791,13 @@ pub unsafe extern "C" fn aod_rt_ratio_from_str(
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let ns = read_bytes(num_ptr, num_len)?;
-            let ds = read_bytes(den_ptr, den_len)?;
+            let ns = read_utf8_str(num_ptr, num_len)?;
+            let ds = read_utf8_str(den_ptr, den_len)?;
             let nv = BigInt::parse_decimal(ns).map_err(|e| e.to_string())?;
             let dv = BigInt::parse_decimal(ds).map_err(|e| e.to_string())?;
             let r = Ratio::new(nv, dv).map_err(|e| e.to_string())?;
-            let (tag, rn, rd) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, rn, rd)
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -968,14 +805,15 @@ pub unsafe extern "C" fn aod_rt_ratio_from_str(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_neg(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
+    na: u64,
+    da: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let (tag, rn, rd) = s.pack_ratio(-av)?;
-            write_ratio_out(out, tag, rn, rd)
+            let av = s.unpack_dec_ratio(na, da)?;
+            let (rn, rd) = s.pack_dec_ratio(-av)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -983,16 +821,18 @@ pub unsafe extern "C" fn aod_rt_ratio_neg(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_add(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    b: *const DecRatio,
+    na: u64,
+    da: u64,
+    nb: u64,
+    db: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let bv = read_ratio_in(s, b)?;
-            let (tag, rn, rd) = s.pack_ratio(&av + &bv)?;
-            write_ratio_out(out, tag, rn, rd)
+            let av = s.unpack_dec_ratio(na, da)?;
+            let bv = s.unpack_dec_ratio(nb, db)?;
+            let (rn, rd) = s.pack_dec_ratio(&av + &bv)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -1000,16 +840,18 @@ pub unsafe extern "C" fn aod_rt_ratio_add(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_sub(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    b: *const DecRatio,
+    na: u64,
+    da: u64,
+    nb: u64,
+    db: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let bv = read_ratio_in(s, b)?;
-            let (tag, rn, rd) = s.pack_ratio(&av - &bv)?;
-            write_ratio_out(out, tag, rn, rd)
+            let av = s.unpack_dec_ratio(na, da)?;
+            let bv = s.unpack_dec_ratio(nb, db)?;
+            let (rn, rd) = s.pack_dec_ratio(&av - &bv)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -1017,16 +859,18 @@ pub unsafe extern "C" fn aod_rt_ratio_sub(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_mul(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    b: *const DecRatio,
+    na: u64,
+    da: u64,
+    nb: u64,
+    db: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let bv = read_ratio_in(s, b)?;
-            let (tag, rn, rd) = s.pack_ratio(&av * &bv)?;
-            write_ratio_out(out, tag, rn, rd)
+            let av = s.unpack_dec_ratio(na, da)?;
+            let bv = s.unpack_dec_ratio(nb, db)?;
+            let (rn, rd) = s.pack_dec_ratio(&av * &bv)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -1034,31 +878,36 @@ pub unsafe extern "C" fn aod_rt_ratio_mul(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_div(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    b: *const DecRatio,
+    na: u64,
+    da: u64,
+    nb: u64,
+    db: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let bv = read_ratio_in(s, b)?;
+            let av = s.unpack_dec_ratio(na, da)?;
+            let bv = s.unpack_dec_ratio(nb, db)?;
             let q = av.checked_div(&bv).map_err(|e| e.to_string())?;
-            let (tag, rn, rd) = s.pack_ratio(q)?;
-            write_ratio_out(out, tag, rn, rd)
+            let (rn, rd) = s.pack_dec_ratio(q)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
 
+/// Three-way comparison returning `-1`, `0`, or `+1` (`i8` == `t1` `<=>`!).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_cmp(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    b: *const DecRatio,
-) -> i32 {
+    na: u64,
+    da: u64,
+    nb: u64,
+    db: u64,
+) -> i8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let bv = read_ratio_in(s, b)?;
+            let av = s.unpack_dec_ratio(na, da)?;
+            let bv = s.unpack_dec_ratio(nb, db)?;
             Ok(match av.cmp(&bv) {
                 std::cmp::Ordering::Less => -1,
                 std::cmp::Ordering::Equal => 0,
@@ -1069,30 +918,132 @@ pub unsafe extern "C" fn aod_rt_ratio_cmp(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_ratio_sgn(ctx: *mut AodRtContext, na: u64, da: u64) -> i8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_ratio(na, da)?;
+            Ok(av.num().signum())
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_to_int_exact(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    out: *mut DecInt,
+    na: u64,
+    da: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_ratio(na, da)?;
+            let iv = av.to_int_exact().map_err(|e| e.to_string())?;
+            s.pack_dec_int(iv)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_pack_ratio(ctx: *mut AodRtContext, na: u64, da: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let rv = s.unpack_dec_ratio(na, da)?;
+            let ni = rv
+                .num()
+                .to_i64()
+                .ok_or_else(|| "ratio exceeds compact 1-word 31-trit budget".to_string())?;
+            let di = rv
+                .den()
+                .to_i64()
+                .ok_or_else(|| "ratio exceeds compact 1-word 31-trit budget".to_string())?;
+            aod_core::trit_int::pack_compact_ratio_u64(ni, di).ok_or_else(|| {
+                "ratio exceeds compact 1-word [num][11][den] 31-trit capacity".to_string()
+            })
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_unpack_ratio(
+    ctx: *mut AodRtContext,
+    bits: u64,
+    out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_ratio_in(s, a)?;
-            let iv = av.to_int_exact().map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(iv)?;
-            write_int_out(out, tag, val)
+            let (n, d) = aod_core::trit_int::unpack_compact_ratio_u64(bits).ok_or_else(|| {
+                "invalid compact 1-word [num][11][den] ratio encoding".to_string()
+            })?;
+            let r = Ratio::from_i64(n, d).map_err(|e| e.to_string())?;
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_ratio_pow(
+    ctx: *mut AodRtContext,
+    na: u64,
+    da: u64,
+    exp: u64,
+    out: *mut DecRatio,
+) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            let base = s.unpack_dec_ratio(na, da)?;
+            let ev = s.unpack_dec_int(exp)?;
+            let ei = ev.to_i64().ok_or_else(|| {
+                format!(
+                    "overflow: ratio pow exponent {ev} exceeds safety limit {MAX_POW_EXP}"
+                )
+            })?;
+            let r = if ei >= 0 {
+                let eu = u32::try_from(ei).map_err(|_| {
+                    format!(
+                        "overflow: ratio pow exponent {ei} exceeds safety limit {MAX_POW_EXP}"
+                    )
+                })?;
+                let num = checked_trit_pow_u32(base.num(), eu)?;
+                let den = checked_trit_pow_u32(base.den(), eu)?;
+                Ratio::new(num, den).map_err(|e| e.to_string())?
+            } else {
+                let eu = ei
+                    .checked_neg()
+                    .and_then(|v| u32::try_from(v).ok())
+                    .ok_or_else(|| {
+                        format!(
+                            "overflow: ratio pow exponent {ei} exceeds safety limit {MAX_POW_EXP}"
+                        )
+                    })?;
+                let num = checked_trit_pow_u32(base.den(), eu)?;
+                let den = checked_trit_pow_u32(base.num(), eu)?;
+                Ratio::new(num, den).map_err(|e| e.to_string())?
+            };
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
 
 // ============================================================================
-// Emit, Boxing/Unboxing, Strings, & Handle Equality
+// Emit, Boxing/Unboxing, Strings, Bytes, B8/B64, & Handle Equality
 // ============================================================================
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_int(ctx: *mut AodRtContext, a: *const DecInt) {
+pub unsafe extern "C" fn aod_rt_emit_null(ctx: *mut AodRtContext) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
+            s.emit_line("null".to_string());
+            Ok(())
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_emit_int(ctx: *mut AodRtContext, a: u64) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            let av = s.unpack_dec_int(a)?;
             s.emit_line(av.to_decimal_string());
             Ok(())
         });
@@ -1124,18 +1075,27 @@ pub unsafe extern "C" fn aod_rt_emit_t1(ctx: *mut AodRtContext, v: i8) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
             let t = T1::new(v).map_err(|e| e.to_string())?;
-            s.emit_line(t.render_v1());
+            s.emit_line(t.render());
             Ok(())
         });
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_t32(ctx: *mut AodRtContext, v: i64) {
+pub unsafe extern "C" fn aod_rt_emit_b8(ctx: *mut AodRtContext, v: u8) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let t = T32::new(v as i128).map_err(|e| e.to_string())?;
-            s.emit_line(t.render_v1());
+            s.emit_line(B8(v).render());
+            Ok(())
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_emit_b64(ctx: *mut AodRtContext, v: u64) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            s.emit_line(B64(v).render());
             Ok(())
         });
     }
@@ -1146,18 +1106,18 @@ pub unsafe extern "C" fn aod_rt_emit_q4(ctx: *mut AodRtContext, v: i8) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
             let q = Q4::new(v as u8).map_err(|e| e.to_string())?;
-            s.emit_line(q.render_v1());
+            s.emit_line(q.render());
             Ok(())
         });
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_ratio(ctx: *mut AodRtContext, r: *const DecRatio) {
+pub unsafe extern "C" fn aod_rt_emit_ratio(ctx: *mut AodRtContext, na: u64, da: u64) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let rv = read_ratio_in(s, r)?;
-            s.emit_line(rv.render_v1());
+            let rv = s.unpack_dec_ratio(na, da)?;
+            s.emit_line(rv.render());
             Ok(())
         });
     }
@@ -1182,9 +1142,217 @@ pub unsafe extern "C" fn aod_rt_str_new(
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let text = read_bytes(ptr, len)?.to_string();
+            let text = read_utf8_str(ptr, len)?.to_string();
             s.arena.insert(RtValue::Str(text))
         })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_new(
+    ctx: *mut AodRtContext,
+    ptr: *const u8,
+    len: usize,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let bs = read_raw_slice(ptr, len)?.to_vec();
+            s.arena.insert(RtValue::Bytes(std::sync::Arc::new(bs)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_from_seq(ctx: *mut AodRtContext, seq_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let bs: std::sync::Arc<Vec<u8>> = match s.arena.get(seq_h)? {
+                RtValue::Bytes(b) => b.clone(),
+                RtValue::Str(st) => std::sync::Arc::new(st.as_bytes().to_vec()),
+                RtValue::Addr8(a) => std::sync::Arc::new(a.render().into_bytes()),
+                RtValue::Array(items) | RtValue::List(items) => {
+                    let mut out = Vec::with_capacity(items.len());
+                    for it in items.iter() {
+                        match it {
+                            RtValue::B8(b) => out.push(b.0),
+                            other => {
+                                return Err(format!(
+                                    "bytes(...) sequence expects b8 elements, got {}",
+                                    other.render()
+                                ));
+                            }
+                        }
+                    }
+                    std::sync::Arc::new(out)
+                }
+                other => return Err(format!("bytes(...) unsupported on {}", other.render())),
+            };
+            s.arena.insert(RtValue::Bytes(bs))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_from_b64(ctx: *mut AodRtContext, v: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            s.arena
+                .insert(RtValue::Bytes(std::sync::Arc::new(v.to_le_bytes().to_vec())))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_get(ctx: *mut AodRtContext, b_h: u64, idx: u64) -> u8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let iv = s.unpack_dec_int(idx)?;
+            let i = iv
+                .to_i64()
+                .ok_or_else(|| format!("bytes index {iv} out of range"))?;
+            let bs = s.get_bytes(b_h)?;
+            if i < 0 || (i as usize) >= bs.len() {
+                return Err(format!("bytes index {i} out of bounds"));
+            }
+            Ok(bs[i as usize])
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_slice(
+    ctx: *mut AodRtContext,
+    b_h: u64,
+    start: u64,
+    end: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let sv = s.unpack_dec_int(start)?;
+            let ev = s.unpack_dec_int(end)?;
+            s.op_bytes_slice(b_h, &sv, &ev)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_concat(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_concat(a_h, b_h)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_sha256(ctx: *mut AodRtContext, b_h: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_sha256(b_h)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_hex(ctx: *mut AodRtContext, b_h: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_hex(b_h)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_str_from_bytes(ctx: *mut AodRtContext, b_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let bs = s.get_bytes(b_h)?;
+            let text = std::str::from_utf8(bs)
+                .map_err(|_| "str_bytes input is not valid UTF-8".to_string())?
+                .to_string();
+            s.arena.insert(RtValue::Str(text))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_le_bytes_from_int(
+    ctx: *mut AodRtContext,
+    a: u64,
+    kind: u8,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.unpack_dec_int(a)?;
+            let out = match kind {
+                0 => {
+                    let u = n
+                        .to_u64()
+                        .filter(|&v| v <= u16::MAX as u64)
+                        .ok_or_else(|| format!("u16_le_bytes out of 0..=65535 range: {n}"))?
+                        as u16;
+                    u.to_le_bytes().to_vec()
+                }
+                1 => {
+                    let u = n
+                        .to_u64()
+                        .filter(|&v| v <= u32::MAX as u64)
+                        .ok_or_else(|| format!("u32_le_bytes out of 0..=4294967295 range: {n}"))?
+                        as u32;
+                    u.to_le_bytes().to_vec()
+                }
+                2 => {
+                    let v = n
+                        .to_i64()
+                        .and_then(|x| i32::try_from(x).ok())
+                        .ok_or_else(|| format!("i32_le_bytes out of i32 range: {n}"))?;
+                    v.to_le_bytes().to_vec()
+                }
+                3 => {
+                    let v = n
+                        .to_i64()
+                        .ok_or_else(|| format!("i64_le_bytes out of i64 range: {n}"))?;
+                    v.to_le_bytes().to_vec()
+                }
+                _ => return Err(format!("invalid le_bytes kind {kind}")),
+            };
+            s.arena.insert(RtValue::Bytes(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_bytes_push(ctx: *mut AodRtContext, b_h: u64, byte: u8) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let mut out = s.get_bytes(b_h)?.to_vec();
+            out.push(byte);
+            s.arena.insert(RtValue::Bytes(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_cli_args(ctx: *mut AodRtContext) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_sys_cli_args()) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_read_file_bytes(ctx: *mut AodRtContext, path_h: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_sys_read_file_bytes(path_h)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_write_executable_elf(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    img_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.op_sys_write_executable_elf(path_h, img_h)?;
+            s.pack_dec_int(n)
+        })
+    }
+}
+
+fn rt_values_equal(a: &RtValue, b: &RtValue) -> bool {
+    match (a, b) {
+        (RtValue::Array(xs) | RtValue::List(xs), RtValue::Array(ys) | RtValue::List(ys)) => {
+            xs.len() == ys.len() && xs.iter().zip(ys.iter()).all(|(x, y)| rt_values_equal(x, y))
+        }
+        (RtValue::Tuple(xs), RtValue::Tuple(ys)) => {
+            xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| rt_values_equal(x, y))
+        }
+        _ => a == b,
     }
 }
 
@@ -1194,49 +1362,25 @@ pub unsafe extern "C" fn aod_rt_handle_eq(ctx: *mut AodRtContext, a: u64, b: u64
         guard_ret(ctx, 0, |_, s| {
             let av = s.arena.get(a)?;
             let bv = s.arena.get(b)?;
-            Ok(if av == bv { 1 } else { 0 })
+            Ok(if rt_values_equal(av, bv) { 1 } else { 0 })
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_null(ctx: *mut AodRtContext) {
+pub unsafe extern "C" fn aod_rt_handle_cmp(ctx: *mut AodRtContext, a: u64, b: u64) -> i8 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            s.emit_line("null".to_string());
-            Ok(())
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_u8(ctx: *mut AodRtContext, v: u8) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            s.emit_line(format!("u8({v})"));
-            Ok(())
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_b64(ctx: *mut AodRtContext, v: u64) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            s.emit_line(format!("b64(0x{v:016x})"));
-            Ok(())
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_emit_t9(ctx: *mut AodRtContext, v: i16) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let t = T9::new(v as i64).map_err(|e| e.to_string())?;
-            s.emit_line(t.render());
-            Ok(())
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.arena.get(a)?;
+            let bv = s.arena.get(b)?;
+            let ka = RtMapKey::from_value(av)?;
+            let kb = RtMapKey::from_value(bv)?;
+            Ok(match ka.cmp(&kb) {
+                std::cmp::Ordering::Less => -1,
+                std::cmp::Ordering::Equal => 0,
+                std::cmp::Ordering::Greater => 1,
+            })
+        })
     }
 }
 
@@ -1251,90 +1395,25 @@ pub unsafe extern "C" fn aod_rt_val_null(ctx: *mut AodRtContext) -> u64 {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_to_null(ctx: *mut AodRtContext, h: u64) -> u8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| match s.arena.get(h)? {
-            RtValue::Null => Ok(0),
-            other => Err(format!("expected null value, got {}", other.render())),
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_from_u8(ctx: *mut AodRtContext, v: u8) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.arena.insert(RtValue::U8(v))) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_to_u8(ctx: *mut AodRtContext, h: u64) -> u8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| match s.arena.get(h)? {
-            RtValue::U8(v) => Ok(*v),
-            other => Err(format!("expected u8 value, got {}", other.render())),
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_from_b64(ctx: *mut AodRtContext, v: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.arena.insert(RtValue::B64(v))) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_to_b64(ctx: *mut AodRtContext, h: u64) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| match s.arena.get(h)? {
-            RtValue::B64(v) => Ok(*v),
-            other => Err(format!("expected b64 value, got {}", other.render())),
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_from_t9(ctx: *mut AodRtContext, v: i16) -> u64 {
+pub unsafe extern "C" fn aod_rt_val_from_int(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let t = T9::new(v as i64).map_err(|e| e.to_string())?;
-            s.arena.insert(RtValue::T9(t))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_to_t9(ctx: *mut AodRtContext, h: u64) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| match s.arena.get(h)? {
-            RtValue::T9(t) => Ok(t.value()),
-            other => Err(format!("expected t9 value, got {}", other.render())),
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_from_int(ctx: *mut AodRtContext, a: *const DecInt) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
+            let av = s.unpack_dec_int(a)?;
             s.arena.insert(RtValue::Int(av))
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_to_int(
-    ctx: *mut AodRtContext,
-    h: u64,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_val_to_int(ctx: *mut AodRtContext, h: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let n = match s.arena.get(h)? {
                 RtValue::Int(n) => n.clone(),
                 other => return Err(format!("expected int value, got {}", other.render())),
             };
-            let (tag, val) = s.pack_bigint(n)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(n)
+        })
     }
 }
 
@@ -1389,21 +1468,31 @@ pub unsafe extern "C" fn aod_rt_val_to_t1(ctx: *mut AodRtContext, h: u64) -> i8 
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_from_t32(ctx: *mut AodRtContext, v: i64) -> u64 {
+pub unsafe extern "C" fn aod_rt_val_from_b8(ctx: *mut AodRtContext, v: u8) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.arena.insert(RtValue::B8(B8(v)))) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_val_to_b8(ctx: *mut AodRtContext, h: u64) -> u8 {
     unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let t = T32::new(v as i128).map_err(|e| e.to_string())?;
-            s.arena.insert(RtValue::T32(t))
+        guard_ret(ctx, 0, |_, s| match s.arena.get(h)? {
+            RtValue::B8(b) => Ok(b.0),
+            other => Err(format!("expected b8 value, got {}", other.render())),
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_to_t32(ctx: *mut AodRtContext, h: u64) -> i64 {
+pub unsafe extern "C" fn aod_rt_val_from_b64(ctx: *mut AodRtContext, v: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.arena.insert(RtValue::B64(B64(v)))) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_val_to_b64(ctx: *mut AodRtContext, h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| match s.arena.get(h)? {
-            RtValue::T32(t) => Ok(t.value() as i64),
-            other => Err(format!("expected t32 value, got {}", other.render())),
+            RtValue::B64(b) => Ok(b.0),
+            other => Err(format!("expected b64 value, got {}", other.render())),
         })
     }
 }
@@ -1429,10 +1518,14 @@ pub unsafe extern "C" fn aod_rt_val_to_q4(ctx: *mut AodRtContext, h: u64) -> i8 
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_val_from_ratio(ctx: *mut AodRtContext, r: *const DecRatio) -> u64 {
+pub unsafe extern "C" fn aod_rt_val_from_ratio(
+    ctx: *mut AodRtContext,
+    na: u64,
+    da: u64,
+) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let rv = read_ratio_in(s, r)?;
+            let rv = s.unpack_dec_ratio(na, da)?;
             s.arena.insert(RtValue::Ratio(rv))
         })
     }
@@ -1450,8 +1543,8 @@ pub unsafe extern "C" fn aod_rt_val_to_ratio(
                 RtValue::Ratio(r) => r.clone(),
                 other => return Err(format!("expected ratio value, got {}", other.render())),
             };
-            let (tag, num, den) = s.pack_ratio(rv)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(rv)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -1469,7 +1562,7 @@ pub unsafe extern "C" fn aod_rt_addr8_parse(
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let text = read_bytes(ptr, len)?;
+            let text = read_utf8_str(ptr, len)?;
             let a = exact_addr8_parse(text)?;
             s.arena.insert(RtValue::Addr8(a))
         })
@@ -1480,7 +1573,7 @@ pub unsafe extern "C" fn aod_rt_addr8_parse(
 pub unsafe extern "C" fn aod_rt_addr8_from_str(ctx: *mut AodRtContext, str_h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let text = s.get_str(str_h)?.to_string();
+            let text = s.get_str_or_utf8_bytes(str_h, "addr8")?;
             let a = exact_addr8_parse(&text)?;
             s.arena.insert(RtValue::Addr8(a))
         })
@@ -1495,7 +1588,7 @@ pub unsafe extern "C" fn aod_rt_support_parse(
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let text = read_bytes(ptr, len)?;
+            let text = read_utf8_str(ptr, len)?;
             let sf = exact_support_parse(text)?;
             s.arena.insert(RtValue::Support(sf))
         })
@@ -1506,7 +1599,7 @@ pub unsafe extern "C" fn aod_rt_support_parse(
 pub unsafe extern "C" fn aod_rt_support_from_str(ctx: *mut AodRtContext, str_h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let text = s.get_str(str_h)?.to_string();
+            let text = s.get_str_or_utf8_bytes(str_h, "support")?;
             let sf = exact_support_parse(&text)?;
             s.arena.insert(RtValue::Support(sf))
         })
@@ -1516,16 +1609,16 @@ pub unsafe extern "C" fn aod_rt_support_from_str(ctx: *mut AodRtContext, str_h: 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_support_new(
     ctx: *mut AodRtContext,
-    p: *const DecInt,
-    q: *const DecInt,
-    len: *const DecInt,
+    p: u64,
+    q: u64,
+    len: u64,
     yro: u8,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let pv = read_int_in(s, p)?;
-            let qv = read_int_in(s, q)?;
-            let lv = read_int_in(s, len)?;
+            let pv = s.unpack_dec_int(p)?;
+            let qv = s.unpack_dec_int(q)?;
+            let lv = s.unpack_dec_int(len)?;
             let sf = SupportForm::new(pv, qv, lv, yro != 0).map_err(|e| e.to_string())?;
             s.arena.insert(RtValue::Support(sf))
         })
@@ -1533,30 +1626,23 @@ pub unsafe extern "C" fn aod_rt_support_new(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_support_pi(ctx: *mut AodRtContext, h: u64, out: *mut DecInt) {
+pub unsafe extern "C" fn aod_rt_support_pi(ctx: *mut AodRtContext, h: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let pi = s.get_support(h)?.pi().map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(pi)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(pi)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_support_rd(
-    ctx: *mut AodRtContext,
-    h: u64,
-    h_mu: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_support_rd(ctx: *mut AodRtContext, h: u64, h_mu: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let hv = read_int_in(s, h_mu)?;
+        guard_ret(ctx, 0, |_, s| {
+            let hv = s.unpack_dec_int(h_mu)?;
             let rd = s.get_support(h)?.rd(&hv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(rd)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(rd)
+        })
     }
 }
 
@@ -1564,23 +1650,21 @@ pub unsafe extern "C" fn aod_rt_support_rd(
 pub unsafe extern "C" fn aod_rt_support_pressure(
     ctx: *mut AodRtContext,
     h: u64,
-    c3: *const DecInt,
-    h_mu: *const DecInt,
-    w: *const DecInt,
-    out: *mut DecInt,
-) {
+    c3: u64,
+    h_mu: u64,
+    w: u64,
+) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let c3v = read_int_in(s, c3)?;
-            let hv = read_int_in(s, h_mu)?;
-            let wv = read_int_in(s, w)?;
+        guard_ret(ctx, 0, |_, s| {
+            let c3v = s.unpack_dec_int(c3)?;
+            let hv = s.unpack_dec_int(h_mu)?;
+            let wv = s.unpack_dec_int(w)?;
             let res = s
                 .get_support(h)?
                 .pressure(&c3v, &hv, &wv)
                 .map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(res)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(res)
+        })
     }
 }
 
@@ -1588,60 +1672,57 @@ pub unsafe extern "C" fn aod_rt_support_pressure(
 pub unsafe extern "C" fn aod_rt_support_overhang(
     ctx: *mut AodRtContext,
     h: u64,
-    c3: *const DecInt,
-    h_mu: *const DecInt,
-    w: *const DecInt,
-    out: *mut DecInt,
-) {
+    c3: u64,
+    h_mu: u64,
+    w: u64,
+) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let c3v = read_int_in(s, c3)?;
-            let hv = read_int_in(s, h_mu)?;
-            let wv = read_int_in(s, w)?;
+        guard_ret(ctx, 0, |_, s| {
+            let c3v = s.unpack_dec_int(c3)?;
+            let hv = s.unpack_dec_int(h_mu)?;
+            let wv = s.unpack_dec_int(w)?;
             let res = s
                 .get_support(h)?
                 .overhang(&c3v, &hv, &wv)
                 .map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(res)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(res)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_shedding_excess(
     ctx: *mut AodRtContext,
-    p_d: *const DecInt,
-    c_close: *const DecInt,
-    out: *mut DecInt,
-) {
+    p_d: u64,
+    c_close: u64,
+) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let pv = read_int_in(s, p_d)?;
-            let cv = read_int_in(s, c_close)?;
+        guard_ret(ctx, 0, |_, s| {
+            let pv = s.unpack_dec_int(p_d)?;
+            let cv = s.unpack_dec_int(c_close)?;
             let audit = SupportForm::shedding_audit(&pv, &cv).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(audit.x_shedding)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(audit.x_shedding)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_sadar_promote(
     ctx: *mut AodRtContext,
-    c3: *const DecInt,
-    rho: *const DecInt,
-    att: *const DecRatio,
+    c3: u64,
+    rho: u64,
+    att_n: u64,
+    att_d: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let c3v = read_int_in(s, c3)?;
-            let rv = read_int_in(s, rho)?;
-            let av = read_ratio_in(s, att)?;
+            let c3v = s.unpack_dec_int(c3)?;
+            let rv = s.unpack_dec_int(rho)?;
+            let av = s.unpack_dec_ratio(att_n, att_d)?;
             let res = s.op_sadar_promote(&c3v, &rv, av)?;
-            let (tag, num, den) = s.pack_ratio(res)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(res)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -1649,36 +1730,34 @@ pub unsafe extern "C" fn aod_rt_sadar_promote(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_probability(
     ctx: *mut AodRtContext,
-    neg: *const DecInt,
-    hinge: *const DecInt,
-    pos: *const DecInt,
+    neg: u64,
+    hinge: u64,
+    pos: u64,
     role: i8,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let nv = read_int_in(s, neg)?;
-            let hv = read_int_in(s, hinge)?;
-            let pv = read_int_in(s, pos)?;
+            let nv = s.unpack_dec_int(neg)?;
+            let hv = s.unpack_dec_int(hinge)?;
+            let pv = s.unpack_dec_int(pos)?;
             let res = s.op_probability(&nv, &hv, &pv, role)?;
-            let (tag, num, den) = s.pack_ratio(res)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(res)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_window_new(
-    ctx: *mut AodRtContext,
-    u: *const DecInt,
-    v: *const DecInt,
-) -> u64 {
+pub unsafe extern "C" fn aod_rt_window_new(ctx: *mut AodRtContext, u: u64, v: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let uv = read_int_in(s, u)?
+            let uv = s
+                .unpack_dec_int(u)?
                 .to_i64()
                 .ok_or_else(|| "window start out of i64 range".to_string())?;
-            let vv = read_int_in(s, v)?
+            let vv = s
+                .unpack_dec_int(v)?
                 .to_i64()
                 .ok_or_else(|| "window end out of i64 range".to_string())?;
             if uv >= vv {
@@ -1690,17 +1769,15 @@ pub unsafe extern "C" fn aod_rt_window_new(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_range_new(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-) -> u64 {
+pub unsafe extern "C" fn aod_rt_range_new(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?
+            let av = s
+                .unpack_dec_int(a)?
                 .to_i64()
                 .ok_or_else(|| "range start out of i64 range".to_string())?;
-            let bv = read_int_in(s, b)?
+            let bv = s
+                .unpack_dec_int(b)?
                 .to_i64()
                 .ok_or_else(|| "range end out of i64 range".to_string())?;
             s.arena.insert(RtValue::Range(av, bv))
@@ -1728,6 +1805,32 @@ pub unsafe extern "C" fn aod_rt_range_bounds(
             }
             other => Err(format!("expected range handle, got {}", other.render())),
         });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_range_to_list(ctx: *mut AodRtContext, r_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |c, s| {
+            let (a, b) = match s.arena.get(r_h)? {
+                RtValue::Range(a, b) => (*a, *b),
+                other => return Err(format!("expected range handle, got {}", other.render())),
+            };
+            if b <= a {
+                return s.arena.insert(RtValue::List(std::sync::Arc::new(Vec::new())));
+            }
+            let len = (b as i128 - a as i128) as u64;
+            if (c.fuel as u64) < len {
+                c.fuel = 0;
+                return Err("BudgetExhausted: execution step budget exhausted".to_string());
+            }
+            c.fuel -= len as i64;
+            let mut items = Vec::with_capacity(len as usize);
+            for cur in a..b {
+                items.push(RtValue::Int(BigInt::from_i64(cur)));
+            }
+            s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
+        })
     }
 }
 
@@ -1768,8 +1871,8 @@ pub unsafe extern "C" fn aod_rt_trace_new(
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let sc = s.get_str(sc_h)?.to_string();
-            let lin = s.get_str(lin_h)?.to_string();
+            let sc = s.get_str_or_utf8_bytes(sc_h, "trace")?;
+            let lin = s.get_str_or_utf8_bytes(lin_h, "trace")?;
             let t = exact_trace_new(&sc, &lin, q4)?;
             s.arena.insert(RtValue::Trace(Box::new(t)))
         })
@@ -1824,32 +1927,22 @@ pub unsafe extern "C" fn aod_rt_trace_close(ctx: *mut AodRtContext, t_h: u64) ->
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_trace_phases(
-    ctx: *mut AodRtContext,
-    t_h: u64,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_trace_phases(ctx: *mut AodRtContext, t_h: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let p = s.get_trace(t_h)?.phases().map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(BigInt::from_u64(p as u64))?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(BigInt::from_u64(p as u64))
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_trace_beats(
-    ctx: *mut AodRtContext,
-    t_h: u64,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_trace_beats(ctx: *mut AodRtContext, t_h: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let b = s.get_trace(t_h)?.beats().map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(BigInt::from_u64(b as u64))?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(BigInt::from_u64(b as u64))
+        })
     }
 }
 
@@ -1862,8 +1955,8 @@ pub unsafe extern "C" fn aod_rt_trace_rate(
     unsafe {
         guard_ret(ctx, (), |_, s| {
             let r = s.get_trace(t_h)?.rate().map_err(|e| e.to_string())?;
-            let (tag, num, den) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -1880,8 +1973,8 @@ pub unsafe extern "C" fn aod_rt_fold(
         guard_ret(ctx, 0, |_, s| {
             let a = s.get_trace(a_h)?.clone();
             let b = s.get_trace(b_h)?.clone();
-            let sc = s.get_str(sc_h)?.to_string();
-            let lin = s.get_str(lin_h)?.to_string();
+            let sc = s.get_str_or_utf8_bytes(sc_h, "fold")?;
+            let lin = s.get_str_or_utf8_bytes(lin_h, "fold")?;
             let f = Fusion::fold(&a, &b, sc, lin).map_err(|e| e.to_string())?;
             s.arena.insert(RtValue::Fusion(Box::new(f)))
         })
@@ -1922,7 +2015,7 @@ pub unsafe extern "C" fn aod_rt_coupling_new(
         guard_ret(ctx, 0, |_, s| {
             let a = s.get_trace(a_h)?.clone();
             let b = s.get_trace(b_h)?.clone();
-            let w = s.get_str(w_h)?.to_string();
+            let w = s.get_str_or_utf8_bytes(w_h, "coupling")?;
             let c = Coupling::new(&a, &b, w).map_err(|e| e.to_string())?;
             s.arena.insert(RtValue::Coupling(Box::new(c)))
         })
@@ -1933,13 +2026,13 @@ pub unsafe extern "C" fn aod_rt_coupling_new(
 pub unsafe extern "C" fn aod_rt_coupling_contact(
     ctx: *mut AodRtContext,
     c_h: u64,
-    a: *const DecInt,
-    b: *const DecInt,
+    a: u64,
+    b: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
+            let av = s.unpack_dec_int(a)?;
+            let bv = s.unpack_dec_int(b)?;
             let c = s.get_coupling(c_h)?.clone();
             let next = exact_coupling_contact(&c, &av, &bv)?;
             s.arena.insert(RtValue::Coupling(Box::new(next)))
@@ -1956,39 +2049,29 @@ pub unsafe extern "C" fn aod_rt_coupling_cadence(
     unsafe {
         guard_ret(ctx, (), |_, s| {
             let r = s.get_coupling(c_h)?.cadence().map_err(|e| e.to_string())?;
-            let (tag, num, den) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_coupling_lag(
-    ctx: *mut AodRtContext,
-    c_h: u64,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_coupling_lag(ctx: *mut AodRtContext, c_h: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let l = s.get_coupling(c_h)?.lag().map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(l)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(l)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_coupling_drift(
-    ctx: *mut AodRtContext,
-    c_h: u64,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_coupling_drift(ctx: *mut AodRtContext, c_h: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let d = s.get_coupling(c_h)?.drift().map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(d)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(d)
+        })
     }
 }
 
@@ -1999,14 +2082,12 @@ pub unsafe extern "C" fn aod_rt_window_dedup_count(
     sc_h: u64,
     cuts_h: u64,
     wins_h: u64,
-    out: *mut DecInt,
-) {
+) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
+        guard_ret(ctx, 0, |_, s| {
             let cnt = s.op_window_dedup_count(lin_h, sc_h, cuts_h, wins_h)?;
-            let (tag, val) = s.pack_bigint(cnt)?;
-            write_int_out(out, tag, val)
-        });
+            s.pack_dec_int(cnt)
+        })
     }
 }
 
@@ -2014,21 +2095,21 @@ pub unsafe extern "C" fn aod_rt_window_dedup_count(
 pub unsafe extern "C" fn aod_rt_native_cadence_ratio(
     ctx: *mut AodRtContext,
     id_a_h: u64,
-    q_a: *const DecInt,
+    q_a: u64,
     id_r_h: u64,
-    q_r: *const DecInt,
+    q_r: u64,
     coupled: u8,
-    bc: *const DecInt,
+    bc: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let qav = read_int_in(s, q_a)?;
-            let qrv = read_int_in(s, q_r)?;
-            let bcv = read_int_in(s, bc)?;
+            let qav = s.unpack_dec_int(q_a)?;
+            let qrv = s.unpack_dec_int(q_r)?;
+            let bcv = s.unpack_dec_int(bc)?;
             let r = s.op_native_cadence_ratio(id_a_h, &qav, id_r_h, &qrv, coupled != 0, &bcv)?;
-            let (tag, num, den) = s.pack_ratio(r)?;
-            write_ratio_out(out, tag, num, den)
+            let (rn, rd) = s.pack_dec_ratio(r)?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
@@ -2040,11 +2121,11 @@ pub unsafe extern "C" fn aod_rt_single_contact_assoc(
     pid_h: u64,
     rid_h: u64,
     win_h: u64,
-    bc: *const DecInt,
+    bc: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let bcv = read_int_in(s, bc)?;
+            let bcv = s.unpack_dec_int(bc)?;
             s.op_single_contact_assoc(wid_h, pid_h, rid_h, win_h, &bcv)
         })
     }
@@ -2053,14 +2134,14 @@ pub unsafe extern "C" fn aod_rt_single_contact_assoc(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_recipient_eval_demo(
     ctx: *mut AodRtContext,
-    ek: *const DecInt,
-    sk: *const DecInt,
+    ek: u64,
+    sk: u64,
     win_h: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let ekv = read_int_in(s, ek)?;
-            let skv = read_int_in(s, sk)?;
+            let ekv = s.unpack_dec_int(ek)?;
+            let skv = s.unpack_dec_int(sk)?;
             s.op_recipient_eval_demo(&ekv, &skv, win_h)
         })
     }
@@ -2074,11 +2155,12 @@ pub unsafe extern "C" fn aod_rt_qext_ext_decimal(ctx: *mut AodRtContext, str_h: 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_qext_from_ratio(
     ctx: *mut AodRtContext,
-    r: *const DecRatio,
+    na: u64,
+    da: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let rv = read_ratio_in(s, r)?;
+            let rv = s.unpack_dec_ratio(na, da)?;
             s.arena
                 .insert(RtValue::QExtRatio(QExtRatio::from_native_frozen(rv)))
         })
@@ -2113,7 +2195,7 @@ pub unsafe extern "C" fn aod_rt_qext_neg(ctx: *mut AodRtContext, a_h: u64) -> u6
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_qext_cmp(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> i32 {
+pub unsafe extern "C" fn aod_rt_qext_cmp(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> i8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
             let a = s.get_qext_ratio(a_h)?;
@@ -2131,8 +2213,9 @@ pub unsafe extern "C" fn aod_rt_qext_cmp(ctx: *mut AodRtContext, a_h: u64, b_h: 
 pub unsafe extern "C" fn aod_rt_qext_render(ctx: *mut AodRtContext, a_h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let rendered = s.get_qext_ratio(a_h)?.render_exact();
-            s.arena.insert(RtValue::QExtStr(rendered))
+            let rendered = s.get_qext_ratio(a_h)?.render_exact().into_bytes();
+            s.arena
+                .insert(RtValue::QExtBytes(std::sync::Arc::new(rendered)))
         })
     }
 }
@@ -2154,12 +2237,12 @@ fn checked_qext_decimals(v: &BigInt) -> Result<usize, String> {
 pub unsafe extern "C" fn aod_rt_qext_round_half_even(
     ctx: *mut AodRtContext,
     a_h: u64,
-    decimals: *const DecInt,
+    decimals: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
             let q = s.get_qext_ratio(a_h)?.clone();
-            let dv = read_int_in(s, decimals)?;
+            let dv = s.unpack_dec_int(decimals)?;
             let dec = checked_qext_decimals(&dv)?;
             let rounded = q.round_half_even(dec).map_err(|e| e.to_string())?;
             s.arena.insert(RtValue::QExtRatio(rounded))
@@ -2171,22 +2254,41 @@ pub unsafe extern "C" fn aod_rt_qext_round_half_even(
 pub unsafe extern "C" fn aod_rt_qext_format_fixed(
     ctx: *mut AodRtContext,
     a_h: u64,
-    decimals: *const DecInt,
+    decimals: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
             let q = s.get_qext_ratio(a_h)?.clone();
-            let dv = read_int_in(s, decimals)?;
+            let dv = s.unpack_dec_int(decimals)?;
             let dec = checked_qext_decimals(&dv)?;
-            let formatted = q.format_fixed(dec).map_err(|e| e.to_string())?;
-            s.arena.insert(RtValue::QExtStr(formatted))
+            let formatted = q.format_fixed(dec).map_err(|e| e.to_string())?.into_bytes();
+            s.arena
+                .insert(RtValue::QExtBytes(std::sync::Arc::new(formatted)))
         })
     }
 }
 
 // ============================================================================
-// Containers & Composite Types (ALL Deep-Copy / Copy-on-Write per `P0-3`!)
+// Containers & Composite Types (Array, List, Map, Struct, Enum, Tuple)
 // ============================================================================
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_array_new(
+    ctx: *mut AodRtContext,
+    elems_ptr: *const u64,
+    count: usize,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let handles = read_u64_slice(elems_ptr, count)?;
+            let mut items = Vec::with_capacity(handles.len());
+            for &h in handles {
+                items.push(s.arena.get(h)?.clone());
+            }
+            s.arena.insert(RtValue::Array(std::sync::Arc::new(items)))
+        })
+    }
+}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_list_new(
@@ -2201,169 +2303,31 @@ pub unsafe extern "C" fn aod_rt_list_new(
             for &h in handles {
                 items.push(s.arena.get(h)?.clone());
             }
-            s.arena.insert(RtValue::List(items))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_list_get(
-    ctx: *mut AodRtContext,
-    list_h: u64,
-    idx: *const DecInt,
-) -> u64 {
+pub unsafe extern "C" fn aod_rt_seq_get(ctx: *mut AodRtContext, seq_h: u64, idx: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let iv = read_int_in(s, idx)?;
-            let v = s.op_list_get(list_h, &iv)?;
+            let iv = s.unpack_dec_int(idx)?;
+            let v = s.op_seq_get(seq_h, &iv)?;
             s.arena.insert(v)
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_list_set(
+pub unsafe extern "C" fn aod_rt_seq_get_raw_idx(
     ctx: *mut AodRtContext,
-    list_h: u64,
-    idx: *const DecInt,
-    val_h: u64,
+    seq_h: u64,
+    idx: i64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let iv = read_int_in(s, idx)?;
-            s.op_list_set(list_h, &iv, val_h)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_list_len_raw(ctx: *mut AodRtContext, list_h: u64) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| match s.arena.get(list_h)? {
-            RtValue::List(items) => Ok(items.len() as i64),
-            other => Err(format!("expected list handle, got {}", other.render())),
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_len(ctx: *mut AodRtContext, h: u64, out: *mut DecInt) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let n = s.op_len(h)?;
-            let (tag, val) = s.pack_bigint(n)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_new(
-    ctx: *mut AodRtContext,
-    ptr: *const u8,
-    len: usize,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let bs = read_raw_bytes(ptr, len)?.to_vec();
-            s.arena.insert(RtValue::Bytes(bs))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_from_list(ctx: *mut AodRtContext, list_h: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_from_list(list_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_from_str(ctx: *mut AodRtContext, str_h: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_from_str(str_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_from_b64(ctx: *mut AodRtContext, v: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_from_b64(v)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_from_addr8(ctx: *mut AodRtContext, addr_h: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_from_addr8(addr_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_get(
-    ctx: *mut AodRtContext,
-    bytes_h: u64,
-    idx: *const DecInt,
-) -> u8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let iv = read_int_in(s, idx)?;
-            s.op_bytes_get(bytes_h, &iv)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_slice(
-    ctx: *mut AodRtContext,
-    bytes_h: u64,
-    start: *const DecInt,
-    end: *const DecInt,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let sv = read_int_in(s, start)?;
-            let ev = read_int_in(s, end)?;
-            s.op_bytes_slice(bytes_h, &sv, &ev)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_concat(
-    ctx: *mut AodRtContext,
-    a_h: u64,
-    b_h: u64,
-) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_concat(a_h, b_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_sha256(ctx: *mut AodRtContext, b_h: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_sha256(b_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_hex(ctx: *mut AodRtContext, b_h: u64) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_bytes_hex(b_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_array_new(
-    ctx: *mut AodRtContext,
-    elems_ptr: *const u64,
-    count: usize,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let handles = read_u64_slice(elems_ptr, count)?;
-            s.op_array_new(handles)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_array_get(
-    ctx: *mut AodRtContext,
-    arr_h: u64,
-    idx: *const DecInt,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let iv = read_int_in(s, idx)?;
-            let v = s.op_array_get(arr_h, &iv)?;
+            let v = s.op_seq_get(seq_h, &BigInt::from_i64(idx))?;
             s.arena.insert(v)
         })
     }
@@ -2373,13 +2337,301 @@ pub unsafe extern "C" fn aod_rt_array_get(
 pub unsafe extern "C" fn aod_rt_array_set(
     ctx: *mut AodRtContext,
     arr_h: u64,
-    idx: *const DecInt,
+    idx: u64,
     val_h: u64,
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let iv = read_int_in(s, idx)?;
+            let iv = s.unpack_dec_int(idx)?;
             s.op_array_set(arr_h, &iv, val_h)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_len_raw(ctx: *mut AodRtContext, seq_h: u64) -> i64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| match s.arena.get(seq_h)? {
+            RtValue::Array(items) | RtValue::List(items) => Ok(items.len() as i64),
+            RtValue::Bytes(bs) => Ok(bs.len() as i64),
+            other => Err(format!("expected sequence handle, got {}", other.render())),
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_sieve(
+    ctx: *mut AodRtContext,
+    mask_h: u64,
+    vals_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let mask_items = match s.arena.get(mask_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => {
+                    return Err(format!(
+                        "sieve `?>` expects boolean mask sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            let val_items = match s.arena.get(vals_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => {
+                    return Err(format!(
+                        "sieve `?>` expects value sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            if mask_items.len() != val_items.len() {
+                return Err(format!(
+                    "sieve `?>` length mismatch: mask len {} != values len {}",
+                    mask_items.len(),
+                    val_items.len()
+                ));
+            }
+            let mut out = Vec::new();
+            for (m, v) in mask_items.iter().zip(val_items.iter()) {
+                match m {
+                    RtValue::Bool(true) => out.push(v.clone()),
+                    RtValue::Bool(false) => {}
+                    other => {
+                        return Err(format!(
+                            "sieve `?>` mask requires bool elements, got {}",
+                            other.render()
+                        ));
+                    }
+                }
+            }
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_argmin_argmax(
+    ctx: *mut AodRtContext,
+    seq_h: u64,
+    is_max: u8,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let items = match s.arena.get(seq_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items,
+                other => {
+                    return Err(format!(
+                        "argmin/argmax expects sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            if items.is_empty() {
+                return Err("argmin/argmax requires non-empty sequence".to_string());
+            }
+            let mut best_idx = 0usize;
+            let mut best_key = RtMapKey::from_value(&items[0])?;
+            for (i, item) in items.iter().enumerate().skip(1) {
+                let k = RtMapKey::from_value(item)?;
+                let better = if is_max != 0 {
+                    k > best_key
+                } else {
+                    k < best_key
+                };
+                if better {
+                    best_key = k;
+                    best_idx = i;
+                }
+            }
+            s.pack_dec_int(BigInt::from_u64(best_idx as u64))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_len(ctx: *mut AodRtContext, h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.op_len(h)?;
+            s.pack_dec_int(n)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_push(ctx: *mut AodRtContext, seq_h: u64, elem_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let elem = s.arena.get(elem_h)?.clone();
+            let mut out = match s.arena.get(seq_h)? {
+                RtValue::Array(items) | RtValue::List(items) => (**items).clone(),
+                other => return Err(format!("push expects sequence, got {}", other.render())),
+            };
+            out.push(elem);
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_concat(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let a = match s.arena.get(a_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => return Err(format!("concat expects sequence, got {}", other.render())),
+            };
+            let b = match s.arena.get(b_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => return Err(format!("concat expects sequence, got {}", other.render())),
+            };
+            let mut out = Vec::with_capacity(a.len() + b.len());
+            out.extend(a.iter().cloned());
+            out.extend(b.iter().cloned());
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_slice(
+    ctx: *mut AodRtContext,
+    seq_h: u64,
+    start: u64,
+    end: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let sv = s.unpack_dec_int(start)?;
+            let ev = s.unpack_dec_int(end)?;
+            let si = sv
+                .to_i64()
+                .ok_or_else(|| format!("slice start {sv} out of i64 range"))?;
+            let ei = ev
+                .to_i64()
+                .ok_or_else(|| format!("slice end {ev} out of i64 range"))?;
+            let sliced = match s.arena.get(seq_h)? {
+                RtValue::Array(items) | RtValue::List(items) => {
+                    if si < 0 || ei < si || (ei as usize) > items.len() {
+                        return Err(format!(
+                            "slice({si}..{ei}) out of bounds for len {}",
+                            items.len()
+                        ));
+                    }
+                    items[si as usize..ei as usize].to_vec()
+                }
+                other => return Err(format!("slice expects sequence, got {}", other.render())),
+            };
+            s.arena.insert(RtValue::List(std::sync::Arc::new(sliced)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_contains(
+    ctx: *mut AodRtContext,
+    seq_h: u64,
+    elem_h: u64,
+) -> u8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let target = s.arena.get(elem_h)?;
+            let found = match s.arena.get(seq_h)? {
+                RtValue::Array(items) | RtValue::List(items) => {
+                    items.iter().any(|x| rt_values_equal(x, target))
+                }
+                other => return Err(format!("contains expects sequence, got {}", other.render())),
+            };
+            Ok(if found { 1 } else { 0 })
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_range_seq(ctx: *mut AodRtContext, a: u64, b: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |c, s| {
+            let av = s
+                .unpack_dec_int(a)?
+                .to_i64()
+                .ok_or_else(|| "range_seq start out of i64 range".to_string())?;
+            let bv = s
+                .unpack_dec_int(b)?
+                .to_i64()
+                .ok_or_else(|| "range_seq end out of i64 range".to_string())?;
+            if bv <= av {
+                return s.arena.insert(RtValue::List(std::sync::Arc::new(Vec::new())));
+            }
+            let len = (bv as i128 - av as i128) as u64;
+            if len > 1_000_000 {
+                return Err(format!(
+                    "range {av}..{bv} exceeds 1_000_000 element materialization limit"
+                ));
+            }
+            if (c.fuel as u64) < len {
+                c.fuel = 0;
+                return Err("BudgetExhausted: execution step budget exhausted".to_string());
+            }
+            c.fuel -= len as i64;
+            let mut items = Vec::with_capacity(len as usize);
+            for cur in av..bv {
+                items.push(RtValue::Int(BigInt::from_i64(cur)));
+            }
+            s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_buf_new(ctx: *mut AodRtContext, cap: i64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let c = usize::try_from(cap.max(0)).unwrap_or(0).min(1_000_000);
+            let id = s.seq_bufs.len() as u64;
+            s.seq_bufs.push(Vec::with_capacity(c));
+            Ok(id)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_buf_push(ctx: *mut AodRtContext, buf_id: u64, elem_h: u64) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            let elem = s.arena.get(elem_h)?.clone();
+            let buf = s
+                .seq_bufs
+                .get_mut(buf_id as usize)
+                .ok_or_else(|| format!("invalid seq_buf id {buf_id}"))?;
+            buf.push(elem);
+            Ok(())
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_buf_finish(
+    ctx: *mut AodRtContext,
+    buf_id: u64,
+    is_array: u8,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let idx = buf_id as usize;
+            if idx >= s.seq_bufs.len() {
+                return Err(format!("invalid seq_buf id {buf_id}"));
+            }
+            let items = if idx + 1 == s.seq_bufs.len() {
+                s.seq_bufs.pop().unwrap_or_default()
+            } else {
+                std::mem::take(&mut s.seq_bufs[idx])
+            };
+            if is_array != 0 {
+                s.arena.insert(RtValue::Array(std::sync::Arc::new(items)))
+            } else {
+                s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
+            }
         })
     }
 }
@@ -2486,7 +2738,7 @@ pub unsafe extern "C" fn aod_rt_map_keys_list(ctx: *mut AodRtContext, map_h: u64
                 RtValue::Map(m) => m.keys().map(RtMapKey::to_value).collect(),
                 other => return Err(format!("expected map handle, got {}", other.render())),
             };
-            s.arena.insert(RtValue::List(keys))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(keys)))
         })
     }
 }
@@ -2502,7 +2754,7 @@ pub unsafe extern "C" fn aod_rt_map_entries_list(ctx: *mut AodRtContext, map_h: 
                     .collect(),
                 other => return Err(format!("expected map handle, got {}", other.render())),
             };
-            s.arena.insert(RtValue::List(entries))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(entries)))
         })
     }
 }
@@ -2521,22 +2773,6 @@ pub unsafe extern "C" fn aod_rt_struct_new(
             let nhs = read_u64_slice(field_name_handles, count)?;
             let vhs = read_u64_slice(field_val_handles, count)?;
             s.op_struct_new(mod_h, name_h, nhs, vhs)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_struct_set(
-    ctx: *mut AodRtContext,
-    s_h: u64,
-    field_ptr: *const u8,
-    field_len: usize,
-    val_h: u64,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let fname = read_bytes(field_ptr, field_len)?.to_string();
-            s.op_struct_set(s_h, &fname, val_h)
         })
     }
 }
@@ -2599,7 +2835,7 @@ pub unsafe extern "C" fn aod_rt_field_get(
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let fname = read_bytes(field_ptr, field_len)?.to_string();
+            let fname = read_utf8_str(field_ptr, field_len)?.to_string();
             let v = s.op_field_get(h, &fname)?;
             s.arena.insert(v)
         })
@@ -2607,7 +2843,7 @@ pub unsafe extern "C" fn aod_rt_field_get(
 }
 
 // ============================================================================
-// Sandbox Simulation C ABI (`P1-3`: fuel decrement & observer failure halt!)
+// Sandbox Simulation C ABI
 // ============================================================================
 
 #[unsafe(no_mangle)]
@@ -2629,11 +2865,11 @@ pub unsafe extern "C" fn aod_rt_sim_builder_add_clock(
     ctx: *mut AodRtContext,
     b_h: u64,
     name_h: u64,
-    period: *const DecInt,
+    period: u64,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let pv = read_int_in(s, period)?;
+            let pv = s.unpack_dec_int(period)?;
             s.op_sim_builder_add_clock(b_h, name_h, &pv)
         });
     }
@@ -2644,19 +2880,19 @@ pub unsafe extern "C" fn aod_rt_sim_builder_add_carrier(
     ctx: *mut AodRtContext,
     b_h: u64,
     support_h: u64,
-    x: *const DecInt,
-    y: *const DecInt,
-    z: *const DecInt,
+    x: u64,
+    y: u64,
+    z: u64,
     dir_code: u8,
     orient: i8,
-    shells: *const DecInt,
+    shells: u64,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let xv = read_int_in(s, x)?;
-            let yv = read_int_in(s, y)?;
-            let zv = read_int_in(s, z)?;
-            let sv = read_int_in(s, shells)?;
+            let xv = s.unpack_dec_int(x)?;
+            let yv = s.unpack_dec_int(y)?;
+            let zv = s.unpack_dec_int(z)?;
+            let sv = s.unpack_dec_int(shells)?;
             s.op_sim_builder_add_carrier(b_h, support_h, &xv, &yv, &zv, dir_code, orient, &sv)
         });
     }
@@ -2694,27 +2930,20 @@ pub unsafe extern "C" fn aod_rt_sim_builder_add_proc_obs(
     }
 }
 
-/// Run the sandbox chamber for `ticks` ticks, decrementing `ctx.fuel` per tick and
-/// checking `ctx.failed != 0` immediately after every procedural observer callback (`P1-3`, `P0-UB`).
-/// Backward-compatible sequential sandbox runner delegating to `aod_rt_sim_run_ex(..., 0)` (`P1-1`).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_sim_run(
     ctx: *mut AodRtContext,
     b_h: u64,
-    ticks: *const DecInt,
+    ticks: u64,
 ) -> u64 {
     unsafe { aod_rt_sim_run_ex(ctx, b_h, ticks, 0) }
 }
 
-/// Extended sandbox runner with optional parallel read-only procedural observer execution (`P0-1`, `P0-2`).
-///
-/// Guarantees 100% byte-identical stdout, fuel accounting, error precedence, and final chamber state
-/// vs sequential execution even under arbitrary tight fuel limits or panicking callbacks.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_sim_run_ex(
     ctx: *mut AodRtContext,
     b_h: u64,
-    ticks: *const DecInt,
+    ticks: u64,
     parallel_observers: u8,
 ) -> u64 {
     if ctx.is_null() {
@@ -2730,7 +2959,7 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<u64, String> {
         let (builder, tick_count) = {
             let state = unsafe { &mut *(*ctx).inner };
-            let tv = unsafe { read_int_in(state, ticks)? };
+            let tv = state.unpack_dec_int(ticks)?;
             let ti = tv
                 .to_i64()
                 .ok_or_else(|| format!("simulate tick count {tv} out of i64 range"))?;
@@ -2752,8 +2981,6 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
 
         let use_parallel = parallel_observers != 0 && proc_observers.len() > 1;
 
-        // P0-1: Snapshot pre-sim arena ONCE before the tick loop so every parallel worker
-        // resolves all `@__const_*` global handles and pre-sim heap handles identically!
         let base_arena = if use_parallel {
             let state = unsafe { &*(*ctx).inner };
             Some(state.arena.clone())
@@ -2792,9 +3019,6 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
                     state.arena.insert(RtValue::ChamberView(Box::new(snap)))?
                 };
                 for (_, cb_addr) in &proc_observers {
-                    // SAFETY: `cb_addr` is a verified LLVM-compiled procedural observer callback
-                    // with exact signature `extern "C" fn(*mut AodRtContext, u64)`. No Rust `&mut`
-                    // references to `*ctx` or `*(*ctx).inner` exist across this call.
                     let cb: unsafe extern "C" fn(*mut AodRtContext, u64) =
                         unsafe { std::mem::transmute(*cb_addr) };
                     unsafe {
@@ -2821,7 +3045,6 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
                             let mut wctx = OwnedRtContext::new(start_fuel, parent_max_depth, true);
                             wctx.raw.depth = parent_depth;
                             let snap_h = {
-                                // SAFETY: `wctx` exclusively owns `wctx.raw.inner` on this worker thread.
                                 let wstate = unsafe { &mut *wctx.raw.inner };
                                 wstate.arena = base_arena_ref.clone();
                                 match wstate
@@ -2836,7 +3059,6 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
                                 }
                             };
                             if !wctx.failed() {
-                                // SAFETY: `cb_addr` is a verified read-only procedural observer callback.
                                 let cb: unsafe extern "C" fn(*mut AodRtContext, u64) =
                                     unsafe { std::mem::transmute(cb_addr) };
                                 let call_res = catch_unwind(AssertUnwindSafe(|| unsafe {
@@ -2874,7 +3096,6 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
                         .collect()
                 });
 
-                // P0-2: Exact declaration-order merge with tight-fuel sequential fallback!
                 let mut remaining_fuel = start_fuel;
                 for (idx, outcome) in outcomes.into_iter().enumerate() {
                     let used_i = start_fuel.saturating_sub(outcome.fuel_after);
@@ -2897,9 +3118,6 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
                             return Ok(0);
                         }
                     } else {
-                        // Tight-budget boundary: re-run ONLY observer `idx` sequentially on parent
-                        // `ctx` with exact `remaining_fuel` so emits, fuel, and BudgetExhausted
-                        // match sequential execution 100% byte-for-byte!
                         unsafe {
                             (*ctx).fuel = remaining_fuel;
                         }
@@ -2955,456 +3173,36 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
 }
 
 // ============================================================================
-// Phase D2: Sequence Builders, Checked sum/dot, Bytes Overloads, & Intrinsics
+// PR 10–12 Intrinsics: Contractions (`sum`/`dot`), `zip_seq`, Map, Ratio Fields,
+// `QExt<bytes>`, Sheddic/FRG Audits, & Register Pack/Unpack
 // ============================================================================
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_seq_builder_new(ctx: *mut AodRtContext, cap: u64) -> u64 {
+pub unsafe extern "C" fn aod_rt_ratio_num(ctx: *mut AodRtContext, na: u64, da: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            s.seq_builders
-                .push(Vec::with_capacity((cap.min(65_536)) as usize));
-            Ok(s.seq_builders.len() as u64)
+            let rv = s.unpack_dec_ratio(na, da)?;
+            s.pack_dec_int(rv.num().clone())
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_seq_builder_push(
-    ctx: *mut AodRtContext,
-    b_id: u64,
-    val_h: u64,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let v = s.arena.get(val_h)?.clone();
-            let idx = b_id
-                .checked_sub(1)
-                .ok_or_else(|| "invalid seq_builder id".to_string())? as usize;
-            let buf = s
-                .seq_builders
-                .get_mut(idx)
-                .ok_or_else(|| "seq_builder id out of bounds".to_string())?;
-            buf.push(v);
-            Ok(())
-        });
-    }
-}
-
-fn take_seq_builder(s: &mut RtState, b_id: u64) -> Result<Vec<RtValue>, String> {
-    let idx = b_id
-        .checked_sub(1)
-        .ok_or_else(|| "invalid seq_builder id".to_string())? as usize;
-    if idx + 1 == s.seq_builders.len() {
-        s.seq_builders
-            .pop()
-            .ok_or_else(|| "empty seq_builders".to_string())
-    } else {
-        let slot = s
-            .seq_builders
-            .get_mut(idx)
-            .ok_or_else(|| "seq_builder id out of bounds".to_string())?;
-        Ok(std::mem::take(slot))
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_seq_builder_finish_list(
-    ctx: *mut AodRtContext,
-    b_id: u64,
-) -> u64 {
+pub unsafe extern "C" fn aod_rt_ratio_den(ctx: *mut AodRtContext, na: u64, da: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let items = take_seq_builder(s, b_id)?;
-            s.arena.insert(RtValue::List(items))
+            let rv = s.unpack_dec_ratio(na, da)?;
+            s.pack_dec_int(rv.den().clone())
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_seq_builder_finish_array(
-    ctx: *mut AodRtContext,
-    b_id: u64,
-) -> u64 {
+pub unsafe extern "C" fn aod_rt_int_abs(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let items = take_seq_builder(s, b_id)?;
-            if items.is_empty() || items.len() > 65_536 {
-                return Err(format!(
-                    "array[T, N] length {} out of bounds 1..=65536",
-                    items.len()
-                ));
-            }
-            s.arena.insert(RtValue::Array(items))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_sum_int(
-    ctx: *mut AodRtContext,
-    seq_h: u64,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let mut acc = BigInt::zero();
-            for item in s.get_seq_slice(seq_h)? {
-                match item {
-                    RtValue::Int(n) => acc = &acc + n,
-                    _ => return Err("sum(int): expected int element".to_string()),
-                }
-            }
-            let (tag, val) = s.pack_bigint(acc)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_sum_t9(ctx: *mut AodRtContext, seq_h: u64) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let mut acc = T9::new(0).expect("0 in t9");
-            for item in s.get_seq_slice(seq_h)? {
-                match item {
-                    RtValue::T9(v) => {
-                        acc = acc.checked_add(*v).map_err(|e| e.to_string())?;
-                    }
-                    _ => return Err("sum(t9): expected t9 element".to_string()),
-                }
-            }
-            Ok(acc.value())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_sum_t32(ctx: *mut AodRtContext, seq_h: u64) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let mut acc = T32::new(0).expect("0 in t32");
-            for item in s.get_seq_slice(seq_h)? {
-                match item {
-                    RtValue::T32(v) => {
-                        acc = acc.checked_add(*v).map_err(|e| e.to_string())?;
-                    }
-                    _ => return Err("sum(t32): expected t32 element".to_string()),
-                }
-            }
-            Ok(acc.value() as i64)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_sum_ratio(
-    ctx: *mut AodRtContext,
-    seq_h: u64,
-    out: *mut DecRatio,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let mut acc = Ratio::zero();
-            for item in s.get_seq_slice(seq_h)? {
-                match item {
-                    RtValue::Ratio(r) => acc = &acc + r,
-                    _ => return Err("sum(ratio): expected ratio element".to_string()),
-                }
-            }
-            let (tag, num, den) = s.pack_ratio(acc)?;
-            write_ratio_out(out, tag, num, den)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_dot_int(
-    ctx: *mut AodRtContext,
-    a_h: u64,
-    b_h: u64,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let xs = s.get_seq_slice(a_h)?;
-            let ys = s.get_seq_slice(b_h)?;
-            if xs.len() != ys.len() {
-                return Err(format!(
-                    "dot(a, b) sequence length mismatch: {} != {}",
-                    xs.len(),
-                    ys.len()
-                ));
-            }
-            let mut acc = BigInt::zero();
-            for (x, y) in xs.iter().zip(ys.iter()) {
-                match (x, y) {
-                    (RtValue::Int(a), RtValue::Int(b)) => acc = &acc + &(a * b),
-                    _ => return Err("dot(int): expected int elements".to_string()),
-                }
-            }
-            let (tag, val) = s.pack_bigint(acc)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_dot_t9(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let xs = s.get_seq_slice(a_h)?;
-            let ys = s.get_seq_slice(b_h)?;
-            if xs.len() != ys.len() {
-                return Err(format!(
-                    "dot(a, b) sequence length mismatch: {} != {}",
-                    xs.len(),
-                    ys.len()
-                ));
-            }
-            let mut acc = T9::new(0).expect("0 in t9");
-            for (x, y) in xs.iter().zip(ys.iter()) {
-                match (x, y) {
-                    (RtValue::T9(a), RtValue::T9(b)) => {
-                        let prod = a.checked_mul(*b).map_err(|e| e.to_string())?;
-                        acc = acc.checked_add(prod).map_err(|e| e.to_string())?;
-                    }
-                    _ => return Err("dot(t9): expected t9 elements".to_string()),
-                }
-            }
-            Ok(acc.value())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_dot_t32(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let xs = s.get_seq_slice(a_h)?;
-            let ys = s.get_seq_slice(b_h)?;
-            if xs.len() != ys.len() {
-                return Err(format!(
-                    "dot(a, b) sequence length mismatch: {} != {}",
-                    xs.len(),
-                    ys.len()
-                ));
-            }
-            let mut acc = T32::new(0).expect("0 in t32");
-            for (x, y) in xs.iter().zip(ys.iter()) {
-                match (x, y) {
-                    (RtValue::T32(a), RtValue::T32(b)) => {
-                        let prod = a.checked_mul(*b).map_err(|e| e.to_string())?;
-                        acc = acc.checked_add(prod).map_err(|e| e.to_string())?;
-                    }
-                    _ => return Err("dot(t32): expected t32 elements".to_string()),
-                }
-            }
-            Ok(acc.value() as i64)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_dot_ratio(
-    ctx: *mut AodRtContext,
-    a_h: u64,
-    b_h: u64,
-    out: *mut DecRatio,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let xs = s.get_seq_slice(a_h)?;
-            let ys = s.get_seq_slice(b_h)?;
-            if xs.len() != ys.len() {
-                return Err(format!(
-                    "dot(a, b) sequence length mismatch: {} != {}",
-                    xs.len(),
-                    ys.len()
-                ));
-            }
-            let mut acc = Ratio::zero();
-            for (x, y) in xs.iter().zip(ys.iter()) {
-                match (x, y) {
-                    (RtValue::Ratio(a), RtValue::Ratio(b)) => acc = &acc + &(a * b),
-                    _ => return Err("dot(ratio): expected ratio elements".to_string()),
-                }
-            }
-            let (tag, num, den) = s.pack_ratio(acc)?;
-            write_ratio_out(out, tag, num, den)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_addr8_from_bytes(ctx: *mut AodRtContext, bytes_h: u64) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let text = s.get_bytes_utf8(bytes_h, "addr8(bytes)")?;
-            let a = exact_addr8_parse(&text)?;
-            s.arena.insert(RtValue::Addr8(a))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_support_from_bytes(ctx: *mut AodRtContext, bytes_h: u64) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let text = s.get_bytes_utf8(bytes_h, "support(bytes)")?;
-            let sf = exact_support_parse(&text)?;
-            s.arena.insert(RtValue::Support(sf))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_trace_new_bytes(
-    ctx: *mut AodRtContext,
-    sc_h: u64,
-    lin_h: u64,
-    start_q4: i8,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let sc = s.get_bytes_utf8(sc_h, "trace(bytes, bytes, q4)")?;
-            let lin = s.get_bytes_utf8(lin_h, "trace(bytes, bytes, q4)")?;
-            let t = exact_trace_new(&sc, &lin, start_q4)?;
-            s.arena.insert(RtValue::Trace(Box::new(t)))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_fold_bytes(
-    ctx: *mut AodRtContext,
-    a_h: u64,
-    b_h: u64,
-    sc_h: u64,
-    lin_h: u64,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let a = s.get_trace(a_h)?.clone();
-            let b = s.get_trace(b_h)?.clone();
-            let sc = s.get_bytes_utf8(sc_h, "fold(..., bytes, bytes)")?;
-            let lin = s.get_bytes_utf8(lin_h, "fold(..., bytes, bytes)")?;
-            let f = Fusion::fold(&a, &b, sc, lin).map_err(|e| e.to_string())?;
-            s.arena.insert(RtValue::Fusion(Box::new(f)))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_coupling_new_bytes(
-    ctx: *mut AodRtContext,
-    a_h: u64,
-    b_h: u64,
-    win_h: u64,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let a = s.get_trace(a_h)?.clone();
-            let b = s.get_trace(b_h)?.clone();
-            let w = s.get_bytes_utf8(win_h, "coupling(..., bytes)")?;
-            let c = Coupling::new(&a, &b, w).map_err(|e| e.to_string())?;
-            s.arena.insert(RtValue::Coupling(Box::new(c)))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_qext_ext_decimal_bytes(
-    ctx: *mut AodRtContext,
-    bytes_h: u64,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let text = s.get_bytes_utf8(bytes_h, "ext_decimal(bytes)")?;
-            let q = parse_decimal_exact(&text).map_err(|e| e.to_string())?;
-            s.arena.insert(RtValue::QExtRatio(q))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_qext_to_bytes_exact(ctx: *mut AodRtContext, q_h: u64) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let bs = s.get_qext_ratio(q_h)?.render_exact().into_bytes();
-            s.arena.insert(RtValue::QExtBytes(bs))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_qext_format_bytes_fixed(
-    ctx: *mut AodRtContext,
-    q_h: u64,
-    decimals: *const DecInt,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let q = s.get_qext_ratio(q_h)?.clone();
-            let dv = read_int_in(s, decimals)?;
-            let dec = checked_qext_decimals(&dv)?;
-            let bs = q.format_fixed(dec).map_err(|e| e.to_string())?.into_bytes();
-            s.arena.insert(RtValue::QExtBytes(bs))
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_ratio_num(
-    ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let rv = read_ratio_in(s, a)?;
-            let (tag, val) = s.pack_bigint(rv.num().clone())?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_ratio_den(
-    ctx: *mut AodRtContext,
-    a: *const DecRatio,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let rv = read_ratio_in(s, a)?;
-            let (tag, val) = s.pack_bigint(rv.den().clone())?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_abs(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let v = read_int_in(s, a)?;
-            let (tag, val) = s.pack_bigint(v.abs())?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_signum(ctx: *mut AodRtContext, a: *const DecInt) -> i8 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let v = read_int_in(s, a)?;
-            Ok(v.signum())
+            let av = s.unpack_dec_int(a)?;
+            s.pack_dec_int(av.abs())
         })
     }
 }
@@ -3412,95 +3210,126 @@ pub unsafe extern "C" fn aod_rt_int_signum(ctx: *mut AodRtContext, a: *const Dec
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ratio_abs(
     ctx: *mut AodRtContext,
-    a: *const DecRatio,
+    na: u64,
+    da: u64,
     out: *mut DecRatio,
 ) {
     unsafe {
         guard_ret(ctx, (), |_, s| {
-            let rv = read_ratio_in(s, a)?;
-            let (tag, num, den) = s.pack_ratio(rv.abs())?;
-            write_ratio_out(out, tag, num, den)
+            let rv = s.unpack_dec_ratio(na, da)?;
+            let (rn, rd) = s.pack_dec_ratio(rv.abs())?;
+            write_ratio_out(out, rn, rd)
         });
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_ratio_signum(ctx: *mut AodRtContext, a: *const DecRatio) -> i8 {
+pub unsafe extern "C" fn aod_rt_int_pack_t32(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let rv = read_ratio_in(s, a)?;
-            Ok(rv.signum().value())
+            let av = s.unpack_dec_int(a)?;
+            let bits = exact_b64_from_trit_int(&av)?;
+            s.pack_dec_int(BigInt::from_u64(bits))
         })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_gcd(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_int_unpack_t32(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let (tag, val) = s.pack_bigint(av.gcd(&bv))?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bits = av
+                .to_u64()
+                .ok_or_else(|| format!("packed 32-trit word outside 64-bit domain: {av}"))?;
+            let ti = exact_trit_int_from_b64(bits)?;
+            s.pack_dec_int(ti)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_lcm(
-    ctx: *mut AodRtContext,
-    a: *const DecInt,
-    b: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_unpack_t9_b64(ctx: *mut AodRtContext, bits: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let av = read_int_in(s, a)?;
-            let bv = read_int_in(s, b)?;
-            let (tag, val) = s.pack_bigint(av.lcm(&bv))?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let ti = exact_unpack_t9_bits(bits)?;
+            s.pack_dec_int(ti)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_int_pow(
-    ctx: *mut AodRtContext,
-    base: *const DecInt,
-    exp: *const DecInt,
-    out: *mut DecInt,
-) {
+pub unsafe extern "C" fn aod_rt_unpack_t9_int(ctx: *mut AodRtContext, a: u64) -> u64 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let bv = read_int_in(s, base)?;
-            let ev = read_int_in(s, exp)?;
-            let res = bv.checked_pow_bigint(&ev).map_err(|e| e.to_string())?;
-            let (tag, val) = s.pack_bigint(res)?;
-            write_int_out(out, tag, val)
-        });
+        guard_ret(ctx, 0, |_, s| {
+            let av = s.unpack_dec_int(a)?;
+            let bits = av
+                .to_u64()
+                .ok_or_else(|| format!("packed t9 outside 18-bit domain: {av}"))?;
+            let ti = exact_unpack_t9_bits(bits)?;
+            s.pack_dec_int(ti)
+        })
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_ratio_pow(
+pub unsafe extern "C" fn aod_rt_t1_superpose_cancel(
     ctx: *mut AodRtContext,
-    base: *const DecRatio,
-    exp: *const DecInt,
-    out: *mut DecRatio,
-) {
+    a: i8,
+    b: i8,
+) -> i8 {
     unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let bv = read_ratio_in(s, base)?;
-            let ev = read_int_in(s, exp)?;
-            let res = bv.checked_pow_bigint(&ev).map_err(|e| e.to_string())?;
-            let (tag, num, den) = s.pack_ratio(res)?;
-            write_ratio_out(out, tag, num, den)
-        });
+        guard_ret(ctx, 0, |_, _| {
+            let ta = T1::new(a).map_err(|e| e.to_string())?;
+            let tb = T1::new(b).map_err(|e| e.to_string())?;
+            Ok(ta.superpose_cancel(tb).value())
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_verify_sheddic_route(
+    ctx: *mut AodRtContext,
+    x_shed: u64,
+    target_enc: u8,
+) -> u8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let xs = s.unpack_dec_int(x_shed)?;
+            Ok(u8::from(exact_verify_sheddic_route(&xs, target_enc)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_verify_sheddic_route_int(
+    ctx: *mut AodRtContext,
+    x_shed: u64,
+    target_enc: u64,
+) -> u8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let xs = s.unpack_dec_int(x_shed)?;
+            let enc = s.unpack_dec_int(target_enc)?;
+            Ok(u8::from(exact_verify_sheddic_route_int(&xs, &enc)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_verify_frg_cross_return(
+    ctx: *mut AodRtContext,
+    t0: u64,
+    tx: u64,
+    cx: u64,
+) -> u8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let v0 = s.unpack_dec_int(t0)?;
+            let vx = s.unpack_dec_int(tx)?;
+            let vc = s.unpack_dec_int(cx)?;
+            Ok(u8::from(exact_verify_frg_cross_return(&v0, &vx, &vc)))
+        })
     }
 }
 
@@ -3522,55 +3351,6 @@ pub unsafe extern "C" fn aod_rt_window_bounds(
             }
             Ok(())
         });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_array_len_raw(ctx: *mut AodRtContext, arr_h: u64) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| match s.arena.get(arr_h)? {
-            RtValue::Array(items) => Ok(items.len() as i64),
-            other => Err(format!("expected array handle, got {}", other.render())),
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_bytes_len_raw(ctx: *mut AodRtContext, bytes_h: u64) -> i64 {
-    unsafe { guard_ret(ctx, 0, |_, s| Ok(s.get_bytes(bytes_h)?.len() as i64)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_list_push(
-    ctx: *mut AodRtContext,
-    list_h: u64,
-    val_h: u64,
-) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_list_push_cow(list_h, val_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_list_concat(
-    ctx: *mut AodRtContext,
-    a_h: u64,
-    b_h: u64,
-) -> u64 {
-    unsafe { guard_ret(ctx, 0, |_, s| s.op_list_concat(a_h, b_h)) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_list_slice(
-    ctx: *mut AodRtContext,
-    seq_h: u64,
-    start: *const DecInt,
-    end: *const DecInt,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let sv = read_int_in(s, start)?;
-            let ev = read_int_in(s, end)?;
-            s.op_list_slice(seq_h, &sv, &ev)
-        })
     }
 }
 
@@ -3599,18 +3379,50 @@ pub unsafe extern "C" fn aod_rt_map_get_or(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_sum_u8(ctx: *mut AodRtContext, seq_h: u64) -> u8 {
+pub unsafe extern "C" fn aod_rt_struct_set(
+    ctx: *mut AodRtContext,
+    s_h: u64,
+    field_ptr: *const u8,
+    field_len: usize,
+    val_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let fname = read_utf8_str(field_ptr, field_len)?.to_string();
+            s.op_struct_set(s_h, &fname, val_h)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sum_int(ctx: *mut AodRtContext, seq_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let mut acc = BigInt::zero();
+            for item in s.get_seq_slice(seq_h)? {
+                match item {
+                    RtValue::Int(n) => acc = &acc + n,
+                    _ => return Err("sum(int): expected int element".to_string()),
+                }
+            }
+            s.pack_dec_int(acc)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sum_b8(ctx: *mut AodRtContext, seq_h: u64) -> u8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
             let mut acc: u8 = 0;
             for v in s.get_any_seq_values(seq_h)? {
                 match v {
-                    RtValue::U8(b) => {
+                    RtValue::B8(b) => {
                         acc = acc
-                            .checked_add(b)
-                            .ok_or_else(|| "sum(u8): u8 addition overflow".to_string())?;
+                            .checked_add(b.0)
+                            .ok_or_else(|| "sum(b8): b8 addition overflow".to_string())?;
                     }
-                    _ => return Err("sum(u8): expected u8 element".to_string()),
+                    _ => return Err("sum(b8): expected b8 element".to_string()),
                 }
             }
             Ok(acc)
@@ -3637,6 +3449,27 @@ pub unsafe extern "C" fn aod_rt_sum_t1(ctx: *mut AodRtContext, seq_h: u64) -> i8
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sum_ratio(
+    ctx: *mut AodRtContext,
+    seq_h: u64,
+    out: *mut DecRatio,
+) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            let mut acc = Ratio::zero();
+            for item in s.get_seq_slice(seq_h)? {
+                match item {
+                    RtValue::Ratio(r) => acc = &acc + r,
+                    _ => return Err("sum(ratio): expected ratio element".to_string()),
+                }
+            }
+            let (rn, rd) = s.pack_dec_ratio(acc)?;
+            write_ratio_out(out, rn, rd)
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_sum_qext_ratio(ctx: *mut AodRtContext, seq_h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
@@ -3653,7 +3486,32 @@ pub unsafe extern "C" fn aod_rt_sum_qext_ratio(ctx: *mut AodRtContext, seq_h: u6
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_dot_u8(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> u8 {
+pub unsafe extern "C" fn aod_rt_dot_int(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let xs = s.get_seq_slice(a_h)?;
+            let ys = s.get_seq_slice(b_h)?;
+            if xs.len() != ys.len() {
+                return Err(format!(
+                    "dot(a, b) sequence length mismatch: {} != {}",
+                    xs.len(),
+                    ys.len()
+                ));
+            }
+            let mut acc = BigInt::zero();
+            for (x, y) in xs.iter().zip(ys.iter()) {
+                match (x, y) {
+                    (RtValue::Int(a), RtValue::Int(b)) => acc = &acc + &(a * b),
+                    _ => return Err("dot(int): expected int elements".to_string()),
+                }
+            }
+            s.pack_dec_int(acc)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_dot_b8(ctx: *mut AodRtContext, a_h: u64, b_h: u64) -> u8 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
             let xs = s.get_any_seq_values(a_h)?;
@@ -3668,15 +3526,16 @@ pub unsafe extern "C" fn aod_rt_dot_u8(ctx: *mut AodRtContext, a_h: u64, b_h: u6
             let mut acc: u8 = 0;
             for (x, y) in xs.into_iter().zip(ys) {
                 match (x, y) {
-                    (RtValue::U8(a), RtValue::U8(b)) => {
+                    (RtValue::B8(a), RtValue::B8(b)) => {
                         let p = a
-                            .checked_mul(b)
-                            .ok_or_else(|| "dot(u8): u8 multiplication overflow".to_string())?;
+                            .0
+                            .checked_mul(b.0)
+                            .ok_or_else(|| "dot(b8): b8 multiplication overflow".to_string())?;
                         acc = acc
                             .checked_add(p)
-                            .ok_or_else(|| "dot(u8): u8 addition overflow".to_string())?;
+                            .ok_or_else(|| "dot(b8): b8 addition overflow".to_string())?;
                     }
-                    _ => return Err("dot(u8): expected u8 elements".to_string()),
+                    _ => return Err("dot(b8): expected b8 elements".to_string()),
                 }
             }
             Ok(acc)
@@ -3713,6 +3572,37 @@ pub unsafe extern "C" fn aod_rt_dot_t1(ctx: *mut AodRtContext, a_h: u64, b_h: u6
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_dot_ratio(
+    ctx: *mut AodRtContext,
+    a_h: u64,
+    b_h: u64,
+    out: *mut DecRatio,
+) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            let xs = s.get_seq_slice(a_h)?;
+            let ys = s.get_seq_slice(b_h)?;
+            if xs.len() != ys.len() {
+                return Err(format!(
+                    "dot(a, b) sequence length mismatch: {} != {}",
+                    xs.len(),
+                    ys.len()
+                ));
+            }
+            let mut acc = Ratio::zero();
+            for (x, y) in xs.iter().zip(ys.iter()) {
+                match (x, y) {
+                    (RtValue::Ratio(a), RtValue::Ratio(b)) => acc = &acc + &(a * b),
+                    _ => return Err("dot(ratio): expected ratio elements".to_string()),
+                }
+            }
+            let (rn, rd) = s.pack_dec_ratio(acc)?;
+            write_ratio_out(out, rn, rd)
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_dot_qext_ratio(
     ctx: *mut AodRtContext,
     a_h: u64,
@@ -3720,8 +3610,8 @@ pub unsafe extern "C" fn aod_rt_dot_qext_ratio(
 ) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let xs = s.get_seq_slice(a_h)?.to_vec();
-            let ys = s.get_seq_slice(b_h)?.to_vec();
+            let xs = s.get_seq_slice(a_h)?;
+            let ys = s.get_seq_slice(b_h)?;
             if xs.len() != ys.len() {
                 return Err(format!(
                     "dot(a, b) sequence length mismatch: {} != {}",
@@ -3747,186 +3637,38 @@ pub unsafe extern "C" fn aod_rt_dot_qext_ratio(
 pub unsafe extern "C" fn aod_rt_qext_abs(ctx: *mut AodRtContext, q_h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let q = s.get_qext_ratio(q_h)?;
+            let q = s.get_qext_ratio(q_h)?.clone();
             s.arena.insert(RtValue::QExtRatio(q.abs()))
         })
     }
 }
 
-fn checked_pow_exp_u32(ev: &BigInt, label: &str) -> Result<u32, String> {
-    if ev.is_negative() {
-        return Err(format!("pow({label}, exp) requires non-negative exponent, got {ev}"));
-    }
-    let e = ev
-        .to_u64()
-        .and_then(|v| u32::try_from(v).ok())
-        .ok_or_else(|| {
-            format!(
-                "pow({label}, exp) exponent {ev} exceeds safety limit {}",
-                BigInt::MAX_POW_EXP
-            )
-        })?;
-    if e > BigInt::MAX_POW_EXP {
-        return Err(format!(
-            "pow({label}, exp) exponent {e} exceeds safety limit {}",
-            BigInt::MAX_POW_EXP
-        ));
-    }
-    Ok(e)
-}
-
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t9_pow(
-    ctx: *mut AodRtContext,
-    base: i16,
-    exp: *const DecInt,
-) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let ev = read_int_in(s, exp)?;
-            let e = checked_pow_exp_u32(&ev, "t9")?;
-            let b = T9::new(base as i64).map_err(|e| e.to_string())?;
-            b.checked_pow(e).map(T9::value).map_err(|e| e.to_string())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t32_pow(
-    ctx: *mut AodRtContext,
-    base: i64,
-    exp: *const DecInt,
-) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let ev = read_int_in(s, exp)?;
-            let e = checked_pow_exp_u32(&ev, "t32")?;
-            let b = T32::new(base as i128).map_err(|e| e.to_string())?;
-            b.checked_pow(e)
-                .map(|t| t.value() as i64)
-                .map_err(|e| e.to_string())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t9_gcd(ctx: *mut AodRtContext, a: i16, b: i16) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            let ta = T9::new(a as i64).map_err(|e| e.to_string())?;
-            let tb = T9::new(b as i64).map_err(|e| e.to_string())?;
-            Ok(ta.gcd(tb).value())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t9_lcm(ctx: *mut AodRtContext, a: i16, b: i16) -> i16 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            let ta = T9::new(a as i64).map_err(|e| e.to_string())?;
-            let tb = T9::new(b as i64).map_err(|e| e.to_string())?;
-            ta.checked_lcm(tb).map(T9::value).map_err(|e| e.to_string())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t32_gcd(ctx: *mut AodRtContext, a: i64, b: i64) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            let ta = T32::new(a as i128).map_err(|e| e.to_string())?;
-            let tb = T32::new(b as i128).map_err(|e| e.to_string())?;
-            Ok(ta.gcd(tb).value() as i64)
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_t32_lcm(ctx: *mut AodRtContext, a: i64, b: i64) -> i64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, _| {
-            let ta = T32::new(a as i128).map_err(|e| e.to_string())?;
-            let tb = T32::new(b as i128).map_err(|e| e.to_string())?;
-            ta.checked_lcm(tb)
-                .map(|t| t.value() as i64)
-                .map_err(|e| e.to_string())
-        })
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_window_dedup_count_bytes(
-    ctx: *mut AodRtContext,
-    lin_h: u64,
-    scope_h: u64,
-    cuts_h: u64,
-    wins_h: u64,
-    out: *mut DecInt,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let n = s.op_window_dedup_count_bytes(lin_h, scope_h, cuts_h, wins_h)?;
-            let (tag, val) = s.pack_bigint(n)?;
-            write_int_out(out, tag, val)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-#[allow(clippy::too_many_arguments)]
-pub unsafe extern "C" fn aod_rt_native_cadence_ratio_bytes(
-    ctx: *mut AodRtContext,
-    id_a_h: u64,
-    q_a: *const DecInt,
-    id_r_h: u64,
-    q_r: *const DecInt,
-    coupled: u8,
-    contacts: *const DecInt,
-    out: *mut DecRatio,
-) {
-    unsafe {
-        guard_ret(ctx, (), |_, s| {
-            let qa = read_int_in(s, q_a)?;
-            let qr = read_int_in(s, q_r)?;
-            let bc = read_int_in(s, contacts)?;
-            let rat =
-                s.op_native_cadence_ratio_bytes(id_a_h, &qa, id_r_h, &qr, coupled != 0, &bc)?;
-            let (tag, num, den) = s.pack_ratio(rat)?;
-            write_ratio_out(out, tag, num, den)
-        });
-    }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn aod_rt_single_contact_assoc_bytes(
-    ctx: *mut AodRtContext,
-    wid_h: u64,
-    pid_h: u64,
-    rid_h: u64,
-    win_h: u64,
-    contacts: *const DecInt,
-) -> u64 {
-    unsafe {
-        guard_ret(ctx, 0, |_, s| {
-            let bc = read_int_in(s, contacts)?;
-            s.op_single_contact_assoc_bytes(wid_h, pid_h, rid_h, win_h, &bc)
-        })
-    }
+pub unsafe extern "C" fn aod_rt_qext_to_bytes_exact(ctx: *mut AodRtContext, q_h: u64) -> u64 {
+    unsafe { aod_rt_qext_render(ctx, q_h) }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_qext_render_bytes(ctx: *mut AodRtContext, q_h: u64) -> u64 {
-    unsafe { aod_rt_qext_to_bytes_exact(ctx, q_h) }
+    unsafe { aod_rt_qext_render(ctx, q_h) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_qext_format_bytes_fixed(
+    ctx: *mut AodRtContext,
+    q_h: u64,
+    decimals: u64,
+) -> u64 {
+    unsafe { aod_rt_qext_format_fixed(ctx, q_h, decimals) }
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_qext_format_fixed_bytes(
     ctx: *mut AodRtContext,
     q_h: u64,
-    decimals: *const DecInt,
+    decimals: u64,
 ) -> u64 {
-    unsafe { aod_rt_qext_format_bytes_fixed(ctx, q_h, decimals) }
+    unsafe { aod_rt_qext_format_fixed(ctx, q_h, decimals) }
 }
 
 #[unsafe(no_mangle)]
@@ -3936,11 +3678,36 @@ pub unsafe extern "C" fn aod_rt_emit_qext_bytes(ctx: *mut AodRtContext, h: u64) 
     }
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_addr8_from_bytes(ctx: *mut AodRtContext, h: u64) -> u64 {
+    unsafe { aod_rt_addr8_from_str(ctx, h) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_support_from_bytes(ctx: *mut AodRtContext, h: u64) -> u64 {
+    unsafe { aod_rt_support_from_str(ctx, h) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_fusion_new(
+    ctx: *mut AodRtContext,
+    a_h: u64,
+    b_h: u64,
+    sc_h: u64,
+    lin_h: u64,
+) -> u64 {
+    unsafe { aod_rt_fold(ctx, a_h, b_h, sc_h, lin_h) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_ext_decimal(ctx: *mut AodRtContext, h: u64) -> u64 {
+    unsafe { aod_rt_qext_ext_decimal(ctx, h) }
+}
+
 // ============================================================================
 // Complete ORC LLJIT Runtime Symbol Table
 // ============================================================================
 
-/// Exported symbol table of every `aod_rt_*` C ABI function for ORC LLJIT registration.
 pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
     vec![
         ("aod_rt_ctx_init", aod_rt_ctx_init as *const () as usize),
@@ -3950,6 +3717,7 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_assert_failed", aod_rt_assert_failed as *const () as usize),
         ("aod_rt_budget_exhausted", aod_rt_budget_exhausted as *const () as usize),
         ("aod_rt_int_from_str", aod_rt_int_from_str as *const () as usize),
+        ("aod_rt_int_from_i64", aod_rt_int_from_i64 as *const () as usize),
         ("aod_rt_int_from_u64", aod_rt_int_from_u64 as *const () as usize),
         ("aod_rt_int_neg", aod_rt_int_neg as *const () as usize),
         ("aod_rt_int_add", aod_rt_int_add as *const () as usize),
@@ -3957,17 +3725,23 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_int_mul", aod_rt_int_mul as *const () as usize),
         ("aod_rt_int_div_floor", aod_rt_int_div_floor as *const () as usize),
         ("aod_rt_int_rem_floor", aod_rt_int_rem_floor as *const () as usize),
+        ("aod_rt_int_pow", aod_rt_int_pow as *const () as usize),
+        ("aod_rt_int_gcd", aod_rt_int_gcd as *const () as usize),
+        ("aod_rt_int_lcm", aod_rt_int_lcm as *const () as usize),
+        ("aod_rt_int_superpose_cancel", aod_rt_int_superpose_cancel as *const () as usize),
         ("aod_rt_int_exact_div", aod_rt_int_exact_div as *const () as usize),
-        ("aod_rt_int_bitand", aod_rt_int_bitand as *const () as usize),
-        ("aod_rt_int_bitor", aod_rt_int_bitor as *const () as usize),
-        ("aod_rt_int_bitxor", aod_rt_int_bitxor as *const () as usize),
-        ("aod_rt_int_shl", aod_rt_int_shl as *const () as usize),
-        ("aod_rt_int_shr", aod_rt_int_shr as *const () as usize),
         ("aod_rt_int_cmp", aod_rt_int_cmp as *const () as usize),
+        ("aod_rt_int_sgn", aod_rt_int_sgn as *const () as usize),
+        ("aod_rt_int_abs", aod_rt_int_abs as *const () as usize),
+        ("aod_rt_int_pack_t32", aod_rt_int_pack_t32 as *const () as usize),
+        ("aod_rt_int_unpack_t32", aod_rt_int_unpack_t32 as *const () as usize),
+        ("aod_rt_unpack_t9_b64", aod_rt_unpack_t9_b64 as *const () as usize),
+        ("aod_rt_unpack_t9_int", aod_rt_unpack_t9_int as *const () as usize),
         ("aod_rt_int_to_t1", aod_rt_int_to_t1 as *const () as usize),
-        ("aod_rt_int_to_t32", aod_rt_int_to_t32 as *const () as usize),
         ("aod_rt_int_to_q4", aod_rt_int_to_q4 as *const () as usize),
-        ("aod_rt_t32_unpack_bigint", aod_rt_t32_unpack_bigint as *const () as usize),
+        ("aod_rt_int_to_b8", aod_rt_int_to_b8 as *const () as usize),
+        ("aod_rt_int_to_b64_view", aod_rt_int_to_b64_view as *const () as usize),
+        ("aod_rt_int_from_b64_view", aod_rt_int_from_b64_view as *const () as usize),
         ("aod_rt_ratio_reduce_i128", aod_rt_ratio_reduce_i128 as *const () as usize),
         ("aod_rt_ratio_from_ints", aod_rt_ratio_from_ints as *const () as usize),
         ("aod_rt_ratio_from_str", aod_rt_ratio_from_str as *const () as usize),
@@ -3977,19 +3751,38 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_ratio_mul", aod_rt_ratio_mul as *const () as usize),
         ("aod_rt_ratio_div", aod_rt_ratio_div as *const () as usize),
         ("aod_rt_ratio_cmp", aod_rt_ratio_cmp as *const () as usize),
+        ("aod_rt_ratio_sgn", aod_rt_ratio_sgn as *const () as usize),
+        ("aod_rt_ratio_abs", aod_rt_ratio_abs as *const () as usize),
+        ("aod_rt_ratio_num", aod_rt_ratio_num as *const () as usize),
+        ("aod_rt_ratio_den", aod_rt_ratio_den as *const () as usize),
         ("aod_rt_ratio_to_int_exact", aod_rt_ratio_to_int_exact as *const () as usize),
+        ("aod_rt_emit_null", aod_rt_emit_null as *const () as usize),
         ("aod_rt_emit_int", aod_rt_emit_int as *const () as usize),
         ("aod_rt_emit_bool", aod_rt_emit_bool as *const () as usize),
         ("aod_rt_emit_qext_bool", aod_rt_emit_qext_bool as *const () as usize),
         ("aod_rt_emit_qext_bytes", aod_rt_emit_qext_bytes as *const () as usize),
         ("aod_rt_emit_t1", aod_rt_emit_t1 as *const () as usize),
-        ("aod_rt_emit_t32", aod_rt_emit_t32 as *const () as usize),
+        ("aod_rt_emit_b8", aod_rt_emit_b8 as *const () as usize),
+        ("aod_rt_emit_b64", aod_rt_emit_b64 as *const () as usize),
         ("aod_rt_emit_q4", aod_rt_emit_q4 as *const () as usize),
         ("aod_rt_emit_ratio", aod_rt_emit_ratio as *const () as usize),
         ("aod_rt_emit_handle", aod_rt_emit_handle as *const () as usize),
         ("aod_rt_str_new", aod_rt_str_new as *const () as usize),
+        ("aod_rt_bytes_new", aod_rt_bytes_new as *const () as usize),
+        ("aod_rt_bytes_from_seq", aod_rt_bytes_from_seq as *const () as usize),
+        ("aod_rt_bytes_from_b64", aod_rt_bytes_from_b64 as *const () as usize),
+        ("aod_rt_bytes_get", aod_rt_bytes_get as *const () as usize),
+        ("aod_rt_bytes_slice", aod_rt_bytes_slice as *const () as usize),
+        ("aod_rt_bytes_concat", aod_rt_bytes_concat as *const () as usize),
+        ("aod_rt_bytes_sha256", aod_rt_bytes_sha256 as *const () as usize),
+        ("aod_rt_bytes_hex", aod_rt_bytes_hex as *const () as usize),
+        ("aod_rt_sys_cli_args", aod_rt_sys_cli_args as *const () as usize),
+        ("aod_rt_sys_read_file_bytes", aod_rt_sys_read_file_bytes as *const () as usize),
+        ("aod_rt_sys_write_executable_elf", aod_rt_sys_write_executable_elf as *const () as usize),
         ("aod_rt_handle_eq", aod_rt_handle_eq as *const () as usize),
+        ("aod_rt_handle_cmp", aod_rt_handle_cmp as *const () as usize),
         ("aod_rt_val_unit", aod_rt_val_unit as *const () as usize),
+        ("aod_rt_val_null", aod_rt_val_null as *const () as usize),
         ("aod_rt_val_from_int", aod_rt_val_from_int as *const () as usize),
         ("aod_rt_val_to_int", aod_rt_val_to_int as *const () as usize),
         ("aod_rt_val_from_bool", aod_rt_val_from_bool as *const () as usize),
@@ -3998,8 +3791,10 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_val_to_qext_bool", aod_rt_val_to_qext_bool as *const () as usize),
         ("aod_rt_val_from_t1", aod_rt_val_from_t1 as *const () as usize),
         ("aod_rt_val_to_t1", aod_rt_val_to_t1 as *const () as usize),
-        ("aod_rt_val_from_t32", aod_rt_val_from_t32 as *const () as usize),
-        ("aod_rt_val_to_t32", aod_rt_val_to_t32 as *const () as usize),
+        ("aod_rt_val_from_b8", aod_rt_val_from_b8 as *const () as usize),
+        ("aod_rt_val_to_b8", aod_rt_val_to_b8 as *const () as usize),
+        ("aod_rt_val_from_b64", aod_rt_val_from_b64 as *const () as usize),
+        ("aod_rt_val_to_b64", aod_rt_val_to_b64 as *const () as usize),
         ("aod_rt_val_from_q4", aod_rt_val_from_q4 as *const () as usize),
         ("aod_rt_val_to_q4", aod_rt_val_to_q4 as *const () as usize),
         ("aod_rt_val_from_ratio", aod_rt_val_from_ratio as *const () as usize),
@@ -4022,10 +3817,10 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_window_bounds", aod_rt_window_bounds as *const () as usize),
         ("aod_rt_range_new", aod_rt_range_new as *const () as usize),
         ("aod_rt_range_bounds", aod_rt_range_bounds as *const () as usize),
+        ("aod_rt_range_to_list", aod_rt_range_to_list as *const () as usize),
         ("aod_rt_box_new", aod_rt_box_new as *const () as usize),
         ("aod_rt_boundary_of", aod_rt_boundary_of as *const () as usize),
         ("aod_rt_trace_new", aod_rt_trace_new as *const () as usize),
-        ("aod_rt_trace_new_bytes", aod_rt_trace_new_bytes as *const () as usize),
         ("aod_rt_trace_step", aod_rt_trace_step as *const () as usize),
         ("aod_rt_trace_hinge", aod_rt_trace_hinge as *const () as usize),
         ("aod_rt_trace_dwell", aod_rt_trace_dwell as *const () as usize),
@@ -4034,42 +3829,28 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_trace_beats", aod_rt_trace_beats as *const () as usize),
         ("aod_rt_trace_rate", aod_rt_trace_rate as *const () as usize),
         ("aod_rt_fold", aod_rt_fold as *const () as usize),
-        ("aod_rt_fold_bytes", aod_rt_fold_bytes as *const () as usize),
+        ("aod_rt_fusion_new", aod_rt_fusion_new as *const () as usize),
         ("aod_rt_outer", aod_rt_outer as *const () as usize),
         ("aod_rt_fuse", aod_rt_fuse as *const () as usize),
         ("aod_rt_coupling_new", aod_rt_coupling_new as *const () as usize),
-        ("aod_rt_coupling_new_bytes", aod_rt_coupling_new_bytes as *const () as usize),
         ("aod_rt_coupling_contact", aod_rt_coupling_contact as *const () as usize),
         ("aod_rt_coupling_cadence", aod_rt_coupling_cadence as *const () as usize),
         ("aod_rt_coupling_lag", aod_rt_coupling_lag as *const () as usize),
         ("aod_rt_coupling_drift", aod_rt_coupling_drift as *const () as usize),
         ("aod_rt_window_dedup_count", aod_rt_window_dedup_count as *const () as usize),
-        (
-            "aod_rt_window_dedup_count_bytes",
-            aod_rt_window_dedup_count_bytes as *const () as usize,
-        ),
         ("aod_rt_native_cadence_ratio", aod_rt_native_cadence_ratio as *const () as usize),
-        (
-            "aod_rt_native_cadence_ratio_bytes",
-            aod_rt_native_cadence_ratio_bytes as *const () as usize,
-        ),
         ("aod_rt_single_contact_assoc", aod_rt_single_contact_assoc as *const () as usize),
-        (
-            "aod_rt_single_contact_assoc_bytes",
-            aod_rt_single_contact_assoc_bytes as *const () as usize,
-        ),
         ("aod_rt_recipient_eval_demo", aod_rt_recipient_eval_demo as *const () as usize),
+        ("aod_rt_ext_decimal", aod_rt_ext_decimal as *const () as usize),
         ("aod_rt_qext_ext_decimal", aod_rt_qext_ext_decimal as *const () as usize),
-        (
-            "aod_rt_qext_ext_decimal_bytes",
-            aod_rt_qext_ext_decimal_bytes as *const () as usize,
-        ),
         ("aod_rt_qext_from_ratio", aod_rt_qext_from_ratio as *const () as usize),
         ("aod_rt_qext_binop", aod_rt_qext_binop as *const () as usize),
         ("aod_rt_qext_neg", aod_rt_qext_neg as *const () as usize),
         ("aod_rt_qext_abs", aod_rt_qext_abs as *const () as usize),
         ("aod_rt_qext_cmp", aod_rt_qext_cmp as *const () as usize),
         ("aod_rt_qext_render", aod_rt_qext_render as *const () as usize),
+        ("aod_rt_qext_render_bytes", aod_rt_qext_render_bytes as *const () as usize),
+        ("aod_rt_qext_to_bytes_exact", aod_rt_qext_to_bytes_exact as *const () as usize),
         (
             "aod_rt_qext_round_half_even",
             aod_rt_qext_round_half_even as *const () as usize,
@@ -4079,28 +3860,21 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
             aod_rt_qext_format_fixed as *const () as usize,
         ),
         (
-            "aod_rt_qext_to_bytes_exact",
-            aod_rt_qext_to_bytes_exact as *const () as usize,
+            "aod_rt_qext_format_fixed_bytes",
+            aod_rt_qext_format_fixed_bytes as *const () as usize,
         ),
         (
             "aod_rt_qext_format_bytes_fixed",
             aod_rt_qext_format_bytes_fixed as *const () as usize,
         ),
-        (
-            "aod_rt_qext_render_bytes",
-            aod_rt_qext_render_bytes as *const () as usize,
-        ),
-        (
-            "aod_rt_qext_format_fixed_bytes",
-            aod_rt_qext_format_fixed_bytes as *const () as usize,
-        ),
+        ("aod_rt_array_new", aod_rt_array_new as *const () as usize),
         ("aod_rt_list_new", aod_rt_list_new as *const () as usize),
-        ("aod_rt_list_get", aod_rt_list_get as *const () as usize),
-        ("aod_rt_list_set", aod_rt_list_set as *const () as usize),
-        ("aod_rt_list_push", aod_rt_list_push as *const () as usize),
-        ("aod_rt_list_concat", aod_rt_list_concat as *const () as usize),
-        ("aod_rt_list_slice", aod_rt_list_slice as *const () as usize),
-        ("aod_rt_list_len_raw", aod_rt_list_len_raw as *const () as usize),
+        ("aod_rt_seq_get", aod_rt_seq_get as *const () as usize),
+        ("aod_rt_seq_get_raw_idx", aod_rt_seq_get_raw_idx as *const () as usize),
+        ("aod_rt_array_set", aod_rt_array_set as *const () as usize),
+        ("aod_rt_seq_len_raw", aod_rt_seq_len_raw as *const () as usize),
+        ("aod_rt_seq_sieve", aod_rt_seq_sieve as *const () as usize),
+        ("aod_rt_seq_argmin_argmax", aod_rt_seq_argmin_argmax as *const () as usize),
         ("aod_rt_zip_seq", aod_rt_zip_seq as *const () as usize),
         ("aod_rt_len", aod_rt_len as *const () as usize),
         ("aod_rt_tuple_new", aod_rt_tuple_new as *const () as usize),
@@ -4126,98 +3900,36 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_sim_builder_add_proc_obs", aod_rt_sim_builder_add_proc_obs as *const () as usize),
         ("aod_rt_sim_run", aod_rt_sim_run as *const () as usize),
         ("aod_rt_sim_run_ex", aod_rt_sim_run_ex as *const () as usize),
-        ("aod_rt_int_to_u8", aod_rt_int_to_u8 as *const () as usize),
-        ("aod_rt_int_to_b64", aod_rt_int_to_b64 as *const () as usize),
-        ("aod_rt_int_to_t9", aod_rt_int_to_t9 as *const () as usize),
-        ("aod_rt_int_to_shift", aod_rt_int_to_shift as *const () as usize),
-        ("aod_rt_t9_pack", aod_rt_t9_pack as *const () as usize),
-        ("aod_rt_t9_unpack_b64", aod_rt_t9_unpack_b64 as *const () as usize),
-        ("aod_rt_t9_unpack_int", aod_rt_t9_unpack_int as *const () as usize),
-        (
-            "aod_rt_t1_superpose_cancel",
-            aod_rt_t1_superpose_cancel as *const () as usize,
-        ),
-        (
-            "aod_rt_verify_sheddic_route",
-            aod_rt_verify_sheddic_route as *const () as usize,
-        ),
-        (
-            "aod_rt_verify_frg_cross_return",
-            aod_rt_verify_frg_cross_return as *const () as usize,
-        ),
-        ("aod_rt_emit_null", aod_rt_emit_null as *const () as usize),
-        ("aod_rt_emit_u8", aod_rt_emit_u8 as *const () as usize),
-        ("aod_rt_emit_b64", aod_rt_emit_b64 as *const () as usize),
-        ("aod_rt_emit_t9", aod_rt_emit_t9 as *const () as usize),
-        ("aod_rt_val_null", aod_rt_val_null as *const () as usize),
-        ("aod_rt_val_to_null", aod_rt_val_to_null as *const () as usize),
-        ("aod_rt_val_from_u8", aod_rt_val_from_u8 as *const () as usize),
-        ("aod_rt_val_to_u8", aod_rt_val_to_u8 as *const () as usize),
-        ("aod_rt_val_from_b64", aod_rt_val_from_b64 as *const () as usize),
-        ("aod_rt_val_to_b64", aod_rt_val_to_b64 as *const () as usize),
-        ("aod_rt_val_from_t9", aod_rt_val_from_t9 as *const () as usize),
-        ("aod_rt_val_to_t9", aod_rt_val_to_t9 as *const () as usize),
-        ("aod_rt_bytes_new", aod_rt_bytes_new as *const () as usize),
-        ("aod_rt_bytes_from_list", aod_rt_bytes_from_list as *const () as usize),
-        ("aod_rt_bytes_from_str", aod_rt_bytes_from_str as *const () as usize),
-        ("aod_rt_bytes_from_b64", aod_rt_bytes_from_b64 as *const () as usize),
-        ("aod_rt_bytes_from_addr8", aod_rt_bytes_from_addr8 as *const () as usize),
-        ("aod_rt_bytes_get", aod_rt_bytes_get as *const () as usize),
-        ("aod_rt_bytes_len_raw", aod_rt_bytes_len_raw as *const () as usize),
-        ("aod_rt_bytes_slice", aod_rt_bytes_slice as *const () as usize),
-        ("aod_rt_bytes_concat", aod_rt_bytes_concat as *const () as usize),
-        ("aod_rt_bytes_sha256", aod_rt_bytes_sha256 as *const () as usize),
-        ("aod_rt_bytes_hex", aod_rt_bytes_hex as *const () as usize),
-        ("aod_rt_array_new", aod_rt_array_new as *const () as usize),
-        ("aod_rt_array_get", aod_rt_array_get as *const () as usize),
-        ("aod_rt_array_set", aod_rt_array_set as *const () as usize),
-        ("aod_rt_array_len_raw", aod_rt_array_len_raw as *const () as usize),
-        ("aod_rt_seq_builder_new", aod_rt_seq_builder_new as *const () as usize),
-        ("aod_rt_seq_builder_push", aod_rt_seq_builder_push as *const () as usize),
-        (
-            "aod_rt_seq_builder_finish_list",
-            aod_rt_seq_builder_finish_list as *const () as usize,
-        ),
-        (
-            "aod_rt_seq_builder_finish_array",
-            aod_rt_seq_builder_finish_array as *const () as usize,
-        ),
-        ("aod_rt_sum_int", aod_rt_sum_int as *const () as usize),
-        ("aod_rt_sum_u8", aod_rt_sum_u8 as *const () as usize),
-        ("aod_rt_sum_t1", aod_rt_sum_t1 as *const () as usize),
-        ("aod_rt_sum_t9", aod_rt_sum_t9 as *const () as usize),
-        ("aod_rt_sum_t32", aod_rt_sum_t32 as *const () as usize),
-        ("aod_rt_sum_ratio", aod_rt_sum_ratio as *const () as usize),
-        (
-            "aod_rt_sum_qext_ratio",
-            aod_rt_sum_qext_ratio as *const () as usize,
-        ),
-        ("aod_rt_dot_int", aod_rt_dot_int as *const () as usize),
-        ("aod_rt_dot_u8", aod_rt_dot_u8 as *const () as usize),
-        ("aod_rt_dot_t1", aod_rt_dot_t1 as *const () as usize),
-        ("aod_rt_dot_t9", aod_rt_dot_t9 as *const () as usize),
-        ("aod_rt_dot_t32", aod_rt_dot_t32 as *const () as usize),
-        ("aod_rt_dot_ratio", aod_rt_dot_ratio as *const () as usize),
-        (
-            "aod_rt_dot_qext_ratio",
-            aod_rt_dot_qext_ratio as *const () as usize,
-        ),
-        ("aod_rt_ratio_num", aod_rt_ratio_num as *const () as usize),
-        ("aod_rt_ratio_den", aod_rt_ratio_den as *const () as usize),
-        ("aod_rt_int_abs", aod_rt_int_abs as *const () as usize),
-        ("aod_rt_int_signum", aod_rt_int_signum as *const () as usize),
-        ("aod_rt_ratio_abs", aod_rt_ratio_abs as *const () as usize),
-        ("aod_rt_ratio_signum", aod_rt_ratio_signum as *const () as usize),
-        ("aod_rt_int_gcd", aod_rt_int_gcd as *const () as usize),
-        ("aod_rt_int_lcm", aod_rt_int_lcm as *const () as usize),
-        ("aod_rt_int_pow", aod_rt_int_pow as *const () as usize),
+        ("aod_rt_int_trit_shl", aod_rt_int_trit_shl as *const () as usize),
+        ("aod_rt_int_trit_shr", aod_rt_int_trit_shr as *const () as usize),
+        ("aod_rt_b64_from_unsigned_int", aod_rt_b64_from_unsigned_int as *const () as usize),
+        ("aod_rt_pack_ratio", aod_rt_pack_ratio as *const () as usize),
+        ("aod_rt_unpack_ratio", aod_rt_unpack_ratio as *const () as usize),
         ("aod_rt_ratio_pow", aod_rt_ratio_pow as *const () as usize),
-        ("aod_rt_t9_pow", aod_rt_t9_pow as *const () as usize),
-        ("aod_rt_t32_pow", aod_rt_t32_pow as *const () as usize),
-        ("aod_rt_t9_gcd", aod_rt_t9_gcd as *const () as usize),
-        ("aod_rt_t9_lcm", aod_rt_t9_lcm as *const () as usize),
-        ("aod_rt_t32_gcd", aod_rt_t32_gcd as *const () as usize),
-        ("aod_rt_t32_lcm", aod_rt_t32_lcm as *const () as usize),
+        ("aod_rt_str_from_bytes", aod_rt_str_from_bytes as *const () as usize),
+        ("aod_rt_le_bytes_from_int", aod_rt_le_bytes_from_int as *const () as usize),
+        ("aod_rt_bytes_push", aod_rt_bytes_push as *const () as usize),
+        ("aod_rt_seq_push", aod_rt_seq_push as *const () as usize),
+        ("aod_rt_seq_concat", aod_rt_seq_concat as *const () as usize),
+        ("aod_rt_seq_slice", aod_rt_seq_slice as *const () as usize),
+        ("aod_rt_seq_contains", aod_rt_seq_contains as *const () as usize),
+        ("aod_rt_range_seq", aod_rt_range_seq as *const () as usize),
+        ("aod_rt_seq_buf_new", aod_rt_seq_buf_new as *const () as usize),
+        ("aod_rt_seq_buf_push", aod_rt_seq_buf_push as *const () as usize),
+        ("aod_rt_seq_buf_finish", aod_rt_seq_buf_finish as *const () as usize),
+        ("aod_rt_t1_superpose_cancel", aod_rt_t1_superpose_cancel as *const () as usize),
+        ("aod_rt_verify_sheddic_route", aod_rt_verify_sheddic_route as *const () as usize),
+        ("aod_rt_verify_sheddic_route_int", aod_rt_verify_sheddic_route_int as *const () as usize),
+        ("aod_rt_verify_frg_cross_return", aod_rt_verify_frg_cross_return as *const () as usize),
+        ("aod_rt_sum_int", aod_rt_sum_int as *const () as usize),
+        ("aod_rt_sum_b8", aod_rt_sum_b8 as *const () as usize),
+        ("aod_rt_sum_t1", aod_rt_sum_t1 as *const () as usize),
+        ("aod_rt_sum_ratio", aod_rt_sum_ratio as *const () as usize),
+        ("aod_rt_sum_qext_ratio", aod_rt_sum_qext_ratio as *const () as usize),
+        ("aod_rt_dot_int", aod_rt_dot_int as *const () as usize),
+        ("aod_rt_dot_b8", aod_rt_dot_b8 as *const () as usize),
+        ("aod_rt_dot_t1", aod_rt_dot_t1 as *const () as usize),
+        ("aod_rt_dot_ratio", aod_rt_dot_ratio as *const () as usize),
+        ("aod_rt_dot_qext_ratio", aod_rt_dot_qext_ratio as *const () as usize),
     ]
 }
-

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use aod_core::json::{parse_strict_json, JsonValue};
 use aod_core::sha256::Sha256;
-use aodc::diagnostics::{CompatMode, DiagnosticCode};
+use aodc::diagnostics::DiagnosticCode;
 use aodc::eval::{DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::ir::loads_ir;
 use aodc::{
@@ -52,14 +52,14 @@ fn assert_portable_json(text: &str) -> JsonValue {
 }
 
 fn assert_5mode_parity(path: &Path, expected_stdout: &str, tmp: &Path, stem: &str) {
-    let vm = run_file(path, CompatMode::V2)
+    let vm = run_file(path)
         .unwrap_or_else(|e| panic!("VM failed on {}: {e}", path.display()))
         .to_stdout_string();
     assert_eq!(vm, expected_stdout, "VM stdout mismatch on {}", path.display());
 
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
         let exe = tmp.join(format!("{stem}_{tag}"));
-        build_aot_file(path, CompatMode::V2, opt, &exe)
+        build_aot_file(path, opt, &exe)
             .unwrap_or_else(|e| panic!("AOT -{tag} build failed on {}: {e}", path.display()));
         let out = Command::new(&exe).output().unwrap();
         assert!(
@@ -77,9 +77,8 @@ fn assert_5mode_parity(path: &Path, expected_stdout: &str, tmp: &Path, stem: &st
     }
 
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
-        let (stdout, res) =
-            jit_file_captured(path, CompatMode::V2, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-                .unwrap_or_else(|e| panic!("JIT -{tag} compile failed on {}: {e}", path.display()));
+        let (stdout, res) = jit_file_captured(path, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+            .unwrap_or_else(|e| panic!("JIT -{tag} compile failed on {}: {e}", path.display()));
         res.unwrap_or_else(|e| panic!("JIT -{tag} runtime failed on {}: {e}", path.display()));
         assert_eq!(
             stdout,
@@ -221,7 +220,6 @@ fn ac07_hostile_tamper_drift_float_and_symlink_rejection() {
     assert_eq!(j2.get("status").and_then(JsonValue::as_str), Some("FAIL"));
     assert_eq!(j2.get("passed_vectors").and_then(JsonValue::as_int).and_then(|v| v.to_i64()), Some(29));
     assert_eq!(j2.get("failed_vectors").and_then(JsonValue::as_int).and_then(|v| v.to_i64()), Some(1));
-    // P1-2: scientific_status_summary MUST count ONLY passing cases (RC-001 CONFORMANT_DECLARED_FIXTURE 5 -> 4!)
     let ssum2 = j2.get("scientific_status_summary").and_then(JsonValue::as_object).unwrap();
     assert_eq!(
         ssum2.get("CONFORMANT_DECLARED_FIXTURE").and_then(JsonValue::as_int).and_then(|v| v.to_i64()),
@@ -317,38 +315,31 @@ fn ac08_native_sectors_firewall_qext_builtins_and_runtime_bounds() {
 use aod::qext:
     qext_from_ratio, qext_round_half_even, qext_format_fixed, qext_render
 
-dec main:
-    () -> int:
-        let half_5 = 5/2r
-        let half_7 = 7/2r
-        let tiny_neg = -1/1000000000r
-        quarantine Q_ext:
-            let r5 = qext_round_half_even(qext_from_ratio(half_5), 0)
-            let r7 = qext_round_half_even(qext_from_ratio(half_7), 0)
-            let f_tiny = qext_format_fixed(qext_from_ratio(tiny_neg), 6)
-            emit qext_render(r5)
-            emit qext_render(r7)
-            emit f_tiny
-        return 0
+dec main() -> int:
+    let half_5 = 5/2r
+    let half_7 = 7/2r
+    let tiny_neg = -1/1000000000r
+    quarantine Q_ext:
+        let r5 = qext_round_half_even(qext_from_ratio(half_5), 0)
+        let r7 = qext_round_half_even(qext_from_ratio(half_7), 0)
+        let f_tiny = qext_format_fixed(qext_from_ratio(tiny_neg), 6)
+        emit qext_render(r5)
+        emit qext_render(r7)
+        emit f_tiny
+    0
 "#;
     let expected = "Q_ext(b\"2/1\")\nQ_ext(b\"4/1\")\nQ_ext(b\"0.000000\")\n0\n";
-    let vm = run_source(qext_ok, CompatMode::V2).unwrap().to_stdout_string();
+    let vm = run_source(qext_ok).unwrap().to_stdout_string();
     assert_eq!(vm, expected);
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
         let exe = tmp.join(format!("qext_direct_{tag}"));
-        build_aot_source(qext_ok, CompatMode::V2, opt, &exe).unwrap();
+        build_aot_source(qext_ok, opt, &exe).unwrap();
         let aot = Command::new(&exe).output().unwrap();
         assert!(aot.status.success());
         assert_eq!(String::from_utf8_lossy(&aot.stdout), expected);
 
-        let (jout, jres) = jit_source_captured(
-            qext_ok,
-            CompatMode::V2,
-            opt,
-            DEFAULT_FUEL,
-            DEFAULT_MAX_DEPTH,
-        )
-        .unwrap();
+        let (jout, jres) =
+            jit_source_captured(qext_ok, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
         jres.unwrap();
         assert_eq!(jout, expected);
     }
@@ -361,33 +352,26 @@ dec main:
 use aod::qext:
     qext_from_ratio, {call}
 
-dec main:
-    () -> int:
-        let x = 1/3r
-        quarantine Q_ext:
-            let _y = {call}(qext_from_ratio(x), {bad_dec})
-        return 0
+dec main() -> int:
+    let x = 1/3r
+    quarantine Q_ext:
+        let _y = {call}(qext_from_ratio(x), {bad_dec})
+    0
 "#
             );
             assert!(
-                run_source(&src, CompatMode::V2).is_err(),
+                run_source(&src).is_err(),
                 "VM expected runtime bounds error for {call}({bad_dec})"
             );
             let exe = tmp.join(format!("bounds_{call}_{label}"));
-            build_aot_source(&src, CompatMode::V2, OptLevel::O2, &exe).unwrap();
+            build_aot_source(&src, OptLevel::O2, &exe).unwrap();
             let aot = Command::new(&exe).output().unwrap();
             assert!(
                 !aot.status.success(),
                 "AOT expected runtime bounds error for {call}({bad_dec})"
             );
-            let (_, jres) = jit_source_captured(
-                &src,
-                CompatMode::V2,
-                OptLevel::O2,
-                DEFAULT_FUEL,
-                DEFAULT_MAX_DEPTH,
-            )
-            .unwrap();
+            let (_, jres) =
+                jit_source_captured(&src, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
             assert!(
                 jres.is_err(),
                 "JIT expected runtime bounds error for {call}({bad_dec})"
@@ -398,19 +382,19 @@ dec main:
     // 4. P0-1 / P2-2 Extended QExtLeakageForbidden controls across check, build (zero artifact), and jit
     let nc07 = root.join("manual_examples/negative_controls/nc07_display_quarantine_leak.dec");
     assert_eq!(
-        check_file(&nc07, CompatMode::V2).unwrap_err().code,
+        check_file(&nc07).unwrap_err().code,
         DiagnosticCode::QExtLeakageForbidden
     );
     let nc07_exe = tmp.join("nc07_must_not_exist");
     assert_eq!(
-        build_aot_file(&nc07, CompatMode::V2, OptLevel::O2, &nc07_exe)
+        build_aot_file(&nc07, OptLevel::O2, &nc07_exe)
             .unwrap_err()
             .code,
         DiagnosticCode::QExtLeakageForbidden
     );
     assert!(!nc07_exe.exists());
     assert_eq!(
-        jit_file_captured(&nc07, CompatMode::V2, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+        jit_file_captured(&nc07, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
             .unwrap_err()
             .code,
         DiagnosticCode::QExtLeakageForbidden
@@ -419,30 +403,30 @@ dec main:
     let hostile_leaks = [
         (
             "2seg_const",
-            "use stdlib::aod::metrology::DisplayQuarantine\ndec main:\n    () -> int:\n        let x = DisplayQuarantine::LHC_CMS_H4L_MASS_GEV\n        return 0\n",
+            "use stdlib::aod::metrology:\n    DisplayQuarantine\ndec main() -> int:\n    let x = DisplayQuarantine::LHC_CMS_H4L_MASS_GEV\n    0\n",
         ),
         (
             "3seg_fn",
-            "use stdlib::aod::metrology\ndec main:\n    () -> int:\n        let x = metrology::DisplayQuarantine::higgs_freeze_gev(61, 7)\n        return 0\n",
+            "use stdlib::aod::metrology\ndec main() -> int:\n    let x = metrology::DisplayQuarantine::higgs_freeze_gev(61, 7)\n    0\n",
         ),
         (
             "direct_round",
-            "use aod::qext:\n    qext_from_ratio, qext_round_half_even\ndec main:\n    () -> int:\n        let x = qext_round_half_even(qext_from_ratio(1/3r), 6)\n        return 0\n",
+            "use aod::qext:\n    qext_from_ratio, qext_round_half_even\ndec main() -> int:\n    let x = qext_round_half_even(qext_from_ratio(1/3r), 6)\n    0\n",
         ),
         (
             "direct_format_3seg",
-            "dec main:\n    () -> int:\n        let x = aod::qext::qext_format_fixed(aod::qext::qext_from_ratio(1/3r), 6)\n        return 0\n",
+            "dec main() -> int:\n    let x = aod::qext::qext_format_fixed(aod::qext::qext_from_ratio(1/3r), 6)\n    0\n",
         ),
     ];
     for (tag, src) in hostile_leaks {
         assert_eq!(
-            check_source(src, CompatMode::V2).unwrap_err().code,
+            check_source(src).unwrap_err().code,
             DiagnosticCode::QExtLeakageForbidden,
             "expected QExtLeakageForbidden on check for {tag}"
         );
         let exe = tmp.join(format!("leak_{tag}_must_not_exist"));
         assert_eq!(
-            build_aot_source(src, CompatMode::V2, OptLevel::O2, &exe)
+            build_aot_source(src, OptLevel::O2, &exe)
                 .unwrap_err()
                 .code,
             DiagnosticCode::QExtLeakageForbidden,
@@ -450,15 +434,9 @@ dec main:
         );
         assert!(!exe.exists(), "hostile leak {tag} must produce ZERO AOT artifact");
         assert_eq!(
-            jit_source_captured(
-                src,
-                CompatMode::V2,
-                OptLevel::O2,
-                DEFAULT_FUEL,
-                DEFAULT_MAX_DEPTH
-            )
-            .unwrap_err()
-            .code,
+            jit_source_captured(src, OptLevel::O2, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
+                .unwrap_err()
+                .code,
             DiagnosticCode::QExtLeakageForbidden,
             "expected QExtLeakageForbidden on jit for {tag}"
         );
@@ -487,8 +465,8 @@ fn ac09_manual_examples_07_08_09_5mode_and_hermetic_ir_parity() {
         // 5-mode exact parity within DEFAULT_FUEL = 100_000 (P2-2)
         assert_5mode_parity(&dec_path, &expected, &tmp, stem);
 
-        // Hermetic DecIR v2 compile + exec under nonexistent AOD_STDLIB_DIR + 1-byte tamper check
-        let ir_text = compile_file_to_ir(&dec_path, CompatMode::V2).unwrap();
+        // Hermetic DecIR v3 compile + exec under nonexistent AOD_STDLIB_DIR + 1-byte tamper check
+        let ir_text = compile_file_to_ir(&dec_path).unwrap();
         assert!(ir_text.contains("\"stdlib::aod::sectors\""));
         if stem == "09_s2_higgs_and_quarantined_lensing" {
             assert!(ir_text.contains("\"stdlib::aod::metrology\""));

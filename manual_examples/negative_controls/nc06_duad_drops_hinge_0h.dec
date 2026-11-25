@@ -1,7 +1,6 @@
 # Negative Control nc06 — Forming a SeatedDuad while dropping the mediating 0_H hinge MUST fail!
 use stdlib::aod::wavelet::require_seated_duad
 
-dec main:
-    () -> int:
-        let _bad = require_seated_duad(1, 1, false)
-        return 0
+dec main() -> int:
+    let _bad = require_seated_duad(1, 1, false)
+    0
