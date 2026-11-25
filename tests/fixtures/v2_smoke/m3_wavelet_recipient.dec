@@ -3,24 +3,27 @@
 use aod::core:
     support_pi, support_rd
 use aod::wavelet:
-    window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
+    RecipientStage, window_dedup_count, native_cadence_ratio,
+    single_contact_association, recipient_eval_demo
 
 dec main() -> int:
     let cuts = [0, 2, 6, 8]
     let windows = [(0, 6], (4, 8]]
-    let dedup = window_dedup_count("W_B_1", "B:main", cuts, windows)
+    let dedup = window_dedup_count(b"W_B_1", b"B:main", cuts, windows)
     assert dedup == 3
 
-    let cad = native_cadence_ratio("Wa", 3, "Wr", 5, true, 2)
+    let cad = native_cadence_ratio(b"Wa", 3, b"Wr", 5, true, 2)
     assert cad == 3/5r
-    let zero_cad = native_cadence_ratio("Wshed", 0, "Wr", 10, true, 2)
+    let zero_cad = native_cadence_ratio(b"Wshed", 0, b"Wr", 10, true, 2)
     assert zero_cad == 0/1r
 
-    let single = single_contact_association("Wshed", "W_B_1", "Wr", (10, 20], 1)
+    let single = single_contact_association(b"Wshed", b"W_B_1", b"Wr", (10, 20], 1)
     assert single.is_cadence_ratio == false
+    assert single.wavelet_id == b"Wshed" and single.reference_id == b"Wr"
 
     let rec = recipient_eval_demo(12, 16, (10, 25])
-    assert rec.stage == "reclosed"
+    assert rec.stage == RecipientStage::Reclosed
+    assert rec.stage_bytes == b"reclosed"
     assert rec.closure_phase_delta == 1
     assert rec.reclosure_bip_delta == 1
 

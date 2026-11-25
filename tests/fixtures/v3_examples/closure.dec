@@ -6,7 +6,7 @@ dec recur(t: trace) -> trace:
     close(t3)
 
 dec main() -> int:
-    let a0 = trace("B", "a", q4(0))
+    let a0 = trace(b"B", b"a", q4(0))
     let a1 = recur(a0)
     assert phases(a1) == 1
     assert beats(a1) == 0

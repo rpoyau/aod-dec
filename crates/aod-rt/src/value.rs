@@ -190,7 +190,7 @@ pub enum RtValue {
     Tuple(Vec<RtValue>),
     QExtRatio(QExtRatio),
     QExtBool(bool),
-    QExtStr(String),
+    QExtBytes(std::sync::Arc<Vec<u8>>),
 }
 
 impl RtValue {
@@ -270,8 +270,32 @@ impl RtValue {
             }
             RtValue::QExtRatio(q) => q.render_quarantined(),
             RtValue::QExtBool(b) => format!("Q_ext({})", if *b { "true" } else { "false" }),
-            RtValue::QExtStr(s) => format!("Q_ext({s})"),
+            RtValue::QExtBytes(bs) => format!("Q_ext({})", render_bytes_literal(bs)),
         }
+    }
+}
+
+pub fn model_status_variant_and_tag(status: &str) -> (&'static str, i32) {
+    match status {
+        "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED" => {
+            ("DeclaredSandboxNotS3Authenticated", 0)
+        }
+        _ => ("DeclaredSandboxNotS3Authenticated", 0),
+    }
+}
+
+pub fn recipient_stage_variant_and_tag(stage: RecipientOutcomeStage) -> (&'static str, i32) {
+    match stage {
+        RecipientOutcomeStage::Emitted => ("Emitted", 0),
+        RecipientOutcomeStage::Delivered => ("Delivered", 1),
+        RecipientOutcomeStage::Accepted => ("Accepted", 2),
+        RecipientOutcomeStage::UnacceptedPass => ("UnacceptedPass", 3),
+        RecipientOutcomeStage::Seated => ("Seated", 4),
+        RecipientOutcomeStage::PendingUnseated => ("PendingUnseated", 5),
+        RecipientOutcomeStage::ClosedOrigin => ("ClosedOrigin", 6),
+        RecipientOutcomeStage::Reclosed => ("Reclosed", 7),
+        RecipientOutcomeStage::ReclosedReplay => ("ReclosedReplay", 8),
+        RecipientOutcomeStage::ReclosedOutOfWindow => ("ReclosedOutOfWindow", 9),
     }
 }
 

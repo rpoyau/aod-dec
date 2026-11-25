@@ -4,8 +4,8 @@
 
 #aod-paragraph("Setup.")
 Clean-break Dec replaces imperative branches, loops, mutable bindings, binary integer widths, and IEEE-754
-floats with pure signature-matrix `dec` declarations, ternary `mux`/`select`/`gate` phase gating, exhaustive
-`match` arms, J-style compile-time rank lifting on `[T; N]` and `[T]`, fold/scan/boundary adverbs (`+/`, `+\`,
+floats with pure signature-matrix `dec` declarations, ternary `mux`/`select`/`gate` phase gating, multi-arm
+pattern dispatch, J-style compile-time rank lifting on `[T; N]` and `[T]`, fold/scan/boundary adverbs (`+/`, `+\`,
 `∂`, `?>`, `+:`, `*:`), `|>` stream pipelines, bounded `walk`/`settle`/`fold`/`scan`/`each` combinators, and
 native sandbox apparatus declarations (#aod-cite("aod-main-v41, general-mechanics-style")). All numeric and
 structural primitives carry exact discrete representations grounded in AOD Main:

@@ -1,0 +1,103 @@
+use aod::core:
+    int, b8, ratio, max, select, evolve, verify_sheddic_route
+
+struct CTrit:
+    re: int
+    im: int
+
+struct HarmonicBin:
+    chi_id: b8
+    v_hat_re: ratio
+    v_hat_im: ratio
+    power_n: ratio
+    c_standing: ratio
+    s_standing: ratio
+
+struct StokesAudit:
+    s_int: int
+    s_div: int
+    s_bound: int
+    residual_e: int
+    valid_scope: b8
+
+struct ShedRoutePkg:
+    x_total: int
+    x_endo: int
+    x_exo: int
+    x_redir: int
+    x_open: int
+    sheddic_path: b8
+
+struct DisomaUmaState:
+    a_cpu_local: int
+    a_gpu_local: int
+    c_cross_12: int
+    a_enclosing: int
+    n_fields: int
+
+dec harmonic_acc_step:
+    ((sum_re, sum_im): (int, int), g: int, (v_trace, chi_conj): ([int; 4], [CTrit; 4])) -> (int, int):
+        let v = v_trace[g]
+        let ch = chi_conj[g]
+        return ((sum_re + (v * ch.re)), (sum_im + (v * ch.im)))
+
+dec eval_harmonic_bin4:
+    (b8(1), chi_id: b8, v_trace: [int; 4], chi_conj: [CTrit; 4]) -> HarmonicBin:
+        let (sum_re, sum_im) = evolve((0, 0), 0..4, harmonic_acc_step, (v_trace, chi_conj))
+        let re_hat = ratio(sum_re, 4)
+        let im_hat = ratio(sum_im, 4)
+        let pwr = ratio(((sum_re * sum_re) + (sum_im * sum_im)), 4)
+        let c_st = ratio((2 * sum_re), 4)
+        let s_st = ratio(-((2 * sum_im)), 4)
+        return HarmonicBin(chi_id, re_hat, im_hat, pwr, c_st, s_st)
+
+dec audit_stokes_region:
+    (phi_12: int, phi_21: int, phi_1_ext: int, phi_2_ext: int, div_1: int, div_2: int) -> StokesAudit:
+        let s_int = (phi_12 + phi_21)
+        let s_div = (div_1 + div_2)
+        let s_bound = (phi_1_ext + phi_2_ext)
+        let res_e = (s_div - s_bound)
+        let is_valid = select(((s_int == 0) and (res_e == 0)), b8(1), b8(0))
+        return StokesAudit(s_int, s_div, s_bound, res_e, is_valid)
+
+dec route_hardware_surplus:
+    (b8(1), p_burden: int, c_close: int, target_enclosure: b8) -> ShedRoutePkg:
+        let x_shed = max(0, (p_burden - c_close))
+        let path = select((x_shed > 0), target_enclosure, b8(0))
+        assert verify_sheddic_route(x_shed, path)
+        return ShedRoutePkg(x_shed, 0, x_shed, 0, 0, path)
+    (b8(2), p_burden: int, c_close: int, target_enclosure: b8) -> ShedRoutePkg:
+        let x_shed = max(0, (p_burden - c_close))
+        let path = select((x_shed > 0), target_enclosure, b8(0))
+        assert verify_sheddic_route(x_shed, path)
+        let x_endo = (x_shed // 2)
+        let x_redir = (x_shed - x_endo)
+        return ShedRoutePkg(x_shed, x_endo, 0, x_redir, 0, path)
+
+dec step_uma_disoma:
+    (a_cpu: int, a_gpu: int, c_cross_12: int, p_shared: int) -> (DisomaUmaState, ratio, ratio, ratio):
+        assert (p_shared > 0)
+        let a_super = ((a_cpu + a_gpu) + c_cross_12)
+        let uma = DisomaUmaState(a_cpu, a_gpu, c_cross_12, a_super, 2)
+        return (uma, ratio(a_cpu, p_shared), ratio(a_gpu, p_shared), ratio(a_super, p_shared))
+
+dec main:
+    () -> int:
+        let v_trace: [int; 4] = [2, 0, -2, 0]
+        let chi_conj: [CTrit; 4] = [CTrit(1, 0), CTrit(0, -1), CTrit(-1, 0), CTrit(0, 1)]
+        let hbin = eval_harmonic_bin4(b8(1), b8(1), v_trace, chi_conj)
+        assert ((((hbin.v_hat_re == 1/1r) and (hbin.v_hat_im == 0/1r)) and (hbin.power_n == 4/1r)) and (hbin.c_standing == 2/1r))
+        let stokes = audit_stokes_region(7, -7, 5, 4, 3, 6)
+        assert (((stokes.s_int == 0) and (stokes.residual_e == 0)) and (stokes.valid_scope == b8(1)))
+        let pcie = route_hardware_surplus(b8(1), 31, 24, b8(6))
+        let uma_pkg = route_hardware_surplus(b8(2), 31, 24, b8(8))
+        assert ((pcie.x_exo == 7) and (pcie.x_endo == 0))
+        assert (((uma_pkg.x_endo == 3) and (uma_pkg.x_redir == 4)) and (uma_pkg.sheddic_path == b8(8)))
+        let (uma, j_cpu, j_gpu, j_super) = step_uma_disoma(6, 9, 3, 12)
+        assert ((((uma.a_enclosing == 18) and (j_cpu == 1/2r)) and (j_gpu == 3/4r)) and (j_super == 3/2r))
+        emit hbin.power_n
+        emit stokes.valid_scope
+        emit pcie.x_exo
+        emit (uma_pkg.x_endo, uma_pkg.x_redir)
+        emit j_super
+        return 0

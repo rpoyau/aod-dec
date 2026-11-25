@@ -18,32 +18,35 @@
 - **Zero external `crates.io` dependencies** (`cargo test --workspace --offline`).
 - **Zero IEEE-754 floating-point types or literals** anywhere across all 4 crates (`aod-core`, `aod-rt`, `aod-llvm`, `aodc`) or Dec source programs (`ratio` is Dec's exact replacement for floats).
 - **2-Bit Balanced Ternary `int` & Coupled 2-GPR `ratio` ("Trit-Boxed"):**
-  - `t1`: single balanced trit in `{-1t, 0t, +1t}` returned directly by `<=>` and `sgn`.
+  - `null`: distinct ontological null primitive (`null == 0` and `null == false` are compile-time errors).
+  - `t1`: single balanced trit in `{-1t, 0t, +1t}` (`0_H`, `0_D`) returned directly by `<=>`, `sgn`/`signum`, and `superpose_cancel`.
   - `int`: 1-GPR 8-byte Trit-Boxed `u64` packing up to 32 balanced trits inline (`00 = 0`, `01 = +1`, `10 = -1`, covering `±926,510,094,425,920`) and using the unused `11` top-lane tag (`0xD000... | handle`) to spill transparently to base-$3^{32}$ `BigTrit` limbs.
   - `ratio`: coupled 2-GPR 16-byte `{ num, den }` pair reduced via Division-Free Balanced-Ternary Stein GCD, plus compact 1-word `[num][11][den]` `pack_ratio` / `unpack_ratio` for `<= 31` combined trits.
-  - `b8`, `b64`, `bytes`: non-arithmetic raw bit/byte containers for binary I/O, SHA-256, ELF64 emission, and 0-cycle `b64(int)` / `int(b64)` register views.
-- **Clean-Break Declarative Wave & Rank-Polymorphic Language:**
-  - Pure indentation-structured `dec` signature-matrix arms, `mux`/`select`/`gate` phase gating, exhaustive `match` (`pat -> expr`), J-style static rank lifting on `[T; N]` / `[T]` (`ShapeMismatch` at compile time on mismatched fixed shapes), struct-field projection `bins.t0`, outer products `+:`, `*:`, adverbs `+/`, `*/`, `min/`, `max/`, `&/`, `|/`, `superpose/`, `+\`, `*\`, `min\`, `max\`, `∂`, `argmin`, `argmax`, mask-sieve `?>`, `|>` stream pipelines, and bounded `walk`/`settle`/`fold`/`scan`/`each` combinators (zero `if`/`for`/`while`/`mut` or `{}` braces).
-- **Strict `unsafe` quarantine:** `#![forbid(unsafe_code)]` on `aod-core` and `aodc`; `unsafe` strictly limited to the 5 C ABI / LLVM 18 / hardware probe files (`aod-rt/src/abi.rs`, `aod-llvm/src/{ffi.rs,aot.rs,jit.rs,hw_probe.rs}`).
+  - `b8`, `b64`, `bytes`: non-arithmetic raw bit/byte containers (`b"..."` byte literals; UTF-8 `str` and `"..."` are eliminated) for binary I/O, SHA-256 (`sha256_bytes`, `hex_bytes`), ELF64 emission, `b64_bits(int)` / `u64_int(b64)`, and 0-cycle `b64(int)` / `int(b64)` 32-trit register views.
+- **Clean-Break Pure-Wave Language, Rank Polymorphism, & 18 AFC Scope Operators:**
+  - Pure indentation-structured `dec` signature-matrix arms with `where` guards, `mux`/`select`/`gate` phase gating, exhaustive `match` (`pat -> expr`), J-style static rank lifting on `[T; N]` / `[T]` (`ShapeMismatch` at compile time on mismatched fixed shapes), struct-field projection `bins.t0`, outer products `+:`, `*:`, adverbs `+/`, `*/`, `min/`, `max/`, `&/`, `|/`, `superpose/`, `+\`, `*\`, `min\`, `max\`, `∂`, `argmin`, `argmax`, mask-sieve `?>`, `|>` stream pipelines, `walk`/`settle`, and all **18 AFC scope, contraction, & exact math operators** (`evolve`, `scan`, `fold_seq`, `map_seq`, `filter_seq`, `tabulate`, `zip_seq`, `count`, `any`, `all`, `sum`, `dot`, `min`, `max`, `abs`, `pow`, `gcd`, `lcm`, plus `num`/`den`/`.num`/`.den`/`signum`/`clamp`) with zero `if`/`for`/`while`/`mut` or `{}` braces.
+- **Strict `unsafe` quarantine:** `#![forbid(unsafe_code)]` on `aod-core` and `aodc` (including `dec_audit.rs` and `fmt.rs`); `unsafe` strictly limited to the 5 C ABI / LLVM 18 / hardware probe files (`aod-rt/src/abi.rs`, `aod-llvm/src/{ffi.rs,aot.rs,jit.rs,hw_probe.rs}`).
 - **Four acyclic crates (`aod-core` → `aod-rt` → `aod-llvm` → `aodc`):**
-  - [`crates/aod-core`](crates/aod-core): balanced-ternary `BigTrit`/`BigInt`, Division-Free Ternary Stein GCD `Ratio` + `pack_ratio`, quarantined `qext::QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, pure-`std` FIPS 180-4 `Sha256`, strict float-free `JsonValue`, `SupportForm`, `Trace`/`Fusion`/`Coupling` witness primitives, complete M3 `F01`–`F07` `wavelet` & `RecipientLattice`, Manual §4 D.E.C. `ledger`, and Stage 2/Stage 4 exact reference verifiers (`s2_kernel`, `s2_vectors`, `s4_report`).
-  - [`crates/aod-rt`](crates/aod-rt): `rlib` + `staticlib` (`libaod_rt.a`) owning the shared sandbox chamber engine, Trit-Boxed `0xD000...` spill arena, `RtArena` with `max_entries` cap, copy-on-write container & `seq_buf` helpers, `aod::sys` ELF64 bootstrap I/O, and panic-safe flat C ABI (`#[unsafe(no_mangle)]` + `catch_unwind`).
-  - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), parameterized `CodegenPlan` (including `trit_ssa_promotion`), CPU microarchitecture discovery (`hw_info`), 5 live self-verifying ORC LLJIT micro-probes (`hw_probe`), zero-float paired percentile bootstrap & rollback-safe `RetainedProfile` learner (`learner`, tagged `COMPILER_EXECUTION_POLICY_NOT_PHYSICAL_AOD_LAW`), standalone PIC AOT ELF emitter/linker, and in-process ORC LLJIT session (`OrcJitSession`).
-  - [`crates/aodc`](crates/aodc): Clean-break Dec frontend, all 5 compile-time firewalls, hermetic `DecIR v3` verifier, exact reference VM, Trit-Boxed SWAR & stream-fusing LLVM 18 IR lowering (`src/codegen.rs`), fixed-point self-hosting `bootstrap-verify`, and CLI.
+  - [`crates/aod-core`](crates/aod-core): balanced-ternary `BigTrit`/`BigInt` (`checked_pow_bigint` 1M-bit ceiling), Division-Free Ternary Stein GCD `Ratio` + `pack_ratio`, quarantined `qext::QExtRatio`, checked `T1`/`B8`/`B64`/`Q4`/`Addr8`, pure-`std` FIPS 180-4 `Sha256`, strict float-free `JsonValue`, `SupportForm`, `Trace`/`Fusion`/`Coupling` witness primitives, complete M3 `F01`–`F07` `wavelet` & `RecipientLattice`, Manual §4 D.E.C. `ledger`, and Stage 2/Stage 4 exact reference verifiers (`s2_kernel`, `s2_vectors`, `s4_report`).
+  - [`crates/aod-rt`](crates/aod-rt): `rlib` + `staticlib` (`libaod_rt.a`) owning the shared sandbox chamber engine (`ModelStatus`, `final_state_sha256`), Trit-Boxed `0xD000...` spill arena, `RtArena` with `max_entries` cap, copy-on-write container & `seq_buf` helpers, `aod::sys` ELF64 bootstrap I/O, and panic-safe flat C ABI (`#[unsafe(no_mangle)]` + `catch_unwind`).
+  - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), parameterized `CodegenPlan` (including `trit_ssa_promotion`), CPU microarchitecture discovery (`hw_info`), **6 live self-verifying ORC LLJIT micro-probes** (`hw_probe`, including the 2-thread barrier-synchronized FRG double-slit cross-return ring-gate probe `frg_ring_gate` over `E4 RD=9`, `C6 RD=61`, and `C8 RD=137 T_sync=8357`), zero-float paired percentile bootstrap & rollback-safe `RetainedProfile` learner (`learner`, tagged `COMPILER_EXECUTION_POLICY_NOT_PHYSICAL_AOD_LAW`), standalone PIC AOT ELF emitter/linker, and in-process ORC LLJIT session (`OrcJitSession`).
+  - [`crates/aodc`](crates/aodc): Clean-break Pure-Wave Dec frontend, deterministic canonical AST formatter (`src/fmt.rs`, `aodc fmt`), live-walk `00_8` scanner & 6-hook §5.17 native `.dec` auditor (`src/dec_audit.rs`, `aodc audit-dec`, `aod.dec.audit.v1`), all 5 compile-time firewalls, hermetic `DecIR v3` verifier, exact reference VM, Trit-Boxed SWAR & unboxed-`evolve` LLVM 18 IR lowering (`src/codegen.rs`), 4-stage fixed-point self-hosting `bootstrap-verify`, and CLI.
 
 ## Compile-Time Firewalls
 
-1. **Transitive Read-Only Observer Firewall (`P1-3`):** `observe` / `tracer` / `sensor` probes and every `dec` function transitively called inside them check under `Effect::ReadOnlyObserver` with `ReadOnly<ChamberView>`. Calling copy-on-write mutators (`set_at`, `push`, `map_put`) on `ReadOnly<T>`, stripping `ReadOnly<T>` into non-`ReadOnly` parameters/constructors, invoking `aod::sys` I/O, or invoking `simulate` fails with `ObserverMutationForbidden`.
-2. **One-Way `quarantine Q_ext` Firewall (`P0-1`):** `ext_decimal` resides strictly in `aod::qext` (`Effect::QExt`). `quarantine Q_ext:` is permitted only as a one-way sink inside pure-native `dec main()` (or `quarantine Q_ext` functions), reading only immutable native bindings, forbidding escaping `return`, transitive `simulate`, and `QExt<T>` inside native signatures/`struct`/`enum`/`map`.
+1. **Transitive Read-Only Observer Firewall (`P1-3`):** `observe` / `tracer` / `sensor` probes and every `dec` function transitively called inside them check under `Effect::ReadOnlyObserver` with `ReadOnly<ChamberView>`. Calling copy-on-write mutators (`set_at`, `array_set`, `list_set`, `push`, `list_push`, `map_put`, `map_remove`) on `ReadOnly<T>`, stripping `ReadOnly<T>` into non-`ReadOnly` parameters/constructors, invoking `aod::sys` I/O, or invoking `simulate` fails with `ObserverMutationForbidden`.
+2. **One-Way `quarantine Q_ext` Firewall (`P0-1`):** `ext_decimal(b"...")` resides strictly in `aod::qext` (`Effect::QExt`). `quarantine Q_ext:` is permitted only as a one-way sink inside pure-native `dec main()` (or `quarantine Q_ext` functions), reading only immutable native bindings, formatting strictly as `QExt<bytes>` (`Q_ext(b"...")`), and forbidding escaping `return`, transitive `simulate`, and `QExt<T>` inside native signatures/`struct`/`enum`/`map`.
 3. **Odd-Length `_yro` Firewall:** Odd support lengths without `_yro` (e.g. `1:2:9`) and even lengths with `_yro` (e.g. `3:3:6_yro`) are rejected at compile time.
-4. **Zero Implicit Coercions, Static Shape Agreement, & Zero Floats Firewall:** Float literals (`1.5`, `5.`, `.5`, `1e3`), static shape mismatches (`[int; 3] + [int; 4]`), and implicit mixed-type operations (`int + ratio`, `int + b64`) fail at compile time.
-5. **Exhaustive Unbiased Checking & Hermetic `DecIR v3` Verifier (`P1-2`):** Every item and signature-matrix arm (including unreachable code) is checked, and `aodc exec` hermetically rebuilds and verifies canonical JSON equality from embedded module sources + SHA-256 digests with zero ambient filesystem reads.
+4. **Zero Implicit Coercions, Static Shape Agreement, & Zero Floats Firewall:** Float literals (`1.5`, `5.`, `.5`, `1e3`), static shape mismatches (`[int; 3] + [int; 4]`), and implicit mixed-type operations (`int + ratio`, `int + b8`, `int + b64`, `null == 0`) fail at compile time.
+5. **Exhaustive Unbiased Checking & Hermetic `DecIR v3` Verifier (`P1-2`):** Every item and signature-matrix arm (including unreachable code) is checked, and `aodc exec` hermetically rebuilds and verifies canonical JSON equality (`"schema": "aod.dec.ir.v3"`, `"syntax_discipline": "pure_wave_v2"`) from embedded module sources + SHA-256 digests with zero ambient filesystem reads.
 
 ## CLI Usage
 
 ```bash
-# Typecheck a clean-break Dec source file
-cargo run --bin aodc -- check tests/fixtures/v2_smoke/opposing_336_chamber.dec
+# Typecheck, canonically format, or run the 6-hook §5.17 native auditor on a clean-break Dec file
+cargo run --bin aodc -- check examples/first_principles/00_primitives.dec
+cargo run --bin aodc -- fmt [--check | --write | -o /tmp/formatted.dec] examples/first_principles/00_primitives.dec
+cargo run --bin aodc -- audit-dec [--json] [--report /tmp/audit.json] examples/first_principles/00_primitives.dec
 
 # Execute directly via the exact reference VM
 cargo run --bin aodc -- run [--fuel N] [--max-depth N] tests/fixtures/v2_smoke/opposing_336_chamber.dec
@@ -58,10 +61,10 @@ cargo run --bin aodc -- build -O2 tests/fixtures/v2_bench/unboxed_loop_bench.dec
 # Execute in-process via LLVM 18 ORC LLJIT (optionally with validated retained profile)
 cargo run --bin aodc -- jit -O2 [--profile /tmp/prof.json] tests/fixtures/v2_bench/unboxed_loop_bench.dec
 
-# Verify fixed-point self-hosting bootstrap (Stage 0 -> stage1 -> stage2 -> stage3, SHA256(stage2) == SHA256(stage3))
-cargo run --release --bin aodc -- bootstrap-verify
+# Verify 4-stage fixed-point self-hosting bootstrap (Stage 0 -> stage1 -> stage2 -> stage3, SHA256(stage2) == SHA256(stage3))
+cargo run --release --bin aodc -- bootstrap-verify [--json]
 
-# Discover host CPU microarchitecture and run 5 live self-verifying JIT micro-probes
+# Discover host CPU microarchitecture and run all 6 live self-verifying JIT micro-probes (incl. 2-thread frg_ring_gate)
 cargo run --bin aodc -- probe-hw [--output /tmp/hw_report.json]
 
 # Learn a semantically-guarded, honest compile-inclusive JIT execution policy profile
@@ -101,15 +104,17 @@ cargo run --bin aodc -- audit-pdf --min-pages 6 --compare-pdf /tmp/manual-2.pdf 
 # Run Dec tests on a file or directory (including sibling .stdout and .expect_error checks)
 cargo run --bin aodc -- test tests/fixtures/v3_examples
 cargo run --bin aodc -- test tests/fixtures/v2_smoke
+cargo run --bin aodc -- test examples/first_principles
 cargo run --bin aodc -- test manual_examples
 ```
 
-## Native Dec Standard Library (`stdlib/aod/*.dec`) & Executable Manual Fixtures
+## Native Dec Standard Library, First-Principles Modules, Manual Fixtures, & Self-Host Compiler
 
 - **`stdlib/aod/`:** Seven pure `.dec` modules resolved via `use stdlib::aod::...` (`--stdlib <dir>` / `AOD_STDLIB_DIR` / automatic repo discovery, hermetically bundled into `DecIR v3`):
   - `ledger.dec`, `wavelet.dec`, `boundary.dec`, `cells.dec`, `metrology.dec`, `sectors.dec`, `apparatus.dec`.
+- **`examples/first_principles/`:** Seven canonically formatted (`aodc fmt --check`), 6-hook-audited (`aodc audit-dec --json`), 6-mode-verified first-principles modules (`00_primitives.dec`..`05_self_host_compiler_elf64.dec` + `kernel.dec`) paired with [`docs/FIRST_PRINCIPLES_DERIVATION.md`](docs/FIRST_PRINCIPLES_DERIVATION.md).
 - **`manual_examples/`:** 11 positive fixtures (`01_dec_ledger`..`11_apparatus_opposing_sensors` with verified sibling `.stdout`) and 7 negative controls (`negative_controls/nc01..nc07` with `.expect_error`), verified byte-identical across Exact VM (sequential & `--parallel-observers`), AOT `-O0`/`-O2`, ORC LLJIT `-O0`/`-O2` (sequential & `--parallel-observers`), and hermetic `DecIR v3`.
-- **`self_host/aodc_self.dec`:** Pure clean-break `.dec` compiler emitting standalone static libc-free Linux x86-64 ELF64 executables directly, verified to fixed-point convergence (`SHA256(stage2) == SHA256(stage3)`) via `aodc bootstrap-verify`.
+- **`self_host/aodc_self.dec`:** Pure clean-break `.dec` compiler emitting standalone static libc-free Linux x86-64 ELF64 executables directly, passing all 6 `aodc audit-dec` hooks and verified to 4-stage fixed-point convergence (`SHA256(stage2) == SHA256(stage3)`) via `aodc bootstrap-verify`.
 
 ## Provenance & Upstream Bindings
 

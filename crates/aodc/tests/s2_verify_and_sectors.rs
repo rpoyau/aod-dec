@@ -328,7 +328,7 @@ dec main() -> int:
         emit f_tiny
     0
 "#;
-    let expected = "Q_ext(2/1)\nQ_ext(4/1)\nQ_ext(0.000000)\n0\n";
+    let expected = "Q_ext(b\"2/1\")\nQ_ext(b\"4/1\")\nQ_ext(b\"0.000000\")\n0\n";
     let vm = run_source(qext_ok).unwrap().to_stdout_string();
     assert_eq!(vm, expected);
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {

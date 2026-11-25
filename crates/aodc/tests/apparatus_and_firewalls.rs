@@ -15,14 +15,23 @@ fn repo_root() -> PathBuf {
 
 #[test]
 fn ac16_sandbox_chamber_model_status_and_zero_observer_back_reaction() {
+    assert_eq!(
+        MODEL_STATUS,
+        "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    );
     let fixture = repo_root().join("tests/fixtures/v2_smoke/opposing_336_chamber.dec");
     let run1 = run_file(&fixture).unwrap();
     let run2 = run_file(&fixture).unwrap();
     assert_eq!(run1.emits, run2.emits, "sandbox must be 100% deterministic");
-    assert_eq!(run1.emits[0], MODEL_STATUS);
+    assert_eq!(
+        run1.emits[0],
+        "ModelStatus::DeclaredSandboxNotS3Authenticated"
+    );
 
     // Explicitly verify bit-for-bit identical final_state_hash across 0, 1, and 4 observers!
     let multi_obs = r#"
+use aod::sim::ModelStatus
+
 chamber BoxCh:
     space = box([0..64, 0..64, 0..64])
     walls = closed
@@ -55,7 +64,8 @@ dec main() -> int:
     let r0 = simulate Opposing over 20 ticks
     let r1 = simulate Opposing over 20 ticks with Obs1
     let r4 = simulate Opposing over 20 ticks with Obs1, Obs2, Obs3, Obs4
-    assert r0.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert r0.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+    assert r0.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
     assert r0.final_state_hash == r1.final_state_hash
     assert r0.final_state_hash == r4.final_state_hash
     0
@@ -223,10 +233,10 @@ dec main() -> int:
         DiagnosticCode::ObserverMutationForbidden
     );
 
-    // 9. Validator R03 Probe 3: `ReadOnly<map[str, int]>` passed to `map_put` or non-ReadOnly multi-arm
+    // 9. Validator R03 Probe 3: `ReadOnly<map[bytes, int]>` passed to `map_put` or non-ReadOnly multi-arm
     let ro_map_to_multiarm = r#"
-dec take_ro_map(ro: ReadOnly<map[str, int]>) -> int:
-    let m2 = map_put(ro, "k", 7)
+dec take_ro_map(ro: ReadOnly<map[bytes, int]>) -> int:
+    let m2 = map_put(ro, b"k", 7)
     len(m2)
 
 dec main() -> int:
@@ -284,7 +294,7 @@ fn ac18_one_way_quarantine_qext_firewall_positive_and_all_hostile_cases() {
     // Positive control: tests/fixtures/v2_smoke/qext_post_freeze.dec
     let fixture = repo_root().join("tests/fixtures/v2_smoke/qext_post_freeze.dec");
     let out = run_file(&fixture).unwrap();
-    assert_eq!(out.to_stdout_string(), "Q_ext(1/1)\n4/5\n0\n");
+    assert_eq!(out.to_stdout_string(), "Q_ext(b\"1/1\")\n4/5\n0\n");
 
     // (i) Hostile: `return` escaping `quarantine Q_ext:` in `main()`
     let escape_return = r#"
@@ -293,7 +303,7 @@ use aod::qext:
 
 dec main() -> int:
     quarantine Q_ext:
-        let q = ext_decimal("1.25")
+        let q = ext_decimal(b"1.25")
         return 1
     0
 "#;
@@ -302,13 +312,13 @@ dec main() -> int:
         DiagnosticCode::QExtLeakageForbidden
     );
 
-    // (ii-a) Hostile: `ext_decimal("1.25")` in native helper `dec`
+    // (ii-a) Hostile: `ext_decimal(b"1.25")` in native helper `dec`
     let ext_in_native_dec = r#"
 use aod::qext:
     ext_decimal
 
 dec helper() -> int:
-    let q = ext_decimal("1.25")
+    let q = ext_decimal(b"1.25")
     0
 
 dec main() -> int:
@@ -319,13 +329,13 @@ dec main() -> int:
         DiagnosticCode::QExtLeakageForbidden
     );
 
-    // (ii-b) Hostile: `ext_decimal("1.25")` in `chamber`
+    // (ii-b) Hostile: `ext_decimal(b"1.25")` in `chamber`
     let ext_in_chamber = r#"
 use aod::qext:
     ext_decimal
 
 chamber BadCh:
-    space = ext_decimal("1.25")
+    space = ext_decimal(b"1.25")
     walls = open
 
 dec main() -> int:
@@ -336,7 +346,7 @@ dec main() -> int:
         DiagnosticCode::QExtLeakageForbidden
     );
 
-    // (ii-c) Hostile: `ext_decimal("1.25")` in `prepare`
+    // (ii-c) Hostile: `ext_decimal(b"1.25")` in `prepare`
     let ext_in_prepare = r#"
 use aod::qext:
     ext_decimal
@@ -346,7 +356,7 @@ chamber C:
     walls = open
 
 prepare BadPrep in C:
-    let bad = ext_decimal("1.25")
+    let bad = ext_decimal(b"1.25")
     inject 3:3:6 at (2, 2, 2) dir +X orient +1t shells 1
 
 dec main() -> int:
@@ -357,14 +367,14 @@ dec main() -> int:
         DiagnosticCode::QExtLeakageForbidden
     );
 
-    // (ii-d) Hostile: `ext_decimal("1.25")` in `observe`
+    // (ii-d) Hostile: `ext_decimal(b"1.25")` in `observe`
     let ext_in_observe = r#"
 use aod::qext:
     ext_decimal
 
 observe BadObs:
     tracer t(view):
-        let bad = ext_decimal("1.25")
+        let bad = ext_decimal(b"1.25")
 
 dec main() -> int:
     0
@@ -381,7 +391,7 @@ use aod::qext:
 
 dec native_helper() -> int:
     quarantine Q_ext:
-        let q = ext_decimal("1.25")
+        let q = ext_decimal(b"1.25")
         emit q
     0
 
@@ -399,7 +409,7 @@ use aod::qext:
     ext_decimal
 
 quarantine Q_ext Cal:
-    const K = ext_decimal("1.25")
+    const K = ext_decimal(b"1.25")
 
 dec main() -> int:
     let x = Cal::K
@@ -416,7 +426,7 @@ use aod::qext:
     ext_decimal
 
 quarantine Q_ext Cal:
-    const K = ext_decimal("1.25")
+    const K = ext_decimal(b"1.25")
 
 dec forge() -> QExt<ratio>:
     Cal::K
@@ -491,7 +501,7 @@ observe SneakyObs:
 
 dec main() -> int:
     quarantine Q_ext:
-        let q = ext_decimal("1.25")
+        let q = ext_decimal(b"1.25")
         emit q
     0
 "#;
@@ -519,12 +529,12 @@ use aod::qext:
     ext_decimal, qext_from_ratio, qext_render
 
 quarantine Q_ext ModA:
-    const BASE = ext_decimal("2.0")
+    const BASE = ext_decimal(b"2.0")
     dec half(x: QExt<ratio>) -> QExt<ratio>:
         x / BASE
 
 quarantine Q_ext ModB:
-    const QUARTER = ModA::BASE * ext_decimal("2.0")
+    const QUARTER = ModA::BASE * ext_decimal(b"2.0")
     dec scale_via_a(r: ratio) -> QExt<ratio>:
         let lifted = qext_from_ratio(r)
         ModA::half(lifted) + lifted / QUARTER
@@ -533,12 +543,12 @@ dec main() -> int:
     let native_r = 4/1r
     quarantine Q_ext:
         let out = ModB::scale_via_a(native_r)
-        assert out == ext_decimal("3.0")
+        assert out == ext_decimal(b"3.0")
         emit qext_render(out)
     0
 "#;
     let sib_out = run_source(sibling_qext_mods).unwrap();
-    assert_eq!(sib_out.to_stdout_string(), "Q_ext(3/1)\n0\n");
+    assert_eq!(sib_out.to_stdout_string(), "Q_ext(b\"3/1\")\n0\n");
 }
 
 #[test]

@@ -44,7 +44,6 @@ pub enum TokenKind {
     // Identifiers & literals
     Ident(String),
     IntLit(BigInt),
-    StrLit(String),
     BytesLit(Vec<u8>),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
@@ -123,7 +122,7 @@ fn map_keyword_or_reject(s: &str, line: usize, col: usize) -> DecResult<TokenKin
                 "imperative '{s}' is removed; use 'dec' signature arms, 'where' guards, 'select', 'mux', or 'match'"
             ),
         )),
-        "for" | "while" | "break" | "continue" => Err(Diagnostic::at(
+        "while" | "break" | "continue" => Err(Diagnostic::at(
             DiagnosticCode::ParseError,
             line,
             col,
@@ -268,16 +267,14 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                 continue;
             }
 
-            // String literals
+            // Unprefixed UTF-8 string literals are eliminated in pure-wave Dec (`b"..."` required)
             if c == '"' || c == '\'' {
-                let (s, next_pos) = scan_string(&chars, pos, line_no)?;
-                tokens.push(Token {
-                    kind: TokenKind::StrLit(s),
-                    line: line_no,
+                return Err(Diagnostic::at(
+                    DiagnosticCode::LexError,
+                    line_no,
                     col,
-                });
-                pos = next_pos;
-                continue;
+                    "UTF-8 string literals are forbidden in pure-wave Dec; use byte literals b\"...\"",
+                ));
             }
 
             // Boundary prefix symbol ∂ (U+2202)
@@ -526,6 +523,21 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
         line: last_line,
         col: 1,
     });
+    for (idx, tok) in tokens.iter().enumerate() {
+        if matches!(&tok.kind, TokenKind::Ident(s) if s == "for") {
+            let is_sim_for = idx >= 2
+                && tokens[idx - 2].kind == TokenKind::Simulate
+                && matches!(tokens[idx - 1].kind, TokenKind::Ident(_));
+            if !is_sim_for {
+                return Err(Diagnostic::at(
+                    DiagnosticCode::ParseError,
+                    tok.line,
+                    tok.col,
+                    "imperative loop keyword 'for' is removed; use rank lifting, '|>', 'walk', or 'settle'",
+                ));
+            }
+        }
+    }
     Ok(tokens)
 }
 
@@ -598,6 +610,14 @@ fn scan_bytes(chars: &[char], quote_pos: usize, line: usize) -> DecResult<(Vec<u
                     out.push(val);
                     pos += 3;
                 }
+                'u' => {
+                    return Err(Diagnostic::at(
+                        DiagnosticCode::LexError,
+                        line,
+                        pos + 1,
+                        "unicode escape \\u is not permitted in bytes literal; use \\xHH",
+                    ));
+                }
                 other => {
                     return Err(Diagnostic::at(
                         DiagnosticCode::LexError,
@@ -607,7 +627,7 @@ fn scan_bytes(chars: &[char], quote_pos: usize, line: usize) -> DecResult<(Vec<u
                     ));
                 }
             }
-        } else if c.is_ascii() {
+        } else if c.is_ascii() && (0x20..=0x7E).contains(&(c as u32)) {
             out.push(c as u8);
             pos += 1;
         } else {
@@ -615,7 +635,7 @@ fn scan_bytes(chars: &[char], quote_pos: usize, line: usize) -> DecResult<(Vec<u
                 DiagnosticCode::LexError,
                 line,
                 pos + 1,
-                "bytes literal must contain ASCII characters or \\xHH escapes",
+                "bytes literal must contain printable ASCII (0x20..=0x7E) or \\xHH escapes",
             ));
         }
     }
@@ -624,126 +644,6 @@ fn scan_bytes(chars: &[char], quote_pos: usize, line: usize) -> DecResult<(Vec<u
         line,
         quote_pos + 1,
         "unterminated bytes literal",
-    ))
-}
-
-fn scan_string(chars: &[char], start: usize, line: usize) -> DecResult<(String, usize)> {
-    let quote = chars[start];
-    let mut pos = start + 1;
-    let mut out = String::new();
-    while pos < chars.len() {
-        let c = chars[pos];
-        if c == quote {
-            return Ok((out, pos + 1));
-        }
-        if c == '\\' {
-            pos += 1;
-            if pos >= chars.len() {
-                return Err(Diagnostic::at(
-                    DiagnosticCode::LexError,
-                    line,
-                    pos + 1,
-                    "unterminated string escape",
-                ));
-            }
-            match chars[pos] {
-                'n' => {
-                    out.push('\n');
-                    pos += 1;
-                }
-                'r' => {
-                    out.push('\r');
-                    pos += 1;
-                }
-                't' => {
-                    out.push('\t');
-                    pos += 1;
-                }
-                '0' => {
-                    out.push('\0');
-                    pos += 1;
-                }
-                '\\' => {
-                    out.push('\\');
-                    pos += 1;
-                }
-                '"' => {
-                    out.push('"');
-                    pos += 1;
-                }
-                '\'' => {
-                    out.push('\'');
-                    pos += 1;
-                }
-                'x' => {
-                    if pos + 2 >= chars.len() {
-                        return Err(Diagnostic::at(
-                            DiagnosticCode::LexError,
-                            line,
-                            pos + 1,
-                            "incomplete \\xHH escape",
-                        ));
-                    }
-                    let hex: String = chars[pos + 1..pos + 3].iter().collect();
-                    let val = u8::from_str_radix(&hex, 16).map_err(|_| {
-                        Diagnostic::at(
-                            DiagnosticCode::LexError,
-                            line,
-                            pos + 1,
-                            format!("invalid hex escape \\x{hex}"),
-                        )
-                    })?;
-                    out.push(val as char);
-                    pos += 3;
-                }
-                'u' => {
-                    if pos + 4 >= chars.len() {
-                        return Err(Diagnostic::at(
-                            DiagnosticCode::LexError,
-                            line,
-                            pos + 1,
-                            "incomplete \\uXXXX escape",
-                        ));
-                    }
-                    let hex: String = chars[pos + 1..pos + 5].iter().collect();
-                    let val = u32::from_str_radix(&hex, 16).map_err(|_| {
-                        Diagnostic::at(
-                            DiagnosticCode::LexError,
-                            line,
-                            pos + 1,
-                            format!("invalid unicode escape \\u{hex}"),
-                        )
-                    })?;
-                    let ch = char::from_u32(val).ok_or_else(|| {
-                        Diagnostic::at(
-                            DiagnosticCode::LexError,
-                            line,
-                            pos + 1,
-                            "invalid unicode scalar value",
-                        )
-                    })?;
-                    out.push(ch);
-                    pos += 5;
-                }
-                other => {
-                    return Err(Diagnostic::at(
-                        DiagnosticCode::LexError,
-                        line,
-                        pos + 1,
-                        format!("unsupported string escape \\{other}"),
-                    ));
-                }
-            }
-        } else {
-            out.push(c);
-            pos += 1;
-        }
-    }
-    Err(Diagnostic::at(
-        DiagnosticCode::LexError,
-        line,
-        start + 1,
-        "unterminated string literal",
     ))
 }
 

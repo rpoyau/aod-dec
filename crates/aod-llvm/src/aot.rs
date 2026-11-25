@@ -124,6 +124,45 @@ pub fn emit_object_file_with_plan(
     result
 }
 
+fn collect_matching_rt_archives(dir: &Path, out: &mut Vec<PathBuf>) {
+    if let Ok(files) = std::fs::read_dir(dir) {
+        for f in files.flatten() {
+            let p = f.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("a")
+                && p.file_name()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|n| n.starts_with("libaod_rt"))
+                && p.is_file()
+            {
+                out.push(p);
+            }
+        }
+    }
+}
+
+fn collect_profile_rt_libs(root: &Path, profile: &str, out: &mut Vec<PathBuf>) {
+    let prof_dir = root.join("target").join(profile);
+    let top = prof_dir.join("libaod_rt.a");
+    if top.is_file() {
+        out.push(top);
+    }
+    collect_matching_rt_archives(&prof_dir.join("deps"), out);
+    let build_rt = prof_dir.join("build").join("aod-rt");
+    if let Ok(entries) = std::fs::read_dir(build_rt) {
+        for ent in entries.flatten() {
+            collect_matching_rt_archives(&ent.path().join("out"), out);
+        }
+    }
+}
+
+fn newest_file(paths: &[PathBuf]) -> Option<PathBuf> {
+    paths
+        .iter()
+        .filter(|p| p.is_file())
+        .max_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok())
+        .cloned()
+}
+
 pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
     if let Ok(p) = std::env::var("AOD_RT_LIB") {
         let pb = PathBuf::from(&p);
@@ -132,16 +171,18 @@ pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
         }
     }
 
-    let mut candidates: Vec<PathBuf> = Vec::new();
+    let mut exe_near: Vec<PathBuf> = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            candidates.push(dir.join("libaod_rt.a"));
+            exe_near.push(dir.join("libaod_rt.a"));
+            collect_matching_rt_archives(dir, &mut exe_near);
             if let Some(p1) = dir.parent() {
-                candidates.push(p1.join("libaod_rt.a"));
+                exe_near.push(p1.join("libaod_rt.a"));
+                collect_matching_rt_archives(&p1.join("deps"), &mut exe_near);
                 if let Some(p2) = p1.parent() {
-                    candidates.push(p2.join("libaod_rt.a"));
+                    exe_near.push(p2.join("libaod_rt.a"));
                     if let Some(p3) = p2.parent() {
-                        candidates.push(p3.join("libaod_rt.a"));
+                        exe_near.push(p3.join("libaod_rt.a"));
                     }
                 }
             }
@@ -164,25 +205,29 @@ pub fn find_aod_rt_lib() -> LlvmResult<PathBuf> {
         "debug"
     };
 
-    if let Some(root) = manifest_root {
-        candidates.push(root.join("target").join(preferred_profile).join("libaod_rt.a"));
-        candidates.push(root.join("target").join(fallback_profile).join("libaod_rt.a"));
-    }
+    let mut preferred_candidates: Vec<PathBuf> = exe_near;
+    let mut fallback_candidates: Vec<PathBuf> = Vec::new();
 
+    if let Some(ref root) = manifest_root {
+        collect_profile_rt_libs(root, preferred_profile, &mut preferred_candidates);
+        collect_profile_rt_libs(root, fallback_profile, &mut fallback_candidates);
+    }
     if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("target").join(preferred_profile).join("libaod_rt.a"));
-        candidates.push(cwd.join("target").join(fallback_profile).join("libaod_rt.a"));
-    }
-
-    for c in &candidates {
-        if c.is_file() {
-            return Ok(c.clone());
+        if manifest_root.as_ref() != Some(&cwd) {
+            collect_profile_rt_libs(&cwd, preferred_profile, &mut preferred_candidates);
+            collect_profile_rt_libs(&cwd, fallback_profile, &mut fallback_candidates);
         }
     }
 
+    if let Some(best) = newest_file(&preferred_candidates) {
+        return Ok(best);
+    }
+    if let Some(best) = newest_file(&fallback_candidates) {
+        return Ok(best);
+    }
+
     Err(LlvmError::new(format!(
-        "could not locate libaod_rt.a (set AOD_RT_LIB or run `cargo build -p aod-rt`); searched {:?}",
-        candidates
+        "could not locate libaod_rt.a (set AOD_RT_LIB or run `cargo build -p aod-rt`); searched preferred={preferred_candidates:?}, fallback={fallback_candidates:?}"
     )))
 }
 

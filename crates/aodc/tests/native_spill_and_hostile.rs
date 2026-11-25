@@ -134,8 +134,8 @@ dec main() -> int:
     assert_parity_success(src, "ac09_int_spill");
 
     // Div by zero rejection across VM, AOT, and JIT
-    let div0 = "dec main() -> int:\n    emit \"before-div0\"\n    7 // 0\n";
-    assert_parity_runtime_fail(div0, "before-div0\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac09_div0");
+    let div0 = "dec main() -> int:\n    emit b\"before-div0\"\n    7 // 0\n";
+    assert_parity_runtime_fail(div0, "b\"before-div0\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac09_div0");
 }
 
 #[test]
@@ -180,35 +180,35 @@ dec main() -> int:
     assert_parity_success(src, "ac10_trit_ratio_spill");
 
     // Hostile `b64(spilled_int)` (> 32 trits) rejected across VM, AOT, JIT
-    let spill_b64 = "dec main() -> int:\n    emit \"before-b64\"\n    let w = b64(926510094425920 + 1)\n    u64_int(w)\n";
-    assert_parity_runtime_fail(spill_b64, "before-b64\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_spill_b64");
+    let spill_b64 = "dec main() -> int:\n    emit b\"before-b64\"\n    let w = b64(926510094425920 + 1)\n    u64_int(w)\n";
+    assert_parity_runtime_fail(spill_b64, "b\"before-b64\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_spill_b64");
 
     // Hostile `int(b64_bits(3))` (invalid 0b11 lane) rejected across VM, AOT, JIT
-    let bad_unpack = "dec main() -> int:\n    emit \"before-unpack\"\n    int(b64_bits(3))\n";
-    assert_parity_runtime_fail(bad_unpack, "before-unpack\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_bad_unpack");
+    let bad_unpack = "dec main() -> int:\n    emit b\"before-unpack\"\n    int(b64_bits(3))\n";
+    assert_parity_runtime_fail(bad_unpack, "b\"before-unpack\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_bad_unpack");
 
     // Hostile `pack_ratio` exceeding 31 combined trits rejected across VM, AOT, JIT
-    let ovf_pack_ratio = "dec main() -> int:\n    emit \"before-pr\"\n    let w = pack_ratio(ratio(926510094425920, 926510094425919))\n    u64_int(w)\n";
-    assert_parity_runtime_fail(ovf_pack_ratio, "before-pr\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_ovf_pr");
+    let ovf_pack_ratio = "dec main() -> int:\n    emit b\"before-pr\"\n    let w = pack_ratio(ratio(926510094425920, 926510094425919))\n    u64_int(w)\n";
+    assert_parity_runtime_fail(ovf_pack_ratio, "b\"before-pr\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_ovf_pr");
 
     // Hostile non-integer ratio -> int(7/2r)
-    let bad_int_rat = "dec main() -> int:\n    emit \"before-rat-int\"\n    int(7/2r)\n";
-    assert_parity_runtime_fail(bad_int_rat, "before-rat-int\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_bad_int_rat");
+    let bad_int_rat = "dec main() -> int:\n    emit b\"before-rat-int\"\n    int(7/2r)\n";
+    assert_parity_runtime_fail(bad_int_rat, "b\"before-rat-int\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac10_bad_int_rat");
 }
 
 #[test]
 fn ac12_budgets_assert_and_procedural_observer_failure_preserve_emits() {
     // 1. Coarsened native fuel exhaustion preserves prior emit
-    let fuel_loop = "dec inc(x: int) -> int:\n    x + 1\n\ndec main() -> int:\n    emit \"pre-fuel\"\n    walk(0, 1000, inc)\n";
-    assert_parity_runtime_fail(fuel_loop, "pre-fuel\n", 15, DEFAULT_MAX_DEPTH, "ac12_fuel");
+    let fuel_loop = "dec inc(x: int) -> int:\n    x + 1\n\ndec main() -> int:\n    emit b\"pre-fuel\"\n    walk(0, 1000, inc)\n";
+    assert_parity_runtime_fail(fuel_loop, "b\"pre-fuel\"\n", 15, DEFAULT_MAX_DEPTH, "ac12_fuel");
 
     // 2. Call depth exhaustion preserves prior emit
     let depth_rec = "dec dive(n: int) -> int:\n    emit n\n    dive(n + 1)\n\ndec main() -> int:\n    dive(1)\n";
     assert_parity_runtime_fail(depth_rec, "1\n2\n3\n4\n", DEFAULT_FUEL, 5, "ac12_depth");
 
     // 3. Assertion failure preserves prior emit
-    let assert_fail = "dec main() -> int:\n    emit \"pre-assert\"\n    assert false\n    0\n";
-    assert_parity_runtime_fail(assert_fail, "pre-assert\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac12_assert");
+    let assert_fail = "dec main() -> int:\n    emit b\"pre-assert\"\n    assert false\n    0\n";
+    assert_parity_runtime_fail(assert_fail, "b\"pre-assert\"\n", DEFAULT_FUEL, DEFAULT_MAX_DEPTH, "ac12_assert");
 
     // 4. P1-3: Procedural observer callback failure halts simulate immediately & preserves prior emits!
     let obs_fail = r#"
@@ -226,14 +226,14 @@ observe FailObs:
         view.tick
 
 dec main() -> int:
-    emit "start-sim"
+    emit b"start-sim"
     let r = simulate P over 10 ticks with FailObs
-    emit "unreachable"
+    emit b"unreachable"
     r.ticks
 "#;
     assert_parity_runtime_fail(
         obs_fail,
-        "start-sim\n1\n2\n",
+        "b\"start-sim\"\n1\n2\n",
         DEFAULT_FUEL,
         DEFAULT_MAX_DEPTH,
         "ac12_obs_fail",
@@ -246,19 +246,19 @@ fn ac13_arena_invalid_handle_and_max_entries_cap_safety() {
     let mut arena = RtArena::new(3);
     assert!(arena.get(0).is_err());
     assert!(arena.get(1).is_err());
-    let h1 = arena.insert(RtValue::Str("a".to_string())).unwrap();
-    let h2 = arena.insert(RtValue::Str("b".to_string())).unwrap();
-    let h3 = arena.insert(RtValue::Str("c".to_string())).unwrap();
+    let h1 = arena.insert(RtValue::Bytes(b"a".to_vec().into())).unwrap();
+    let h2 = arena.insert(RtValue::Bytes(b"b".to_vec().into())).unwrap();
+    let h3 = arena.insert(RtValue::Bytes(b"c".to_vec().into())).unwrap();
     assert_eq!((h1, h2, h3), (1, 2, 3));
-    assert!(arena.insert(RtValue::Str("overflow".to_string())).is_err());
+    assert!(arena.insert(RtValue::Bytes(b"overflow".to_vec().into())).is_err());
     assert!(arena.get(99).is_err());
 
     // 2. End-to-end C ABI cap exhaustion via ORC LLJIT with tiny max_arena_entries=2 (zero unsafe in test!)
     let alloc_prog = r#"
 dec main() -> int:
-    let a = "one"
-    let b = "two"
-    let c = "three"
+    let a = b"one"
+    let b = b"two"
+    let c = b"three"
     emit a
     emit b
     emit c
@@ -322,7 +322,7 @@ fn ac14_compile_time_firewalls_enforced_before_ir_or_artifacts() {
 
     let hostile_cases = [
         (
-            "use aod::qext:\n    ext_decimal\ndec main() -> int:\n    let q = ext_decimal(\"1.25\")\n    0\n",
+            "use aod::qext:\n    ext_decimal\ndec main() -> int:\n    let q = ext_decimal(b\"1.25\")\n    0\n",
             DiagnosticCode::QExtLeakageForbidden,
         ),
         (

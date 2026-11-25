@@ -473,3 +473,26 @@ impl fmt::Display for Addr8 {
         f.write_str(&self.render())
     }
 }
+
+/// Canonical ASCII escaping for `bytes` values (`b"..."`).
+pub fn render_bytes_literal(bs: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::with_capacity(bs.len() + 3);
+    out.push_str("b\"");
+    for &b in bs {
+        match b {
+            b'\\' => out.push_str("\\\\"),
+            b'"' => out.push_str("\\\""),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            0 => out.push_str("\\0"),
+            0x20..=0x7E => out.push(b as char),
+            other => {
+                let _ = write!(&mut out, "\\x{other:02x}");
+            }
+        }
+    }
+    out.push('"');
+    out
+}

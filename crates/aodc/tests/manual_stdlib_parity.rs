@@ -200,7 +200,7 @@ dec main() -> int:
     0
 "#;
     let expected = run_source(ok_src).unwrap().to_stdout_string();
-    assert_eq!(expected, "Q_ext(1/4596315885)\n0\n");
+    assert_eq!(expected, "Q_ext(b\"1/4596315885\")\n0\n");
 
     let tmp = temp_dir("ac03_qext_topo");
     let exe = tmp.join("qext_ok");

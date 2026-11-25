@@ -1,0 +1,107 @@
+use aod::core:
+    int, b8, t1, max, select, len, tabulate, fold_seq, verify_sheddic_route
+
+struct LexCursor:
+    octal_addr: int
+    byte_pos: int
+    prev_class: t1
+    token_count: int
+    dwell_m: int
+
+struct AoSigTriad:
+    octal_anchor: int
+    pi_alpha_t1: b8
+    pi_alpha_t2: b8
+    h_mu_hinge: b8
+    pi_omega_ret: b8
+    adm_cert: b8
+
+struct TickClickProbe:
+    chan_id: b8
+    x_emitted: int
+    y_returned: int
+    rho_d_measured: int
+    lag_lambda: int
+    phi_ind: int
+    phi_rec: int
+
+struct LearnedChannel:
+    chan_id: b8
+    cut_ke: int
+    r_e: int
+    op_certified: b8
+    role_label: t1
+    w_adapted: int
+    shed_route: b8
+
+dec classify_byte:
+    (b8(32)) -> t1:
+        return 0t
+    (b8(10)) -> t1:
+        return 0t
+    (b8(9)) -> t1:
+        return 0t
+    (b: b8) where (((((b == b8(58)) or (b == b8(40))) or (b == b8(41))) or (b == b8(45))) or (b == b8(62))) -> t1:
+        return -1t
+    (_: b8) -> t1:
+        return 1t
+
+dec lex_step_walk:
+    (cur: LexCursor, _prev_byte: b8, _next_byte: b8, 0t) -> LexCursor:
+        return LexCursor(cur.octal_addr, (cur.byte_pos + 1), 0t, cur.token_count, (cur.dwell_m + 1))
+    (cur: LexCursor, prev_byte: b8, next_byte: b8, next_class: t1) -> LexCursor:
+        assert ((next_class == 1t) or (next_class == -1t))
+        let changed = select((prev_byte != next_byte), 1, 0)
+        return LexCursor((cur.octal_addr + changed), (cur.byte_pos + 1), next_class, (cur.token_count + changed), 0)
+
+dec byte_at:
+    (idx: int, raw: bytes) -> b8:
+        return raw[idx]
+
+dec lex_fold_step:
+    ((cur, prev_b): (LexCursor, b8), b: b8) -> (LexCursor, b8):
+        let cls = classify_byte(b)
+        return (lex_step_walk(cur, prev_b, b, cls), b)
+
+dec lex_walk_bytes:
+    (raw: bytes) -> LexCursor:
+        let init = LexCursor(0, 0, 0t, 0, 0)
+        let byte_seq = tabulate(0..len(raw), byte_at, raw)
+        let (final_cur, _) = fold_seq((init, b8(0)), byte_seq, lex_fold_step)
+        return final_cur
+
+dec parse_dec_triad:
+    (addr: int, in_t1: b8, in_t2: b8, b8(1), out_t3: b8) -> AoSigTriad:
+        let valid_types = select((((in_t1 > b8(0)) and (in_t2 > b8(0))) and (out_t3 > b8(0))), b8(1), b8(0))
+        return AoSigTriad(addr, in_t1, in_t2, b8(1), out_t3, valid_types)
+    (addr: int, in_t1: b8, in_t2: b8, b8(0), out_t3: b8) -> AoSigTriad:
+        return AoSigTriad(addr, in_t1, in_t2, b8(0), out_t3, b8(0))
+
+dec probe_and_retain:
+    (probe: TickClickProbe, cut_k: int, base_weight: int) -> LearnedChannel:
+        assert (probe.rho_d_measured > 0)
+        let r_val = (probe.phi_rec - probe.phi_ind)
+        let w_new = max(1, ((base_weight + r_val) - probe.lag_lambda))
+        let route = select((probe.rho_d_measured <= 9), b8(6), select((probe.rho_d_measured <= 61), b8(8), b8(10)))
+        assert verify_sheddic_route(1, route)
+        let op_ok = select((r_val > 0), b8(1), b8(0))
+        let role = select((op_ok == b8(1)), 1t, 0t)
+        return LearnedChannel(probe.chan_id, cut_k, r_val, op_ok, role, w_new, route)
+
+dec main:
+    () -> int:
+        let walked = lex_walk_bytes(b"dec f:   \n")
+        assert (((walked.byte_pos == 10) and (walked.dwell_m == 4)) and (walked.octal_addr == 5))
+        let ok_triad = parse_dec_triad(walked.octal_addr, b8(2), b8(3), b8(1), b8(4))
+        let bad_triad = parse_dec_triad(walked.octal_addr, b8(2), b8(3), b8(0), b8(4))
+        assert ((ok_triad.adm_cert == b8(1)) and (bad_triad.adm_cert == b8(0)))
+        let pr = TickClickProbe(b8(2), 64, 64, 61, 3, 10, 22)
+        let ch = probe_and_retain(pr, 6, 4)
+        assert (((ch.r_e == 12) and (ch.op_certified == b8(1))) and (ch.role_label == 1t))
+        assert ((ch.w_adapted == 13) and (ch.shed_route == b8(8)))
+        emit walked.octal_addr
+        emit walked.dwell_m
+        emit ok_triad.adm_cert
+        emit ch.w_adapted
+        emit ch.shed_route
+        return 0

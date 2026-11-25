@@ -1,7 +1,7 @@
 use aod_core::bigint::BigInt;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, T1};
+use aod_core::ternary::{Addr8, B64, B8, Q4, T1};
 pub use aod_rt::sim::{AxisDir, ProbeKind, WallPolicy as WallPolicyAst};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -98,8 +98,10 @@ pub enum Pattern {
     NullLit,
     IntLit(BigInt),
     BoolLit(bool),
-    StrLit(String),
     BytesLit(Vec<u8>),
+    B8Lit(B8),
+    B64Lit(B64),
+    Q4Lit(Q4),
     TritLit(T1),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
@@ -125,6 +127,7 @@ pub enum DecArmParam {
 pub struct DecArm {
     pub params: Vec<DecArmParam>,
     pub guard: Option<Expr>,
+    pub has_arrow: bool,
     pub return_type: TypeExpr,
     pub body: Vec<Stmt>,
     pub line: usize,
@@ -187,6 +190,7 @@ pub enum ProbeDecl {
         kind: ProbeKind,
         name: String,
         param_name: String,
+        param_ty: Option<TypeExpr>,
         return_type: TypeExpr,
         body: Vec<Stmt>,
         line: usize,
@@ -210,7 +214,7 @@ pub struct QuarantineModDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LetPattern {
     Single(String),
-    Tuple(Vec<String>),
+    Tuple(Vec<(String, Option<TypeExpr>)>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -309,7 +313,6 @@ pub enum ExprKind {
     NullLit,
     IntLit(BigInt),
     BoolLit(bool),
-    StrLit(String),
     BytesLit(Vec<u8>),
     RatioLit(Ratio),
     Addr8Lit(Addr8),

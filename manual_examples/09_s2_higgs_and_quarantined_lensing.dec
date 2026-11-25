@@ -7,7 +7,7 @@
 use aod::qext:
     ext_decimal, qext_from_ratio, qext_render
 use stdlib::aod::sectors:
-    HiggsCandidate, higgs_candidate_score, higgs_select_winner_index, swells_delta3_tau_audit
+    HiggsCandidate, ScientificStatus, higgs_candidate_score, higgs_select_winner_index, swells_delta3_tau_audit
 use stdlib::aod::metrology
 use stdlib::aod::metrology::DisplayQuarantine
 
@@ -30,7 +30,7 @@ dec main() -> int:
     let audit = swells_delta3_tau_audit([2, 12, 1], [2, 8, 5], 9/20r, 23/50r)
     assert audit.sum_delta_z == 0 and audit.sum_m == 8
     assert audit.tau_difference == 1/100r and audit.tau_distinct
-    assert audit.scientific_status == "UNRESOLVED_PROVENANCE_QUARANTINED"
+    assert audit.scientific_status == ScientificStatus::UnresolvedProvenanceQuarantined
 
     emit s0.score
     emit s1.score
@@ -86,7 +86,7 @@ dec main() -> int:
         assert atl_ape_res == qext_from_ratio(259/626100000r)
 
         # SD-006: Printed token half-ULP enclosure on 0.0001234 (7 decimal places)
-        let tok_val = ext_decimal("0.0001234")
+        let tok_val = ext_decimal(b"0.0001234")
         let h_ulp = DisplayQuarantine::half_ulp_bound(7)
         let lo = DisplayQuarantine::half_ulp_lower(tok_val, 7)
         let hi = metrology::DisplayQuarantine::half_ulp_upper(tok_val, 7)

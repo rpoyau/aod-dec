@@ -663,9 +663,18 @@ fn generate_sandbox_chamber_json(
         "carrier_count".to_string(),
         JsonValue::Int(parse_bigint_line(&emits[2], "sandbox.carrier_count")?),
     );
+    let unquote = |s: &str| -> String {
+        if s == "ModelStatus::DeclaredSandboxNotS3Authenticated" {
+            return "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED".to_string();
+        }
+        s.strip_prefix("b\"")
+            .and_then(|t| t.strip_suffix('"'))
+            .unwrap_or(s)
+            .to_string()
+    };
     root.insert(
         "final_state_hash".to_string(),
-        JsonValue::from_str_val(emits[7].clone()),
+        JsonValue::from_str_val(unquote(&emits[7])),
     );
     root.insert(
         "fixture".to_string(),
@@ -673,7 +682,7 @@ fn generate_sandbox_chamber_json(
     );
     root.insert(
         "model_status".to_string(),
-        JsonValue::from_str_val(emits[0].clone()),
+        JsonValue::from_str_val(unquote(&emits[0])),
     );
     root.insert(
         "observer_back_reaction_bytes_changed".to_string(),

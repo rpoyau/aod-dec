@@ -4,8 +4,8 @@
 
 struct EncounterTick:
     idx: int
-    facet_a: str
-    facet_b: str
+    facet_a: bytes
+    facet_b: bytes
     ticket_a: ratio
     ticket_b: ratio
 
@@ -15,11 +15,11 @@ struct EncounterState:
     a: trace
     b: trace
 
-dec population_count(facet: str) -> int:
-    assert facet == "0***" or facet == "1***" or facet == "*0**" or facet == "*1**" or facet == "**0*" or facet == "**1*" or facet == "***0" or facet == "***1"
-    select(facet == "*0**", 4, 1)
+dec population_count(facet: bytes) -> int:
+    assert facet == b"0***" or facet == b"1***" or facet == b"*0**" or facet == b"*1**" or facet == b"**0*" or facet == b"**1*" or facet == b"***0" or facet == b"***1"
+    select(facet == b"*0**", 4, 1)
 
-dec q_local(facet: str) -> ratio:
+dec q_local(facet: bytes) -> ratio:
     let score = ratio(population_count(facet) - 1, 3)
     1/16r + (1/4r - 1/16r) * score
 
@@ -58,21 +58,21 @@ dec step_encounter(st: EncounterState, tk: EncounterTick) -> EncounterState:
     EncounterState(chi_a, chi_b, a, b)
 
 dec main() -> int:
-    let a0 = recur_chi(recur_chi(trace("chiral-encounter:declared-support", "carrier-A", q4(0)), 1), 1)
-    let b0 = recur_chi(recur_chi(trace("chiral-encounter:declared-support", "carrier-B", q4(0)), -1), -1)
+    let a0 = recur_chi(recur_chi(trace(b"chiral-encounter:declared-support", b"carrier-A", q4(0)), 1), 1)
+    let b0 = recur_chi(recur_chi(trace(b"chiral-encounter:declared-support", b"carrier-B", q4(0)), -1), -1)
     assert phases(a0) == 2
     assert beats(a0) == 1
     assert phases(b0) == 2
     assert beats(b0) == 1
     let schedule: [EncounterTick] = [
-        EncounterTick(1, "*0**", "1***", 21/64r, 28/64r),
-        EncounterTick(2, "1***", "***1", 37/64r, 46/64r),
-        EncounterTick(3, "***1", "***1", 2/64r, 10/64r),
-        EncounterTick(4, "**1*", "*1**", 41/64r, 26/64r),
-        EncounterTick(5, "1***", "*1**", 40/64r, 57/64r),
-        EncounterTick(6, "***1", "**0*", 4/64r, 12/64r),
-        EncounterTick(7, "***1", "**0*", 39/64r, 41/64r),
-        EncounterTick(8, "***1", "***0", 53/64r, 59/64r),
+        EncounterTick(1, b"*0**", b"1***", 21/64r, 28/64r),
+        EncounterTick(2, b"1***", b"***1", 37/64r, 46/64r),
+        EncounterTick(3, b"***1", b"***1", 2/64r, 10/64r),
+        EncounterTick(4, b"**1*", b"*1**", 41/64r, 26/64r),
+        EncounterTick(5, b"1***", b"*1**", 40/64r, 57/64r),
+        EncounterTick(6, b"***1", b"**0*", 4/64r, 12/64r),
+        EncounterTick(7, b"***1", b"**0*", 39/64r, 41/64r),
+        EncounterTick(8, b"***1", b"***0", 53/64r, 59/64r),
     ]
     let fin = fold(schedule, EncounterState(1, -1, a0, b0), step_encounter)
     emit fin.a

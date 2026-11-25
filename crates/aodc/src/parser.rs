@@ -1,5 +1,5 @@
 use aod_core::bigint::BigInt;
-use aod_core::ternary::T1;
+use aod_core::ternary::{B64, B8, Q4, T1};
 
 use crate::ast::{
     AxisDir, BinaryOp, ChamberDecl, ClockDecl, ConstDecl, DecArm, DecArmParam,
@@ -473,7 +473,21 @@ impl Parser {
             self.expect(&TokenKind::RBracket, "']'")?;
             return Ok(TypeExpr::List(Box::new(elem_ty)));
         }
-        let name = self.expect_ident("type name")?;
+        let mut name = self.expect_ident("type name")?;
+        while self.check(&TokenKind::ColonColon) {
+            self.advance();
+            let seg = self.expect_ident("qualified type segment")?;
+            name.push_str("::");
+            name.push_str(&seg);
+        }
+        if name == "array" && self.check(&TokenKind::LBracket) {
+            self.advance();
+            let elem_ty = self.parse_type_expr_inner()?;
+            self.expect(&TokenKind::Comma, "',' in array[T, N]")?;
+            let n = self.expect_positive_usize("array dimension")?;
+            self.expect(&TokenKind::RBracket, "']' in array[T, N]")?;
+            return Ok(TypeExpr::Array(Box::new(elem_ty), n));
+        }
         if name == "map" && self.check(&TokenKind::LBracket) {
             self.advance();
             let k = self.parse_type_expr_inner()?;
@@ -573,11 +587,11 @@ impl Parser {
             guard = Some(self.parse_expr()?);
         }
 
-        let return_type = if self.check(&TokenKind::Arrow) {
+        let (has_arrow, return_type) = if self.check(&TokenKind::Arrow) {
             self.advance();
-            self.parse_type_expr()?
+            (true, self.parse_type_expr()?)
         } else {
-            TypeExpr::Unit
+            (false, TypeExpr::Unit)
         };
 
         if self.check(&TokenKind::Where) {
@@ -608,6 +622,7 @@ impl Parser {
         Ok(DecArm {
             params,
             guard,
+            has_arrow,
             return_type,
             body,
             line,
@@ -652,10 +667,6 @@ impl Parser {
             TokenKind::False => {
                 self.advance();
                 Ok(Pattern::BoolLit(false))
-            }
-            TokenKind::StrLit(s) => {
-                self.advance();
-                Ok(Pattern::StrLit(s))
             }
             TokenKind::BytesLit(bs) => {
                 self.advance();
@@ -725,6 +736,88 @@ impl Parser {
             }
             TokenKind::Ident(first) => {
                 self.advance();
+                if matches!(
+                    first.as_str(),
+                    "b8" | "b64" | "b64_bits" | "t1" | "q4"
+                ) && self.check(&TokenKind::LParen)
+                {
+                    self.advance();
+                    let neg = if self.check(&TokenKind::Minus) {
+                        self.advance();
+                        true
+                    } else if self.check(&TokenKind::Plus) {
+                        self.advance();
+                        false
+                    } else {
+                        false
+                    };
+                    if first == "t1" {
+                        if let TokenKind::TritLit(tl) = self.peek().kind {
+                            self.advance();
+                            let base = tl.to_t1();
+                            self.expect(&TokenKind::RParen, "')' after t1(...) pattern")?;
+                            return Ok(Pattern::TritLit(if neg { base.checked_neg() } else { base }));
+                        }
+                    }
+                    let arg_tok = self.peek().clone();
+                    let raw_int = match arg_tok.kind {
+                        TokenKind::IntLit(n) => {
+                            self.advance();
+                            if neg { -n } else { n }
+                        }
+                        other => {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::ParseError,
+                                line,
+                                format!(
+                                    "expected integer literal inside {first}(...) pattern, got {other:?}"
+                                ),
+                            ));
+                        }
+                    };
+                    self.expect(&TokenKind::RParen, "')' after register pattern literal")?;
+                    return match first.as_str() {
+                        "b8" => {
+                            let u = raw_int.to_u64().filter(|&v| v <= 255).ok_or_else(|| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::TypeError,
+                                    line,
+                                    format!("b8 pattern literal outside 0..=255: {raw_int}"),
+                                )
+                            })?;
+                            Ok(Pattern::B8Lit(B8(u as u8)))
+                        }
+                        "b64" => {
+                            let b = B64::from_trit_int(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(DiagnosticCode::TypeError, line, e.to_string())
+                            })?;
+                            Ok(Pattern::B64Lit(b))
+                        }
+                        "b64_bits" => {
+                            let b = B64::from_unsigned_int(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(DiagnosticCode::TypeError, line, e.to_string())
+                            })?;
+                            Ok(Pattern::B64Lit(b))
+                        }
+                        "t1" => {
+                            let t = T1::from_bigint(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::InvalidTritLiteral,
+                                    line,
+                                    e.to_string(),
+                                )
+                            })?;
+                            Ok(Pattern::TritLit(t))
+                        }
+                        "q4" => {
+                            let q = Q4::from_bigint(&raw_int).map_err(|e| {
+                                Diagnostic::at_line(DiagnosticCode::TypeError, line, e.to_string())
+                            })?;
+                            Ok(Pattern::Q4Lit(q))
+                        }
+                        _ => unreachable!(),
+                    };
+                }
                 if self.check(&TokenKind::ColonColon) {
                     let mut path = vec![first];
                     while self.check(&TokenKind::ColonColon) {
@@ -806,8 +899,19 @@ impl Parser {
                 }
                 "engine" => {
                     let eng = match &self.peek().kind {
-                        TokenKind::StrLit(s) | TokenKind::Ident(s) => {
+                        TokenKind::Ident(s) => {
                             let s = s.clone();
+                            self.advance();
+                            s
+                        }
+                        TokenKind::BytesLit(bs) => {
+                            let s = std::str::from_utf8(bs).map_err(|_| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::ParseError,
+                                    fline,
+                                    "chamber engine bytes literal must be valid UTF-8",
+                                )
+                            })?.to_string();
                             self.advance();
                             s
                         }
@@ -815,7 +919,7 @@ impl Parser {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::ParseError,
                                 fline,
-                                format!("expected engine identifier or string, got {other:?}"),
+                                format!("expected engine identifier or byte literal, got {other:?}"),
                             ));
                         }
                     };
@@ -1039,10 +1143,12 @@ impl Parser {
                 if self.check(&TokenKind::LParen) {
                     self.advance();
                     let param_name = self.expect_ident("observer view parameter")?;
-                    if self.check(&TokenKind::Colon) {
+                    let param_ty = if self.check(&TokenKind::Colon) {
                         self.advance();
-                        let _ = self.parse_type_expr()?;
-                    }
+                        Some(self.parse_type_expr()?)
+                    } else {
+                        None
+                    };
                     self.expect(&TokenKind::RParen, "')'")?;
                     let return_type = if self.check(&TokenKind::Arrow) {
                         self.advance();
@@ -1059,6 +1165,7 @@ impl Parser {
                         kind,
                         name: pname,
                         param_name,
+                        param_ty,
                         return_type,
                         body,
                         line: pline,
@@ -1068,54 +1175,93 @@ impl Parser {
                     self.expect(&TokenKind::Newline, "newline after probe header")?;
                     self.expect(&TokenKind::Indent, "indented probe body")?;
                     self.skip_newlines();
-                    let mut region: Option<Expr> = None;
-                    let mut capture: Vec<String> = Vec::new();
-                    while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
-                        let fline = self.line();
-                        let field = self.expect_ident("region or capture")?;
-                        if self.check(&TokenKind::Eq) || self.check(&TokenKind::Colon) {
+                    if self.check(&TokenKind::LParen) {
+                        self.advance();
+                        let param_name = self.expect_ident("observer view parameter")?;
+                        let param_ty = if self.check(&TokenKind::Colon) {
                             self.advance();
-                        }
-                        match field.as_str() {
-                            "region" => region = Some(self.parse_expr()?),
-                            "capture" => {
-                                self.expect(&TokenKind::LBracket, "'[' for capture list")?;
-                                while !self.check(&TokenKind::RBracket) {
-                                    capture.push(self.expect_ident("capture channel")?);
-                                    if self.check(&TokenKind::Comma) {
-                                        self.advance();
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                self.expect(&TokenKind::RBracket, "']'")?;
-                            }
-                            other => {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ParseError,
-                                    fline,
-                                    format!("unknown declarative probe field {other:?}"),
-                                ));
-                            }
-                        }
-                        self.expect_line_end()?;
+                            Some(self.parse_type_expr()?)
+                        } else {
+                            None
+                        };
+                        self.expect(&TokenKind::RParen, "')'")?;
+                        let return_type = if self.check(&TokenKind::Arrow) {
+                            self.advance();
+                            self.parse_type_expr()?
+                        } else {
+                            TypeExpr::Unit
+                        };
+                        self.expect(&TokenKind::Colon, "':'")?;
+                        let mut body = if self.check(&TokenKind::Newline) {
+                            self.advance();
+                            self.expect(&TokenKind::Indent, "indented procedural probe body")?;
+                            self.parse_block_stmts_already_indented()?
+                        } else {
+                            let s = self.parse_stmt()?;
+                            vec![s]
+                        };
                         self.skip_newlines();
+                        self.expect(&TokenKind::Dedent, "dedent after indented procedural probe")?;
+                        promote_tail_return(&mut body, &return_type);
+                        probes.push(ProbeDecl::Procedural {
+                            kind,
+                            name: pname,
+                            param_name,
+                            param_ty,
+                            return_type,
+                            body,
+                            line: pline,
+                        });
+                    } else {
+                        let mut region: Option<Expr> = None;
+                        let mut capture: Vec<String> = Vec::new();
+                        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+                            let fline = self.line();
+                            let field = self.expect_ident("region or capture")?;
+                            if self.check(&TokenKind::Eq) || self.check(&TokenKind::Colon) {
+                                self.advance();
+                            }
+                            match field.as_str() {
+                                "region" => region = Some(self.parse_expr()?),
+                                "capture" => {
+                                    self.expect(&TokenKind::LBracket, "'[' for capture list")?;
+                                    while !self.check(&TokenKind::RBracket) {
+                                        capture.push(self.expect_ident("capture channel")?);
+                                        if self.check(&TokenKind::Comma) {
+                                            self.advance();
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    self.expect(&TokenKind::RBracket, "']'")?;
+                                }
+                                other => {
+                                    return Err(Diagnostic::at_line(
+                                        DiagnosticCode::ParseError,
+                                        fline,
+                                        format!("unknown declarative probe field {other:?}"),
+                                    ));
+                                }
+                            }
+                            self.expect_line_end()?;
+                            self.skip_newlines();
+                        }
+                        self.expect(&TokenKind::Dedent, "dedent after probe")?;
+                        let region = region.ok_or_else(|| {
+                            Diagnostic::at_line(
+                                DiagnosticCode::ParseError,
+                                pline,
+                                format!("probe {pname} missing required `region`"),
+                            )
+                        })?;
+                        probes.push(ProbeDecl::Declarative {
+                            kind,
+                            name: pname,
+                            region,
+                            capture,
+                            line: pline,
+                        });
                     }
-                    self.expect(&TokenKind::Dedent, "dedent after probe")?;
-                    let region = region.ok_or_else(|| {
-                        Diagnostic::at_line(
-                            DiagnosticCode::ParseError,
-                            pline,
-                            format!("probe {pname} missing required `region`"),
-                        )
-                    })?;
-                    probes.push(ProbeDecl::Declarative {
-                        kind,
-                        name: pname,
-                        region,
-                        capture,
-                        line: pline,
-                    });
                 }
                 self.skip_newlines();
             }
@@ -1169,9 +1315,16 @@ impl Parser {
                 self.advance();
                 let pattern = if self.check(&TokenKind::LParen) {
                     self.advance();
-                    let mut names = Vec::new();
+                    let mut elems = Vec::new();
                     while !self.check(&TokenKind::RParen) {
-                        names.push(self.expect_ident("tuple binding name")?);
+                        let bname = self.expect_ident("tuple binding name")?;
+                        let elem_ty = if self.check(&TokenKind::Colon) {
+                            self.advance();
+                            Some(self.parse_type_expr()?)
+                        } else {
+                            None
+                        };
+                        elems.push((bname, elem_ty));
                         if self.check(&TokenKind::Comma) {
                             self.advance();
                             if self.check(&TokenKind::RParen) {
@@ -1182,14 +1335,14 @@ impl Parser {
                         }
                     }
                     self.expect(&TokenKind::RParen, "')' in let tuple pattern")?;
-                    if names.len() < 2 {
+                    if elems.len() < 2 {
                         return Err(Diagnostic::at_line(
                             DiagnosticCode::ParseError,
                             line,
                             "let tuple destructuring requires at least 2 bindings",
                         ));
                     }
-                    LetPattern::Tuple(names)
+                    LetPattern::Tuple(elems)
                 } else {
                     LetPattern::Single(self.expect_ident("binding name")?)
                 };
@@ -1942,13 +2095,6 @@ impl Parser {
                     line,
                 })
             }
-            TokenKind::StrLit(s) => {
-                self.advance();
-                Ok(Expr {
-                    kind: ExprKind::StrLit(s),
-                    line,
-                })
-            }
             TokenKind::BytesLit(bs) => {
                 self.advance();
                 Ok(Expr {
@@ -2000,7 +2146,7 @@ impl Parser {
                         }
                     }
                 }
-                if self.check_ident_eq("over") {
+                if self.check_ident_eq("over") || self.check_ident_eq("for") {
                     self.advance();
                 }
                 let ticks = self.parse_expr()?;

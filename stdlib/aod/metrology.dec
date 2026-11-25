@@ -25,16 +25,16 @@ dec atomic_gain_family(z: int, lam: ratio) -> ratio:
 
 quarantine Q_ext SiMetrology:
     # Exact SI defining Cs-133 hyperfine frequency (Hz)
-    const DELTA_NU_CS = ext_decimal("9192631770")
+    const DELTA_NU_CS = ext_decimal(b"9192631770")
 
     # Hellwig et al. (1970) published H-maser reductions (Hz), kept separate
-    const H_HELLWIG_TABLE_IV = ext_decimal("1420405751.7691")
-    const H_HELLWIG_TABLE_VI = ext_decimal("1420405751.7667")
+    const H_HELLWIG_TABLE_IV = ext_decimal(b"1420405751.7691")
+    const H_HELLWIG_TABLE_VI = ext_decimal(b"1420405751.7667")
 
     # Heavner et al. (2014) NIST-F2 fractional uncertainties — Aug 2013 vs Table 1 kept strictly separate!
-    const NIST_F2_AUG2013_UA = ext_decimal("0.00000000000000044")
-    const NIST_F2_AUG2013_UB = ext_decimal("0.00000000000000016")
-    const NIST_F2_TABLE1_UB = ext_decimal("0.00000000000000011")
+    const NIST_F2_AUG2013_UA = ext_decimal(b"0.00000000000000044")
+    const NIST_F2_AUG2013_UB = ext_decimal(b"0.00000000000000016")
+    const NIST_F2_TABLE1_UB = ext_decimal(b"0.00000000000000011")
 
     dec duration_seconds(a_ref: ratio) -> QExt<ratio>:
         qext_from_ratio(a_ref) / DELTA_NU_CS
@@ -43,7 +43,7 @@ quarantine Q_ext SiMetrology:
         qext_from_ratio(a_cmp) * DELTA_NU_CS / qext_from_ratio(a_ref)
 
     dec hellwig_midpoint_hz() -> QExt<ratio>:
-        (H_HELLWIG_TABLE_IV + H_HELLWIG_TABLE_VI) / ext_decimal("2")
+        (H_HELLWIG_TABLE_IV + H_HELLWIG_TABLE_VI) / ext_decimal(b"2")
 
     dec nist_f2_hz_uncertainty(frac_u: QExt<ratio>) -> QExt<ratio>:
         frac_u * DELTA_NU_CS
@@ -51,10 +51,10 @@ quarantine Q_ext SiMetrology:
 quarantine Q_ext DisplayQuarantine:
     # Post-freeze Higgs external energy map, LHC comparisons, half-to-even rounding + exact
     # residuals, and half-ULP printed-token enclosures (P0-1, P0-2, SD-004..SD-006).
-    const LHC_CMS_H4L_MASS_GEV = ext_decimal("125.04")
-    const LHC_CMS_H4L_SIGMA_GEV = ext_decimal("0.12")
-    const LHC_ATLAS_HGG_MASS_GEV = ext_decimal("125.22")
-    const LHC_ATLAS_HGG_SIGMA_GEV = ext_decimal("0.14")
+    const LHC_CMS_H4L_MASS_GEV = ext_decimal(b"125.04")
+    const LHC_CMS_H4L_SIGMA_GEV = ext_decimal(b"0.12")
+    const LHC_ATLAS_HGG_MASS_GEV = ext_decimal(b"125.22")
+    const LHC_ATLAS_HGG_SIGMA_GEV = ext_decimal(b"0.14")
 
     dec qext_abs(x: QExt<ratio>) -> QExt<ratio>:
         abs(x)
@@ -76,12 +76,12 @@ quarantine Q_ext DisplayQuarantine:
         (pred_gev - mass_gev) / sigma_gev
 
     dec lhc_abs_percent_error_exact(pred_gev: QExt<ratio>, mass_gev: QExt<ratio>) -> QExt<ratio>:
-        qext_abs(pred_gev - mass_gev) * ext_decimal("100") / mass_gev
+        qext_abs(pred_gev - mass_gev) * ext_decimal(b"100") / mass_gev
 
     dec round_half_even_value(val: QExt<ratio>, decimals: int) -> QExt<ratio>:
         qext_round_half_even(val, decimals)
 
-    dec round_display(val: QExt<ratio>, decimals: int) -> QExt<str>:
+    dec round_display(val: QExt<ratio>, decimals: int) -> QExt<bytes>:
         qext_format_fixed(val, decimals)
 
     dec rounding_residual(val: QExt<ratio>, decimals: int) -> QExt<ratio>:

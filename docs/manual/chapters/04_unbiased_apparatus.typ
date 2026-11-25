@@ -35,6 +35,8 @@ The inline apparatus check below confirms deterministic provenance tagging and z
 across Exact VM, AOT `-O2`, and ORC LLJIT `-O2`:
 
 ```dec
+use aod::sim::ModelStatus
+
 chamber MiniBox:
     space = box([0..32, 0..32, 0..32])
     walls = open
@@ -49,7 +51,8 @@ observe PassiveEye:
 dec main() -> int:
     let a = simulate SingleCarrier over 4 ticks
     let b = simulate SingleCarrier over 4 ticks with PassiveEye
-    assert a.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert a.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+    assert a.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
     assert a.final_state_hash == b.final_state_hash
     emit a.model_status
     emit a.ticks
@@ -58,7 +61,7 @@ dec main() -> int:
 ```
 
 ```dec-expect
-DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED
+ModelStatus::DeclaredSandboxNotS3Authenticated
 4
 1
 0

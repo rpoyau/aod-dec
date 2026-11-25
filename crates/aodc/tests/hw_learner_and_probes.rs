@@ -88,6 +88,16 @@ fn ac03_to_ac07_all_5_live_self_verifying_jit_probes_and_branch_ir_proof() {
     assert!(report.unroll_layout.verified);
     assert!(report.multicore.verified);
     assert!(report.multicore.tested_workers >= 1);
+    assert!(report.frg_ring_gate.verified);
+    assert!(report.frg_ring_gate.identity_verified);
+    assert!(report.frg_ring_gate.op_certified);
+    assert_eq!(report.frg_ring_gate.t_sync, 8357);
+    assert_eq!(report.frg_ring_gate.t_zero, 274);
+    assert!(report.frg_ring_gate.c_cross >= 137);
+    assert_eq!(
+        report.frg_ring_gate.t_cross - report.frg_ring_gate.t_zero,
+        report.frg_ring_gate.c_cross
+    );
 
     let json_text = report.to_json().to_compact_ascii_json();
     let parsed = parse_strict_json(&json_text).unwrap();
@@ -95,6 +105,7 @@ fn ac03_to_ac07_all_5_live_self_verifying_jit_probes_and_branch_ir_proof() {
         parsed.get("policy_scope").and_then(JsonValue::as_str),
         Some(POLICY_SCOPE)
     );
+    assert!(parsed.get("frg_ring_gate").is_some());
 }
 
 #[test]
@@ -210,8 +221,8 @@ fn ac10_zero_float_paired_bootstrap_determinism_and_exact_semantic_guard() {
     // Hostile Exact Semantic Guard rejection: candidate produces wrong output -> MUST Rollback!
     let hw = run_all_hw_probes().unwrap();
     let baseline = CodegenPlan::baseline_o0();
-    let ok_src = "dec main() -> int:\n    emit \"OK\"\n    0\n";
-    let bad_src = "dec main() -> int:\n    emit \"CORRUPTED\"\n    0\n";
+    let ok_src = "dec main() -> int:\n    emit b\"OK\"\n    0\n";
+    let bad_src = "dec main() -> int:\n    emit b\"CORRUPTED\"\n    0\n";
     let ok_checked = aodc::check_source(ok_src).unwrap();
     let bad_checked = aodc::check_source(bad_src).unwrap();
 
@@ -415,6 +426,7 @@ fn ac14_cli_probe_hw_honest_learn_amortized_retain_and_overwrite_refusal() {
     assert!(parsed_hw.get("branch_predictor").is_some());
     assert!(parsed_hw.get("unroll_layout").is_some());
     assert!(parsed_hw.get("multicore").is_some());
+    assert!(parsed_hw.get("frg_ring_gate").is_some());
 
     let amort_src = root.join("tests/fixtures/v2_bench/learn_amortized_bench.dec");
     let self_ov = Command::new(aodc_bin())

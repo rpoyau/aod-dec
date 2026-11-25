@@ -26,7 +26,10 @@ use crate::sim::{
     AxisDir, BlindMotifSpectrum, BoxRegion, CarrierState, ChamberState, DeclarativeObserver,
     ProbeKind, ReferenceClock, SensorCurrentSummary, SimRunResult, WallPolicy,
 };
-use crate::value::{recipient_stage_name, RtEnumValue, RtMapKey, RtStructValue, RtValue};
+use crate::value::{
+    model_status_variant_and_tag, recipient_stage_name, recipient_stage_variant_and_tag,
+    RtEnumValue, RtMapKey, RtStructValue, RtValue,
+};
 
 /// Maximum file size permitted across capability-gated `aod::sys` bootstrap I/O (`64 MiB`).
 pub const MAX_SYS_IO_BYTES: usize = 64 * 1024 * 1024;
@@ -168,6 +171,59 @@ impl RtState {
             RtValue::Bytes(bs) => Ok(bs.as_slice()),
             other => Err(format!("expected bytes handle, got {}", other.render())),
         }
+    }
+
+    pub fn get_str_or_utf8_bytes(&self, handle: u64, ctx_name: &str) -> Result<String, String> {
+        match self.arena.get(handle)? {
+            RtValue::Str(s) => Ok(s.clone()),
+            RtValue::Bytes(bs) => std::str::from_utf8(bs)
+                .map(str::to_string)
+                .map_err(|_| format!("{ctx_name}: byte sequence is not valid UTF-8")),
+            other => Err(format!(
+                "expected bytes or str handle in {ctx_name}, got {}",
+                other.render()
+            )),
+        }
+    }
+
+    pub fn get_seq_slice(&self, handle: u64) -> Result<&[RtValue], String> {
+        match self.arena.get(handle)? {
+            RtValue::Array(xs) | RtValue::List(xs) => Ok(xs.as_slice()),
+            other => Err(format!(
+                "expected list or array handle, got {}",
+                other.render()
+            )),
+        }
+    }
+
+    pub fn get_any_seq_values(&self, handle: u64) -> Result<Vec<RtValue>, String> {
+        match self.arena.get(handle)? {
+            RtValue::Array(xs) | RtValue::List(xs) => Ok((**xs).clone()),
+            RtValue::Bytes(bs) => Ok(bs.iter().map(|&b| RtValue::B8(B8(b))).collect()),
+            other => Err(format!(
+                "expected list, array, or bytes handle, got {}",
+                other.render()
+            )),
+        }
+    }
+
+    pub fn op_zip_seq(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let xs = self.get_any_seq_values(a_h)?;
+        let ys = self.get_any_seq_values(b_h)?;
+        if xs.len() != ys.len() {
+            return Err(format!(
+                "zip_seq(a, b) sequence length mismatch: {} != {}",
+                xs.len(),
+                ys.len()
+            ));
+        }
+        let zipped: Vec<RtValue> = xs
+            .into_iter()
+            .zip(ys)
+            .map(|(a, b)| RtValue::Tuple(vec![a, b]))
+            .collect();
+        self.arena
+            .insert(RtValue::List(std::sync::Arc::new(zipped)))
     }
 
     pub fn get_support(&self, handle: u64) -> Result<&SupportForm, String> {
@@ -413,6 +469,47 @@ impl RtState {
         }
     }
 
+    pub fn op_map_remove(&mut self, map_h: u64, key_h: u64) -> Result<u64, String> {
+        let kv = self.arena.get(key_h)?;
+        let mk = RtMapKey::from_value(kv)?;
+        let mut cloned = match self.arena.get(map_h)? {
+            RtValue::Map(m) => (**m).clone(),
+            other => return Err(format!("expected map handle, got {}", other.render())),
+        };
+        cloned.remove(&mk);
+        self.arena.insert(RtValue::Map(Box::new(cloned)))
+    }
+
+    pub fn op_map_get_or(&mut self, map_h: u64, key_h: u64, default_h: u64) -> Result<u64, String> {
+        let kv = self.arena.get(key_h)?;
+        let mk = RtMapKey::from_value(kv)?;
+        let found = match self.arena.get(map_h)? {
+            RtValue::Map(m) => m.get(&mk).cloned(),
+            other => return Err(format!("expected map handle, got {}", other.render())),
+        };
+        match found {
+            Some(v) => self.arena.insert(v),
+            None => {
+                let dv = self.arena.get(default_h)?.clone();
+                self.arena.insert(dv)
+            }
+        }
+    }
+
+    pub fn op_struct_set(&mut self, s_h: u64, field: &str, val_h: u64) -> Result<u64, String> {
+        let new_val = self.arena.get(val_h)?.clone();
+        let mut cloned = match self.arena.get(s_h)? {
+            RtValue::Struct(sv) => (**sv).clone(),
+            other => return Err(format!("expected struct handle, got {}", other.render())),
+        };
+        if !cloned.fields.contains_key(field) {
+            return Err(format!("no field .{field} on struct {}", cloned.name));
+        }
+        cloned.fields.insert(field.to_string(), new_val);
+        self.arena
+            .insert(RtValue::Struct(std::sync::Arc::new(cloned)))
+    }
+
     pub fn op_field_get(&mut self, h: u64, field: &str) -> Result<RtValue, String> {
         let val = self.arena.get(h)?.clone();
         match (val, field) {
@@ -421,12 +518,12 @@ impl RtState {
                 .get(f)
                 .cloned()
                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name)),
-            // Struct-field array projection (`bins.t0` across `[Struct; N]` or `[Struct]`):
+            // Struct-field or Ratio-field array projection (`bins.t0` or `rs.num` across `[T; N]` / `[T]`):
             (RtValue::Array(items), f) => {
                 let mut projected = Vec::with_capacity(items.len());
                 for item in items.iter() {
-                    match item {
-                        RtValue::Struct(sv) => {
+                    match (item, f) {
+                        (RtValue::Struct(sv), _) => {
                             let fv = sv
                                 .fields
                                 .get(f)
@@ -434,7 +531,9 @@ impl RtState {
                                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name))?;
                             projected.push(fv);
                         }
-                        other => {
+                        (RtValue::Ratio(r), "num") => projected.push(RtValue::Int(r.num().clone())),
+                        (RtValue::Ratio(r), "den") => projected.push(RtValue::Int(r.den().clone())),
+                        (other, _) => {
                             return Err(format!(
                                 "cannot project field .{f} on array element {}",
                                 other.render()
@@ -447,8 +546,8 @@ impl RtState {
             (RtValue::List(items), f) => {
                 let mut projected = Vec::with_capacity(items.len());
                 for item in items.iter() {
-                    match item {
-                        RtValue::Struct(sv) => {
+                    match (item, f) {
+                        (RtValue::Struct(sv), _) => {
                             let fv = sv
                                 .fields
                                 .get(f)
@@ -456,7 +555,9 @@ impl RtState {
                                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name))?;
                             projected.push(fv);
                         }
-                        other => {
+                        (RtValue::Ratio(r), "num") => projected.push(RtValue::Int(r.num().clone())),
+                        (RtValue::Ratio(r), "den") => projected.push(RtValue::Int(r.den().clone())),
+                        (other, _) => {
                             return Err(format!(
                                 "cannot project field .{f} on slice element {}",
                                 other.render()
@@ -466,9 +567,36 @@ impl RtState {
                 }
                 Ok(RtValue::List(std::sync::Arc::new(projected)))
             }
-            (RtValue::SimResult(s), "model_status") => Ok(RtValue::Str(s.model_status)),
-            (RtValue::SimResult(s), "chamber_name") => Ok(RtValue::Str(s.chamber_name)),
-            (RtValue::SimResult(s), "final_state_hash") => Ok(RtValue::Str(s.final_state_hash)),
+            (RtValue::SimResult(s), "model_status") => {
+                let (variant, tag) = model_status_variant_and_tag(&s.model_status);
+                Ok(RtValue::Enum(std::sync::Arc::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "ModelStatus".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
+            }
+            (RtValue::SimResult(s), "model_status_bytes") => {
+                Ok(RtValue::Bytes(std::sync::Arc::new(s.model_status.into_bytes())))
+            }
+            (RtValue::SimResult(s), "chamber_name" | "chamber_name_bytes") => {
+                Ok(RtValue::Bytes(std::sync::Arc::new(s.chamber_name.into_bytes())))
+            }
+            (RtValue::SimResult(s), "final_state_hash" | "final_state_hash_bytes") => {
+                Ok(RtValue::Bytes(std::sync::Arc::new(
+                    s.final_state_hash.into_bytes(),
+                )))
+            }
+            (RtValue::SimResult(s), "final_state_sha256") => Ok(RtValue::Bytes(
+                std::sync::Arc::new(decode_hex_32(&s.final_state_hash)?),
+            )),
+            (RtValue::SimResult(s), "boundary_bytes") => Ok(RtValue::Bytes(std::sync::Arc::new(
+                s.final_snapshot.space.boundary_descriptor().into_bytes(),
+            ))),
+            (RtValue::Box3(b), "boundary_bytes") => Ok(RtValue::Bytes(std::sync::Arc::new(
+                b.boundary_descriptor().into_bytes(),
+            ))),
             (RtValue::SimResult(s), "ticks") => Ok(RtValue::Int(BigInt::from_u64(s.ticks))),
             (RtValue::SimResult(s), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.carrier_count as u64)))
@@ -495,8 +623,22 @@ impl RtState {
                 Ok(RtValue::ChamberView(Box::new(s.final_snapshot)))
             }
 
-            (RtValue::ChamberView(snap), "model_status") => Ok(RtValue::Str(snap.model_status)),
-            (RtValue::ChamberView(snap), "chamber_name") => Ok(RtValue::Str(snap.chamber_name)),
+            (RtValue::ChamberView(snap), "model_status") => {
+                let (variant, tag) = model_status_variant_and_tag(&snap.model_status);
+                Ok(RtValue::Enum(std::sync::Arc::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "ModelStatus".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
+            }
+            (RtValue::ChamberView(snap), "model_status_bytes") => Ok(RtValue::Bytes(
+                std::sync::Arc::new(snap.model_status.into_bytes()),
+            )),
+            (RtValue::ChamberView(snap), "chamber_name" | "chamber_name_bytes") => Ok(
+                RtValue::Bytes(std::sync::Arc::new(snap.chamber_name.into_bytes())),
+            ),
             (RtValue::ChamberView(snap), "tick") => Ok(RtValue::Int(BigInt::from_u64(snap.tick))),
             (RtValue::ChamberView(snap), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(snap.carriers.len() as u64)))
@@ -521,8 +663,18 @@ impl RtState {
             ))),
 
             (RtValue::RecipientOutcome(o), "stage") => {
-                Ok(RtValue::Str(recipient_stage_name(o.stage).to_string()))
+                let (variant, tag) = recipient_stage_variant_and_tag(o.stage);
+                Ok(RtValue::Enum(std::sync::Arc::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "RecipientStage".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
             }
+            (RtValue::RecipientOutcome(o), "stage_bytes") => Ok(RtValue::Bytes(
+                std::sync::Arc::new(recipient_stage_name(o.stage).as_bytes().to_vec()),
+            )),
             (RtValue::RecipientOutcome(o), "closure_phase_delta") => {
                 Ok(RtValue::Int(BigInt::from_u64(o.closure_phase_delta as u64)))
             }
@@ -536,8 +688,12 @@ impl RtState {
             (RtValue::CadenceAssociation(a), "is_cadence_ratio") => {
                 Ok(RtValue::Bool(a.is_cadence_ratio))
             }
-            (RtValue::CadenceAssociation(a), "wavelet_id") => Ok(RtValue::Str(a.wavelet_id)),
-            (RtValue::CadenceAssociation(a), "reference_id") => Ok(RtValue::Str(a.reference_id)),
+            (RtValue::CadenceAssociation(a), "wavelet_id" | "wavelet_id_bytes") => {
+                Ok(RtValue::Bytes(std::sync::Arc::new(a.wavelet_id.into_bytes())))
+            }
+            (RtValue::CadenceAssociation(a), "reference_id" | "reference_id_bytes") => Ok(
+                RtValue::Bytes(std::sync::Arc::new(a.reference_id.into_bytes())),
+            ),
 
             (RtValue::Support(s), "is_yro") => Ok(RtValue::Bool(s.is_yro())),
             (RtValue::Support(s), "is_closure_certificate") => {
@@ -546,7 +702,11 @@ impl RtState {
             (RtValue::Addr8(a), "is_first_anchor") => Ok(RtValue::Bool(a.is_first_anchor())),
             (RtValue::Window(u, _), "start") => Ok(RtValue::Int(BigInt::from_i64(u))),
             (RtValue::Window(_, v), "end") => Ok(RtValue::Int(BigInt::from_i64(v))),
-            (RtValue::Window(u, v), "len") => Ok(RtValue::Int(BigInt::from_i64(v - u))),
+            (RtValue::Window(u, v), "len") => {
+                Ok(RtValue::Int(BigInt::from_i128((v as i128) - (u as i128))))
+            }
+            (RtValue::Ratio(r), "num") => Ok(RtValue::Int(r.num().clone())),
+            (RtValue::Ratio(r), "den") => Ok(RtValue::Int(r.den().clone())),
             (other, f) => Err(format!("no field .{f} on {}", other.render())),
         }
     }
@@ -554,8 +714,12 @@ impl RtState {
     pub fn op_boundary_of(&mut self, h: u64) -> Result<u64, String> {
         let val = self.arena.get(h)?.clone();
         let out = match val {
-            RtValue::Box3(b) => RtValue::Str(b.boundary_descriptor()),
-            RtValue::SimResult(s) => RtValue::Str(s.final_snapshot.space.boundary_descriptor()),
+            RtValue::Box3(b) => {
+                RtValue::Bytes(std::sync::Arc::new(b.boundary_descriptor().into_bytes()))
+            }
+            RtValue::SimResult(s) => RtValue::Bytes(std::sync::Arc::new(
+                s.final_snapshot.space.boundary_descriptor().into_bytes(),
+            )),
             RtValue::Window(u, v) | RtValue::Range(u, v) => RtValue::Tuple(vec![
                 RtValue::Int(BigInt::from_i64(u)),
                 RtValue::Int(BigInt::from_i64(v)),
@@ -590,8 +754,8 @@ impl RtState {
         cuts_h: u64,
         wins_h: u64,
     ) -> Result<BigInt, String> {
-        let lin = self.get_str(lin_h)?;
-        let scope = self.get_str(scope_h)?;
+        let lin = self.get_str_or_utf8_bytes(lin_h, "window_dedup_count")?;
+        let scope = self.get_str_or_utf8_bytes(scope_h, "window_dedup_count")?;
         let cuts = match self.arena.get(cuts_h)? {
             RtValue::List(items) | RtValue::Array(items) => {
                 let mut v = Vec::with_capacity(items.len());
@@ -621,7 +785,7 @@ impl RtState {
             other => return Err(format!("expected sequence of windows, got {}", other.render())),
         };
         let (witnesses, reg) =
-            declare_synthetic_lineage_registry(lin, scope, &cuts, 0, "native_cut", None)
+            declare_synthetic_lineage_registry(&lin, &scope, &cuts, 0, "native_cut", None)
                 .map_err(|e| e.to_string())?;
         let pdesc = &witnesses[0].parent_descriptor;
         let mut wavelets = Vec::with_capacity(wins.len());
@@ -633,7 +797,7 @@ impl RtState {
                 .collect();
             let wl = Wavelet::new(WaveletSpec {
                 wavelet_id: &format!("w{idx}"),
-                parent_lineage: lin,
+                parent_lineage: &lin,
                 explicit_parent: Some(pdesc),
                 ancestry: vec![format!("anc:{lin}"), format!("w{idx}")],
                 window: (u, v),
@@ -643,7 +807,7 @@ impl RtState {
                 return_witnesses: selected,
                 signed_current: BigInt::zero(),
                 is_admitted_wave: false,
-                scope_id: scope,
+                scope_id: &scope,
                 witnesses_complete: true,
                 scale: Some(0),
                 cut_coordinate: "native_cut",
@@ -653,7 +817,7 @@ impl RtState {
             .map_err(|e| e.to_string())?;
             wavelets.push(wl);
         }
-        let count = deduplicated_return_count(&wavelets, Some(pdesc), None, scope, None, Some(&reg))
+        let count = deduplicated_return_count(&wavelets, Some(pdesc), None, &scope, None, Some(&reg))
             .map_err(|e| e.to_string())?;
         Ok(BigInt::from_u64(count as u64))
     }
@@ -742,7 +906,7 @@ impl RtState {
         space_box_h: u64,
         walls_code: u8,
     ) -> Result<u64, String> {
-        let chamber_name = self.get_str(chamber_name_h)?.to_string();
+        let chamber_name = self.get_str_or_utf8_bytes(chamber_name_h, "chamber")?;
         let space = self.get_box(space_box_h)?;
         let walls = WallPolicy::from_code(walls_code)
             .ok_or_else(|| format!("invalid wall policy code {walls_code}"))?;
@@ -764,7 +928,7 @@ impl RtState {
         name_h: u64,
         period: &BigInt,
     ) -> Result<(), String> {
-        let name = self.get_str(name_h)?.to_string();
+        let name = self.get_str_or_utf8_bytes(name_h, "clock")?;
         let p = period
             .to_i64()
             .ok_or_else(|| format!("clock {name} period {period} out of i64 range"))?;
@@ -825,7 +989,7 @@ impl RtState {
     ) -> Result<(), String> {
         let kind = ProbeKind::from_code(kind_code)
             .ok_or_else(|| format!("invalid probe kind code {kind_code}"))?;
-        let name = self.get_str(name_h)?.to_string();
+        let name = self.get_str_or_utf8_bytes(name_h, "observer")?;
         let region = self.get_box(region_box_h)?;
         let idx = builder_idx(b_h, self.sim_builders.len())?;
         self.sim_builders[idx]
@@ -840,7 +1004,7 @@ impl RtState {
         name_h: u64,
         cb_addr: usize,
     ) -> Result<(), String> {
-        let name = self.get_str(name_h)?.to_string();
+        let name = self.get_str_or_utf8_bytes(name_h, "observer")?;
         let idx = builder_idx(b_h, self.sim_builders.len())?;
         self.sim_builders[idx].proc_observers.push((name, cb_addr));
         Ok(())
@@ -926,12 +1090,12 @@ impl RtState {
         coupled: bool,
         contacts: &BigInt,
     ) -> Result<Ratio, String> {
-        let id_a = self.get_str(id_a_h)?;
-        let id_r = self.get_str(id_r_h)?;
+        let id_a = self.get_str_or_utf8_bytes(id_a_h, "native_cadence_ratio")?;
+        let id_r = self.get_str_or_utf8_bytes(id_r_h, "native_cadence_ratio")?;
         let bc = contacts
             .to_u64()
             .ok_or_else(|| "invalid bound_contacts".to_string())? as usize;
-        native_cadence_ratio(id_a, q_a, id_r, q_r, coupled, bc).map_err(|e| e.to_string())
+        native_cadence_ratio(&id_a, q_a, &id_r, q_r, coupled, bc).map_err(|e| e.to_string())
     }
 
     pub fn op_single_contact_assoc(
@@ -942,9 +1106,9 @@ impl RtState {
         win_h: u64,
         contacts: &BigInt,
     ) -> Result<u64, String> {
-        let wid = self.get_str(wid_h)?.to_string();
-        let pid = self.get_str(pid_h)?.to_string();
-        let rid = self.get_str(rid_h)?.to_string();
+        let wid = self.get_str_or_utf8_bytes(wid_h, "single_contact_association")?;
+        let pid = self.get_str_or_utf8_bytes(pid_h, "single_contact_association")?;
+        let rid = self.get_str_or_utf8_bytes(rid_h, "single_contact_association")?;
         let win = self.get_window(win_h)?;
         let bc = contacts
             .to_u64()
@@ -956,13 +1120,7 @@ impl RtState {
     }
 
     pub fn op_qext_ext_decimal(&mut self, str_h: u64) -> Result<u64, String> {
-        let s = match self.arena.get(str_h)? {
-            RtValue::Str(s) => s.clone(),
-            RtValue::Bytes(bs) => std::str::from_utf8(bs)
-                .map_err(|_| "ext_decimal bytes must be ASCII".to_string())?
-                .to_string(),
-            other => return Err(format!("expected str or bytes in ext_decimal, got {}", other.render())),
-        };
+        let s = self.get_str_or_utf8_bytes(str_h, "ext_decimal")?;
         let q = parse_decimal_exact(&s).map_err(|e| e.to_string())?;
         self.arena.insert(RtValue::QExtRatio(q))
     }
@@ -977,19 +1135,20 @@ impl RtState {
         if field_name_handles.len() != field_val_handles.len() {
             return Err("struct field count mismatch".to_string());
         }
-        let module = self.get_str(mod_h)?.to_string();
-        let name = self.get_str(name_h)?.to_string();
+        let module = self.get_str_or_utf8_bytes(mod_h, "struct module")?;
+        let name = self.get_str_or_utf8_bytes(name_h, "struct name")?;
         let mut fields = BTreeMap::new();
         for (&nh, &vh) in field_name_handles.iter().zip(field_val_handles) {
-            let fname = self.get_str(nh)?.to_string();
+            let fname = self.get_str_or_utf8_bytes(nh, "struct field")?;
             let fval = self.arena.get(vh)?.clone();
             fields.insert(fname, fval);
         }
-        self.arena.insert(RtValue::Struct(std::sync::Arc::new(RtStructValue {
-            module,
-            name,
-            fields,
-        })))
+        self.arena
+            .insert(RtValue::Struct(std::sync::Arc::new(RtStructValue {
+                module,
+                name,
+                fields,
+            })))
     }
 
     pub fn op_enum_new(
@@ -1000,20 +1159,21 @@ impl RtState {
         tag: i32,
         payload_handles: &[u64],
     ) -> Result<u64, String> {
-        let module = self.get_str(mod_h)?.to_string();
-        let name = self.get_str(name_h)?.to_string();
-        let variant = self.get_str(var_h)?.to_string();
+        let module = self.get_str_or_utf8_bytes(mod_h, "enum module")?;
+        let name = self.get_str_or_utf8_bytes(name_h, "enum name")?;
+        let variant = self.get_str_or_utf8_bytes(var_h, "enum variant")?;
         let mut payloads = Vec::with_capacity(payload_handles.len());
         for &ph in payload_handles {
             payloads.push(self.arena.get(ph)?.clone());
         }
-        self.arena.insert(RtValue::Enum(std::sync::Arc::new(RtEnumValue {
-            module,
-            name,
-            variant,
-            tag,
-            payloads,
-        })))
+        self.arena
+            .insert(RtValue::Enum(std::sync::Arc::new(RtEnumValue {
+                module,
+                name,
+                variant,
+                tag,
+                payloads,
+            })))
     }
 }
 
@@ -1046,6 +1206,122 @@ fn builder_idx(handle: u64, len: usize) -> Result<usize, String> {
         return Err(format!("invalid simulation builder handle {handle}"));
     }
     Ok((handle - 1) as usize)
+}
+
+pub fn decode_hex_32(hex: &str) -> Result<Vec<u8>, String> {
+    let raw = hex.as_bytes();
+    if raw.len() != 64 {
+        return Err(format!(
+            "expected 64-byte hex SHA-256 digest, got {} bytes",
+            raw.len()
+        ));
+    }
+    let hex_val = |b: u8| -> Result<u8, String> {
+        match b {
+            b'0'..=b'9' => Ok(b - b'0'),
+            b'a'..=b'f' => Ok(b - b'a' + 10),
+            b'A'..=b'F' => Ok(b - b'A' + 10),
+            _ => Err("invalid hex digit in SHA-256 digest".to_string()),
+        }
+    };
+    let mut out = Vec::with_capacity(32);
+    for chunk in raw.chunks_exact(2) {
+        let hi = hex_val(chunk[0])?;
+        let lo = hex_val(chunk[1])?;
+        out.push((hi << 4) | lo);
+    }
+    Ok(out)
+}
+
+/// Maximum exponent accepted by `pow` (`P1-6`).
+pub const MAX_POW_EXP: u32 = 65_536;
+/// Maximum result trit-length (`floor(1_048_576 / log2(3)) + 1 = 661_578` trits = 1M-bit ceiling).
+pub const MAX_POW_TRITS: usize = 661_578;
+
+/// Checked balanced-ternary exponentiation enforcing `0 <= exp <= 65_536` and a `1_048_576`-bit
+/// (`661_578`-trit) result ceiling at every squaring/multiplication step (`P1-6`).
+pub fn checked_trit_pow_u32(base: &BigInt, exp: u32) -> Result<BigInt, String> {
+    if exp > MAX_POW_EXP {
+        return Err(format!(
+            "overflow: pow exponent {exp} exceeds safety limit {MAX_POW_EXP}"
+        ));
+    }
+    if exp == 0 {
+        return Ok(BigInt::one());
+    }
+    if base.is_zero() {
+        return Ok(BigInt::zero());
+    }
+    if *base == BigInt::one() {
+        return Ok(BigInt::one());
+    }
+    if *base == BigInt::NEG_ONE {
+        return Ok(if (exp & 1) == 0 {
+            BigInt::one()
+        } else {
+            BigInt::NEG_ONE
+        });
+    }
+    let tl = base.trit_len();
+    if tl > MAX_POW_TRITS || tl.saturating_sub(1).saturating_mul(exp as usize) >= MAX_POW_TRITS {
+        return Err("overflow: pow result exceeds 1048576-bit safety limit".to_string());
+    }
+    let mut result = BigInt::one();
+    let mut cur = base.clone();
+    let mut e = exp;
+    while e > 0 {
+        if (e & 1) == 1 {
+            result = &result * &cur;
+            if result.trit_len() > MAX_POW_TRITS {
+                return Err("overflow: pow result exceeds 1048576-bit safety limit".to_string());
+            }
+        }
+        e >>= 1;
+        if e > 0 {
+            cur = &cur * &cur;
+            if cur.trit_len() > MAX_POW_TRITS {
+                return Err("overflow: pow result exceeds 1048576-bit safety limit".to_string());
+            }
+        }
+    }
+    Ok(result)
+}
+
+pub fn checked_trit_pow(base: &BigInt, exp: &BigInt) -> Result<BigInt, String> {
+    if exp.is_negative() {
+        return Err(format!(
+            "domain error: int pow requires non-negative exponent, got {exp}"
+        ));
+    }
+    let e = exp.to_u64().and_then(|v| u32::try_from(v).ok()).ok_or_else(|| {
+        format!("overflow: pow exponent {exp} exceeds safety limit {MAX_POW_EXP}")
+    })?;
+    checked_trit_pow_u32(base, e)
+}
+
+pub fn exact_unpack_t9_bits(bits: u64) -> Result<BigInt, String> {
+    if bits >= (1u64 << 18) {
+        return Err(format!(
+            "domain error: packed t9 outside 18-bit domain: {bits:#x}"
+        ));
+    }
+    if !aod_core::trit_int::is_valid_trit_word(bits) {
+        return Err(aod_core::error::CoreError::InvalidTritEncoding(3).to_string());
+    }
+    TritInt::from_inline_word(bits).map_err(|e| e.to_string())
+}
+
+pub fn exact_verify_sheddic_route(x_shed: &BigInt, target_enclosure: u8) -> bool {
+    !x_shed.is_positive() || (target_enclosure >= 2 && target_enclosure.is_multiple_of(2))
+}
+
+pub fn exact_verify_sheddic_route_int(x_shed: &BigInt, target_enclosure: &BigInt) -> bool {
+    !x_shed.is_positive()
+        || (target_enclosure >= &BigInt::from_i64(2) && target_enclosure.is_even())
+}
+
+pub fn exact_verify_frg_cross_return(t_zero: &BigInt, t_cross: &BigInt, c_cross: &BigInt) -> bool {
+    (t_cross - t_zero) == *c_cross
 }
 
 pub fn exact_t1(v: &BigInt) -> Result<i8, String> {

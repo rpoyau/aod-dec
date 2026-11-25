@@ -6,9 +6,9 @@ dec recur(t: trace) -> trace:
     close(t3)
 
 dec main() -> int:
-    let a = dwell(recur(recur(trace("B", "a", q4(0)))))
-    let b = recur(recur(dwell(trace("B", "b", q4(0)))))
-    let pair0 = coupling(a, b, "seven-events")
+    let a = dwell(recur(recur(trace(b"B", b"a", q4(0)))))
+    let b = recur(recur(dwell(trace(b"B", b"b", q4(0)))))
+    let pair0 = coupling(a, b, b"seven-events")
     let pair1 = contact(pair0, 3, 4)
     let pair = contact(pair1, 6, 7)
     emit cadence(pair)

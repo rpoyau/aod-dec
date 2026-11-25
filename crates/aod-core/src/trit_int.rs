@@ -32,6 +32,15 @@ pub const T32_LIMIT: i64 = 926_510_094_425_920;
 /// Exact limb radix `3^32 = 2 * T32_LIMIT + 1`.
 pub const RADIX_3_32: i128 = 1_853_020_188_851_841;
 
+/// Maximum exponent accepted by `checked_pow` (`P1-6`).
+pub const MAX_POW_EXP: u32 = 65_536;
+/// Maximum result bit-length (`1_048_576` bits) accepted by `checked_pow` (`P1-6`).
+pub const MAX_POW_BITS: usize = 1_048_576;
+/// Every balanced-ternary integer with `trit_len() <= 661_578` satisfies `|x| < 2^1_048_576`,
+/// and every integer with `trit_len() >= 661_580` satisfies `|x| > 2^1_048_576`.
+const MAX_POW_TRITS_GUARANTEED_SAFE: usize = 661_578;
+const MAX_POW_TRITS_GUARANTEED_OVER: usize = 661_580;
+
 const fn build_pack4_lut() -> [u8; 81] {
     let mut lut = [0u8; 81];
     let mut idx = 0usize;
@@ -728,6 +737,10 @@ impl TritInt {
     pub const ONE: Self = Self::Inline(1);
     /// `-1` encoded as `0b10 = 2`.
     pub const NEG_ONE: Self = Self::Inline(2);
+    /// Maximum exponent accepted by `checked_pow` (`P1-6`).
+    pub const MAX_POW_EXP: u32 = MAX_POW_EXP;
+    /// Maximum result bit-length (`1_048_576` bits) accepted by `checked_pow` (`P1-6`).
+    pub const MAX_POW_BITS: usize = MAX_POW_BITS;
 
     #[inline]
     pub const fn zero() -> Self {
@@ -771,6 +784,12 @@ impl TritInt {
             Self::Inline(w) => Some(*w),
             Self::Spilled(_) => None,
         }
+    }
+
+    /// Alias returning the raw 64-bit 2-bit-per-trit word when inline (`|x| <= T32_LIMIT`).
+    #[inline]
+    pub const fn raw_word(&self) -> Option<u64> {
+        self.inline_word()
     }
 
     #[inline]
@@ -944,6 +963,60 @@ impl TritInt {
         Self::parse_decimal(&cleaned)
     }
 
+    /// Strict hexadecimal integer parser for digits after `0x`/`0X`:
+    /// enforces `[0-9a-fA-F](_?[0-9a-fA-F])*` (rejects empty, leading/trailing `_`, or `__`).
+    pub fn parse_hex_underscored(digits: &str) -> CoreResult<Self> {
+        Self::parse_radix_underscored(digits, 16, "hexadecimal")
+    }
+
+    /// Strict binary integer parser for digits after `0b`/`0B`:
+    /// enforces `[01](_?[01])*` (rejects empty, leading/trailing `_`, or `__`).
+    pub fn parse_binary_underscored(digits: &str) -> CoreResult<Self> {
+        Self::parse_radix_underscored(digits, 2, "binary")
+    }
+
+    fn parse_radix_underscored(digits: &str, radix: i64, label: &str) -> CoreResult<Self> {
+        if digits.is_empty() {
+            return Err(CoreError::DomainError(format!(
+                "empty {label} literal"
+            )));
+        }
+        let bytes = digits.as_bytes();
+        if bytes[0] == b'_' || bytes[bytes.len() - 1] == b'_' {
+            return Err(CoreError::DomainError(format!(
+                "leading or trailing underscore in {label} literal: {digits}"
+            )));
+        }
+        let mut acc = BigTrit::zero();
+        let mut prev_underscore = false;
+        for &b in bytes {
+            if b == b'_' {
+                if prev_underscore {
+                    return Err(CoreError::DomainError(format!(
+                        "consecutive underscores in {label} literal: {digits}"
+                    )));
+                }
+                prev_underscore = true;
+                continue;
+            }
+            prev_underscore = false;
+            let d: i64 = match (radix, b) {
+                (2, b'0'..=b'1') => (b - b'0') as i64,
+                (16, b'0'..=b'9') => (b - b'0') as i64,
+                (16, b'a'..=b'f') => (b - b'a' + 10) as i64,
+                (16, b'A'..=b'F') => (b - b'A' + 10) as i64,
+                _ => {
+                    return Err(CoreError::DomainError(format!(
+                        "invalid {label} digit {:?} in {digits}",
+                        b as char
+                    )));
+                }
+            };
+            acc = acc.mul_add_small(radix, d);
+        }
+        Ok(Self::from_big_trit(acc))
+    }
+
     pub fn to_decimal_string(&self) -> String {
         match self {
             Self::Inline(0) => "0".to_string(),
@@ -975,6 +1048,67 @@ impl TritInt {
         }
     }
 
+    /// 1-based balanced-ternary trit length (`0` for `0`).
+    #[inline]
+    pub fn trit_len(&self) -> usize {
+        match self {
+            Self::Inline(0) => 0,
+            Self::Inline(w) => (64 - w.leading_zeros() as usize + 1) / 2,
+            Self::Spilled(b) => b.trit_len(),
+        }
+    }
+
+    /// Exact magnitude bit-length (`0` for zero, `1` for `+-1`, `2` for `+-2..=+-3`, etc.).
+    pub fn bit_len(&self) -> usize {
+        if self.is_zero() {
+            return 0;
+        }
+        let abs_val = self.abs();
+        if let Some(mag) = abs_val.to_u128() {
+            return (128 - mag.leading_zeros()) as usize;
+        }
+        let mut d: Vec<i128> = match abs_val {
+            Self::Inline(_) => unreachable!(),
+            Self::Spilled(b) => b
+                .limbs
+                .iter()
+                .map(|&w| swar_unpack_t32(w).expect("canonical BigTrit limb") as i128)
+                .collect(),
+        };
+        const CHUNK_BITS: usize = 48;
+        const CHUNK_BASE: i128 = 1i128 << CHUNK_BITS;
+        let mut full_chunks = 0usize;
+        let mut last_rem = 0u64;
+        while !d.is_empty() {
+            let mut rem: i128 = 0;
+            for i in (0..d.len()).rev() {
+                let cur = rem * RADIX_3_32 + d[i];
+                d[i] = cur.div_euclid(CHUNK_BASE);
+                rem = cur.rem_euclid(CHUNK_BASE);
+            }
+            while d.last() == Some(&0) {
+                d.pop();
+            }
+            last_rem = rem as u64;
+            if !d.is_empty() {
+                full_chunks += 1;
+            }
+        }
+        full_chunks * CHUNK_BITS + (64 - last_rem.leading_zeros() as usize)
+    }
+
+    #[inline]
+    fn exceeds_pow_ceiling(&self) -> bool {
+        let tl = self.trit_len();
+        if tl <= MAX_POW_TRITS_GUARANTEED_SAFE {
+            false
+        } else if tl >= MAX_POW_TRITS_GUARANTEED_OVER {
+            true
+        } else {
+            self.bit_len() > Self::MAX_POW_BITS
+        }
+    }
+
     pub fn pow(&self, mut exp: u32) -> Self {
         let mut result = Self::ONE;
         let mut base = self.clone();
@@ -988,6 +1122,105 @@ impl TritInt {
             }
         }
         result
+    }
+
+    /// Checked binary exponentiation enforcing `exp <= 65_536` and `result.bit_len() <= 1_048_576`
+    /// at every squaring and multiplication step (`P1-6`: prevents `pow(pow(10, 65536), 65536)` OOM).
+    pub fn checked_pow(&self, exp: u32) -> CoreResult<Self> {
+        if exp > Self::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "pow exponent {exp} exceeds safety limit {}",
+                Self::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self::ONE);
+        }
+        if self.is_zero() {
+            return Ok(Self::ZERO);
+        }
+        if *self == Self::ONE {
+            return Ok(Self::ONE);
+        }
+        if *self == Self::NEG_ONE {
+            return Ok(if (exp & 1) == 0 {
+                Self::ONE
+            } else {
+                Self::NEG_ONE
+            });
+        }
+
+        // Fast `O(1)` pre-loop lower bound on `bit_len(|self|)`:
+        // For `<= 3` base-`3^32` limbs, `to_u128()` gives exact `bit_len`.
+        // For `> 3` limbs (`k = trit_len >= 97`), `|self| >= (3^(k-1) + 1) / 2`,
+        // and since `3^125 > 2^198`, `bit_len(|self|) >= ((k - 1) * 198) / 125`.
+        let min_bl = if let Some(mag) = self.abs().to_u128() {
+            (128 - mag.leading_zeros()) as usize
+        } else {
+            ((self.trit_len() - 1).saturating_mul(198)) / 125
+        };
+        if min_bl > Self::MAX_POW_BITS
+            || (min_bl - 1).saturating_mul(exp as usize) >= Self::MAX_POW_BITS
+        {
+            return Err(CoreError::Overflow(
+                "pow result exceeds 1048576-bit safety limit".to_string(),
+            ));
+        }
+
+        let mut result = Self::ONE;
+        let mut base = self.clone();
+        let mut e = exp;
+        while e > 0 {
+            if (e & 1) == 1 {
+                if result.trit_len().saturating_add(base.trit_len())
+                    > MAX_POW_TRITS_GUARANTEED_OVER + 3
+                {
+                    return Err(CoreError::Overflow(
+                        "pow result exceeds 1048576-bit safety limit".to_string(),
+                    ));
+                }
+                result = &result * &base;
+                if result.exceeds_pow_ceiling() {
+                    return Err(CoreError::Overflow(
+                        "pow result exceeds 1048576-bit safety limit".to_string(),
+                    ));
+                }
+            }
+            e >>= 1;
+            if e > 0 {
+                if base.trit_len().saturating_mul(2) > MAX_POW_TRITS_GUARANTEED_OVER + 3 {
+                    return Err(CoreError::Overflow(
+                        "pow result exceeds 1048576-bit safety limit".to_string(),
+                    ));
+                }
+                base = &base * &base;
+                if base.exceeds_pow_ceiling() {
+                    return Err(CoreError::Overflow(
+                        "pow result exceeds 1048576-bit safety limit".to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Checked integer exponentiation from a `TritInt` / `BigInt` exponent (`0 <= exp <= 65_536`).
+    pub fn checked_pow_bigint(&self, exp: &Self) -> CoreResult<Self> {
+        if exp.is_negative() {
+            return Err(CoreError::DomainError(format!(
+                "int pow requires non-negative exponent, got {exp}"
+            )));
+        }
+        let e = exp
+            .to_u64()
+            .and_then(|v| u32::try_from(v).ok())
+            .ok_or_else(|| {
+                CoreError::Overflow(format!(
+                    "pow exponent {exp} exceeds safety limit {}",
+                    Self::MAX_POW_EXP
+                ))
+            })?;
+        self.checked_pow(e)
     }
 
     /// Truncating division returning `(quotient, remainder)` with `self == q * rhs + r`,
@@ -1094,6 +1327,11 @@ impl TritInt {
         if self.is_zero() || shift == 0 {
             return Ok(self.clone());
         }
+        if (shift as usize) > Self::MAX_POW_BITS {
+            return Err(CoreError::Overflow(format!(
+                "shift amount {shift} exceeds safety limit"
+            )));
+        }
         let factor = Self::from_u64(2).pow(shift);
         Ok(self * &factor)
     }
@@ -1107,6 +1345,9 @@ impl TritInt {
         }
         if self.is_zero() || shift == 0 {
             return Ok(self.clone());
+        }
+        if (shift as usize) > Self::MAX_POW_BITS || (shift as usize) >= self.bit_len() {
+            return Ok(Self::ZERO);
         }
         let divisor = Self::from_u64(2).pow(shift);
         self.div_floor(&divisor)

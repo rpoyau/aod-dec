@@ -139,12 +139,18 @@ struct HiggsInternalScore:
     qd_val: int
     score: ratio
 
+enum ScientificStatus:
+    AuthenticatedExact
+    ConformantDeclaredFixture
+    RetainedDataConformant
+    UnresolvedProvenanceQuarantined
+
 struct SwellsTauAudit:
     sum_delta_z: int
     sum_m: int
     tau_difference: ratio
     tau_distinct: bool
-    scientific_status: str
+    scientific_status: ScientificStatus
 
 struct Map21Summary:
     output_mean: ratio
@@ -408,7 +414,7 @@ dec swells_delta3_tau_audit(pred: [int], obs: [int], tau_diagnostic: ratio, tau_
         sum_m,
         tau_diff,
         tau_diagnostic != tau_summary_nominal,
-        "UNRESOLVED_PROVENANCE_QUARANTINED"
+        ScientificStatus::UnresolvedProvenanceQuarantined
     )
 
 # 9. MAP-21 exact finite-support nonlinear variance propagation (RC-024)

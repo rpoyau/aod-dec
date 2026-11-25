@@ -81,7 +81,7 @@ dec main() -> int:
     # Raw bit/byte containers
     let raw = b64_bits(0xDEADBEEF)
     assert len(b64_le_bytes(raw)) == 8
-    assert hex_bytes(bytes("Dec")) == "446563"
+    assert hex_bytes(bytes(b"Dec")) == b"446563"
 
     let wins = [(0, 6], (4, 8]]
     assert len(wins) == 2
@@ -125,7 +125,7 @@ fn hostile_lexer_clean_break_shape_trit_and_zero_den_rejections() {
         assert_eq!(err.code, expected_code, "wrong error for:\n{src}\ngot: {err}");
     }
 
-    // Imperative keywords, braces, t32, int64, and uppercase Dec are strictly rejected
+    // Imperative keywords, braces, str, u8, t9, t32, int64, unprefixed quotes, and uppercase Dec are strictly rejected
     for removed in [
         "Dec main() -> int:\n    0\n",
         "dec main() -> int:\n    mut x = 1\n    x\n",
@@ -133,8 +133,12 @@ fn hostile_lexer_clean_break_shape_trit_and_zero_den_rejections() {
         "dec main() -> int:\n    for i in 0..3:\n        emit i\n    0\n",
         "dec main() -> int:\n    while false:\n        emit 1\n    0\n",
         "struct S { x: int }\ndec main() -> int:\n    0\n",
+        "dec main(x: str) -> int:\n    0\n",
+        "dec main(x: u8) -> int:\n    0\n",
+        "dec main(x: t9) -> int:\n    0\n",
         "dec main(x: t32) -> int:\n    0\n",
         "dec main(x: int64) -> int:\n    0\n",
+        "dec main() -> int:\n    let s = \"abc\"\n    0\n",
     ] {
         assert!(
             check_source(removed).is_err(),
@@ -272,7 +276,7 @@ dec trit_weight:
     (-1t: t1, n: int) -> int:
         -n
 
-dec emit_entry(kv: (str, int)) -> int:
+dec emit_entry(kv: (bytes, int)) -> int:
     let (k, v) = kv
     emit k
     emit v
@@ -305,16 +309,16 @@ dec main() -> int:
     assert trit_weight(-1t, 5) == -5
 
     # Deterministic immutable BTreeMap map[K, V]
-    let m0: map[str, int] = map[]
-    let m1 = map_put(m0, "zeta", 3)
-    let m2 = map_put(m1, "alpha", 1)
-    let m = map_put(m2, "mid", 2)
+    let m0: map[bytes, int] = map[]
+    let m1 = map_put(m0, b"zeta", 3)
+    let m2 = map_put(m1, b"alpha", 1)
+    let m = map_put(m2, b"mid", 2)
     assert len(m) == 3
-    assert contains(m, "alpha") == true
-    assert contains(m, "missing") == false
-    assert m["mid"] == 2
+    assert contains(m, b"alpha") == true
+    assert contains(m, b"missing") == false
+    assert m[b"mid"] == 2
 
-    let literal_map = map["c": 30, "a": 10, "b": 20]
+    let literal_map = map[(b"c", 30), (b"a", 10), (b"b", 20)]
     assert len(literal_map) == 3
     assert len(map_keys(literal_map)) == 3
 
@@ -322,7 +326,10 @@ dec main() -> int:
     0
 "#;
     let out = run_source(src).unwrap();
-    assert_eq!(out.to_stdout_string(), "alpha\n1\nmid\n2\nzeta\n3\n0\n");
+    assert_eq!(
+        out.to_stdout_string(),
+        "b\"alpha\"\n1\nb\"mid\"\n2\nb\"zeta\"\n3\n0\n"
+    );
 }
 
 #[test]

@@ -10,7 +10,9 @@ use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{load_hermetic, BundledModule};
 
 pub const IR_FORMAT: &str = "aod.dec.ir";
+pub const IR_SCHEMA: &str = "aod.dec.ir.v3";
 pub const IR_VERSION: i64 = 3;
+pub const IR_SYNTAX_DISCIPLINE: &str = "pure_wave_v2";
 pub const MAX_IR_BYTES: usize = 8_000_000;
 
 /// Encode a checked unit into canonical deterministic `DecIR` (`version: 3`),
@@ -18,7 +20,12 @@ pub const MAX_IR_BYTES: usize = 8_000_000;
 pub fn encode_ir_json(checked: &CheckedUnit) -> JsonValue {
     let mut root = BTreeMap::new();
     root.insert("format".to_string(), JsonValue::from_str_val(IR_FORMAT));
+    root.insert("schema".to_string(), JsonValue::from_str_val(IR_SCHEMA));
     root.insert("version".to_string(), JsonValue::from_i64(IR_VERSION));
+    root.insert(
+        "syntax_discipline".to_string(),
+        JsonValue::from_str_val(IR_SYNTAX_DISCIPLINE),
+    );
     root.insert(
         "source".to_string(),
         JsonValue::from_str_val(checked.unit.entry_source.clone()),
@@ -88,6 +95,12 @@ pub fn loads_ir(text: &str) -> DecResult<CheckedUnit> {
             "unsupported Dec IR format",
         ));
     }
+    if obj.get("schema").and_then(JsonValue::as_str) != Some(IR_SCHEMA) {
+        return Err(Diagnostic::new(
+            DiagnosticCode::IrVerificationError,
+            format!("DecIR v3 requires \"schema\": {IR_SCHEMA:?}"),
+        ));
+    }
     let version_int = obj
         .get("version")
         .and_then(JsonValue::as_int)
@@ -101,6 +114,12 @@ pub fn loads_ir(text: &str) -> DecResult<CheckedUnit> {
         return Err(Diagnostic::new(
             DiagnosticCode::IrVerificationError,
             format!("unsupported Dec IR version {version_int}; expected {IR_VERSION}"),
+        ));
+    }
+    if obj.get("syntax_discipline").and_then(JsonValue::as_str) != Some(IR_SYNTAX_DISCIPLINE) {
+        return Err(Diagnostic::new(
+            DiagnosticCode::IrVerificationError,
+            "DecIR v3 requires \"syntax_discipline\": \"pure_wave_v2\"",
         ));
     }
 
@@ -181,8 +200,18 @@ pub fn loads_ir(text: &str) -> DecResult<CheckedUnit> {
     }
 
     // Strict hermetic rebuild with ZERO ambient filesystem access!
-    let loaded = load_hermetic(source, &bundled)?;
-    let rebuilt = check_unit(loaded, true)?;
+    let loaded = load_hermetic(source, &bundled).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::IrVerificationError,
+            format!("IR hermetic load failed: {e}"),
+        )
+    })?;
+    let rebuilt = check_unit(loaded, true).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::IrVerificationError,
+            format!("IR hermetic check failed: {e}"),
+        )
+    })?;
 
     // Canonical JSON equality prevents bool/int tampering, extra fields, or modified metadata.
     let expected_canonical = dumps_ir(&rebuilt);

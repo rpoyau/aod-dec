@@ -5,7 +5,7 @@
 use aod::core:
     fold, len, range_seq, ratio, select
 use aod::wavelet:
-    window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
+    RecipientStage, window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
 
 const DUON_VARIANT_COUNT: int = 12
 
@@ -85,21 +85,35 @@ dec cyclo_add(a: Cyclo12, b: Cyclo12) -> Cyclo12:
 dec cyclo_scale(a: Cyclo12, s: ratio) -> Cyclo12:
     Cyclo12(a.c0 * s, a.c1 * s, a.c2 * s, a.c3 * s)
 
+dec zeta12_unit:
+    (0: int) -> Cyclo12:
+        Cyclo12(1/1r, 0/1r, 0/1r, 0/1r)
+    (1: int) -> Cyclo12:
+        Cyclo12(0/1r, 1/1r, 0/1r, 0/1r)
+    (2: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, 1/1r, 0/1r)
+    (3: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, 0/1r, 1/1r)
+    (4: int) -> Cyclo12:
+        Cyclo12(-1/1r, 0/1r, 1/1r, 0/1r)
+    (5: int) -> Cyclo12:
+        Cyclo12(0/1r, -1/1r, 0/1r, 1/1r)
+    (6: int) -> Cyclo12:
+        Cyclo12(-1/1r, 0/1r, 0/1r, 0/1r)
+    (7: int) -> Cyclo12:
+        Cyclo12(0/1r, -1/1r, 0/1r, 0/1r)
+    (8: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, -1/1r, 0/1r)
+    (9: int) -> Cyclo12:
+        Cyclo12(0/1r, 0/1r, 0/1r, -1/1r)
+    (10: int) -> Cyclo12:
+        Cyclo12(1/1r, 0/1r, -1/1r, 0/1r)
+    (_: int) -> Cyclo12:
+        Cyclo12(0/1r, 1/1r, 0/1r, -1/1r)
+
 # Exact 12th root of unity zeta_12^k in Q[x]/(x^4 - x^2 + 1)
 dec zeta12_pow(k: int) -> Cyclo12:
-    match k % 12:
-        0 -> Cyclo12(1/1r, 0/1r, 0/1r, 0/1r)
-        1 -> Cyclo12(0/1r, 1/1r, 0/1r, 0/1r)
-        2 -> Cyclo12(0/1r, 0/1r, 1/1r, 0/1r)
-        3 -> Cyclo12(0/1r, 0/1r, 0/1r, 1/1r)
-        4 -> Cyclo12(-1/1r, 0/1r, 1/1r, 0/1r)
-        5 -> Cyclo12(0/1r, -1/1r, 0/1r, 1/1r)
-        6 -> Cyclo12(-1/1r, 0/1r, 0/1r, 0/1r)
-        7 -> Cyclo12(0/1r, -1/1r, 0/1r, 0/1r)
-        8 -> Cyclo12(0/1r, 0/1r, -1/1r, 0/1r)
-        9 -> Cyclo12(0/1r, 0/1r, 0/1r, -1/1r)
-        10 -> Cyclo12(1/1r, 0/1r, -1/1r, 0/1r)
-        _ -> Cyclo12(0/1r, 1/1r, 0/1r, -1/1r)
+    zeta12_unit(k % 12)
 
 # Complex conjugate in Q(zeta_12): conj(zeta^k) = zeta^(-k mod 12)
 dec cyclo_conj(a: Cyclo12) -> Cyclo12:

@@ -1,5 +1,8 @@
 # Unbiased opposing 3:3:6 chamber smoke fixture (zero hardcoded physical target outcomes).
-# Explicitly tagged as DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED by the sandbox engine.
+# Explicitly tagged as ModelStatus::DeclaredSandboxNotS3Authenticated by the sandbox engine.
+
+use aod::core::len
+use aod::sim::ModelStatus
 
 chamber OpposingChamber:
     space = box([0..64, 0..64, 0..64])
@@ -24,6 +27,7 @@ observe ExtraProbes:
         region = box([20..44, 28..36, 28..36])
         capture = [support, shedding]
     sensor tick_counter(view) -> int:
+        assert view.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
         view.carrier_count
 
 dec main() -> int:
@@ -31,9 +35,11 @@ dec main() -> int:
     let run_one = simulate TwoOpposing336 over 16 ticks with CoreProbe
     let run_multi = simulate TwoOpposing336 over 16 ticks with CoreProbe, ExtraProbes
 
-    assert run_zero.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+    assert run_zero.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+    assert run_zero.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
     assert run_zero.final_state_hash == run_one.final_state_hash
     assert run_zero.final_state_hash == run_multi.final_state_hash
+    assert len(run_zero.final_state_sha256) == 32
     assert run_zero.carrier_count == 2
     assert run_zero.shedding_event_count >= 1
     assert run_zero.wavelet_event_count >= 1

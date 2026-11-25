@@ -674,14 +674,14 @@ prepare P in ErrLab:
     inject 3:3:6 at (4, 8, 8) dir +X orient +1t shells 1
 observe Obs1:
     tracer t1(view):
-        emit "obs1_ok"
+        emit b"obs1_ok"
 observe Obs2:
     tracer t2(view):
-        emit "obs2_before_fail"
+        emit b"obs2_before_fail"
         assert false
 observe Obs3:
     tracer t3(view):
-        emit "obs3_must_be_discarded"
+        emit b"obs3_must_be_discarded"
 dec main() -> int:
     let _r = simulate P over 2 ticks with Obs1, Obs2, Obs3
     0
@@ -696,7 +696,13 @@ dec main() -> int:
         .with_parallel_observers(true)
         .run_main_capturing();
     assert!(ev_seq_r.is_err() && ev_par_r.is_err());
-    assert_eq!(ev_seq_e, vec!["obs1_ok".to_string(), "obs2_before_fail".to_string()]);
+    assert_eq!(
+        ev_seq_e,
+        vec![
+            "b\"obs1_ok\"".to_string(),
+            "b\"obs2_before_fail\"".to_string()
+        ]
+    );
     assert_eq!(ev_par_e, ev_seq_e);
 
     let (je_seq_out, je_seq_r) = jit_source_with_plan_captured(
@@ -714,7 +720,7 @@ dec main() -> int:
     )
     .unwrap();
     assert!(je_seq_r.is_err() && je_par_r.is_err());
-    assert_eq!(je_seq_out, "obs1_ok\nobs2_before_fail\n");
+    assert_eq!(je_seq_out, "b\"obs1_ok\"\nb\"obs2_before_fail\"\n");
     assert_eq!(je_par_out, je_seq_out);
     assert_eq!(je_par_r, je_seq_r);
 }

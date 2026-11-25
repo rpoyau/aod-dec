@@ -45,18 +45,28 @@ jobs:
             exit 1
           fi
 
-      - name: Run Clean-Break v3, v2 smoke, and Manual fixture suites
+      - name: Run Clean-Break v3, v2 smoke, first_principles, and Manual fixture suites + fmt --check
         run: |
           ./target/release/aodc test tests/fixtures/v3_examples
           ./target/release/aodc test tests/fixtures/v2_smoke
           ./target/release/aodc test manual_examples
+          ./target/release/aodc test examples/first_principles
+          for f in examples/first_principles/*.dec; do
+            ./target/release/aodc fmt --check "$f"
+          done
+
+      - name: Audit all 45 positive Clean-Break .dec files via 6-hook native auditor (aodc audit-dec --json)
+        run: |
+          for f in examples/first_principles/*.dec stdlib/aod/*.dec manual_examples/*.dec tests/fixtures/v2_smoke/*.dec tests/fixtures/v2_bench/*.dec tests/fixtures/v3_examples/*.dec self_host/aodc_self.dec; do
+            ./target/release/aodc audit-dec --json "$f"
+          done
 
       - name: Verify 4-stage self-hosting fixed point (SHA256(stage2) == SHA256(stage3))
         run: |
           ./target/release/aodc bootstrap-verify
           ./target/release/aodc bootstrap-verify --json
 
-      - name: Run live hardware discovery & JIT micro-probes
+      - name: Run live hardware discovery & 6 JIT micro-probes (including 2-thread FRG ring gate)
         run: ./target/release/aodc probe-hw
 
       - name: Verify live docs/manual/data/*.json parity via zero-LLVM Exact VM (aodc manual-data --check)

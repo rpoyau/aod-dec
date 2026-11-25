@@ -17,7 +17,7 @@ const TK_IDENT: int = 4
 const TK_INT: int = 5
 const TK_OCTAL: int = 6
 const TK_TRIT: int = 7
-const TK_STR: int = 8
+const TK_BYTES: int = 8
 const TK_BOOL: int = 9
 
 const TK_STRUCT: int = 10
@@ -71,7 +71,6 @@ const TY_T1: int = 3
 const TY_B8: int = 4
 const TY_B64: int = 5
 const TY_BYTES: int = 6
-const TY_STR: int = 7
 const TY_ADDR8: int = 8
 const TY_STRUCT_BASE: int = 100
 const TY_FN_BASE: int = 1000
@@ -107,7 +106,7 @@ const RT_SETTLE: int = 21
 const RT_FOLD: int = 22
 const RT_EACH: int = 23
 const RT_EMIT_INT: int = 24
-const RT_EMIT_STR: int = 25
+const RT_EMIT_BYTES: int = 25
 const RT_EMIT_BOOL: int = 26
 const RT_EMIT_T1: int = 27
 const RT_ASSERT_FAIL: int = 28
@@ -145,7 +144,7 @@ struct StructDef:
 struct ConstDef:
     name: bytes
     val: int
-    str_val: bytes
+    bytes_val: bytes
     ty: int
 
 struct FnSig:
@@ -235,7 +234,7 @@ dec join_bytes(chunks: [bytes]) -> bytes:
     let n = len(chunks)
     select(
         n == 0,
-        bytes(""),
+        b"",
         select(
             n == 1,
             chunks[0],
@@ -249,7 +248,7 @@ dec dup_bytes(x: bytes) -> bytes:
 dec make_nops(n: int) -> bytes:
     select(
         n <= 0,
-        bytes(""),
+        b"",
         select(
             n == 1,
             b1(0x90),
@@ -390,7 +389,7 @@ dec emit_inline_bytes_lit(payload: bytes) -> bytes:
 # ============================================================================
 
 dec build_rt_assert_fail() -> bytes:
-    let msg = bytes("aodc: AssertionFailed\n")
+    let msg = b"aodc: AssertionFailed\n"
     cb5(
         bytes([b8(0x48), b8(0x8D), b8(0x35), b8(5), b8(0), b8(0), b8(0)]),
         jmp_over(msg),
@@ -970,9 +969,9 @@ dec build_rt_emit_int() -> bytes:
         b1(0xC3),
     ])
 
-dec build_rt_emit_str() -> bytes:
-    let nl = emit_inline_bytes_lit(bytes("\n"))
-    let wr_str = join_bytes([
+dec build_rt_emit_bytes() -> bytes:
+    let nl = emit_inline_bytes_lit(b"\n")
+    let wr_bytes = join_bytes([
         b3(0x48, 0x8B, 0x17),
         b4(0x48, 0x8D, 0x77, 0x08),
         b5(0xBF, 1, 0, 0, 0),
@@ -981,7 +980,7 @@ dec build_rt_emit_str() -> bytes:
     ])
     join_bytes([
         b4(0x48, 0x83, 0x3F, 0x00),
-        jz_over(wr_str),
+        jz_over(wr_bytes),
         nl,
         b4(0x48, 0x8D, 0x70, 0x08),
         b5(0xBF, 1, 0, 0, 0),
@@ -992,8 +991,8 @@ dec build_rt_emit_str() -> bytes:
     ])
 
 dec build_rt_emit_bool() -> bytes:
-    let t_lit = cb3(emit_inline_bytes_lit(bytes("true")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR))
-    let f_lit = cb3(emit_inline_bytes_lit(bytes("false")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR))
+    let t_lit = cb3(emit_inline_bytes_lit(b"true"), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_BYTES))
+    let f_lit = cb3(emit_inline_bytes_lit(b"false"), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_BYTES))
     join_bytes([
         b3(0x48, 0x85, 0xFF),
         jz_over(cb2(t_lit, b1(0xC3))),
@@ -1002,9 +1001,9 @@ dec build_rt_emit_bool() -> bytes:
     ])
 
 dec build_rt_emit_t1() -> bytes:
-    let n_lit = cb4(emit_inline_bytes_lit(bytes("t1(-1)")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR), b1(0xC3))
-    let z_lit = cb4(emit_inline_bytes_lit(bytes("t1(0)")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR), b1(0xC3))
-    let p_lit = cb4(emit_inline_bytes_lit(bytes("t1(1)")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR), b1(0xC3))
+    let n_lit = cb4(emit_inline_bytes_lit(b"t1(-1)"), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_BYTES), b1(0xC3))
+    let z_lit = cb4(emit_inline_bytes_lit(b"t1(0)"), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_BYTES), b1(0xC3))
+    let p_lit = cb4(emit_inline_bytes_lit(b"t1(1)"), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_BYTES), b1(0xC3))
     join_bytes([
         b4(0x48, 0x83, 0xFF, 0xFF),
         jnz_over(n_lit),
@@ -1120,7 +1119,7 @@ dec build_start_code(main_idx: int, main_prints_int: int) -> bytes:
     let print_tail = select(
         main_prints_int == 1,
         cb2(b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_INT)),
-        bytes(""),
+        b"",
     )
     join_bytes([
         b3(0x48, 0x89, 0xE3),
@@ -1202,7 +1201,7 @@ dec build_rt_section(main_idx: int, main_prints_int: int) -> bytes:
         build_rt_fold(),
         build_rt_each(),
         build_rt_emit_int(),
-        build_rt_emit_str(),
+        build_rt_emit_bytes(),
         build_rt_emit_bool(),
         build_rt_emit_t1(),
         build_rt_assert_fail(),
@@ -1308,15 +1307,15 @@ dec has_prefix_at(src: bytes, pos: int, limit: int, pat: bytes) -> bool:
 
 dec top_line_kind(src: bytes, pos: int, limit: int) -> int:
     select(
-        has_prefix_at(src, pos, limit, bytes("dec ")),
+        has_prefix_at(src, pos, limit, b"dec "),
         TK_DEC,
         select(
-            has_prefix_at(src, pos, limit, bytes("struct ")),
+            has_prefix_at(src, pos, limit, b"struct "),
             TK_STRUCT,
             select(
-                has_prefix_at(src, pos, limit, bytes("const ")),
+                has_prefix_at(src, pos, limit, b"const "),
                 TK_CONST,
-                select(has_prefix_at(src, pos, limit, bytes("use ")), TK_USE, 0),
+                select(has_prefix_at(src, pos, limit, b"use "), TK_USE, 0),
             ),
         ),
     )
@@ -1536,45 +1535,49 @@ dec scan_number(src: bytes, pos: int, limit: int) -> NumScan:
         ),
     )
 
-struct StrScan:
+struct BytesScan:
     end_pos: int
     payload: bytes
 
-dec scan_str_chars(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
+dec scan_bytes_chars(src: bytes, pos: int, limit: int, quote: int, acc: [b8]) -> BytesScan:
     assert pos < limit
     let c = int(src[pos])
     select(
-        c == 34,
-        StrScan(pos + 1, bytes(acc)),
+        c == quote,
+        BytesScan(pos + 1, bytes(acc)),
         select(
             c == 92,
-            scan_str_escape(src, pos + 1, limit, acc),
-            scan_str_chars(src, pos + 1, limit, push(acc, b8(c))),
+            scan_bytes_escape(src, pos + 1, limit, quote, acc),
+            scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(c))),
         ),
     )
 
-dec scan_str_escape(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
+dec scan_bytes_escape(src: bytes, pos: int, limit: int, quote: int, acc: [b8]) -> BytesScan:
     assert pos < limit
     let e = int(src[pos])
     select(
         e == 110,
-        scan_str_chars(src, pos + 1, limit, push(acc, b8(10))),
+        scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(10))),
         select(
             e == 114,
-            scan_str_chars(src, pos + 1, limit, push(acc, b8(13))),
+            scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(13))),
             select(
                 e == 116,
-                scan_str_chars(src, pos + 1, limit, push(acc, b8(9))),
+                scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(9))),
                 select(
                     e == 92,
-                    scan_str_chars(src, pos + 1, limit, push(acc, b8(92))),
+                    scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(92))),
                     select(
                         e == 34,
-                        scan_str_chars(src, pos + 1, limit, push(acc, b8(34))),
+                        scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(34))),
                         select(
-                            e == 48,
-                            scan_str_chars(src, pos + 1, limit, push(acc, b8(0))),
-                            scan_str_hex_escape(src, pos, limit, acc),
+                            e == 39,
+                            scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(39))),
+                            select(
+                                e == 48,
+                                scan_bytes_chars(src, pos + 1, limit, quote, push(acc, b8(0))),
+                                scan_bytes_hex_escape(src, pos, limit, quote, acc),
+                            ),
                         ),
                     ),
                 ),
@@ -1582,21 +1585,21 @@ dec scan_str_escape(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
         ),
     )
 
-dec scan_str_hex_escape(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
+dec scan_bytes_hex_escape(src: bytes, pos: int, limit: int, quote: int, acc: [b8]) -> BytesScan:
     assert int(src[pos]) == 120 and pos + 2 < limit
     let hi = hex_val(int(src[pos + 1]))
     let lo = hex_val(int(src[pos + 2]))
-    scan_str_chars(src, pos + 3, limit, push(acc, b8(hi * 16 + lo)))
+    scan_bytes_chars(src, pos + 3, limit, quote, push(acc, b8(hi * 16 + lo)))
 
 dec classify_word(w: bytes) -> Tok:
     let wl = len(w)
-    let e = bytes("")
+    let e = b""
     select(
         wl < 2 or wl > 6,
         Tok(TK_IDENT, 0, w),
         select(
             wl == 2,
-            select(w == bytes("or"), Tok(TK_OR, 0, e), Tok(TK_IDENT, 0, w)),
+            select(w == b"or", Tok(TK_OR, 0, e), Tok(TK_IDENT, 0, w)),
             select(
                 wl == 3,
                 classify_word_len3(w, e),
@@ -1607,18 +1610,18 @@ dec classify_word(w: bytes) -> Tok:
 
 dec classify_word_len3(w: bytes, e: bytes) -> Tok:
     select(
-        w == bytes("let"),
+        w == b"let",
         Tok(TK_LET, 0, e),
         select(
-            w == bytes("dec"),
+            w == b"dec",
             Tok(TK_DEC, 0, e),
             select(
-                w == bytes("and"),
+                w == b"and",
                 Tok(TK_AND, 0, e),
                 select(
-                    w == bytes("not"),
+                    w == b"not",
                     Tok(TK_NOT, 0, e),
-                    select(w == bytes("use"), Tok(TK_USE, 0, e), Tok(TK_IDENT, 0, w)),
+                    select(w == b"use", Tok(TK_USE, 0, e), Tok(TK_IDENT, 0, w)),
                 ),
             ),
         ),
@@ -1628,25 +1631,25 @@ dec classify_word_len456(w: bytes, wl: int, e: bytes) -> Tok:
     select(
         wl == 4,
         select(
-            w == bytes("true"),
+            w == b"true",
             Tok(TK_BOOL, 1, e),
-            select(w == bytes("emit"), Tok(TK_EMIT, 0, e), Tok(TK_IDENT, 0, w)),
+            select(w == b"emit", Tok(TK_EMIT, 0, e), Tok(TK_IDENT, 0, w)),
         ),
         select(
             wl == 5,
             select(
-                w == bytes("false"),
+                w == b"false",
                 Tok(TK_BOOL, 0, e),
                 select(
-                    w == bytes("const"),
+                    w == b"const",
                     Tok(TK_CONST, 0, e),
-                    select(w == bytes("where"), Tok(TK_WHERE, 0, e), Tok(TK_IDENT, 0, w)),
+                    select(w == b"where", Tok(TK_WHERE, 0, e), Tok(TK_IDENT, 0, w)),
                 ),
             ),
             select(
-                w == bytes("assert"),
+                w == b"assert",
                 Tok(TK_ASSERT, 0, e),
-                select(w == bytes("struct"), Tok(TK_STRUCT, 0, e), Tok(TK_IDENT, 0, w)),
+                select(w == b"struct", Tok(TK_STRUCT, 0, e), Tok(TK_IDENT, 0, w)),
             ),
         ),
     )
@@ -1660,7 +1663,7 @@ dec pop_dedents(indents: [int], col: int, toks: [Tok]) -> DedentOut:
     let top = indents[n - 1]
     select(
         top > col,
-        pop_dedents(slice(indents, 0, n - 1), col, push(toks, Tok(TK_DEDENT, 0, bytes("")))),
+        pop_dedents(slice(indents, 0, n - 1), col, push(toks, Tok(TK_DEDENT, 0, b""))),
         finish_dedent_check(indents, col, toks),
     )
 
@@ -1676,7 +1679,7 @@ dec push_nl_if_needed(toks: [Tok]) -> [Tok]:
         select(
             toks[n - 1].kind == TK_NEWLINE or toks[n - 1].kind == TK_INDENT or toks[n - 1].kind == TK_DEDENT,
             toks,
-            push(toks, Tok(TK_NEWLINE, 0, bytes(""))),
+            push(toks, Tok(TK_NEWLINE, 0, b"")),
         ),
     )
 
@@ -1713,7 +1716,7 @@ dec lex_bol_indent(st: LexState, p1: int, col: int) -> LexState:
                 0,
                 st.paren_depth,
                 push(st.indents, col),
-                push(st.toks, Tok(TK_INDENT, 0, bytes(""))),
+                push(st.toks, Tok(TK_INDENT, 0, b"")),
             ),
             lex_bol_dedent(st, p1, col),
         ),
@@ -1733,6 +1736,7 @@ dec lex_inline(st: LexState) -> LexState:
 
 dec lex_inline_at(st: LexState, p: int) -> LexState:
     let c = int(st.src[p])
+    let c1 = select(p + 1 < st.limit, int(st.src[p + 1]), 0)
     select(
         c == 35,
         LexState(st.src, find_nl(st.src, p, st.limit), st.limit, st.at_bol, st.paren_depth, st.indents, st.toks),
@@ -1744,15 +1748,19 @@ dec lex_inline_at(st: LexState, p: int) -> LexState:
                 LexState(st.src, p + 1, st.limit, 1, 0, st.indents, push_nl_if_needed(st.toks)),
             ),
             select(
-                is_alpha(c),
-                lex_ident_tok(st, p),
+                c == 98 and (c1 == 34 or c1 == 39),
+                lex_bytes_tok(st, p + 1),
                 select(
-                    is_digit(c),
-                    lex_num_tok(st, p),
+                    is_alpha(c),
+                    lex_ident_tok(st, p),
                     select(
-                        c == 34,
-                        lex_str_tok(st, p),
-                        lex_punct_tok(st, p, c),
+                        is_digit(c),
+                        lex_num_tok(st, p),
+                        select(
+                            c == 34 or c == 39,
+                            lex_bytes_tok(st, p),
+                            lex_punct_tok(st, p, c),
+                        ),
                     ),
                 ),
             ),
@@ -1773,12 +1781,13 @@ dec lex_num_tok(st: LexState, p: int) -> LexState:
         0,
         st.paren_depth,
         st.indents,
-        push(st.toks, Tok(ns.kind, ns.val, bytes(""))),
+        push(st.toks, Tok(ns.kind, ns.val, b"")),
     )
 
-dec lex_str_tok(st: LexState, p: int) -> LexState:
+dec lex_bytes_tok(st: LexState, p: int) -> LexState:
     let empty_b8: [b8] = []
-    let ss = scan_str_chars(st.src, p + 1, st.limit, empty_b8)
+    let q = int(st.src[p])
+    let ss = scan_bytes_chars(st.src, p + 1, st.limit, q, empty_b8)
     LexState(
         st.src,
         ss.end_pos,
@@ -1786,7 +1795,7 @@ dec lex_str_tok(st: LexState, p: int) -> LexState:
         0,
         st.paren_depth,
         st.indents,
-        push(st.toks, Tok(TK_STR, 0, ss.payload)),
+        push(st.toks, Tok(TK_BYTES, 0, ss.payload)),
     )
 
 dec push_punct(st: LexState, next_p: int, dp: int, kind: int) -> LexState:
@@ -1797,7 +1806,7 @@ dec push_punct(st: LexState, next_p: int, dp: int, kind: int) -> LexState:
         0,
         st.paren_depth + dp,
         st.indents,
-        push(st.toks, Tok(kind, 0, bytes(""))),
+        push(st.toks, Tok(kind, 0, b"")),
     )
 
 dec lex_punct_tok(st: LexState, p: int, c0: int) -> LexState:
@@ -1957,7 +1966,7 @@ dec lex_slice(src: bytes, start: int, limit: int) -> [Tok]:
     assert fin.pos >= fin.limit and fin.paren_depth == 0
     let t1_list = push_nl_if_needed(fin.toks)
     let dd = pop_dedents(fin.indents, 0, t1_list)
-    push(dd.toks, Tok(TK_EOF, 0, bytes("")))
+    push(dd.toks, Tok(TK_EOF, 0, b""))
 
 # ============================================================================
 # Section 7: Type & Symbol Table Resolution (Pass 1)
@@ -2027,31 +2036,27 @@ dec parse_named_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
     assert tk.kind == TK_IDENT
     let w = tk.text
     let ty = select(
-        w == bytes("int"),
+        w == b"int",
         TY_INT,
         select(
-            w == bytes("bool"),
+            w == b"bool",
             TY_BOOL,
             select(
-                w == bytes("t1"),
+                w == b"t1",
                 TY_T1,
                 select(
-                    w == bytes("b8"),
+                    w == b"b8",
                     TY_B8,
                     select(
-                        w == bytes("b64"),
+                        w == b"b64",
                         TY_B64,
                         select(
-                            w == bytes("bytes"),
+                            w == b"bytes",
                             TY_BYTES,
                             select(
-                                w == bytes("str"),
-                                TY_STR,
-                                select(
-                                    w == bytes("addr8"),
-                                    TY_ADDR8,
-                                    resolve_struct_type(structs, w),
-                                ),
+                                w == b"addr8",
+                                TY_ADDR8,
+                                resolve_struct_type(structs, w),
                             ),
                         ),
                     ),
@@ -2195,25 +2200,25 @@ dec parse_const_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> ConstD
     let k = toks[vpos].kind
     select(
         k == TK_MINUS and toks[vpos + 1].kind == TK_INT,
-        ConstDef(cname, 0 - toks[vpos + 1].val, bytes(""), TY_INT),
+        ConstDef(cname, 0 - toks[vpos + 1].val, b"", TY_INT),
         select(
             k == TK_MINUS and toks[vpos + 1].kind == TK_TRIT,
-            ConstDef(cname, 0 - toks[vpos + 1].val, bytes(""), TY_T1),
+            ConstDef(cname, 0 - toks[vpos + 1].val, b"", TY_T1),
             select(
                 k == TK_PLUS and toks[vpos + 1].kind == TK_TRIT,
-                ConstDef(cname, toks[vpos + 1].val, bytes(""), TY_T1),
+                ConstDef(cname, toks[vpos + 1].val, b"", TY_T1),
                 select(
                     k == TK_TRIT,
-                    ConstDef(cname, toks[vpos].val, bytes(""), TY_T1),
+                    ConstDef(cname, toks[vpos].val, b"", TY_T1),
                     select(
                         k == TK_OCTAL,
-                        ConstDef(cname, toks[vpos].val, bytes(""), TY_ADDR8),
+                        ConstDef(cname, toks[vpos].val, b"", TY_ADDR8),
                         select(
                             k == TK_BOOL,
-                            ConstDef(cname, toks[vpos].val, bytes(""), TY_BOOL),
+                            ConstDef(cname, toks[vpos].val, b"", TY_BOOL),
                             select(
-                                k == TK_STR,
-                                ConstDef(cname, 0, toks[vpos].text, TY_STR),
+                                k == TK_BYTES,
+                                ConstDef(cname, 0, toks[vpos].text, TY_BYTES),
                                 finish_int_const(cname, toks[vpos]),
                             ),
                         ),
@@ -2225,7 +2230,7 @@ dec parse_const_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> ConstD
 
 dec finish_int_const(cname: bytes, tk: Tok) -> ConstDef:
     assert tk.kind == TK_INT
-    ConstDef(cname, tk.val, bytes(""), TY_INT)
+    ConstDef(cname, tk.val, b"", TY_INT)
 
 struct SymBuildState:
     src: bytes
@@ -2428,7 +2433,7 @@ dec emit_cmp_rhs(env: CgEnv, lhs: ExprOut, op: int) -> ExprOut:
     let rhs = emit_bitor(env, lhs.pos + 1, lhs.ty)
     let ms = max_int(lhs.max_slot, rhs.max_slot)
     select(
-        lhs.ty == TY_BYTES or lhs.ty == TY_STR,
+        lhs.ty == TY_BYTES,
         emit_cmp_bytes(lhs, rhs, op, ms),
         emit_cmp_scalar(lhs, rhs, op, ms),
     )
@@ -2624,7 +2629,7 @@ dec emit_unary_not(env: CgEnv, pos: int) -> ExprOut:
 
 dec emit_unary_bitnot(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
     let sub = emit_unary(env, pos, hint_ty)
-    let mask = select(sub.ty == TY_B8, b5(0x25, 0xFF, 0x00, 0x00, 0x00), bytes(""))
+    let mask = select(sub.ty == TY_B8, b5(0x25, 0xFF, 0x00, 0x00, 0x00), b"")
     ExprOut(sub.pos, sub.ty, sub.max_slot, cb3(sub.code, b3(0x48, 0xF7, 0xD0), mask))
 
 # --- Postfix & Primary Expressions ---
@@ -2660,7 +2665,7 @@ dec emit_index_op(env: CgEnv, cur: ExprOut) -> ExprOut:
     assert env.toks[idx_out.pos].kind == TK_RBRACKET
     let ms = max_int(cur.max_slot, idx_out.max_slot)
     select(
-        cur.ty == TY_BYTES or cur.ty == TY_STR,
+        cur.ty == TY_BYTES,
         ExprOut(idx_out.pos + 1, TY_B8, ms, call_rt2(cur.code, idx_out.code, RT_BYTES_GET)),
         finish_seq_index_op(cur, idx_out, ms),
     )
@@ -2690,8 +2695,8 @@ dec emit_primary(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
                     k == TK_BOOL,
                     ExprOut(pos + 1, TY_BOOL, env.next_slot, mov_rax_imm64(tk.val)),
                     select(
-                        k == TK_STR,
-                        ExprOut(pos + 1, TY_STR, env.next_slot, emit_inline_bytes_lit(tk.text)),
+                        k == TK_BYTES,
+                        ExprOut(pos + 1, TY_BYTES, env.next_slot, emit_inline_bytes_lit(tk.text)),
                         select(
                             k == TK_LPAREN,
                             emit_paren_expr(env, pos + 1, hint_ty),
@@ -2815,8 +2820,8 @@ dec emit_const_or_fn_ref(env: CgEnv, w: bytes, end_pos: int) -> ExprOut:
 
 dec emit_const_val(cdef: ConstDef, end_pos: int, next_slot: int) -> ExprOut:
     select(
-        cdef.ty == TY_STR,
-        ExprOut(end_pos, TY_STR, next_slot, emit_inline_bytes_lit(cdef.str_val)),
+        cdef.ty == TY_BYTES,
+        ExprOut(end_pos, TY_BYTES, next_slot, emit_inline_bytes_lit(cdef.bytes_val)),
         ExprOut(end_pos, cdef.ty, next_slot, mov_rax_imm64(cdef.val)),
     )
 
@@ -2853,10 +2858,10 @@ dec emit_ident_call(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
 
 dec emit_builtin_len2(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
     select(
-        w == bytes("b8"),
+        w == b"b8",
         emit_b8_conv(env, pos),
         select(
-            w == bytes("t1"),
+            w == b"t1",
             emit_t1_conv(env, pos),
             emit_struct_or_fn_call(env, w, pos),
         ),
@@ -2883,16 +2888,16 @@ dec emit_t1_conv(env: CgEnv, pos: int) -> ExprOut:
 
 dec emit_builtin_len3(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
     select(
-        w == bytes("len"),
+        w == b"len",
         emit_len_call(env, pos),
         select(
-            w == bytes("int"),
+            w == b"int",
             emit_int_conv(env, pos),
             select(
-                w == bytes("b64"),
+                w == b"b64",
                 emit_b64_conv(env, pos),
                 select(
-                    w == bytes("mux"),
+                    w == b"mux",
                     emit_mux_call(env, pos, hint_ty),
                     emit_builtin_len3b(env, w, pos),
                 ),
@@ -2902,16 +2907,16 @@ dec emit_builtin_len3(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
 
 dec emit_builtin_len3b(env: CgEnv, w: bytes, pos: int) -> ExprOut:
     select(
-        w == bytes("sgn"),
+        w == b"sgn",
         emit_sgn_call(env, pos),
         select(
-            w == bytes("abs"),
+            w == b"abs",
             emit_abs_call(env, pos),
             select(
-                w == bytes("min"),
+                w == b"min",
                 emit_minmax_call(env, pos, 1),
                 select(
-                    w == bytes("max"),
+                    w == b"max",
                     emit_minmax_call(env, pos, 0),
                     emit_struct_or_fn_call(env, w, pos),
                 ),
@@ -2990,19 +2995,19 @@ dec emit_mux_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
 
 dec emit_builtin_len4(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
     select(
-        w == bytes("push"),
+        w == b"push",
         emit_push_call(env, pos, hint_ty),
         select(
-            w == bytes("gate"),
+            w == b"gate",
             emit_gate_call(env, pos),
             select(
-                w == bytes("walk"),
+                w == b"walk",
                 emit_walk_settle_call(env, pos, RT_WALK),
                 select(
-                    w == bytes("fold"),
+                    w == b"fold",
                     emit_fold_call(env, pos, hint_ty),
                     select(
-                        w == bytes("each"),
+                        w == b"each",
                         emit_each_call(env, pos),
                         emit_struct_or_fn_call(env, w, pos),
                     ),
@@ -3059,10 +3064,10 @@ dec emit_each_call(env: CgEnv, pos: int) -> ExprOut:
 
 dec emit_builtin_len5(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
     select(
-        w == bytes("bytes"),
+        w == b"bytes",
         emit_bytes_conv(env, pos),
         select(
-            w == bytes("slice"),
+            w == b"slice",
             emit_slice_seq_call(env, pos, hint_ty),
             emit_struct_or_fn_call(env, w, pos),
         ),
@@ -3072,7 +3077,7 @@ dec emit_bytes_conv(env: CgEnv, pos: int) -> ExprOut:
     let a0 = emit_expr(env, pos, TY_LIST_BASE + TY_B8)
     let ep = expect_close_paren(env.toks, a0.pos)
     let code = select(
-        a0.ty == TY_STR or a0.ty == TY_BYTES,
+        a0.ty == TY_BYTES,
         a0.code,
         call_rt1(a0.code, RT_BYTES_FROM_LIST),
     )
@@ -3090,16 +3095,16 @@ dec emit_slice_seq_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
 
 dec emit_builtin_len6(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
     select(
-        w == bytes("select"),
+        w == b"select",
         emit_select_call(env, pos, hint_ty),
         select(
-            w == bytes("concat"),
+            w == b"concat",
             emit_concat_seq_call(env, pos, hint_ty),
             select(
-                w == bytes("set_at"),
+                w == b"set_at",
                 emit_set_at_call(env, pos, hint_ty),
                 select(
-                    w == bytes("settle"),
+                    w == b"settle",
                     emit_walk_settle_call(env, pos, RT_SETTLE),
                     emit_struct_or_fn_call(env, w, pos),
                 ),
@@ -3141,22 +3146,22 @@ dec emit_set_at_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
 
 dec emit_builtin_long(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
     select(
-        w == bytes("concat_bytes"),
+        w == b"concat_bytes",
         emit_two_bytes_rt(env, pos, RT_CONCAT_BYTES, TY_BYTES),
         select(
-            w == bytes("slice_bytes"),
+            w == b"slice_bytes",
             emit_slice_bytes_call(env, pos),
             select(
-                w == bytes("push_byte"),
+                w == b"push_byte",
                 emit_two_bytes_rt(env, pos, RT_PUSH_BYTE, TY_BYTES),
                 select(
-                    w == bytes("i32_le_bytes") or w == bytes("u32_le_bytes"),
+                    w == b"i32_le_bytes" or w == b"u32_le_bytes",
                     emit_le_call(env, pos, 4),
                     select(
-                        w == bytes("i64_le_bytes") or w == bytes("b64_le_bytes"),
+                        w == b"i64_le_bytes" or w == b"b64_le_bytes",
                         emit_le_call(env, pos, 8),
                         select(
-                            w == bytes("u16_le_bytes"),
+                            w == b"u16_le_bytes",
                             emit_le_call(env, pos, 2),
                             emit_builtin_long2(env, w, pos),
                         ),
@@ -3168,28 +3173,24 @@ dec emit_builtin_long(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
 
 dec emit_builtin_long2(env: CgEnv, w: bytes, pos: int) -> ExprOut:
     select(
-        w == bytes("cli_args"),
+        w == b"cli_args",
         emit_cli_args_call(env, pos),
         select(
-            w == bytes("read_file_bytes"),
+            w == b"read_file_bytes",
             emit_read_file_call(env, pos),
             select(
-                w == bytes("write_executable_elf"),
+                w == b"write_executable_elf",
                 emit_two_bytes_rt(env, pos, RT_WRITE_ELF, TY_INT),
                 select(
-                    w == bytes("range_seq"),
+                    w == b"range_seq",
                     emit_two_bytes_rt(env, pos, RT_RANGE_SEQ, TY_LIST_BASE + TY_INT),
                     select(
-                        w == bytes("str_bytes"),
-                        emit_str_bytes_call(env, pos),
+                        w == b"b64_bits",
+                        emit_b64_bits_call(env, pos),
                         select(
-                            w == bytes("b64_bits"),
-                            emit_b64_bits_call(env, pos),
-                            select(
-                                w == bytes("u64_int"),
-                                emit_u64_int_call(env, pos),
-                                emit_struct_or_fn_call(env, w, pos),
-                            ),
+                            w == b"u64_int",
+                            emit_u64_int_call(env, pos),
+                            emit_struct_or_fn_call(env, w, pos),
                         ),
                     ),
                 ),
@@ -3228,11 +3229,6 @@ dec emit_read_file_call(env: CgEnv, pos: int) -> ExprOut:
     let p_e = emit_expr(env, pos, TY_BYTES)
     let ep = expect_close_paren(env.toks, p_e.pos)
     ExprOut(ep, TY_BYTES, p_e.max_slot, call_rt1(p_e.code, RT_READ_FILE))
-
-dec emit_str_bytes_call(env: CgEnv, pos: int) -> ExprOut:
-    let b_e = emit_expr(env, pos, TY_BYTES)
-    let ep = expect_close_paren(env.toks, b_e.pos)
-    ExprOut(ep, TY_STR, b_e.max_slot, b_e.code)
 
 dec emit_b64_bits_call(env: CgEnv, pos: int) -> ExprOut:
     let a0 = emit_expr(env, pos, TY_INT)
@@ -3345,7 +3341,7 @@ dec advance_comma_fn_eval(env: CgEnv, ptys: [int], acc: ArgEvalAcc) -> ArgEvalAc
 dec emit_pop_args_rev(idx: int) -> bytes:
     select(
         idx < 0,
-        bytes(""),
+        b"",
         cb2(pop_arg_reg(idx), emit_pop_args_rev(idx - 1)),
     )
 
@@ -3382,7 +3378,7 @@ dec compile_let_stmt(env: CgEnv, pos: int) -> StmtOut:
     let slot = env.next_slot
     let new_next = max_int(slot + 1, rhs.max_slot)
     let new_locals = select(
-        vname == bytes("_"),
+        vname == b"_",
         env.locals,
         push(env.locals, LocalVar(vname, slot, vty)),
     )
@@ -3398,8 +3394,8 @@ dec compile_assert_stmt(env: CgEnv, pos: int) -> StmtOut:
 dec compile_emit_stmt(env: CgEnv, pos: int) -> StmtOut:
     let val = emit_expr(env, pos, 0)
     let rt_slot = select(
-        val.ty == TY_STR or val.ty == TY_BYTES,
-        RT_EMIT_STR,
+        val.ty == TY_BYTES,
+        RT_EMIT_BYTES,
         select(
             val.ty == TY_BOOL,
             RT_EMIT_BOOL,
@@ -3472,7 +3468,7 @@ dec parse_arm_param_one(toks: [Tok], structs: [StructDef], acc: ArmParamAcc) -> 
     assert toks[pat_lit.pos].kind == TK_COLON
     let tp = parse_type_toks(toks, pat_lit.pos + 1, structs)
     let next_locals = select(
-        is_bind and toks[p].text != bytes("_"),
+        is_bind and toks[p].text != b"_",
         push(acc.locals, LocalVar(toks[p].text, acc.idx, tp.ty)),
         acc.locals,
     )
@@ -3512,7 +3508,7 @@ dec compile_arm_at(sym: SymTab, toks: [Tok], sig: FnSig, lparen_pos: int) -> Arm
     let w_out = select(
         has_where,
         emit_expr(base_env, pa.pos + 1, TY_BOOL),
-        ExprOut(pa.pos, TY_BOOL, arity, bytes("")),
+        ExprOut(pa.pos, TY_BOOL, arity, b""),
     )
     let all_conds = select(has_where, push(pa.conds, w_out.code), pa.conds)
     let p_ret = select(
@@ -3565,7 +3561,7 @@ dec build_fn_prologue(arity: int, max_slot: int) -> bytes:
     let sub_rsp = select(
         frame_bytes > 0,
         cb2(b3(0x48, 0x81, 0xEC), i32_le_bytes(frame_bytes)),
-        bytes(""),
+        b"",
     )
     let empty_c: [bytes] = []
     let save_args = emit_store_args_pro(0, arity, empty_c)
@@ -3617,7 +3613,7 @@ dec compile_program(src: bytes) -> bytes:
     let sym = build_symtab(src, blocks)
     let num_fns = len(sym.fns)
     assert num_fns >= 1
-    let main_idx = find_fn_idx(sym.fns, bytes("main"))
+    let main_idx = find_fn_idx(sym.fns, b"main")
     assert main_idx >= 0
     let main_prints_int = select(sym.fns[main_idx].ret_ty == TY_INT, 1, 0)
     let rt_sec = build_rt_section(main_idx, main_prints_int)
@@ -3632,7 +3628,7 @@ dec compile_program(src: bytes) -> bytes:
     let hdrs = build_elf64_headers(total_len)
     cb4(hdrs, rt_sec, fn_tbl_blob, fn_code_blob)
 
-dec main():
+dec main() -> ():
     let args = cli_args()
     assert len(args) >= 3
     let src = read_file_bytes(args[1])

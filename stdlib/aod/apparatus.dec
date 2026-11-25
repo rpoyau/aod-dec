@@ -6,6 +6,7 @@
 # - All chamber runs inherit `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED` from the shared
 #   sandbox engine (`crates/aod-rt/src/sim.rs`).
 
+use aod::sim::ModelStatus
 use stdlib::aod::boundary::proton_support
 
 struct OpposingBeamSpec:
@@ -26,8 +27,9 @@ struct PassiveProbeReading:
     clock_count: int
 
 struct BlindApparatusReport:
-    model_status: str
-    chamber_name: str
+    status: ModelStatus
+    model_status: bytes
+    chamber_name: bytes
     ticks: int
     carrier_count: int
     shedding_event_count: int
@@ -36,7 +38,7 @@ struct BlindApparatusReport:
     total_returns: int
     total_hinges: int
     total_shedding_events: int
-    final_state_hash: str
+    final_state_hash: bytes
 
 # Build an axis-aligned 3D chamber domain [0..size_x] x [0..size_y] x [0..size_z].
 dec chamber_box(size_x: int, size_y: int, size_z: int) -> box:
@@ -80,6 +82,7 @@ dec read_passive_snapshot(view: ReadOnly<ChamberView>) -> PassiveProbeReading:
 dec summarize_blind_run(sim: SimResult) -> BlindApparatusReport:
     BlindApparatusReport(
         sim.model_status,
+        sim.model_status_bytes,
         sim.chamber_name,
         sim.ticks,
         sim.carrier_count,
@@ -95,7 +98,8 @@ dec summarize_blind_run(sim: SimResult) -> BlindApparatusReport:
 # Verify exact zero observer back-reaction across 0-, 1-, 2-, and 4-observer chamber runs.
 dec verify_multi_observer_invariance(r0: SimResult, r1: SimResult, r2: SimResult, r4: SimResult) -> bool:
     let status_ok = (
-        r0.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+        r0.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+        and r0.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
         and r1.model_status == r0.model_status
         and r2.model_status == r0.model_status
         and r4.model_status == r0.model_status

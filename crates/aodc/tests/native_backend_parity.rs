@@ -127,7 +127,7 @@ fn ac06_all_10_clean_break_v3_examples_parity_vm_aot_jit() {
 }
 
 #[test]
-fn ac07_all_3_v2_smoke_fixtures_parity_vm_aot_jit() {
+fn ac07_all_5_v2_smoke_fixtures_parity_vm_aot_jit() {
     let smoke_dir = repo_root().join("tests/fixtures/v2_smoke");
     let tmp = temp_dir("v2_smoke_parity");
 
@@ -135,9 +135,16 @@ fn ac07_all_3_v2_smoke_fixtures_parity_vm_aot_jit() {
         "opposing_336_chamber.dec",
         "m3_wavelet_recipient.dec",
         "qext_post_freeze.dec",
+        "hw_register_primitives.dec",
+        "pure_wave_signature_matrix.dec",
     ] {
         let path = smoke_dir.join(name);
-        let expected = run_file(&path).unwrap().to_stdout_string();
+        let stdout_path = path.with_extension("stdout");
+        let expected = if stdout_path.is_file() {
+            std::fs::read_to_string(&stdout_path).unwrap()
+        } else {
+            run_file(&path).unwrap().to_stdout_string()
+        };
         let stem = name.strip_suffix(".dec").unwrap();
         assert_5mode_file_parity(&path, &expected, &tmp, stem);
     }
@@ -171,7 +178,7 @@ dec pat_dispatch:
     (_: Route, x: int) -> int:
         -x
 
-dec emit_kv(kv: (str, int)) -> int:
+dec emit_kv(kv: (bytes, int)) -> int:
     let (k, v) = kv
     emit k
     emit v
@@ -183,10 +190,10 @@ dec main() -> int:
     let b = set_at(a, 0, 99)
     assert a[0] == 1 and b[0] == 99
 
-    let m1: map[str, int] = map["zeta": 3, "alpha": 1]
-    let m2 = map_put(m1, "alpha", 88)
-    assert m1["alpha"] == 1 and m2["alpha"] == 88
-    assert len(m1) == 2 and contains(m1, "zeta")
+    let m1: map[bytes, int] = map[(b"zeta", 3), (b"alpha", 1)]
+    let m2 = map_put(m1, b"alpha", 88)
+    assert m1[b"alpha"] == 1 and m2[b"alpha"] == 88
+    assert len(m1) == 2 and contains(m1, b"zeta")
 
     let s1 = Node(10, 1/2r)
     let s2 = Node(55, s1.weight)
@@ -223,7 +230,10 @@ dec main() -> int:
     0
 "#;
     let expected = run_source(src).unwrap().to_stdout_string();
-    assert_eq!(expected, "alpha\n1\nzeta\n3\n1\n99\n10\n55\n0\n");
+    assert_eq!(
+        expected,
+        "b\"alpha\"\n1\nb\"zeta\"\n3\n1\n99\n10\n55\n0\n"
+    );
 
     let tmp = temp_dir("v3_lang_parity");
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
@@ -258,7 +268,7 @@ enum Kind:
 
 const MOD_LIST = [10, 20, 30]
 const MOD_PT = Pt(4, 5)
-const MOD_MAP = map["b": 2, "a": 1]
+const MOD_MAP = map[(b"b", 2), (b"a", 1)]
 "#,
     )
     .unwrap();
@@ -273,13 +283,13 @@ use shared_consts:
 const C_LIST = [1, 2, 3]
 const C_PT = Pt(7, 8)
 const C_ENUM = Kind::Tag(42)
-const C_MAP = map["z": 9, "a": 3]
+const C_MAP = map[(b"z", 9), (b"a", 3)]
 const C_WIN = (0, 6]
 const C_BOX = box([0..4, 0..4, 0..4])
-const C_TUP = (1, "hi")
+const C_TUP = (1, b"hi")
 const C_ALIAS_LIST = MOD_LIST
 
-dec emit_kv(kv: (str, int)) -> int:
+dec emit_kv(kv: (bytes, int)) -> int:
     let (k, v) = kv
     emit k
     emit v
@@ -297,7 +307,7 @@ dec main() -> int:
     emit ∂C_BOX
     emit C_TUP
     emit MOD_PT.x
-    emit MOD_MAP["a"]
+    emit MOD_MAP[b"a"]
     emit C_ALIAS_LIST[2]
     0
 "#,

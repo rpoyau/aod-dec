@@ -252,3 +252,124 @@ fn sha256_nist_vectors_and_strict_json_parity() {
         Err(CoreError::FloatForbidden(_))
     ));
 }
+
+#[test]
+fn phase_d1_radix_parsers_trit_superpose_cancel_and_bytes_rendering() {
+    use aod_core::ternary::render_bytes_literal;
+
+    assert_eq!(
+        BigInt::parse_hex_underscored("FF_00").unwrap(),
+        BigInt::from_u64(0xFF00)
+    );
+    assert_eq!(
+        BigInt::parse_binary_underscored("1010_0101").unwrap(),
+        BigInt::from_u64(0xA5)
+    );
+    for bad_hex in ["", "_1", "1_", "1__2", "1G"] {
+        assert!(BigInt::parse_hex_underscored(bad_hex).is_err());
+    }
+    for bad_bin in ["", "_0", "0_", "1__0", "102"] {
+        assert!(BigInt::parse_binary_underscored(bad_bin).is_err());
+    }
+
+    assert_eq!(T1::POS.superpose_cancel(T1::NEG), T1::ZERO);
+    assert_eq!(T1::POS.superpose_cancel(T1::POS), T1::POS);
+    assert_eq!(T1::NEG.superpose_cancel(T1::NEG), T1::NEG);
+
+    let wave_pos = BigInt::from_i64(1 + 3 + 9);
+    let wave_neg = BigInt::from_i64(-1 + 3 - 27);
+    assert_eq!(
+        wave_pos.superpose_cancel(&wave_neg),
+        BigInt::from_i64(-15)
+    );
+
+    let spilled_hi = BigInt::from_u64(3).pow(40);
+    let spilled_lo = -&spilled_hi;
+    assert_eq!(spilled_hi.superpose_cancel(&spilled_lo), BigInt::zero());
+    assert_eq!(spilled_hi.superpose_cancel(&spilled_hi), spilled_hi);
+
+    assert_eq!(
+        render_bytes_literal(b"A\0\n\r\t\\\"'\xff"),
+        "b\"A\\0\\n\\r\\t\\\\\\\"'\\xff\""
+    );
+}
+
+#[test]
+fn phase_d2_checked_pow_bigint_oom_guard_and_ratio_signum() {
+    assert_eq!(BigInt::zero().checked_pow(0).unwrap(), BigInt::one());
+    assert_eq!(BigInt::zero().checked_pow(7).unwrap(), BigInt::zero());
+    assert_eq!(
+        BigInt::from_i64(-3).checked_pow(3).unwrap(),
+        BigInt::from_i64(-27)
+    );
+    assert_eq!(
+        BigInt::from_i64(-3).checked_pow(4).unwrap(),
+        BigInt::from_i64(81)
+    );
+    assert_eq!(
+        BigInt::from_i64(-1)
+            .checked_pow_bigint(&BigInt::from_i64(65_536))
+            .unwrap(),
+        BigInt::one()
+    );
+    assert!(matches!(
+        BigInt::from_i64(2).checked_pow(65_537),
+        Err(CoreError::Overflow(_))
+    ));
+    assert!(matches!(
+        BigInt::from_i64(2).checked_pow_bigint(&BigInt::from_i64(65_537)),
+        Err(CoreError::Overflow(_))
+    ));
+    assert!(matches!(
+        BigInt::from_i64(2).checked_pow_bigint(&BigInt::from_i64(-1)),
+        Err(CoreError::DomainError(_))
+    ));
+
+    // P1-6 OOM guard: 10^65536 (~217,706 bits) fits under 1M bits, while pow(pow(10, 65536), 65536) traps immediately!
+    let ten_pow = BigInt::from_i64(10)
+        .checked_pow_bigint(&BigInt::from_i64(65_536))
+        .unwrap();
+    assert!(ten_pow.bit_len() > 200_000 && ten_pow.bit_len() <= BigInt::MAX_POW_BITS);
+    assert!(matches!(
+        ten_pow.checked_pow_bigint(&BigInt::from_i64(65_536)),
+        Err(CoreError::Overflow(_))
+    ));
+
+    let r = Ratio::from_i64(2, 3).unwrap();
+    assert_eq!(r.checked_pow(0).unwrap(), Ratio::one());
+    assert_eq!(Ratio::zero().checked_pow(0).unwrap(), Ratio::one());
+    assert_eq!(Ratio::zero().checked_pow(5).unwrap(), Ratio::zero());
+    assert_eq!(
+        r.checked_pow_bigint(&BigInt::from_i64(3)).unwrap(),
+        Ratio::from_i64(8, 27).unwrap()
+    );
+    assert_eq!(
+        (-&r).checked_pow_bigint(&BigInt::from_i64(3)).unwrap(),
+        Ratio::from_i64(-8, 27).unwrap()
+    );
+    assert!(matches!(
+        r.checked_pow(65_537),
+        Err(CoreError::Overflow(_))
+    ));
+    assert!(matches!(
+        r.checked_pow_bigint(&BigInt::from_i64(65_537)),
+        Err(CoreError::Overflow(_))
+    ));
+    assert!(matches!(
+        r.checked_pow_bigint(&BigInt::from_i64(-1)),
+        Err(CoreError::DomainError(_))
+    ));
+    let r_ten_third = Ratio::from_i64(10, 3)
+        .unwrap()
+        .checked_pow_bigint(&BigInt::from_i64(65_536))
+        .unwrap();
+    assert!(matches!(
+        r_ten_third.checked_pow_bigint(&BigInt::from_i64(65_536)),
+        Err(CoreError::Overflow(_))
+    ));
+
+    assert_eq!(Ratio::from_i64(-3, 4).unwrap().signum(), T1::NEG);
+    assert_eq!(Ratio::zero().signum(), T1::ZERO);
+    assert_eq!(Ratio::from_i64(5, 2).unwrap().signum(), T1::POS);
+}
+

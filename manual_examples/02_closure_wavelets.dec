@@ -4,7 +4,7 @@
 
 use aod::core::len
 use aod::wavelet:
-    window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
+    RecipientStage, window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
 use stdlib::aod::wavelet:
     DUON_VARIANT_COUNT, DuadSeat, seat_duad, count_cuts_window,
     cancel_opposing_currents, dft_z12_mode, dft_z12_parseval
@@ -31,7 +31,7 @@ dec main() -> int:
     # 3. Overlapping window deduplication: origin at 0 + beats at 2, 5, 7 -> (0,6] U (4,8] gives 3 dedup vs 4 naive
     let cuts_ov = [0, 2, 5, 7]
     let naive_sum = count_cuts_window(cuts_ov, 0, 6).beats + count_cuts_window(cuts_ov, 4, 8).beats
-    let dedup = window_dedup_count("L_m3", "B_m3", cuts_ov, [(0, 6], (4, 8]])
+    let dedup = window_dedup_count(b"L_m3", b"B_m3", cuts_ov, [(0, 6], (4, 8]])
     assert naive_sum == 4 and dedup == 3
 
     # 4. Opposing-current cancellation retains both distinct bound histories
@@ -39,17 +39,26 @@ dec main() -> int:
     assert opp.net_current == 0 and opp.retained_histories == 2
 
     # 5. Recipient lattice stages (6 distinct canonical stages verified)
-    let stages = ["emitted", "delivered", "accepted", "seated", "reclosed", "reclosed_out_of_window"]
+    let stages = [
+        RecipientStage::Emitted,
+        RecipientStage::Delivered,
+        RecipientStage::Accepted,
+        RecipientStage::Seated,
+        RecipientStage::Reclosed,
+        RecipientStage::ReclosedOutOfWindow
+    ]
     assert len(stages) == 6
     let rec_ok = recipient_eval_demo(5, 6, (4, 10])
     let rec_oow = recipient_eval_demo(5, 11, (4, 10])
-    assert rec_ok.stage == "reclosed" and rec_ok.closure_phase_delta == 1 and rec_ok.reclosure_bip_delta == 1
-    assert rec_oow.stage == "reclosed_out_of_window" and rec_oow.reclosure_bip_delta == 0
+    assert rec_ok.stage == RecipientStage::Reclosed and rec_ok.stage_bytes == b"reclosed"
+    assert rec_ok.closure_phase_delta == 1 and rec_ok.reclosure_bip_delta == 1
+    assert rec_oow.stage == RecipientStage::ReclosedOutOfWindow and rec_oow.stage_bytes == b"reclosed_out_of_window"
+    assert rec_oow.reclosure_bip_delta == 0
 
     # 6. Repeated-contact cadence (3/5 and 0/10 -> 0/1) vs single-contact guard (is_cadence_ratio == false)
-    let cad_35 = native_cadence_ratio("a", 3, "r", 5, true, 2)
-    let cad_0 = native_cadence_ratio("a", 0, "r", 10, true, 2)
-    let sc = single_contact_association("w1", "p1", "r1", (0, 4], 1)
+    let cad_35 = native_cadence_ratio(b"a", 3, b"r", 5, true, 2)
+    let cad_0 = native_cadence_ratio(b"a", 0, b"r", 10, true, 2)
+    let sc = single_contact_association(b"w1", b"p1", b"r1", (0, 4], 1)
     assert cad_35 == 3/5r and cad_0 == 0/1r and sc.is_cadence_ratio == false
 
     # 7. Exact cyclotomic Z_12 DFT on pulse {0, 4, 8} over Q[x]/(x^4 - x^2 + 1) (ZERO floats!)
@@ -69,8 +78,8 @@ dec main() -> int:
     emit naive_sum
     emit opp.net_current
     emit opp.retained_histories
-    emit rec_ok.stage
-    emit rec_oow.stage
+    emit rec_ok.stage_bytes
+    emit rec_oow.stage_bytes
     emit cad_35
     emit cad_0
     emit sc.is_cadence_ratio

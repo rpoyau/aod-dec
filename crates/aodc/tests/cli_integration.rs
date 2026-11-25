@@ -157,14 +157,23 @@ fn cli_test_subcommand_handles_test_fns_directories_unit_return_and_failures() {
     assert!(v3_test.status.success());
     assert!(String::from_utf8_lossy(&v3_test.stdout).contains("10 passed; 0 failed; 10 total"));
 
-    // 2. Directory of v2 smoke fixtures
+    // 2. Directory of v2 smoke fixtures (all 5 fixtures)
     let v2_test = Command::new(aodc_bin())
         .arg("test")
         .arg(root.join("tests/fixtures/v2_smoke"))
         .output()
         .unwrap();
     assert!(v2_test.status.success());
-    assert!(String::from_utf8_lossy(&v2_test.stdout).contains("3 passed; 0 failed; 3 total"));
+    assert!(String::from_utf8_lossy(&v2_test.stdout).contains("5 passed; 0 failed; 5 total"));
+
+    // 2b. Directory of first-principles examples (all 7 modules)
+    let fp_test = Command::new(aodc_bin())
+        .arg("test")
+        .arg(root.join("examples/first_principles"))
+        .output()
+        .unwrap();
+    assert!(fp_test.status.success());
+    assert!(String::from_utf8_lossy(&fp_test.stdout).contains("7 passed; 0 failed; 7 total"));
 
     // 3. Single file with multiple zero-arg `dec test_*()` functions + unit `main()` omission
     let dir = temp_dir("unit_and_tests");
@@ -225,7 +234,7 @@ dec step_one(x: int) -> int:
     x + 1
 
 dec main() -> int:
-    emit "before-fuel-exhaust"
+    emit b"before-fuel-exhaust"
     walk(0, 1000, step_one)
 "#,
     )
@@ -238,7 +247,7 @@ dec main() -> int:
     assert!(!fuel_run.status.success());
     assert_eq!(
         String::from_utf8_lossy(&fuel_run.stdout),
-        "before-fuel-exhaust\n"
+        "b\"before-fuel-exhaust\"\n"
     );
     let fuel_err = String::from_utf8_lossy(&fuel_run.stderr);
     assert!(fuel_err.starts_with("aodc:"), "stderr={fuel_err}");
@@ -262,7 +271,7 @@ dec main() -> int:
     assert!(!fuel_exec.status.success());
     assert_eq!(
         String::from_utf8_lossy(&fuel_exec.stdout),
-        "before-fuel-exhaust\n"
+        "b\"before-fuel-exhaust\"\n"
     );
     assert!(String::from_utf8_lossy(&fuel_exec.stderr).starts_with("aodc:"));
 
