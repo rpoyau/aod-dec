@@ -1,7 +1,7 @@
 use aod_core::bigint::BigInt;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, T1};
+use aod_core::ternary::{Addr8, Q4, T1, T32, T9};
 pub use aod_rt::sim::{AxisDir, ProbeKind, WallPolicy as WallPolicyAst};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -71,6 +71,7 @@ pub enum TypeExpr {
     Unit,
     Named(String),
     List(Box<TypeExpr>),
+    Array(Box<TypeExpr>, usize),
     Map(Box<TypeExpr>, Box<TypeExpr>),
     Tuple(Vec<TypeExpr>),
     ReadOnly(Box<TypeExpr>),
@@ -87,10 +88,17 @@ pub struct TypedParam {
 pub enum Pattern {
     Wildcard,
     Binding(String),
+    NullLit,
     IntLit(BigInt),
+    U8Lit(u8),
+    B64Lit(u64),
     BoolLit(bool),
     StrLit(String),
+    BytesLit(Vec<u8>),
     TritLit(T1),
+    T9Lit(T9),
+    T32Lit(T32),
+    Q4Lit(Q4),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
     SupportLit(SupportForm),
@@ -121,6 +129,7 @@ pub struct DecArm {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecFnKind {
     MultiArm {
+        has_header_params: bool,
         header_params: Vec<String>,
         header_typed_params: Option<Vec<TypedParam>>,
         output_name: Option<String>,
@@ -129,6 +138,7 @@ pub enum DecFnKind {
     },
     SingleArm {
         params: Vec<TypedParam>,
+        has_arrow: bool,
         return_type: TypeExpr,
         body: Vec<Stmt>,
     },
@@ -190,6 +200,8 @@ pub enum ProbeDecl {
         kind: ProbeKind,
         name: String,
         param_name: String,
+        param_ty: Option<TypeExpr>,
+        has_arrow: bool,
         return_type: TypeExpr,
         body: Vec<Stmt>,
         line: usize,
@@ -238,9 +250,20 @@ pub struct Stmt {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LetTupleElem {
+    pub name: String,
+    pub ty: Option<TypeExpr>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StmtKind {
     Let {
         name: String,
+        ty: Option<TypeExpr>,
+        value: Expr,
+    },
+    LetTuple {
+        elems: Vec<LetTupleElem>,
         ty: Option<TypeExpr>,
         value: Expr,
     },
@@ -334,9 +357,11 @@ pub struct Expr {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExprKind {
+    NullLit,
     IntLit(BigInt),
     BoolLit(bool),
     StrLit(String),
+    BytesLit(Vec<u8>),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
     SupportLit(SupportForm),
@@ -344,6 +369,7 @@ pub enum ExprKind {
     Ident(String),
     Path(Vec<String>),
     List(Vec<Expr>),
+    ArrayLit(Vec<Expr>),
     MapLit(Vec<(Expr, Expr)>),
     StructLit {
         path: Vec<String>,

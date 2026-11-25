@@ -1,0 +1,85 @@
+# AOD Manual Fixture 11 — Practical Unbiased Opposing 3:3:6 Multi-Observer Shell Apparatus
+# Explicitly tagged DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED, using stdlib::aod::apparatus
+# to declare 4 independent concentric passive observers and prove exact SHA-256 invariance across
+# 0-, 1-, 2-, and 4-observer runs (sequential & parallel read-only execution) with zero hardcoded outcomes.
+
+use aod::sim:
+    ModelStatus
+
+use stdlib::aod::apparatus:
+    chamber_box, concentric_shell_box, symmetric_opposing_336
+    read_passive_snapshot, summarize_blind_run, verify_multi_observer_invariance
+
+chamber OpposingShellLab:
+    space = chamber_box(64, 64, 64)
+    walls = open
+
+prepare Opposing336Shells in OpposingShellLab:
+    let spec = symmetric_opposing_336(32, 32, 32, 6, 2, 3)
+    clock ref_clk = spec.clock_period
+    inject spec.support_form at spec.left_pos dir +X orient spec.orient_left shells spec.shells
+    inject spec.support_form at spec.right_pos dir -X orient spec.orient_right shells spec.shells
+
+observe CoreTracer:
+    tracer core_watch:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let reading = read_passive_snapshot(view)
+            assert reading.carrier_count >= 1
+            return null
+
+observe InnerShellSensor:
+    sensor inner_shell:
+        region = concentric_shell_box(32, 32, 32, 4)
+        capture = [returns, hinges, shedding]
+    tracer inner_watch:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let reading = read_passive_snapshot(view)
+            assert reading.tick >= 1
+            return null
+
+observe MidShellSensor:
+    sensor mid_shell:
+        region = concentric_shell_box(32, 32, 32, 10)
+        capture = [returns, hinges, shedding]
+    tracer mid_watch:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let reading = read_passive_snapshot(view)
+            assert reading.clock_count == 1
+            return null
+
+observe OuterShellSensor:
+    sensor outer_shell:
+        region = concentric_shell_box(32, 32, 32, 18)
+        capture = [returns, hinges, shedding]
+    tracer outer_watch:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let reading = read_passive_snapshot(view)
+            assert reading.shedding_count >= 0
+            return null
+
+dec main:
+    () -> int:
+        let r0 = simulate Opposing336Shells for 12 ticks
+        let r1 = simulate Opposing336Shells for 12 ticks with CoreTracer
+        let r2 = simulate Opposing336Shells for 12 ticks with CoreTracer, InnerShellSensor
+        let r4 = simulate Opposing336Shells for 12 ticks with CoreTracer, InnerShellSensor, MidShellSensor, OuterShellSensor
+
+        assert verify_multi_observer_invariance(r0, r1, r2, r4)
+        let rep = summarize_blind_run(r4)
+        assert r4.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+        assert rep.status == ModelStatus::DeclaredSandboxNotS3Authenticated
+        let final_snap = read_passive_snapshot(r4.final_snapshot)
+        assert final_snap.tick == rep.ticks and final_snap.carrier_count == rep.carrier_count
+
+        emit rep.model_status
+        emit rep.chamber_name
+        emit rep.ticks
+        emit rep.carrier_count
+        emit rep.shedding_event_count
+        emit rep.wavelet_event_count
+        emit rep.total_returns
+        emit rep.total_hinges
+        emit final_snap.clock_count
+        emit rep.final_state_hash
+        emit ∂r4
+        return 0

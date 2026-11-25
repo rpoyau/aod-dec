@@ -249,6 +249,7 @@ pub fn verify_manual_dir(manual_dir: &Path, options: &ManualVerifyOptions) -> Ma
                 None
             }
         }),
+        ..LoadOptions::default()
     };
 
     // Pass 0: Verify SOURCE_BINDING.json vendored files against live on-disk bytes (`P0-4`)
@@ -2205,13 +2206,18 @@ fn run_pass6_data_json_and_live_parity(
                     .get("final_state_hash")
                     .and_then(JsonValue::as_str)
                     .unwrap_or("");
-                if s_status != emits[0] {
+                fn unquote(s: &str) -> &str {
+                    s.strip_prefix("b\"")
+                        .and_then(|t| t.strip_suffix('"'))
+                        .unwrap_or(s)
+                }
+                if s_status != unquote(&emits[0]) {
                     rep.errors.push(format!(
                         "sandbox_chamber_summary.json.model_status ({s_status:?}) != live ({:?})",
                         emits[0]
                     ));
                 }
-                if s_hash != emits[7] {
+                if s_hash != unquote(&emits[7]) {
                     rep.errors.push(format!(
                         "sandbox_chamber_summary.json.final_state_hash ({s_hash:?}) != live ({:?})",
                         emits[7]

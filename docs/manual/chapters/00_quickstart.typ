@@ -21,10 +21,10 @@ interface files.
     toprule,
     [*Crate*], [*Safety Policy*], [*Declared Role*],
     midrule,
-    [`aod-core`], [`#![forbid(unsafe_code)]`], [Exact `BigInt`, canonical `Ratio`, quarantined `QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, FIPS 180-4 SHA-256, strict float-free JSON, M3 wavelets, Manual ledger primitives.],
-    [`aod-rt`], [`unsafe` only in `abi.rs`], [Shared deterministic sandbox chamber, safe 1-based arena with entry cap, copy-on-write container helpers, cold-spill exact math, and panic-safe C ABI (`libaod_rt.a`).],
-    [`aod-llvm`], [`unsafe` only in `ffi`/`aot`/`jit`/`hw_probe`], [`dlopen`-loaded LLVM 18 verifier and optimizer, PIC AOT ELF linker, ORC LLJIT session, CPU discovery, 5 live JIT micro-probes, and zero-float paired bootstrap learner.],
-    [`aodc`], [`#![forbid(unsafe_code)]`], [Dec v1/v2 frontend, 5 compile-time firewalls, hermetic `DecIR` verifier, Exact VM, parameterized LLVM 18 lowering, `manual-verify`, and CLI.],
+    [`aod-core`], [`#![forbid(unsafe_code)]`], [Exact `BigInt`, canonical `Ratio`, quarantined `QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, FIPS 180-4 SHA-256, strict float-free JSON, M3 wavelets, Manual ledger primitives, S2/S4 exact operations, and `aod.s4.rust.report.v1` builder.],
+    [`aod-rt`], [`unsafe` only in `abi.rs`], [Shared deterministic sandbox chamber with optional parallel read-only observer execution (`aod_rt_sim_run_ex`), safe 1-based arena with entry cap, copy-on-write container helpers, cold-spill exact math, and panic-safe C ABI (`libaod_rt.a`).],
+    [`aod-llvm`], [`unsafe` only in `ffi`/`aot`/`jit`/`hw_probe`], [`dlopen`-loaded LLVM 18 verifier and optimizer, PIC AOT ELF linker, ORC LLJIT session, CPU discovery, 5 live JIT micro-probes, and v2 zero-float paired bootstrap learner (`CodegenPlan` v2, `PROFILE_VERSION = 2`).],
+    [`aodc`], [`#![forbid(unsafe_code)]`], [Dec v1/v2 frontend, 5 compile-time firewalls, hermetic `DecIR` verifier, Exact VM, parameterized LLVM 18 lowering, zero-LLVM `manual-data`, `manual-verify`, `verify-s2 --s4-report`, `eval-op`, `std`-only `audit-pdf`, and CLI.],
     bottomrule,
   ),
 )<tab:crate-boundaries>
@@ -49,12 +49,13 @@ across Exact VM, AOT `-O2`, and ORC LLJIT `-O2` during `aodc manual-verify`:
 ```dec
 use aod::core::ratio
 
-Dec main() -> int:
-    let big = 9223372036854775807 + 1
-    let r = ratio(6, 8) + 1/4r
-    emit big
-    emit r
-    return 0
+dec main:
+    () -> int:
+        let big = 9223372036854775807 + 1
+        let r = ratio(6, 8) + 1/4r
+        emit big
+        emit r
+        return 0
 ```
 
 ```dec-expect

@@ -28,6 +28,9 @@ const MAX_RECURRENCE_STEPS: usize = 10_000;
 /// Hard upper bound on phase modulus `beta_a` in 3D Brownian delta3 histograms.
 const MAX_PHASE_MODULUS: usize = 10_000;
 
+/// Hard upper bound on multi-tick cycle-shedding trace lengths (matches upstream S4 `MAX_STEPS_GUARD`).
+pub const MAX_CYCLE_SHEDDING_TICKS: usize = 100_000;
+
 // ============================================================================
 // Exact Numeric Parsers, Canonical Encodings, & Banker's Rounding (`P1-2`)
 // ============================================================================
@@ -1345,6 +1348,46 @@ pub fn cycle_shedding_step(
         local_reclosure,
         remainder_sum,
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CycleSheddingTickInput {
+    pub lead: Ratio,
+    pub lag: Ratio,
+    pub compatibility: Ratio,
+}
+
+/// Exact multi-tick chained cycle-shedding trace (`S4@e013401`), enforcing `MAX_CYCLE_SHEDDING_TICKS`.
+pub fn cycle_shedding_trace(
+    initial_burden: &Ratio,
+    ticks: &[CycleSheddingTickInput],
+    eta: &Ratio,
+    gamma: &Ratio,
+    lambda_reclose: &Ratio,
+) -> CoreResult<Vec<CycleSheddingOutput>> {
+    if ticks.len() > MAX_CYCLE_SHEDDING_TICKS {
+        return Err(CoreError::DomainError(format!(
+            "cycle_shedding_trace ticks length {} exceeds guard {}",
+            ticks.len(),
+            MAX_CYCLE_SHEDDING_TICKS
+        )));
+    }
+    let mut prev = initial_burden.clone();
+    let mut out = Vec::with_capacity(ticks.len());
+    for tick in ticks {
+        let step = cycle_shedding_step(
+            &prev,
+            &tick.lead,
+            &tick.lag,
+            &tick.compatibility,
+            eta,
+            gamma,
+            lambda_reclose,
+        );
+        prev = step.padar_burden.clone();
+        out.push(step);
+    }
+    Ok(out)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

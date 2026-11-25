@@ -8,8 +8,8 @@ DuadSeat::SeatedDuad
 4
 0
 2
-reclosed
-reclosed_out_of_window
+b"reclosed"
+b"reclosed_out_of_window"
 3/5
 0/1
 false

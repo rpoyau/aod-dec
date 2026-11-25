@@ -13,10 +13,11 @@ pending overhang (#mainequation("main:eq:burden-overhang")), closure residual
 byte-identical across all five execution modes.
 
 #aod-noteblock("Model Provenance")[
-  Every `SimResult` emitted by the sandbox engine carries the explicit status string
-  `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED`. The chamber apparatus is a declared computational testbed
-  for observer isolation and deterministic replay (#mainsection("main:sec:awareness-learning")); it makes zero
-  unproven physical claims and contains zero hardcoded physical outcome targets.
+  Every `SimResult` emitted by the sandbox engine carries the typed status enum
+  `ModelStatus::DeclaredSandboxNotS3Authenticated` (`DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED`). The
+  chamber apparatus is a declared computational testbed for observer isolation and deterministic replay
+  (#mainsection("main:sec:awareness-learning")); it makes zero unproven physical claims and contains zero
+  hardcoded physical outcome targets.
 ]
 
 #aod-paragraph("Derivation.")
@@ -35,30 +36,35 @@ The inline apparatus check below confirms deterministic provenance tagging and z
 across Exact VM, AOT `-O2`, and ORC LLJIT `-O2`:
 
 ```dec
+use aod::sim::ModelStatus
+
 chamber MiniBox:
     space = box([0..32, 0..32, 0..32])
     walls = open
 
 prepare SingleCarrier in MiniBox:
-    inject 3:3:6 at (8, 16, 16) dir +X orient +1t shells 1
+    inject 3:3:6 at (8, 16, 16) dir +X orient 1t shells 1
 
 observe PassiveEye:
-    tracer count_eye(view):
-        let _k = view.carrier_count
+    tracer count_eye:
+        (view: ReadOnly<ChamberView>) -> Null:
+            assert view.carrier_count >= 1
+            return null
 
-Dec main() -> int:
-    let a = simulate SingleCarrier for 4 ticks
-    let b = simulate SingleCarrier for 4 ticks with PassiveEye
-    assert a.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
-    assert a.final_state_hash == b.final_state_hash
-    emit a.model_status
-    emit a.ticks
-    emit a.carrier_count
-    return 0
+dec main:
+    () -> int:
+        let a = simulate SingleCarrier for 4 ticks
+        let b = simulate SingleCarrier for 4 ticks with PassiveEye
+        assert a.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+        assert a.final_state_hash == b.final_state_hash
+        emit a.model_status
+        emit a.ticks
+        emit a.carrier_count
+        return 0
 ```
 
 ```dec-expect
-DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED
+ModelStatus::DeclaredSandboxNotS3Authenticated
 4
 1
 0
@@ -67,6 +73,10 @@ DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED
 #aod-paragraph("Falsification.")
 Any observer side effect that alters carrier positions, counts, shedding events, or the final SHA-256
 digest immediately breaks `r0.final_state_hash == r1.final_state_hash == r2.final_state_hash` in
-`06_unbiased_chamber_sandbox.dec` and causes `aodc manual-verify` Pass 6 to fail:
+`06_unbiased_chamber_sandbox.dec` (verified live by `aodc manual-data --check` and `aodc manual-verify` Pass 6)
+as well as the four-observer concentric shell invariance check in `11_apparatus_opposing_sensors.dec` (built
+from pure native helpers in `stdlib::aod::apparatus` and verified byte-identical across sequential and
+`--parallel-observers` execution):
 
 // @dec-file: manual_examples/06_unbiased_chamber_sandbox.dec
+// @dec-file: manual_examples/11_apparatus_opposing_sensors.dec

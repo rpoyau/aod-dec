@@ -5,8 +5,9 @@ use aod_core::bigint::BigInt;
 use aod_core::ledger::{probability, SadarPromotion};
 use aod_core::qext::{parse_decimal_exact, QExtRatio};
 use aod_core::ratio::Ratio;
+use aod_core::sha256::Sha256;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, Q4, T1, T32};
+use aod_core::ternary::{Addr8, Q4, T1, T32, T9};
 use aod_core::wavelet::{
     declare_synthetic_lineage_registry, deduplicated_return_count, native_cadence_ratio,
     AdmittedClosureRecord, M3ClosureTrace, RecipientContext, RecipientLattice, RecipientStage,
@@ -20,7 +21,10 @@ use crate::sim::{
     AxisDir, BlindMotifSpectrum, BoxRegion, CarrierState, ChamberState, DeclarativeObserver,
     ProbeKind, ReferenceClock, SensorCurrentSummary, SimRunResult, WallPolicy,
 };
-use crate::value::{recipient_stage_name, RtEnumValue, RtMapKey, RtStructValue, RtValue};
+use crate::value::{
+    model_status_variant_and_tag, recipient_stage_name, recipient_stage_variant_and_tag,
+    RtEnumValue, RtMapKey, RtStructValue, RtValue,
+};
 
 /// Pending simulation configuration built incrementally before `aod_rt_sim_run`.
 #[derive(Clone, Debug)]
@@ -40,6 +44,7 @@ pub struct SimBuilder {
 pub struct RtState {
     pub arena: RtArena,
     pub sim_builders: Vec<SimBuilder>,
+    pub seq_builders: Vec<Vec<RtValue>>,
     pub emits: Vec<String>,
     pub error: Option<String>,
     pub capture_stdout: bool,
@@ -50,6 +55,7 @@ impl RtState {
         Self {
             arena: RtArena::new(max_arena_entries),
             sim_builders: Vec::new(),
+            seq_builders: Vec::new(),
             emits: Vec::new(),
             error: None,
             capture_stdout,
@@ -120,6 +126,30 @@ impl RtState {
         match self.arena.get(handle)? {
             RtValue::Str(s) => Ok(s.as_str()),
             other => Err(format!("expected str handle, got {}", other.render())),
+        }
+    }
+
+    pub fn get_bytes(&self, handle: u64) -> Result<&[u8], String> {
+        match self.arena.get(handle)? {
+            RtValue::Bytes(bs) => Ok(bs.as_slice()),
+            other => Err(format!("expected bytes handle, got {}", other.render())),
+        }
+    }
+
+    pub fn get_bytes_utf8(&self, handle: u64, ctx_name: &str) -> Result<String, String> {
+        let bs = self.get_bytes(handle)?;
+        std::str::from_utf8(bs)
+            .map(str::to_string)
+            .map_err(|_| format!("{ctx_name}: byte sequence is not valid UTF-8"))
+    }
+
+    pub fn get_seq_slice(&self, handle: u64) -> Result<&[RtValue], String> {
+        match self.arena.get(handle)? {
+            RtValue::List(xs) | RtValue::Array(xs) => Ok(xs.as_slice()),
+            other => Err(format!(
+                "expected list or array handle, got {}",
+                other.render()
+            )),
         }
     }
 
@@ -206,6 +236,218 @@ impl RtState {
         self.arena.insert(RtValue::List(cloned))
     }
 
+    pub fn op_list_push_cow(&mut self, list_h: u64, val_h: u64) -> Result<u64, String> {
+        let new_val = self.arena.get(val_h)?.clone();
+        let mut cloned = match self.arena.get(list_h)? {
+            RtValue::List(items) => items.clone(),
+            other => return Err(format!("expected list handle, got {}", other.render())),
+        };
+        cloned.push(new_val);
+        self.arena.insert(RtValue::List(cloned))
+    }
+
+    pub fn op_list_concat(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let a = self.get_seq_slice(a_h)?;
+        let b = self.get_seq_slice(b_h)?;
+        let mut out = Vec::with_capacity(a.len() + b.len());
+        out.extend_from_slice(a);
+        out.extend_from_slice(b);
+        self.arena.insert(RtValue::List(out))
+    }
+
+    pub fn op_list_slice(
+        &mut self,
+        seq_h: u64,
+        start: &BigInt,
+        end: &BigInt,
+    ) -> Result<u64, String> {
+        let s = start
+            .to_i64()
+            .ok_or_else(|| format!("slice_seq start {start} out of bounds"))?;
+        let e = end
+            .to_i64()
+            .ok_or_else(|| format!("slice_seq end {end} out of bounds"))?;
+        let xs = self.get_seq_slice(seq_h)?;
+        if s < 0 || e < s || (e as usize) > xs.len() {
+            return Err(format!(
+                "slice_seq({s}, {e}) out of bounds for length {}",
+                xs.len()
+            ));
+        }
+        let sliced = xs[(s as usize)..(e as usize)].to_vec();
+        self.arena.insert(RtValue::List(sliced))
+    }
+
+    pub fn get_any_seq_values(&self, handle: u64) -> Result<Vec<RtValue>, String> {
+        match self.arena.get(handle)? {
+            RtValue::List(xs) | RtValue::Array(xs) => Ok(xs.clone()),
+            RtValue::Bytes(bs) => Ok(bs.iter().map(|&b| RtValue::U8(b)).collect()),
+            other => Err(format!(
+                "expected list, array, or bytes handle, got {}",
+                other.render()
+            )),
+        }
+    }
+
+    pub fn op_zip_seq(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let xs = self.get_any_seq_values(a_h)?;
+        let ys = self.get_any_seq_values(b_h)?;
+        if xs.len() != ys.len() {
+            return Err(format!(
+                "zip_seq(a, b) sequence length mismatch: {} != {}",
+                xs.len(),
+                ys.len()
+            ));
+        }
+        let zipped: Vec<RtValue> = xs
+            .into_iter()
+            .zip(ys)
+            .map(|(a, b)| RtValue::Tuple(vec![a, b]))
+            .collect();
+        self.arena.insert(RtValue::List(zipped))
+    }
+
+    pub fn op_array_new(&mut self, handles: &[u64]) -> Result<u64, String> {
+        if handles.is_empty() {
+            return Err("array requires at least 1 element".to_string());
+        }
+        let mut items = Vec::with_capacity(handles.len());
+        for &h in handles {
+            items.push(self.arena.get(h)?.clone());
+        }
+        self.arena.insert(RtValue::Array(items))
+    }
+
+    pub fn op_array_get(&self, arr_h: u64, idx: &BigInt) -> Result<RtValue, String> {
+        let i = idx
+            .to_i64()
+            .ok_or_else(|| format!("array index {idx} out of i64 range"))?;
+        match self.arena.get(arr_h)? {
+            RtValue::Array(items) => {
+                if i < 0 || (i as usize) >= items.len() {
+                    return Err(format!("array index {i} out of bounds"));
+                }
+                Ok(items[i as usize].clone())
+            }
+            other => Err(format!("expected array handle, got {}", other.render())),
+        }
+    }
+
+    /// Persistent copy-on-write fixed-size array update returning a NEW arena handle.
+    pub fn op_array_set(&mut self, arr_h: u64, idx: &BigInt, val_h: u64) -> Result<u64, String> {
+        let i = idx
+            .to_i64()
+            .ok_or_else(|| format!("array index {idx} out of i64 range"))?;
+        let new_val = self.arena.get(val_h)?.clone();
+        let mut cloned = match self.arena.get(arr_h)? {
+            RtValue::Array(items) => items.clone(),
+            other => return Err(format!("expected array handle, got {}", other.render())),
+        };
+        if i < 0 || (i as usize) >= cloned.len() {
+            return Err(format!("array index {i} out of bounds"));
+        }
+        cloned[i as usize] = new_val;
+        self.arena.insert(RtValue::Array(cloned))
+    }
+
+    pub fn op_bytes_from_list(&mut self, list_h: u64) -> Result<u64, String> {
+        let out = match self.arena.get(list_h)? {
+            RtValue::List(items) => {
+                let mut bs = Vec::with_capacity(items.len());
+                for it in items {
+                    match it {
+                        RtValue::U8(b) => bs.push(*b),
+                        other => {
+                            return Err(format!(
+                                "bytes([u8]) expected u8 element, got {}",
+                                other.render()
+                            ));
+                        }
+                    }
+                }
+                bs
+            }
+            other => return Err(format!("expected [u8] list handle, got {}", other.render())),
+        };
+        self.arena.insert(RtValue::Bytes(out))
+    }
+
+    pub fn op_bytes_from_str(&mut self, str_h: u64) -> Result<u64, String> {
+        let bs = self.get_str(str_h)?.as_bytes().to_vec();
+        self.arena.insert(RtValue::Bytes(bs))
+    }
+
+    pub fn op_bytes_from_b64(&mut self, v: u64) -> Result<u64, String> {
+        self.arena.insert(RtValue::Bytes(v.to_le_bytes().to_vec()))
+    }
+
+    pub fn op_bytes_from_addr8(&mut self, addr_h: u64) -> Result<u64, String> {
+        let bs = match self.arena.get(addr_h)? {
+            RtValue::Addr8(a) => a.render().into_bytes(),
+            other => return Err(format!("expected addr8 handle, got {}", other.render())),
+        };
+        self.arena.insert(RtValue::Bytes(bs))
+    }
+
+    pub fn op_bytes_get(&self, bytes_h: u64, idx: &BigInt) -> Result<u8, String> {
+        let i = idx
+            .to_i64()
+            .ok_or_else(|| format!("bytes index {idx} out of i64 range"))?;
+        let bs = self.get_bytes(bytes_h)?;
+        if i < 0 || (i as usize) >= bs.len() {
+            return Err(format!("bytes index {i} out of bounds"));
+        }
+        Ok(bs[i as usize])
+    }
+
+    pub fn op_bytes_slice(
+        &mut self,
+        bytes_h: u64,
+        start: &BigInt,
+        end: &BigInt,
+    ) -> Result<u64, String> {
+        let s = start
+            .to_i64()
+            .ok_or_else(|| format!("slice_bytes start {start} out of bounds"))?;
+        let e = end
+            .to_i64()
+            .ok_or_else(|| format!("slice_bytes end {end} out of bounds"))?;
+        let bs = self.get_bytes(bytes_h)?;
+        if s < 0 || e < s || (e as usize) > bs.len() {
+            return Err(format!(
+                "slice_bytes({s}, {e}) out of bounds for length {}",
+                bs.len()
+            ));
+        }
+        let sliced = bs[(s as usize)..(e as usize)].to_vec();
+        self.arena.insert(RtValue::Bytes(sliced))
+    }
+
+    pub fn op_bytes_concat(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let a = self.get_bytes(a_h)?;
+        let b = self.get_bytes(b_h)?;
+        let mut out = Vec::with_capacity(a.len() + b.len());
+        out.extend_from_slice(a);
+        out.extend_from_slice(b);
+        self.arena.insert(RtValue::Bytes(out))
+    }
+
+    pub fn op_bytes_sha256(&mut self, b_h: u64) -> Result<u64, String> {
+        let digest = Sha256::digest(self.get_bytes(b_h)?);
+        self.arena.insert(RtValue::Bytes(digest.to_vec()))
+    }
+
+    pub fn op_bytes_hex(&mut self, b_h: u64) -> Result<u64, String> {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let bs = self.get_bytes(b_h)?;
+        let mut out = Vec::with_capacity(bs.len() * 2);
+        for &b in bs {
+            out.push(HEX[(b >> 4) as usize]);
+            out.push(HEX[(b & 0x0f) as usize]);
+        }
+        self.arena.insert(RtValue::Bytes(out))
+    }
+
     pub fn op_map_get(&self, map_h: u64, key_h: u64) -> Result<RtValue, String> {
         let kv = self.arena.get(key_h)?;
         let mk = RtMapKey::from_value(kv)?;
@@ -240,6 +482,33 @@ impl RtState {
         }
     }
 
+    pub fn op_map_remove(&mut self, map_h: u64, key_h: u64) -> Result<u64, String> {
+        let kv = self.arena.get(key_h)?;
+        let mk = RtMapKey::from_value(kv)?;
+        let mut cloned = match self.arena.get(map_h)? {
+            RtValue::Map(m) => (**m).clone(),
+            other => return Err(format!("expected map handle, got {}", other.render())),
+        };
+        cloned.remove(&mk);
+        self.arena.insert(RtValue::Map(Box::new(cloned)))
+    }
+
+    pub fn op_map_get_or(&mut self, map_h: u64, key_h: u64, default_h: u64) -> Result<u64, String> {
+        let kv = self.arena.get(key_h)?;
+        let mk = RtMapKey::from_value(kv)?;
+        let found = match self.arena.get(map_h)? {
+            RtValue::Map(m) => m.get(&mk).cloned(),
+            other => return Err(format!("expected map handle, got {}", other.render())),
+        };
+        match found {
+            Some(v) => self.arena.insert(v),
+            None => {
+                let dv = self.arena.get(default_h)?.clone();
+                self.arena.insert(dv)
+            }
+        }
+    }
+
     /// Deep-copy / copy-on-write struct field update returning a NEW arena handle (`P0-3`).
     pub fn op_struct_set(&mut self, s_h: u64, field: &str, val_h: u64) -> Result<u64, String> {
         let new_val = self.arena.get(val_h)?.clone();
@@ -262,9 +531,34 @@ impl RtState {
                 .get(f)
                 .cloned()
                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name)),
-            (RtValue::SimResult(s), "model_status") => Ok(RtValue::Str(s.model_status)),
-            (RtValue::SimResult(s), "chamber_name") => Ok(RtValue::Str(s.chamber_name)),
-            (RtValue::SimResult(s), "final_state_hash") => Ok(RtValue::Str(s.final_state_hash)),
+            (RtValue::SimResult(s), "model_status") => {
+                let (variant, tag) = model_status_variant_and_tag(&s.model_status);
+                Ok(RtValue::Enum(Box::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "ModelStatus".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
+            }
+            (RtValue::SimResult(s), "model_status_bytes") => {
+                Ok(RtValue::Bytes(s.model_status.into_bytes()))
+            }
+            (RtValue::SimResult(s), "chamber_name" | "chamber_name_bytes") => {
+                Ok(RtValue::Bytes(s.chamber_name.into_bytes()))
+            }
+            (RtValue::SimResult(s), "final_state_hash" | "final_state_hash_bytes") => {
+                Ok(RtValue::Bytes(s.final_state_hash.into_bytes()))
+            }
+            (RtValue::SimResult(s), "final_state_sha256") => {
+                Ok(RtValue::Bytes(decode_hex_32(&s.final_state_hash)?))
+            }
+            (RtValue::SimResult(s), "boundary_bytes") => Ok(RtValue::Bytes(
+                s.final_snapshot.space.boundary_descriptor().into_bytes(),
+            )),
+            (RtValue::Box3(b), "boundary_bytes") => {
+                Ok(RtValue::Bytes(b.boundary_descriptor().into_bytes()))
+            }
             (RtValue::SimResult(s), "ticks") => Ok(RtValue::Int(BigInt::from_u64(s.ticks))),
             (RtValue::SimResult(s), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.carrier_count as u64)))
@@ -291,8 +585,22 @@ impl RtState {
                 Ok(RtValue::ChamberView(Box::new(s.final_snapshot)))
             }
 
-            (RtValue::ChamberView(snap), "model_status") => Ok(RtValue::Str(snap.model_status)),
-            (RtValue::ChamberView(snap), "chamber_name") => Ok(RtValue::Str(snap.chamber_name)),
+            (RtValue::ChamberView(snap), "model_status") => {
+                let (variant, tag) = model_status_variant_and_tag(&snap.model_status);
+                Ok(RtValue::Enum(Box::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "ModelStatus".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
+            }
+            (RtValue::ChamberView(snap), "model_status_bytes") => {
+                Ok(RtValue::Bytes(snap.model_status.into_bytes()))
+            }
+            (RtValue::ChamberView(snap), "chamber_name" | "chamber_name_bytes") => {
+                Ok(RtValue::Bytes(snap.chamber_name.into_bytes()))
+            }
             (RtValue::ChamberView(snap), "tick") => Ok(RtValue::Int(BigInt::from_u64(snap.tick))),
             (RtValue::ChamberView(snap), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(snap.carriers.len() as u64)))
@@ -317,8 +625,18 @@ impl RtState {
             )),
 
             (RtValue::RecipientOutcome(o), "stage") => {
-                Ok(RtValue::Str(recipient_stage_name(o.stage).to_string()))
+                let (variant, tag) = recipient_stage_variant_and_tag(o.stage);
+                Ok(RtValue::Enum(Box::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "RecipientStage".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
             }
+            (RtValue::RecipientOutcome(o), "stage_bytes") => Ok(RtValue::Bytes(
+                recipient_stage_name(o.stage).as_bytes().to_vec(),
+            )),
             (RtValue::RecipientOutcome(o), "closure_phase_delta") => {
                 Ok(RtValue::Int(BigInt::from_u64(o.closure_phase_delta as u64)))
             }
@@ -332,8 +650,12 @@ impl RtState {
             (RtValue::CadenceAssociation(a), "is_cadence_ratio") => {
                 Ok(RtValue::Bool(a.is_cadence_ratio))
             }
-            (RtValue::CadenceAssociation(a), "wavelet_id") => Ok(RtValue::Str(a.wavelet_id)),
-            (RtValue::CadenceAssociation(a), "reference_id") => Ok(RtValue::Str(a.reference_id)),
+            (RtValue::CadenceAssociation(a), "wavelet_id" | "wavelet_id_bytes") => {
+                Ok(RtValue::Bytes(a.wavelet_id.into_bytes()))
+            }
+            (RtValue::CadenceAssociation(a), "reference_id" | "reference_id_bytes") => {
+                Ok(RtValue::Bytes(a.reference_id.into_bytes()))
+            }
 
             (RtValue::Support(s), "is_yro") => Ok(RtValue::Bool(s.is_yro())),
             (RtValue::Support(s), "is_closure_certificate") => {
@@ -342,7 +664,11 @@ impl RtState {
             (RtValue::Addr8(a), "is_first_anchor") => Ok(RtValue::Bool(a.is_first_anchor())),
             (RtValue::Window(u, _), "start") => Ok(RtValue::Int(BigInt::from_i64(u))),
             (RtValue::Window(_, v), "end") => Ok(RtValue::Int(BigInt::from_i64(v))),
-            (RtValue::Window(u, v), "len") => Ok(RtValue::Int(BigInt::from_i64(v - u))),
+            (RtValue::Window(u, v), "len") => {
+                Ok(RtValue::Int(BigInt::from_i128((v as i128) - (u as i128))))
+            }
+            (RtValue::Ratio(r), "num") => Ok(RtValue::Int(r.num().clone())),
+            (RtValue::Ratio(r), "den") => Ok(RtValue::Int(r.den().clone())),
             (other, f) => Err(format!("no field .{f} on {}", other.render())),
         }
     }
@@ -350,8 +676,10 @@ impl RtState {
     pub fn op_boundary_of(&mut self, h: u64) -> Result<u64, String> {
         let val = self.arena.get(h)?.clone();
         let out = match val {
-            RtValue::Box3(b) => RtValue::Str(b.boundary_descriptor()),
-            RtValue::SimResult(s) => RtValue::Str(s.final_snapshot.space.boundary_descriptor()),
+            RtValue::Box3(b) => RtValue::Bytes(b.boundary_descriptor().into_bytes()),
+            RtValue::SimResult(s) => {
+                RtValue::Bytes(s.final_snapshot.space.boundary_descriptor().into_bytes())
+            }
             RtValue::Window(u, v) | RtValue::Range(u, v) => RtValue::Tuple(vec![
                 RtValue::Int(BigInt::from_i64(u)),
                 RtValue::Int(BigInt::from_i64(v)),
@@ -364,7 +692,8 @@ impl RtState {
     pub fn op_len(&self, h: u64) -> Result<BigInt, String> {
         match self.arena.get(h)? {
             RtValue::Str(s) => Ok(BigInt::from_u64(s.chars().count() as u64)),
-            RtValue::List(xs) => Ok(BigInt::from_u64(xs.len() as u64)),
+            RtValue::Bytes(bs) => Ok(BigInt::from_u64(bs.len() as u64)),
+            RtValue::List(xs) | RtValue::Array(xs) => Ok(BigInt::from_u64(xs.len() as u64)),
             RtValue::Map(m) => Ok(BigInt::from_u64(m.len() as u64)),
             other => Err(format!("len unsupported on {}", other.render())),
         }
@@ -379,6 +708,28 @@ impl RtState {
     ) -> Result<BigInt, String> {
         let lin = self.get_str(lin_h)?;
         let scope = self.get_str(scope_h)?;
+        self.window_dedup_count_strs(lin, scope, cuts_h, wins_h)
+    }
+
+    pub fn op_window_dedup_count_bytes(
+        &self,
+        lin_h: u64,
+        scope_h: u64,
+        cuts_h: u64,
+        wins_h: u64,
+    ) -> Result<BigInt, String> {
+        let lin = self.get_bytes_utf8(lin_h, "window_dedup_count(bytes, ...)")?;
+        let scope = self.get_bytes_utf8(scope_h, "window_dedup_count(bytes, ...)")?;
+        self.window_dedup_count_strs(&lin, &scope, cuts_h, wins_h)
+    }
+
+    fn window_dedup_count_strs(
+        &self,
+        lin: &str,
+        scope: &str,
+        cuts_h: u64,
+        wins_h: u64,
+    ) -> Result<BigInt, String> {
         let cuts = match self.arena.get(cuts_h)? {
             RtValue::List(items) => {
                 let mut v = Vec::with_capacity(items.len());
@@ -721,6 +1072,23 @@ impl RtState {
         native_cadence_ratio(id_a, q_a, id_r, q_r, coupled, bc).map_err(|e| e.to_string())
     }
 
+    pub fn op_native_cadence_ratio_bytes(
+        &self,
+        id_a_h: u64,
+        q_a: &BigInt,
+        id_r_h: u64,
+        q_r: &BigInt,
+        coupled: bool,
+        contacts: &BigInt,
+    ) -> Result<Ratio, String> {
+        let id_a = self.get_bytes_utf8(id_a_h, "native_cadence_ratio(bytes, ...)")?;
+        let id_r = self.get_bytes_utf8(id_r_h, "native_cadence_ratio(bytes, ...)")?;
+        let bc = contacts
+            .to_u64()
+            .ok_or_else(|| "invalid bound_contacts".to_string())? as usize;
+        native_cadence_ratio(&id_a, q_a, &id_r, q_r, coupled, bc).map_err(|e| e.to_string())
+    }
+
     pub fn op_single_contact_assoc(
         &mut self,
         wid_h: u64,
@@ -732,6 +1100,27 @@ impl RtState {
         let wid = self.get_str(wid_h)?.to_string();
         let pid = self.get_str(pid_h)?.to_string();
         let rid = self.get_str(rid_h)?.to_string();
+        let win = self.get_window(win_h)?;
+        let bc = contacts
+            .to_u64()
+            .ok_or_else(|| "invalid bound_contacts".to_string())? as usize;
+        let assoc = SingleContactStageAssociation::new(wid, pid, rid, win, bc)
+            .map_err(|e| e.to_string())?;
+        self.arena
+            .insert(RtValue::CadenceAssociation(Box::new(assoc)))
+    }
+
+    pub fn op_single_contact_assoc_bytes(
+        &mut self,
+        wid_h: u64,
+        pid_h: u64,
+        rid_h: u64,
+        win_h: u64,
+        contacts: &BigInt,
+    ) -> Result<u64, String> {
+        let wid = self.get_bytes_utf8(wid_h, "single_contact_association(bytes, ...)")?;
+        let pid = self.get_bytes_utf8(pid_h, "single_contact_association(bytes, ...)")?;
+        let rid = self.get_bytes_utf8(rid_h, "single_contact_association(bytes, ...)")?;
         let win = self.get_window(win_h)?;
         let bc = contacts
             .to_u64()
@@ -805,10 +1194,65 @@ fn builder_idx(handle: u64, len: usize) -> Result<usize, String> {
     Ok((handle - 1) as usize)
 }
 
+pub fn decode_hex_32(hex: &str) -> Result<Vec<u8>, String> {
+    let raw = hex.as_bytes();
+    if raw.len() != 64 {
+        return Err(format!(
+            "expected 64-byte hex SHA-256 digest, got {} bytes",
+            raw.len()
+        ));
+    }
+    let hex_val = |b: u8| -> Result<u8, String> {
+        match b {
+            b'0'..=b'9' => Ok(b - b'0'),
+            b'a'..=b'f' => Ok(b - b'a' + 10),
+            b'A'..=b'F' => Ok(b - b'A' + 10),
+            _ => Err("invalid hex digit in SHA-256 digest".to_string()),
+        }
+    };
+    let mut out = Vec::with_capacity(32);
+    for chunk in raw.chunks_exact(2) {
+        let hi = hex_val(chunk[0])?;
+        let lo = hex_val(chunk[1])?;
+        out.push((hi << 4) | lo);
+    }
+    Ok(out)
+}
+
 pub fn exact_t1(v: &BigInt) -> Result<i8, String> {
     T1::from_bigint(v)
         .map(T1::value)
         .map_err(|e| e.to_string())
+}
+
+pub fn exact_u8(v: &BigInt) -> Result<u8, String> {
+    v.to_u64()
+        .and_then(|n| u8::try_from(n).ok())
+        .ok_or_else(|| format!("u8 overflow: {v}"))
+}
+
+pub fn exact_b64(v: &BigInt) -> Result<u64, String> {
+    v.to_u64().ok_or_else(|| format!("b64 overflow: {v}"))
+}
+
+pub fn exact_t9(v: &BigInt) -> Result<i16, String> {
+    T9::from_bigint(v)
+        .map(T9::value)
+        .map_err(|e| e.to_string())
+}
+
+pub fn exact_t9_unpack_bigint(bits: &BigInt) -> Result<i16, String> {
+    T9::unpack_bigint(bits)
+        .map(T9::value)
+        .map_err(|e| e.to_string())
+}
+
+pub fn exact_verify_sheddic_route(x_shed: &BigInt, target_enclosure: u8) -> bool {
+    !x_shed.is_positive() || (target_enclosure >= 2 && target_enclosure.is_multiple_of(2))
+}
+
+pub fn exact_verify_frg_cross_return(t_zero: &BigInt, t_cross: &BigInt, c_cross: &BigInt) -> bool {
+    (t_cross - t_zero) == *c_cross
 }
 
 pub fn exact_t32(v: &BigInt) -> Result<i64, String> {

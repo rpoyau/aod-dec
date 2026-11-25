@@ -1,0 +1,124 @@
+# 01_dec_ledger_shedding.dec
+# One-Node D.E.C. Ledger, Hinge Slide (3 -> 2), Field Tunnelling Clip, & 1:2:9yro Shedding
+
+struct scope_b {
+    boundary_id: u8,
+    window_w: t32,
+    c3: t32
+}
+
+struct dec_row {
+    b_id: u8,
+    v: q4,
+    edge: u8,
+    ve: q4,
+    sigma: t1,
+    adm: u8,
+    w: t32,
+    p: ratio,
+    route: u8
+}
+
+struct dec_node4 {
+    rows: array[dec_row, 4],
+    z_norm: t32,
+    p_neg: ratio,
+    p_zero: ratio,
+    p_pos: ratio
+}
+
+struct slide_pool3 {
+    s1: dec_row,
+    s2: dec_row,
+    s3_tunnel: dec_row,
+    z_slide: t32,
+    p_returned: ratio,
+    p_outgoing: ratio
+}
+
+struct tunnel_record {
+    adm_direct_hinge: u8,
+    p_tunnel: ratio,
+    rd_s: t32,
+    window_s: t32,
+    rho_w_s: t32,
+    c3_s: t32,
+    p_d_s: t32,
+    t_tunnel: ratio
+}
+
+struct motif_support {
+    p_arg: t9,
+    q_arg: t9,
+    pi_support: t32,
+    h_hinge: t32,
+    rd: t32
+}
+
+struct shedding_audit_row {
+    p_arg: t9,
+    q_arg: t9,
+    l_window: t32,
+    is_yro: u8,
+    rd: t32,
+    rho_w: t32,
+    q_overhang: t32,
+    p_d: t32,
+    c_close: t32,
+    delta_close: t32,
+    x_shedding: t32,
+    sheddic_path: u8,
+    tau_miss_exact: ratio
+}
+
+Dec build_dec_row(b, v, edge, ve, sigma, adm, w_in, route_in) -> row:
+    (scope_b b, q4 v, u8 edge, q4 ve, t1 sigma, 1, t32 w_in, u8 route_in) -> dec_row row:
+        assert __popcnt_xor(v, ve) == 1
+        row = dec_row(b.boundary_id, v, edge, ve, sigma, 1, w_in, ratio(w_in, 1), route_in)
+
+    (scope_b b, q4 v, u8 edge, q4 ve, t1 sigma, 0, t32 w_in, u8 route_in) -> dec_row row:
+        assert __popcnt_xor(v, ve) == 1
+        row = dec_row(b.boundary_id, v, edge, ve, sigma, 0, 0, ratio(0, 1), 0)
+
+Dec hinge_slide(b, v, adm_dwell, w1_neg, w2_neg, w3_pos) -> pool:
+    (scope_b b, q4 v, 0, t32 w1_neg, t32 w2_neg, t32 w3_pos) -> slide_pool3 pool:
+        t32 z_slide = w1_neg + w2_neg + w3_pos
+        assert z_slide > 0
+        dec_row s1 = dec_row(b.boundary_id, v, 1, v ^ 0b0001, -1, 1, w1_neg, ratio(w1_neg, z_slide), 1)
+        dec_row s2 = dec_row(b.boundary_id, v, 2, v ^ 0b0010, -1, 1, w2_neg, ratio(w2_neg, z_slide), 1)
+        dec_row s3 = dec_row(b.boundary_id, v, 3, v ^ 0b0100, +1, 1, w3_pos, ratio(w3_pos, z_slide), 4)
+        pool = slide_pool3(s1, s2, s3, z_slide, ratio(w1_neg + w2_neg, z_slide), ratio(w3_pos, z_slide))
+
+Dec field_tunnel_clip(pool, rd_s, window_s, c3_s) -> rec:
+    (slide_pool3 pool, t32 rd_s, t32 window_s, t32 c3_s) -> tunnel_record rec:
+        t32 rho_w_s = min_t32(rd_s, window_s)
+        t32 p_d_s = c3_s * rho_w_s
+        ratio p_tun = pool.s3_tunnel.p
+        ratio t_tun = ratio(p_tun.num * p_d_s, p_tun.den)
+        rec = tunnel_record(0, p_tun, rd_s, window_s, rho_w_s, c3_s, p_d_s, t_tun)
+
+Dec promote_sadar_pair(rho_w, c3, a_12) -> (p_d, sadar_12, sadar_21):
+    (t32 rho_w, t32 c3, ratio a_12) -> (t32 p_d, ratio sadar_12, ratio sadar_21):
+        p_d = c3 * rho_w
+        sadar_12 = reduce_ratio(ratio(p_d * a_12.num, a_12.den))
+        sadar_21 = ratio(neg(sadar_12.num), sadar_12.den)
+
+Dec build_motif_support(p_arg, q_arg, h_hinge) -> sup:
+    (t9 p_arg, t9 q_arg, 1) -> motif_support sup:
+        t32 pi_val = pow_t32(t32(q_arg), t32(p_arg)) + t32(q_arg)
+        t32 rd_val = 2 * pi_val + 1
+        sup = motif_support(p_arg, q_arg, pi_val, 1, rd_val)
+
+Dec audit_short_window(b, sup, c_close, target_path, m_miss, m_ref) -> audit:
+    (scope_b b, motif_support sup, t32 c_close, u8 target_path, t32 m_miss, t32 m_ref) -> shedding_audit_row audit:
+        t32 rho_d = sup.rd
+        t32 w_len = b.window_w
+        u8 yro_flag = u8(w_len & 1)
+        t32 rho_w = min_t32(rho_d, w_len)
+        t32 q_d = b.c3 * max_t32(0, rho_d - w_len)
+        t32 p_d = b.c3 * rho_w
+        t32 delta_close = p_d - c_close
+        t32 x_shed = max_t32(0, delta_close)
+        u8 active_path = select_u8(x_shed != 0, target_path, 0)
+        assert (x_shed == 0) | (active_path != 0)
+        audit = shedding_audit_row(sup.p_arg, sup.q_arg, w_len, yro_flag, rho_d, rho_w, q_d, p_d, c_close, delta_close, x_shed, active_path, ratio(m_miss, m_ref))

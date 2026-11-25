@@ -1,7 +1,7 @@
 #![deny(unsafe_code)]
 
 //! `aod-llvm`: `std`-only LLVM 18 C API dynamic loader (`dlopen`), parameterized `CodegenPlan`,
-//! CPU discovery (`hw_info`), 5 live self-verifying JIT micro-probes (`hw_probe`), zero-float
+//! CPU discovery (`hw_info`), 6 live self-verifying JIT micro-probes (`hw_probe`), zero-float
 //! paired bootstrap hardware learner (`learner`), standalone AOT ELF emitter/linker, and ORC LLJIT.
 //!
 //! `unsafe` is strictly quarantined to `src/{ffi.rs, aot.rs, jit.rs, hw_probe.rs}`. Zero IEEE-754 floats.
@@ -44,10 +44,13 @@ pub use aot::{
     link_aot_executable_with_plan, verify_and_optimize_ir, verify_and_optimize_ir_with_plan,
 };
 pub use hw_info::HostHardwareInfo;
-pub use hw_probe::{probe_perf_event_open, read_rdtscp, run_all_hw_probes, HwProbeReport, PerfCapability};
+pub use hw_probe::{
+    certify_frg_channel, probe_perf_event_open, read_rdtscp, run_all_hw_probes,
+    run_probe_frg_ring_gate, FrgChannelReport, FrgRingGateReport, HwProbeReport, PerfCapability,
+};
 pub use jit::OrcJitSession;
 pub use learner::{
     paired_bootstrap_ci_bps, run_learn_session, BootstrapCi, LearnDecision, LearnSessionReport,
-    ProfileLoadOutcome, RetainedProfile,
+    ProfileLoadOutcome, RetainedProfile, PROFILE_VERSION,
 };
-pub use plan::{recommend_candidates, CodegenPlan, OptLevel, UnrollHint, POLICY_SCOPE};
+pub use plan::{recommend_candidates, CodegenPlan, HwPlanHints, OptLevel, UnrollHint, POLICY_SCOPE};

@@ -82,6 +82,7 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
     // 1. Explicit `--stdlib <nonexistent>` MUST fail with ModuleNotFound (ZERO silent fallback, P0-2!)
     let bad_opt = LoadOptions {
         stdlib_dir: Some(missing_stdlib.clone()),
+        ..LoadOptions::default()
     };
     assert_eq!(
         check_file_with_options(&ex01, CompatMode::V2, &bad_opt)
@@ -119,14 +120,14 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
 
     // 3. Bare `use stdlib` and missing stdlib module rejected with ModuleNotFound
     assert_eq!(
-        check_source("use stdlib\nDec main() -> int:\n    return 0\n", CompatMode::V2)
+        check_source("use stdlib\ndec main:\n    () -> int:\n        return 0\n", CompatMode::V2)
             .unwrap_err()
             .code,
         DiagnosticCode::ModuleNotFound
     );
     assert_eq!(
         check_source(
-            "use stdlib::aod::no_such_module\nDec main() -> int:\n    return 0\n",
+            "use stdlib::aod::no_such_module\ndec main:\n    () -> int:\n        return 0\n",
             CompatMode::V2
         )
         .unwrap_err()
@@ -174,10 +175,10 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
 fn ac03_cross_module_qext_2seg_3seg_firewalls_and_topological_consts() {
     // 1. Hostile 2-segment & 3-segment Q_ext const and fn leaks MUST fail with QExtLeakageForbidden!
     let hostile_qext_cases = [
-        "use stdlib::aod::metrology::SiMetrology\nDec main() -> int:\n    let x = SiMetrology::DELTA_NU_CS\n    return 0\n",
-        "use stdlib::aod::metrology::SiMetrology\nDec main() -> int:\n    let x = SiMetrology::duration_seconds(1/1r)\n    return 0\n",
-        "use stdlib::aod::metrology\nDec main() -> int:\n    let x = metrology::SiMetrology::DELTA_NU_CS\n    return 0\n",
-        "use stdlib::aod::metrology\nDec main() -> int:\n    let x = metrology::SiMetrology::duration_seconds(1/1r)\n    return 0\n",
+        "use stdlib::aod::metrology::SiMetrology\ndec main:\n    () -> int:\n        let x = SiMetrology::DELTA_NU_CS\n        return 0\n",
+        "use stdlib::aod::metrology::SiMetrology\ndec main:\n    () -> int:\n        let x = SiMetrology::duration_seconds(1/1r)\n        return 0\n",
+        "use stdlib::aod::metrology\ndec main:\n    () -> int:\n        let x = metrology::SiMetrology::DELTA_NU_CS\n        return 0\n",
+        "use stdlib::aod::metrology\ndec main:\n    () -> int:\n        let x = metrology::SiMetrology::duration_seconds(1/1r)\n        return 0\n",
     ];
     for src in hostile_qext_cases {
         assert_eq!(
@@ -193,18 +194,19 @@ use aod::qext::qext_render
 use stdlib::aod::metrology
 use stdlib::aod::metrology::SiMetrology
 
-Dec main() -> int:
-    let two = 2/1r
-    quarantine Q_ext:
-        let a = SiMetrology::duration_seconds(two)
-        let b = metrology::SiMetrology::duration_seconds(two)
-        assert a == b
-        assert SiMetrology::DELTA_NU_CS == metrology::SiMetrology::DELTA_NU_CS
-        emit qext_render(a)
-    return 0
+dec main:
+    () -> int:
+        let two = 2/1r
+        quarantine Q_ext:
+            let a = SiMetrology::duration_seconds(two)
+            let b = metrology::SiMetrology::duration_seconds(two)
+            assert a == b
+            assert SiMetrology::DELTA_NU_CS == metrology::SiMetrology::DELTA_NU_CS
+            emit qext_render(a)
+        return 0
 "#;
     let expected = run_source(ok_src, CompatMode::V2).unwrap().to_stdout_string();
-    assert_eq!(expected, "Q_ext(1/4596315885)\n0\n");
+    assert_eq!(expected, "Q_ext(b\"1/4596315885\")\n0\n");
 
     let tmp = temp_dir("ac03_qext_topo");
     let exe = tmp.join("qext_ok");
@@ -239,7 +241,7 @@ Dec main() -> int:
     let entry_file = tmp.join("entry.dec");
     std::fs::write(
         &entry_file,
-        "use a_mid::MID_ARR\nconst TOP_ARR = MID_ARR\nDec main() -> int:\n    emit TOP_ARR[0]\n    emit TOP_ARR[2]\n    return 0\n",
+        "use a_mid::MID_ARR\nconst TOP_ARR = MID_ARR\ndec main:\n    () -> int:\n        emit TOP_ARR[0]\n        emit TOP_ARR[2]\n        return 0\n",
     )
     .unwrap();
     let topo_expected = "11\n33\n0\n";
@@ -391,14 +393,14 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
 
     // 3. P1-1 `.expect_error` hardening: empty file, dual `.stdout`+`.expect_error`, unexpected pass ALL FAIL!
     let empty_f = tmp.join("empty_exp.dec");
-    std::fs::write(&empty_f, "Dec main() -> int:\n    assert false\n    return 0\n").unwrap();
+    std::fs::write(&empty_f, "dec main:\n    () -> int:\n        assert false\n        return 0\n").unwrap();
     std::fs::write(tmp.join("empty_exp.expect_error"), "   \n").unwrap();
     let r_empty = run_dec_tests(&empty_f, CompatMode::V2).unwrap();
     assert_eq!(r_empty.len(), 1);
     assert!(!r_empty[0].passed, "empty .expect_error must FAIL");
 
     let dual_f = tmp.join("dual_exp.dec");
-    std::fs::write(&dual_f, "Dec main() -> int:\n    return 0\n").unwrap();
+    std::fs::write(&dual_f, "dec main:\n    () -> int:\n        return 0\n").unwrap();
     std::fs::write(tmp.join("dual_exp.stdout"), "0\n").unwrap();
     std::fs::write(tmp.join("dual_exp.expect_error"), "AssertionFailed\n").unwrap();
     let r_dual = run_dec_tests(&dual_f, CompatMode::V2).unwrap();
@@ -406,13 +408,13 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
     assert!(!r_dual[0].passed, "dual .stdout+.expect_error must FAIL");
 
     let unexp_ok = tmp.join("unexp_ok.dec");
-    std::fs::write(&unexp_ok, "Dec main() -> int:\n    return 0\n").unwrap();
+    std::fs::write(&unexp_ok, "dec main:\n    () -> int:\n        return 0\n").unwrap();
     std::fs::write(tmp.join("unexp_ok.expect_error"), "AssertionFailed\n").unwrap();
     let r_ok = run_dec_tests(&unexp_ok, CompatMode::V2).unwrap();
     assert_eq!(r_ok.len(), 1);
     assert!(!r_ok[0].passed, "unexpected Ok(_) on .expect_error must FAIL");
 
-    // 4. AC-13 / PR 6 P0-3: `aodc test manual_examples` -> 16 passed; 0 failed; 16 total (exit 0)
+    // 4. AC-13 / PR 9 P1-3: `aodc test manual_examples` -> 18 passed; 0 failed; 18 total (exit 0)
     let cli = Command::new(aodc_bin())
         .arg("test")
         .arg(root.join("manual_examples"))
@@ -426,7 +428,7 @@ fn ac12_ac13_negative_controls_expect_error_hardening_and_cli_test() {
     );
     let stdout = String::from_utf8_lossy(&cli.stdout);
     assert!(
-        stdout.contains("test result: 16 passed; 0 failed; 16 total"),
+        stdout.contains("test result: 18 passed; 0 failed; 18 total"),
         "unexpected test summary:\n{stdout}"
     );
 

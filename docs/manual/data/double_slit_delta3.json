@@ -1,24 +1,134 @@
 {
+  "bins": [
+    {
+      "cx": 0,
+      "delta": 0,
+      "k": -5,
+      "mag": 0,
+      "obs": 8,
+      "s": 4,
+      "sign": 0,
+      "t0": 8,
+      "tx": 8
+    },
+    {
+      "cx": -8,
+      "delta": -1,
+      "k": -4,
+      "mag": 1,
+      "obs": 11,
+      "s": 9,
+      "sign": -1,
+      "t0": 18,
+      "tx": 10
+    },
+    {
+      "cx": -12,
+      "delta": 1,
+      "k": -3,
+      "mag": 1,
+      "obs": 19,
+      "s": 16,
+      "sign": 1,
+      "t0": 32,
+      "tx": 20
+    },
+    {
+      "cx": 8,
+      "delta": -1,
+      "k": -2,
+      "mag": 1,
+      "obs": 59,
+      "s": 25,
+      "sign": -1,
+      "t0": 50,
+      "tx": 58
+    },
+    {
+      "cx": 18,
+      "delta": 1,
+      "k": -1,
+      "mag": 1,
+      "obs": 79,
+      "s": 31,
+      "sign": 1,
+      "t0": 62,
+      "tx": 80
+    },
+    {
+      "cx": 26,
+      "delta": 1,
+      "k": 0,
+      "mag": 1,
+      "obs": 95,
+      "s": 35,
+      "sign": 1,
+      "t0": 70,
+      "tx": 96
+    },
+    {
+      "cx": 18,
+      "delta": 0,
+      "k": 1,
+      "mag": 0,
+      "obs": 80,
+      "s": 31,
+      "sign": 0,
+      "t0": 62,
+      "tx": 80
+    },
+    {
+      "cx": 8,
+      "delta": 0,
+      "k": 2,
+      "mag": 0,
+      "obs": 58,
+      "s": 25,
+      "sign": 0,
+      "t0": 50,
+      "tx": 58
+    },
+    {
+      "cx": -12,
+      "delta": -1,
+      "k": 3,
+      "mag": 1,
+      "obs": 21,
+      "s": 16,
+      "sign": -1,
+      "t0": 32,
+      "tx": 20
+    },
+    {
+      "cx": -8,
+      "delta": 0,
+      "k": 4,
+      "mag": 0,
+      "obs": 10,
+      "s": 9,
+      "sign": 0,
+      "t0": 18,
+      "tx": 10
+    },
+    {
+      "cx": 0,
+      "delta": 0,
+      "k": 5,
+      "mag": 0,
+      "obs": 8,
+      "s": 4,
+      "sign": 0,
+      "t0": 8,
+      "tx": 8
+    }
+  ],
+  "center_mag": 1,
+  "center_sign": 1,
   "fixture": "manual_examples/03_short_window_boundary.dec",
-  "sum_t0": 410,
   "sum_cx": 38,
-  "sum_tx": 448,
-  "sum_obs": 448,
   "sum_delta": 0,
   "sum_mag": 6,
-  "center_sign": 1,
-  "center_mag": 1,
-  "bins": [
-    { "k": -5, "s": 4, "t0": 8, "cx": 0, "tx": 8, "obs": 8, "delta": 0, "sign": 0, "mag": 0 },
-    { "k": -4, "s": 9, "t0": 18, "cx": -8, "tx": 10, "obs": 11, "delta": -1, "sign": -1, "mag": 1 },
-    { "k": -3, "s": 16, "t0": 32, "cx": -12, "tx": 20, "obs": 19, "delta": 1, "sign": 1, "mag": 1 },
-    { "k": -2, "s": 25, "t0": 50, "cx": 8, "tx": 58, "obs": 59, "delta": -1, "sign": -1, "mag": 1 },
-    { "k": -1, "s": 31, "t0": 62, "cx": 18, "tx": 80, "obs": 79, "delta": 1, "sign": 1, "mag": 1 },
-    { "k": 0, "s": 35, "t0": 70, "cx": 26, "tx": 96, "obs": 95, "delta": 1, "sign": 1, "mag": 1 },
-    { "k": 1, "s": 31, "t0": 62, "cx": 18, "tx": 80, "obs": 80, "delta": 0, "sign": 0, "mag": 0 },
-    { "k": 2, "s": 25, "t0": 50, "cx": 8, "tx": 58, "obs": 58, "delta": 0, "sign": 0, "mag": 0 },
-    { "k": 3, "s": 16, "t0": 32, "cx": -12, "tx": 20, "obs": 21, "delta": -1, "sign": -1, "mag": 1 },
-    { "k": 4, "s": 9, "t0": 18, "cx": -8, "tx": 10, "obs": 10, "delta": 0, "sign": 0, "mag": 0 },
-    { "k": 5, "s": 4, "t0": 8, "cx": 0, "tx": 8, "obs": 8, "delta": 0, "sign": 0, "mag": 0 }
-  ]
+  "sum_obs": 448,
+  "sum_t0": 410,
+  "sum_tx": 448
 }

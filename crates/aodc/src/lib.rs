@@ -7,32 +7,68 @@
 pub mod ast;
 pub mod checker;
 pub mod codegen;
+pub mod dec_audit;
 pub mod diagnostics;
 pub mod eval;
+pub mod fmt;
 pub mod ir;
 pub mod lexer;
+pub mod manual_data;
 pub mod manual_verify;
 pub mod modules;
 pub mod parser;
+pub mod pdf_audit;
+pub mod report_guard;
 pub mod sim;
 pub mod types;
+
+pub use crate::fmt::{
+    format_program, format_program_with_mode, format_source, format_source_with_discipline,
+};
+pub use crate::parser::{parse_program, parse_program_with_discipline};
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
+use aod_core::json::JsonValue;
 use aod_core::s2_vectors::verify_s2_vectors_dir;
-pub use aod_core::s2_vectors::S2VerifyReport;
+pub use aod_core::s2_vectors::{eval_operation, S2VerifyReport};
+pub use aod_core::s4_report::{
+    audit_aod_core_policy, build_s4_report, sanitize_error, serialize_s4_report,
+    validate_portable_report, verify_s4_cycle_shedding_csv, CorePolicyAudit,
+    CycleSheddingFixtureReport, MAX_S4_INPUT_BYTES, S4_BASE_COMMIT_BINDING, S4_BINDING_ID,
+    S4_CYCLE_SHEDDING_CSV_REL, S4_REPORT_SCHEMA,
+};
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
-    run_all_hw_probes, BootstrapCi, CodegenPlan, HostHardwareInfo, HwProbeReport, LearnDecision,
-    LearnSessionReport, OptLevel, OrcJitSession, PerfCapability, ProfileLoadOutcome,
-    RetainedProfile, UnrollHint, POLICY_SCOPE,
+    certify_frg_channel, recommend_candidates, run_all_hw_probes, run_probe_frg_ring_gate,
+    BootstrapCi, CodegenPlan, FrgChannelReport, FrgRingGateReport, HostHardwareInfo, HwPlanHints,
+    HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession, PerfCapability,
+    ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+};
+pub use crate::dec_audit::{
+    audit_dec_source_with_options, failed_read_audit_report, lex_live_walk, verify_frg_identity,
+    verify_sheddic_route, DecAuditReport, HookAuditResult, LiveWalkSummary, DEC_AUDIT_SCHEMA,
+};
+pub use crate::manual_data::{
+    run_manual_data, validate_manual_data_output_dir, ManualDataOptions, ManualDataReport,
+    MANUAL_DATA_FILENAMES, MANUAL_DATA_SCHEMA,
 };
 pub use crate::manual_verify::{verify_manual_dir, ManualVerifyOptions, ManualVerifyReport};
 pub use crate::modules::LoadOptions;
+pub use crate::pdf_audit::{
+    adler32, audit_pdf_bytes, audit_pdf_file, inflate_deflate, inflate_zlib, InflateError,
+    PdfAuditOptions, PdfAuditReport, MAX_PDF_BYTES, MAX_STREAMS, MAX_STREAM_DECOMP_BYTES,
+    MAX_TOTAL_DECOMP_BYTES, PDF_AUDIT_SCHEMA,
+};
+pub use crate::report_guard::{
+    collect_guarded_roots, read_bounded_regular_file, read_bounded_stdin,
+    validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
+};
 
+pub use crate::diagnostics::SyntaxDiscipline;
 use crate::checker::{check_unit, CheckedUnit};
 use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
@@ -43,7 +79,7 @@ use crate::modules::load_from_source_with_options;
 static BENCH_TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 pub fn check_source(source: &str, compat: CompatMode) -> DecResult<CheckedUnit> {
-    check_source_with_options(source, compat, &LoadOptions::default())
+    check_source_with_options(source, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn check_source_with_options(
@@ -56,7 +92,44 @@ pub fn check_source_with_options(
 }
 
 pub fn check_file(path: &Path, compat: CompatMode) -> DecResult<CheckedUnit> {
-    check_file_with_options(path, compat, &LoadOptions::default())
+    check_file_with_options(path, compat, &LoadOptions::for_compat(compat))
+}
+
+pub fn audit_dec_source(source: &str, compat: CompatMode) -> DecAuditReport {
+    audit_dec_source_with_options(
+        source,
+        "<memory>",
+        None,
+        compat,
+        LoadOptions::for_compat(compat),
+    )
+}
+
+pub fn audit_dec_file_with_options(
+    path: &Path,
+    compat: CompatMode,
+    options: &LoadOptions,
+) -> DecAuditReport {
+    let bytes = match read_bounded_regular_file(path, "source", crate::parser::MAX_SOURCE_BYTES) {
+        Ok(b) => b,
+        Err(err) => return failed_read_audit_report(&path.to_string_lossy(), &err),
+    };
+    let source = match String::from_utf8(bytes) {
+        Ok(s) => s,
+        Err(_) => {
+            return failed_read_audit_report(
+                &path.to_string_lossy(),
+                "source: file is not valid UTF-8",
+            );
+        }
+    };
+    audit_dec_source_with_options(
+        &source,
+        &path.to_string_lossy(),
+        path.parent(),
+        compat,
+        options.clone(),
+    )
 }
 
 pub fn check_file_with_options(
@@ -101,7 +174,7 @@ pub fn run_file_with_budget_capturing(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    run_file_with_options_capturing(path, compat, fuel, max_depth, &LoadOptions::default())
+    run_file_with_options_capturing(path, compat, fuel, max_depth, &LoadOptions::for_compat(compat))
 }
 
 pub fn run_file_with_options_capturing(
@@ -111,12 +184,25 @@ pub fn run_file_with_options_capturing(
     max_depth: usize,
     options: &LoadOptions,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
+    run_file_with_parallel_observers_capturing(path, compat, fuel, max_depth, options, false)
+}
+
+pub fn run_file_with_parallel_observers_capturing(
+    path: &Path,
+    compat: CompatMode,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+    parallel_observers: bool,
+) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
     let checked = check_file_with_options(path, compat, options)?;
-    Ok(Evaluator::new(&checked, fuel, max_depth)?.run_main_capturing())
+    Ok(Evaluator::new(&checked, fuel, max_depth)?
+        .with_parallel_observers(parallel_observers)
+        .run_main_capturing())
 }
 
 pub fn compile_file_to_ir(path: &Path, compat: CompatMode) -> DecResult<String> {
-    compile_file_to_ir_with_options(path, compat, &LoadOptions::default())
+    compile_file_to_ir_with_options(path, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn compile_file_to_ir_with_options(
@@ -178,7 +264,7 @@ pub fn emit_llvm_source_with_plan(
 }
 
 pub fn emit_llvm_file(path: &Path, compat: CompatMode, opt: OptLevel) -> DecResult<String> {
-    emit_llvm_file_with_options(path, compat, opt, &LoadOptions::default())
+    emit_llvm_file_with_options(path, compat, opt, &LoadOptions::for_compat(compat))
 }
 
 pub fn emit_llvm_file_with_options(
@@ -220,7 +306,7 @@ pub fn build_aot_file(
     opt: OptLevel,
     out_exe: &Path,
 ) -> DecResult<()> {
-    build_aot_file_with_options(path, compat, opt, out_exe, &LoadOptions::default())
+    build_aot_file_with_options(path, compat, opt, out_exe, &LoadOptions::for_compat(compat))
 }
 
 pub fn build_aot_file_with_options(
@@ -261,7 +347,7 @@ pub fn compile_jit_file(
     compat: CompatMode,
     opt: OptLevel,
 ) -> DecResult<OrcJitSession> {
-    compile_jit_file_with_options(path, compat, opt, &LoadOptions::default())
+    compile_jit_file_with_options(path, compat, opt, &LoadOptions::for_compat(compat))
 }
 
 pub fn compile_jit_file_with_options(
@@ -314,7 +400,14 @@ pub fn jit_file_captured(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
-    jit_file_with_options_captured(path, compat, opt, fuel, max_depth, &LoadOptions::default())
+    jit_file_with_options_captured(
+        path,
+        compat,
+        opt,
+        fuel,
+        max_depth,
+        &LoadOptions::for_compat(compat),
+    )
 }
 
 pub fn jit_file_with_options_captured(
@@ -337,7 +430,14 @@ pub fn compute_profile_bindings(
 ) -> (String, String) {
     let ir_json = dumps_ir(checked);
     let kernel_ir_sha256 = Sha256::digest_hex(ir_json.as_bytes());
-    let workload_desc = format!("compat={compat:?};fuel={fuel};max_depth={max_depth}");
+    let workload_desc = match checked.unit.discipline {
+        SyntaxDiscipline::LegacyV1 => {
+            format!("compat={compat:?};fuel={fuel};max_depth={max_depth}")
+        }
+        SyntaxDiscipline::PureWaveV2 => {
+            format!("compat={compat:?};discipline=PureWaveV2;fuel={fuel};max_depth={max_depth}")
+        }
+    };
     let workload_sha256 = Sha256::digest_hex(workload_desc.as_bytes());
     (kernel_ir_sha256, workload_sha256)
 }
@@ -354,10 +454,33 @@ pub fn jit_file_with_profile_captured(
     profile_path: Option<&Path>,
     options: &LoadOptions,
 ) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
+    jit_file_with_profile_and_parallel_captured(
+        path,
+        compat,
+        fallback_opt,
+        fuel,
+        max_depth,
+        profile_path,
+        options,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn jit_file_with_profile_and_parallel_captured(
+    path: &Path,
+    compat: CompatMode,
+    fallback_opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    profile_path: Option<&Path>,
+    options: &LoadOptions,
+    parallel_observers: bool,
+) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
     let checked = check_file_with_options(path, compat, options)?;
     let fallback_plan = CodegenPlan::for_opt_level(fallback_opt);
 
-    let (chosen_plan, note) = if let Some(pp) = profile_path {
+    let (mut chosen_plan, note) = if let Some(pp) = profile_path {
         let hw = HostHardwareInfo::discover()
             .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
         let (kernel_sha, workload_sha) = compute_profile_bindings(&checked, compat, fuel, max_depth);
@@ -368,6 +491,9 @@ pub fn jit_file_with_profile_captured(
     } else {
         (fallback_plan, None)
     };
+    if parallel_observers {
+        chosen_plan.parallel_observers = true;
+    }
 
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &chosen_plan)?;
     let session = OrcJitSession::compile_with_plan(&raw_ir, &chosen_plan)
@@ -474,7 +600,14 @@ pub fn bench_file(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<BenchReport> {
-    bench_file_with_options(path, compat, iters, fuel, max_depth, &LoadOptions::default())
+    bench_file_with_options(
+        path,
+        compat,
+        iters,
+        fuel,
+        max_depth,
+        &LoadOptions::for_compat(compat),
+    )
 }
 
 pub fn bench_file_with_options(
@@ -640,7 +773,7 @@ pub struct TestCaseResult {
 }
 
 pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCaseResult>> {
-    run_dec_tests_with_options(target, compat, &LoadOptions::default())
+    run_dec_tests_with_options(target, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn run_dec_tests_with_options(
@@ -942,4 +1075,78 @@ pub fn verify_s2_dir(
             .join("SOURCE_BINDING.json"),
     };
     verify_s2_vectors_dir(&vdir, &bpath)
+}
+
+/// Verify all 30 S2/S4 golden vectors + 90-tick `wavelet_shedding_simulation.csv` + `aod-core`
+/// crate policy audit, returning a validated portable `aod.s4.rust.report.v1` JSON document,
+/// its canonical pretty UTF-8 serialization, and overall PASS boolean.
+///
+/// Explicitly provided paths (`Some`) are used strictly with zero silent fallback (`P1-2`).
+pub fn verify_s4_convergence_dir(
+    vectors_dir: Option<&Path>,
+    binding_path: Option<&Path>,
+    fixture_path: Option<&Path>,
+) -> Result<(JsonValue, String, bool), String> {
+    let default_root = if vectors_dir.is_none() || binding_path.is_none() || fixture_path.is_none()
+    {
+        Some(discover_default_s2_root())
+    } else {
+        None
+    };
+
+    let vdir = match vectors_dir {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when vectors_dir is None")
+            .join("bindings/aod/s2_vectors"),
+    };
+    let bpath = match binding_path {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when binding_path is None")
+            .join("SOURCE_BINDING.json"),
+    };
+    let fpath = match fixture_path {
+        Some(p) => p.to_path_buf(),
+        None => default_root
+            .as_ref()
+            .expect("default_root computed when fixture_path is None")
+            .join(S4_CYCLE_SHEDDING_CSV_REL),
+    };
+
+    let crate_root = bpath
+        .parent()
+        .map(|p| p.join("crates/aod-core"))
+        .filter(|c| c.join("Cargo.toml").is_file())
+        .or_else(|| {
+            let root = default_root
+                .clone()
+                .unwrap_or_else(discover_default_s2_root);
+            let cand = root.join("crates/aod-core");
+            cand.join("Cargo.toml").is_file().then_some(cand)
+        });
+
+    let vectors = verify_s2_vectors_dir(&vdir, &bpath);
+    let fixture = verify_s4_cycle_shedding_csv(&fpath, &bpath);
+    let policy = crate_root.as_deref().map(audit_aod_core_policy);
+
+    let mut extra_roots: Vec<(&Path, &str)> = vec![
+        (vdir.as_path(), "<VECTORS_DIR>"),
+        (bpath.as_path(), "<BINDING_PATH>"),
+        (fpath.as_path(), "<FIXTURE_PATH>"),
+    ];
+    if let Some(ref cr) = crate_root {
+        extra_roots.push((cr.as_path(), "<CRATE_ROOT>"));
+    }
+    if let Some(bp_parent) = bpath.parent() {
+        extra_roots.push((bp_parent, "<REPO_ROOT>"));
+    }
+
+    let (report_val, passed) = build_s4_report(&vectors, &fixture, policy.as_ref(), &extra_roots)
+        .map_err(|e| sanitize_error(&e.to_string(), &extra_roots))?;
+    let pretty = serialize_s4_report(&report_val)
+        .map_err(|e| sanitize_error(&e.to_string(), &extra_roots))?;
+    Ok((report_val, pretty, passed))
 }

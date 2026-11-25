@@ -1,0 +1,85 @@
+# 03_hardware_tiers_frg_awareness.dec
+# Cell-Complex Hardware Folding (Reg -> Cache -> RAM -> SSD), FRG, Polyrhythm, & Awareness
+
+struct retained_rebalance {
+    edge_id: u8,
+    scale_l: u8,
+    cut_ke: t32,
+    r_e: t32,
+    adm_valid: u8
+}
+
+struct complete_state {
+    x_now: t32,
+    m_closure: t32,
+    r_retained: retained_rebalance,
+    role_self: t1
+}
+
+struct folded_cell {
+    tier_l: u8,
+    enclosure_order: t32,
+    rd_cadence: t32,
+    ttl_retention: t32,
+    inner_beats: t32,
+    outer_closed: u8,
+    carried_r: retained_rebalance
+}
+
+struct poly_pair_rt {
+    biz_tf: ratio,
+    psi_bias: ratio,
+    lambda_lag: ratio,
+    rho_ab: t32,
+    rho_ba: t32,
+    t_sync: t32
+}
+
+Dec frg_layer_step(tier_l, cut_k, s_gate_a, s_gate_b, c_cross_ab) -> (t_zero, t_cross, r_rec):
+    (u8 tier_l, t32 cut_k, t32 s_gate_a, t32 s_gate_b, t32 c_cross_ab) -> (t32 t_zero, t32 t_cross, retained_rebalance r_rec):
+        t_zero = s_gate_a + s_gate_b
+        t_cross = t_zero + c_cross_ab
+        t32 r_e = t_cross - t_zero
+        r_rec = retained_rebalance(1, tier_l, cut_k, r_e, 1)
+
+Dec exoshed_lift_and_fuse(cell_in, p_burden, c_close_limit, next_enclosure, next_rd, next_ttl) -> (cell_out, x_exo):
+    (folded_cell cell_in, t32 p_burden, t32 c_close_limit, t32 next_enclosure, t32 next_rd, t32 next_ttl) -> (folded_cell cell_out, t32 x_exo):
+        assert cell_in.outer_closed == 1
+        t32 delta_close = p_burden - c_close_limit
+        x_exo = max_t32(0, delta_close)
+        u8 next_tier = cell_in.tier_l + 1
+        retained_rebalance r_up = retained_rebalance(cell_in.carried_r.edge_id, next_tier, cell_in.carried_r.cut_ke, cell_in.carried_r.r_e, cell_in.carried_r.adm_valid)
+        cell_out = folded_cell(next_tier, next_enclosure, next_rd, next_ttl, cell_in.inner_beats + 1, 1, r_up)
+
+Dec expose_cell(cell_outer, window_w, inner_enclosure, inner_rd) -> (cell_inner, ttl_ok):
+    (folded_cell cell_outer, t32 window_w, t32 inner_enclosure, t32 inner_rd) -> (folded_cell cell_inner, u8 ttl_ok):
+        assert cell_outer.outer_closed == 1
+        ttl_ok = u8(cell_outer.ttl_retention >= window_w)
+        u8 prev_tier = cell_outer.tier_l - 1
+        cell_inner = folded_cell(prev_tier, inner_enclosure, inner_rd, window_w, cell_outer.inner_beats, 1, cell_outer.carried_r)
+
+Dec audit_awareness_operativity(s_full, pressure_p) -> (j_with_r, j_removed_r, op_witness, role):
+    (complete_state s_full, t32 pressure_p) -> (ratio j_with_r, ratio j_removed_r, u8 op_witness, t1 role):
+        assert pressure_p > 0
+        t32 r_val = select_t32(s_full.r_retained.adm_valid == 1, s_full.r_retained.r_e, 0)
+        j_with_r = ratio(s_full.x_now * pressure_p + r_val, pressure_p)
+        j_removed_r = ratio(s_full.x_now * pressure_p, pressure_p)
+        op_witness = u8(j_with_r.num != j_removed_r.num)
+        role = select_t1(op_witness == 1, +1, -1)
+
+Dec compare_polyrhythm(rd_i, rd_j, bip_i, bip_j, n_i, n_j, bias_i, bias_j, r_ab1, r_ab2, r_ba1, r_ba2) -> rt:
+    (t32 rd_i, t32 rd_j, t32 bip_i, t32 bip_j, t32 n_i, t32 n_j, ratio bias_i, ratio bias_j, t32 r_ab1, t32 r_ab2, t32 r_ba1, t32 r_ba2) -> poly_pair_rt rt:
+        assert bip_j > 0
+        ratio biz = reduce_ratio(ratio(bip_i, bip_j))
+        ratio psi = reduce_ratio(ratio(bias_i.num * bias_j.den - bias_j.num * bias_i.den, bias_i.den * bias_j.den))
+        t32 dn = n_i - n_j
+        ratio lag = reduce_ratio(ratio(dn * psi.den + psi.num, psi.den))
+        t32 rho_ab = rd_i + r_ab1 + r_ab2
+        t32 rho_ba = rd_i + r_ba1 + r_ba2
+        t32 sync = lcm_t32(rd_i, rd_j)
+        rt = poly_pair_rt(biz, psi, lag, rho_ab, rho_ba, sync)
+
+Dec mindful_step(j_committed, b_forcing, p_press) -> j_stabilized:
+    (t32 j_committed, t32 b_forcing, t32 p_press) -> ratio j_stabilized:
+        assert (2 * p_press) > 1
+        j_stabilized = reduce_ratio(ratio((p_press - 1) * j_committed + b_forcing, p_press))

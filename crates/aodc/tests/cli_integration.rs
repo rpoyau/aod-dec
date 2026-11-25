@@ -100,13 +100,13 @@ fn ac21_hermetic_multifile_dec_ir_v2_executes_after_deleting_source_directory() 
 
     std::fs::write(
         src_dir.join("rates.dec"),
-        "const BONUS = 2/3r\n\nDec scaled(x: ratio) -> ratio:\n    return x + BONUS\n",
+        "const BONUS = 2/3r\n\ndec scaled:\n    (x: ratio) -> ratio:\n        return x + BONUS\n",
     )
     .unwrap();
     let entry_file = src_dir.join("entry.dec");
     std::fs::write(
         &entry_file,
-        "use rates::{scaled}\n\nDec main() -> ratio:\n    let v = scaled(1/3r)\n    emit v\n    return v\n",
+        "use rates::scaled\n\ndec main:\n    () -> ratio:\n        let v = scaled(1/3r)\n        emit v\n        return v\n",
     )
     .unwrap();
 
@@ -164,19 +164,23 @@ fn cli_test_subcommand_handles_test_fns_directories_unit_return_and_failures() {
         .output()
         .unwrap();
     assert!(v2_test.status.success());
-    assert!(String::from_utf8_lossy(&v2_test.stdout).contains("3 passed; 0 failed; 3 total"));
+    assert!(String::from_utf8_lossy(&v2_test.stdout).contains("5 passed; 0 failed; 5 total"));
 
-    // 3. Single file with multiple zero-arg `Dec test_*()` functions + unit `main()` omission
+    // 3. Single file with multiple zero-arg `dec test_*:` functions + Null return
     let dir = temp_dir("unit_and_tests");
     let test_file = dir.join("my_tests.dec");
     std::fs::write(
         &test_file,
         r#"
-Dec test_ratio():
-    assert 1/2r + 1/2r == 1/1r
+dec test_ratio:
+    () -> Null:
+        assert 1/2r + 1/2r == 1/1r
+        return null
 
-Dec test_anchor():
-    assert 00_8 != 0_8
+dec test_anchor:
+    () -> Null:
+        assert 00_8 != 0_8
+        return null
 "#,
     )
     .unwrap();
@@ -188,20 +192,28 @@ Dec test_anchor():
     assert!(t_out.status.success());
     assert!(String::from_utf8_lossy(&t_out.stdout).contains("2 passed; 0 failed; 2 total"));
 
-    // 4. Unit return `main()` omits trailing `()` line on `aodc run`
-    let unit_file = dir.join("unit_main.dec");
-    std::fs::write(&unit_file, "Dec main():\n    emit 42\n").unwrap();
+    // 4. Null return `main` emits `null` trailing line on `aodc run`
+    let unit_file = dir.join("null_main.dec");
+    std::fs::write(
+        &unit_file,
+        "dec main:\n    () -> Null:\n        emit 42\n        return null\n",
+    )
+    .unwrap();
     let u_out = Command::new(aodc_bin())
         .arg("run")
         .arg(&unit_file)
         .output()
         .unwrap();
     assert!(u_out.status.success());
-    assert_eq!(String::from_utf8_lossy(&u_out.stdout), "42\n");
+    assert_eq!(String::from_utf8_lossy(&u_out.stdout), "42\nnull\n");
 
-    // 5. Failing `test_*()` exits with non-zero code
+    // 5. Failing `test_*` exits with non-zero code
     let fail_file = dir.join("fail_test.dec");
-    std::fs::write(&fail_file, "Dec test_boom():\n    assert 1 == 2\n").unwrap();
+    std::fs::write(
+        &fail_file,
+        "dec test_boom:\n    () -> Null:\n        assert 1 == 2\n        return null\n",
+    )
+    .unwrap();
     let f_out = Command::new(aodc_bin())
         .arg("test")
         .arg(&fail_file)
@@ -221,12 +233,16 @@ fn ac22_cli_fuel_max_depth_and_prior_emit_preservation_on_error() {
     std::fs::write(
         &fuel_src,
         r#"
-Dec main() -> int:
-    emit "before-fuel-exhaust"
-    mut i = 0
-    while true:
-        i = i + 1
-    return i
+use aod::core::evolve
+
+dec step_inc:
+    (s: int, _: int) -> int:
+        return s + 1
+
+dec main:
+    () -> int:
+        emit b"before-fuel-exhaust"
+        return evolve(0, 0..1000, step_inc)
 "#,
     )
     .unwrap();
@@ -238,7 +254,7 @@ Dec main() -> int:
     assert!(!fuel_run.status.success());
     assert_eq!(
         String::from_utf8_lossy(&fuel_run.stdout),
-        "before-fuel-exhaust\n"
+        "b\"before-fuel-exhaust\"\n"
     );
     let fuel_err = String::from_utf8_lossy(&fuel_run.stderr);
     assert!(fuel_err.starts_with("aodc:"), "stderr={fuel_err}");
@@ -262,7 +278,7 @@ Dec main() -> int:
     assert!(!fuel_exec.status.success());
     assert_eq!(
         String::from_utf8_lossy(&fuel_exec.stdout),
-        "before-fuel-exhaust\n"
+        "b\"before-fuel-exhaust\"\n"
     );
     assert!(String::from_utf8_lossy(&fuel_exec.stderr).starts_with("aodc:"));
 
@@ -271,12 +287,14 @@ Dec main() -> int:
     std::fs::write(
         &depth_src,
         r#"
-Dec dive(n: int) -> int:
-    emit n
-    return dive(n + 1)
+dec dive:
+    (n: int) -> int:
+        emit n
+        return dive(n + 1)
 
-Dec main() -> int:
-    return dive(1)
+dec main:
+    () -> int:
+        return dive(1)
 "#,
     )
     .unwrap();
@@ -299,7 +317,7 @@ Dec main() -> int:
     let assert_src = dir.join("assert_after_emit.dec");
     std::fs::write(
         &assert_src,
-        "Dec main() -> int:\n    emit 77\n    assert false\n    return 0\n",
+        "dec main:\n    () -> int:\n        emit 77\n        assert false\n        return 0\n",
     )
     .unwrap();
     let assert_run = Command::new(aodc_bin())

@@ -246,6 +246,60 @@ impl BigInt {
         Self::parse_decimal(&cleaned)
     }
 
+    /// Strict hexadecimal integer parser for digits after `0x`/`0X`:
+    /// enforces `[0-9a-fA-F](_?[0-9a-fA-F])*` (rejects empty, leading/trailing `_`, or `__`).
+    pub fn parse_hex_underscored(digits: &str) -> CoreResult<Self> {
+        Self::parse_radix_underscored(digits, 16, "hexadecimal")
+    }
+
+    /// Strict binary integer parser for digits after `0b`/`0B`:
+    /// enforces `[01](_?[01])*` (rejects empty, leading/trailing `_`, or `__`).
+    pub fn parse_binary_underscored(digits: &str) -> CoreResult<Self> {
+        Self::parse_radix_underscored(digits, 2, "binary")
+    }
+
+    fn parse_radix_underscored(digits: &str, radix: u32, label: &str) -> CoreResult<Self> {
+        if digits.is_empty() {
+            return Err(CoreError::DomainError(format!("empty {label} literal")));
+        }
+        let bytes = digits.as_bytes();
+        if bytes[0] == b'_' || bytes[bytes.len() - 1] == b'_' {
+            return Err(CoreError::DomainError(format!(
+                "leading or trailing underscore in {label} literal: {digits}"
+            )));
+        }
+        let mut limbs: Vec<u32> = Vec::new();
+        let mut prev_underscore = false;
+        for &b in bytes {
+            if b == b'_' {
+                if prev_underscore {
+                    return Err(CoreError::DomainError(format!(
+                        "consecutive underscores in {label} literal: {digits}"
+                    )));
+                }
+                prev_underscore = true;
+                continue;
+            }
+            prev_underscore = false;
+            let d: u32 = match (radix, b) {
+                (2, b'0'..=b'1') => (b - b'0') as u32,
+                (16, b'0'..=b'9') => (b - b'0') as u32,
+                (16, b'a'..=b'f') => (b - b'a' + 10) as u32,
+                (16, b'A'..=b'F') => (b - b'A' + 10) as u32,
+                _ => {
+                    return Err(CoreError::DomainError(format!(
+                        "invalid {label} digit {:?} in {digits}",
+                        b as char
+                    )));
+                }
+            };
+            mul_add_small(&mut limbs, radix, d);
+        }
+        let mut out = Self { neg: false, limbs };
+        out.normalize();
+        Ok(out)
+    }
+
     pub fn to_decimal_string(&self) -> String {
         if self.is_zero() {
             return "0".to_string();
@@ -352,6 +406,94 @@ impl BigInt {
         let g = self.gcd(other);
         let (q, _) = self.abs().div_rem_trunc(&g).expect("gcd of nonzeros is nonzero");
         &q * &other.abs()
+    }
+
+    /// Maximum exponent accepted by `checked_pow` (`P1-6`).
+    pub const MAX_POW_EXP: u32 = 65_536;
+    /// Maximum result bit-length (`1_048_576` bits) accepted by `checked_pow` (`P1-6`).
+    pub const MAX_POW_BITS: usize = 1_048_576;
+
+    /// Exact magnitude bit-length (`0` for zero, `1` for `+-1`, `2` for `+-2..=+-3`, etc.).
+    pub fn bit_len(&self) -> usize {
+        match self.limbs.last() {
+            None => 0,
+            Some(&msw) => (self.limbs.len() - 1) * 32 + (32 - msw.leading_zeros() as usize),
+        }
+    }
+
+    /// Checked binary exponentiation enforcing `exp <= 65_536` and `result.bit_len() <= 1_048_576`
+    /// at every squaring and multiplication step (`P1-6`: prevents `pow(pow(10, 65536), 65536)` OOM).
+    pub fn checked_pow(&self, exp: u32) -> CoreResult<Self> {
+        if exp > Self::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "pow exponent {exp} exceeds safety limit {}",
+                Self::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self::one());
+        }
+        if self.is_zero() {
+            return Ok(Self::zero());
+        }
+        if self.limbs.as_slice() == [1] {
+            return if !self.neg || (exp & 1) == 0 {
+                Ok(Self::one())
+            } else {
+                Ok(-Self::one())
+            };
+        }
+        let bl = self.bit_len();
+        if bl > Self::MAX_POW_BITS
+            || (bl - 1).saturating_mul(exp as usize) >= Self::MAX_POW_BITS
+        {
+            return Err(CoreError::Overflow(
+                "pow result exceeds 1048576-bit safety limit".to_string(),
+            ));
+        }
+
+        let mut result = Self::one();
+        let mut base = self.clone();
+        let mut e = exp;
+        while e > 0 {
+            if (e & 1) == 1 {
+                result = &result * &base;
+                if result.bit_len() > Self::MAX_POW_BITS {
+                    return Err(CoreError::Overflow(
+                        "pow result exceeds 1048576-bit safety limit".to_string(),
+                    ));
+                }
+            }
+            e >>= 1;
+            if e > 0 {
+                base = &base * &base;
+                if base.bit_len() > Self::MAX_POW_BITS {
+                    return Err(CoreError::Overflow(
+                        "pow result exceeds 1048576-bit safety limit".to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Checked integer exponentiation from a `BigInt` exponent (`0 <= exp <= 65_536`).
+    pub fn checked_pow_bigint(&self, exp: &Self) -> CoreResult<Self> {
+        if exp.is_negative() {
+            return Err(CoreError::DomainError(format!(
+                "int pow requires non-negative exponent, got {exp}"
+            )));
+        }
+        let e = exp
+            .to_u64()
+            .and_then(|v| u32::try_from(v).ok())
+            .ok_or_else(|| {
+                CoreError::Overflow(format!(
+                    "pow exponent {exp} exceeds safety limit {}",
+                    Self::MAX_POW_EXP
+                ))
+            })?;
+        self.checked_pow(e)
     }
 
     /// Non-negative bitwise AND (`P2-2`: explicitly rejects negative operands).

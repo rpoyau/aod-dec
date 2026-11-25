@@ -4,6 +4,8 @@
 //! Strictly `std`-only, zero floats, `#![forbid(unsafe_code)]`.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 
 use crate::bigint::BigInt;
@@ -12,16 +14,18 @@ use crate::json::{parse_strict_json, JsonValue};
 use crate::ratio::Ratio;
 use crate::s2_kernel::{
     awareness_current_update, awareness_mindfulness_step, brownian_3d_delta3_msb_x,
-    canonical_rational_pair, closure_wave_rd_rcd, cycle_shedding_step, cyclotomic_z12_overtone,
-    dec_field_tunnelling_window_clip, dec_hinge_slide_normalize, dec_normalize_one_node,
-    finite_stokes_cut_balance, higgs_lhc_rounded_display, higgs_trace_score_and_freeze,
-    lensing_swells_delta3_and_tau_discrepancy, map21_nonlinear_finite_law_variance,
-    parse_canonical_rational_pair, parse_exact_int_str, parse_printed_rational,
-    printed_token_half_ulp_enclosure, q4_hamming_and_neighbors, relational_cadence_and_lag,
-    run_tumble_3d_delta3_lsb_x, sadar_afc_flux_antisymmetry, sparc_exact_bin_eval,
-    temporal_metrology_hellwig_mean, temporal_metrology_phase_si,
-    temporal_metrology_signed_advance, z4_dft_gaussian, DecOneNodeRow, HiggsCandidateInput,
-    HingeSlideBranch, Map21SupportPoint, OrientedChannel, PhaseInterval, MAX_ROUNDING_DECIMALS,
+    canonical_rational_pair, closure_wave_rd_rcd, cycle_shedding_step, cycle_shedding_trace,
+    cyclotomic_z12_overtone, dec_field_tunnelling_window_clip, dec_hinge_slide_normalize,
+    dec_normalize_one_node, finite_stokes_cut_balance, higgs_lhc_rounded_display,
+    higgs_trace_score_and_freeze, lensing_swells_delta3_and_tau_discrepancy,
+    map21_nonlinear_finite_law_variance, parse_canonical_rational_pair, parse_exact_int_str,
+    parse_printed_rational, printed_token_half_ulp_enclosure, q4_hamming_and_neighbors,
+    relational_cadence_and_lag, run_tumble_3d_delta3_lsb_x, sadar_afc_flux_antisymmetry,
+    sparc_exact_bin_eval, temporal_metrology_hellwig_mean, temporal_metrology_phase_si,
+    temporal_metrology_signed_advance, z4_dft_gaussian, CycleSheddingOutput,
+    CycleSheddingTickInput, DecOneNodeRow, HiggsCandidateInput, HingeSlideBranch,
+    Map21SupportPoint, OrientedChannel, PhaseInterval, MAX_CYCLE_SHEDDING_TICKS,
+    MAX_ROUNDING_DECIMALS,
 };
 use crate::sha256::Sha256;
 
@@ -174,9 +178,10 @@ impl S2VerifyReport {
 // Safe Symlink-Rejecting File Reader (`P1-2`)
 // ============================================================================
 
-/// Read a regular file while strictly rejecting symlinks via `symlink_metadata`.
+/// Read a regular file (bounded to 16 MiB) while strictly rejecting symlinks via `symlink_metadata`.
 /// Error messages NEVER embed host paths — only the portable `label`.
-fn read_regular_no_symlink(path: &Path, label: &str) -> CoreResult<Vec<u8>> {
+pub(crate) fn read_regular_no_symlink(path: &Path, label: &str) -> CoreResult<Vec<u8>> {
+    const MAX_FILE_BYTES: usize = 16 * 1024 * 1024;
     let meta = std::fs::symlink_metadata(path)
         .map_err(|_| CoreError::ValidationError(format!("missing or unreadable file: {label}")))?;
     if meta.file_type().is_symlink() {
@@ -189,8 +194,23 @@ fn read_regular_no_symlink(path: &Path, label: &str) -> CoreResult<Vec<u8>> {
             "path is not a regular file: {label}"
         )));
     }
-    std::fs::read(path)
-        .map_err(|_| CoreError::ValidationError(format!("failed reading regular file: {label}")))
+    if meta.len() > MAX_FILE_BYTES as u64 {
+        return Err(CoreError::ValidationError(format!(
+            "file exceeds 16 MiB limit: {label}"
+        )));
+    }
+    let file = File::open(path)
+        .map_err(|_| CoreError::ValidationError(format!("failed opening regular file: {label}")))?;
+    let mut buf = Vec::new();
+    file.take((MAX_FILE_BYTES + 1) as u64)
+        .read_to_end(&mut buf)
+        .map_err(|_| CoreError::ValidationError(format!("failed reading regular file: {label}")))?;
+    if buf.len() > MAX_FILE_BYTES {
+        return Err(CoreError::ValidationError(format!(
+            "file exceeds 16 MiB limit: {label}"
+        )));
+    }
+    Ok(buf)
 }
 
 fn check_dir_no_symlink(path: &Path, label: &str) -> CoreResult<()> {
@@ -298,6 +318,39 @@ pub fn parse_canonical_rational_pair_json(val: &JsonValue, name: &str) -> CoreRe
         .as_str()
         .ok_or_else(|| CoreError::DomainError(format!("{name}[1] must be a canonical integer string")))?;
     parse_canonical_rational_pair(num_s, den_s)
+}
+
+/// Parse either a canonical `["num", "den"]` JSON pair OR a printed decimal string
+/// (`parse_printed_rational(s, false, false)`), matching upstream S4 `ops.rs:211-221`.
+pub fn parse_pair_or_printed_decimal_json(val: &JsonValue, name: &str) -> CoreResult<Ratio> {
+    match val {
+        JsonValue::Array(_) => parse_canonical_rational_pair_json(val, name),
+        JsonValue::Str(s) => parse_printed_rational(s, false, false),
+        _ => Err(CoreError::DomainError(format!(
+            "{name} must be a canonical rational pair or decimal string"
+        ))),
+    }
+}
+
+fn cycle_shedding_step_to_json(out: &CycleSheddingOutput) -> JsonValue {
+    let mut m = BTreeMap::new();
+    m.insert("span".to_string(), pair_json(&out.span));
+    m.insert(
+        "before_clipping".to_string(),
+        pair_json(&out.before_clipping),
+    );
+    m.insert("shed_excess".to_string(), pair_json(&out.shed_excess));
+    m.insert("padar_burden".to_string(), pair_json(&out.padar_burden));
+    m.insert(
+        "outward_shedding".to_string(),
+        pair_json(&out.outward_shedding),
+    );
+    m.insert(
+        "local_reclosure".to_string(),
+        pair_json(&out.local_reclosure),
+    );
+    m.insert("remainder_sum".to_string(), pair_json(&out.remainder_sum));
+    JsonValue::Object(m)
 }
 
 // ============================================================================
@@ -918,23 +971,89 @@ pub fn eval_positive_operation(
                 "lambda_reclose",
             )?;
             let out = cycle_shedding_step(&prev, &lead, &lag, &comp, &eta, &gamma, &lam);
+            Ok(cycle_shedding_step_to_json(&out))
+        }
+
+        "cycle_shedding_trace" => {
+            let init = parse_pair_or_printed_decimal_json(
+                get_field(inputs, "initial_burden", operation)?,
+                "initial_burden",
+            )?;
+            let eta = parse_pair_or_printed_decimal_json(
+                get_field(inputs, "eta", operation)?,
+                "eta",
+            )?;
+            let gamma = parse_pair_or_printed_decimal_json(
+                get_field(inputs, "gamma", operation)?,
+                "gamma",
+            )?;
+            let lam = parse_pair_or_printed_decimal_json(
+                get_field(inputs, "lambda_reclose", operation)?,
+                "lambda_reclose",
+            )?;
+            let raw_ticks = get_arr(get_field(inputs, "ticks", operation)?, "ticks")?;
+            if raw_ticks.len() > MAX_CYCLE_SHEDDING_TICKS {
+                return Err(CoreError::DomainError(format!(
+                    "ticks length {} exceeds guard {}",
+                    raw_ticks.len(),
+                    MAX_CYCLE_SHEDDING_TICKS
+                )));
+            }
+            let mut ticks = Vec::with_capacity(raw_ticks.len());
+            for (idx, tv) in raw_ticks.iter().enumerate() {
+                let obj = get_obj(tv, &format!("ticks[{idx}]"))?;
+                let lead = parse_pair_or_printed_decimal_json(
+                    get_field(obj, "lead", "tick")?,
+                    "lead",
+                )?;
+                let lag = parse_pair_or_printed_decimal_json(
+                    get_field(obj, "lag", "tick")?,
+                    "lag",
+                )?;
+                let compatibility = parse_pair_or_printed_decimal_json(
+                    get_field(obj, "compatibility", "tick")?,
+                    "compatibility",
+                )?;
+                ticks.push(CycleSheddingTickInput {
+                    lead,
+                    lag,
+                    compatibility,
+                });
+            }
+            let trace = cycle_shedding_trace(&init, &ticks, &eta, &gamma, &lam)?;
+            let mut max_span = Ratio::zero();
+            let mut max_burden = Ratio::zero();
+            let mut max_excess = Ratio::zero();
+            let mut total_outward = Ratio::zero();
+            let mut total_local = Ratio::zero();
+            for step in &trace {
+                if step.span > max_span {
+                    max_span = step.span.clone();
+                }
+                if step.padar_burden > max_burden {
+                    max_burden = step.padar_burden.clone();
+                }
+                if step.shed_excess > max_excess {
+                    max_excess = step.shed_excess.clone();
+                }
+                total_outward = &total_outward + &step.outward_shedding;
+                total_local = &total_local + &step.local_reclosure;
+            }
+            let final_burden = trace
+                .last()
+                .map(|s| s.padar_burden.clone())
+                .unwrap_or(init);
             let mut m = BTreeMap::new();
-            m.insert("span".to_string(), pair_json(&out.span));
             m.insert(
-                "before_clipping".to_string(),
-                pair_json(&out.before_clipping),
+                "ticks".to_string(),
+                JsonValue::Array(trace.iter().map(cycle_shedding_step_to_json).collect()),
             );
-            m.insert("shed_excess".to_string(), pair_json(&out.shed_excess));
-            m.insert("padar_burden".to_string(), pair_json(&out.padar_burden));
-            m.insert(
-                "outward_shedding".to_string(),
-                pair_json(&out.outward_shedding),
-            );
-            m.insert(
-                "local_reclosure".to_string(),
-                pair_json(&out.local_reclosure),
-            );
-            m.insert("remainder_sum".to_string(), pair_json(&out.remainder_sum));
+            m.insert("final_burden".to_string(), pair_json(&final_burden));
+            m.insert("max_span".to_string(), pair_json(&max_span));
+            m.insert("max_burden".to_string(), pair_json(&max_burden));
+            m.insert("max_excess".to_string(), pair_json(&max_excess));
+            m.insert("total_outward".to_string(), pair_json(&total_outward));
+            m.insert("total_local".to_string(), pair_json(&total_local));
             Ok(JsonValue::Object(m))
         }
 
@@ -1253,6 +1372,15 @@ pub fn eval_positive_operation(
             "unsupported vector operation: {other:?}"
         ))),
     }
+}
+
+/// Public single-operation exact evaluator (`aodc eval-op`): dispatches all 24 positive S2/S4
+/// operations plus multi-tick `cycle_shedding_trace`.
+pub fn eval_operation(
+    operation: &str,
+    inputs: &BTreeMap<String, JsonValue>,
+) -> CoreResult<JsonValue> {
+    eval_positive_operation(operation, inputs)
 }
 
 /// Verify one typed-boundary REJECT negative-control vector (`RC-021`..`RC-023`).

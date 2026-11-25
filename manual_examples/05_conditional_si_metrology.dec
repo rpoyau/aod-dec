@@ -3,82 +3,86 @@
 # cross-module `quarantine Q_ext` access, exact canonical reduced rationals (`P1-2`),
 # prop:m3-atomic-gain identifiability countermodels, Hellwig H-maser midpoint, and separate NIST-F2 budgets.
 
-use aod::qext::{qext_from_ratio, qext_render}
+use aod::qext:
+    qext_from_ratio, qext_render_bytes
+
 use stdlib::aod::metrology
-use stdlib::aod::metrology::{observed_advance, atomic_gain_family, SiMetrology}
+use stdlib::aod::metrology:
+    observed_advance, atomic_gain_family, SiMetrology
 
-Dec main() -> int:
-    # 1. Purely native turn advances and prop:m3-atomic-gain countermodels (zero SI constants!)
-    let a_cmp_10_22 = observed_advance(4, 2/3r, 1/6r)
-    let a_ref_10_22 = observed_advance(8, 1/4r, 3/4r)
-    let ratio_10_22 = a_cmp_10_22 / a_ref_10_22
-    assert a_cmp_10_22 == 7/2r and a_ref_10_22 == 17/2r and ratio_10_22 == 7/17r
+dec main:
+    () -> int:
+        # 1. Purely native turn advances and prop:m3-atomic-gain countermodels (zero SI constants!)
+        let a_cmp_10_22 = observed_advance(4, 2/3r, 1/6r)
+        let a_ref_10_22 = observed_advance(8, 1/4r, 3/4r)
+        let ratio_10_22 = a_cmp_10_22 / a_ref_10_22
+        assert a_cmp_10_22 == 7/2r and a_ref_10_22 == 17/2r and ratio_10_22 == 7/17r
 
-    let c_signed = observed_advance(0, 3/4r, 1/4r)
-    assert c_signed == -1/2r
+        let c_signed = observed_advance(0, 3/4r, 1/4r)
+        assert c_signed == -1/2r
 
-    # prop:m3-atomic-gain: lambda = 0 vs lambda = 1 both fix g(55) == 1 while shifting g(1)
-    let g_cs_0 = atomic_gain_family(55, 0/1r)
-    let g_h_0 = atomic_gain_family(1, 0/1r)
-    let g_cs_1 = atomic_gain_family(55, 1/1r)
-    let g_h_1 = atomic_gain_family(1, 1/1r)
-    assert g_cs_0 == 1/1r and g_h_0 == 1/1r and g_cs_1 == 1/1r and g_h_1 == 2/1r
+        # prop:m3-atomic-gain: lambda = 0 vs lambda = 1 both fix g(55) == 1 while shifting g(1)
+        let g_cs_0 = atomic_gain_family(55, 0/1r)
+        let g_h_0 = atomic_gain_family(1, 0/1r)
+        let g_cs_1 = atomic_gain_family(55, 1/1r)
+        let g_h_1 = atomic_gain_family(1, 1/1r)
+        assert g_cs_0 == 1/1r and g_h_0 == 1/1r and g_cs_1 == 1/1r and g_h_1 == 2/1r
 
-    # Freeze immutable native ratios before entering the one-way quarantine Q_ext sink
-    let q_n3 = 3/1r
-    let q_n2 = 2/1r
-    let q_zero = 0/1r
-    let q_ten = 10/1r
-    let q_one = 1/1r
+        # Freeze immutable native ratios before entering the one-way quarantine Q_ext sink
+        let q_n3 = 3/1r
+        let q_n2 = 2/1r
+        let q_zero = 0/1r
+        let q_ten = 10/1r
+        let q_one = 1/1r
 
-    emit a_cmp_10_22
-    emit a_ref_10_22
-    emit ratio_10_22
-    emit c_signed
-    emit g_h_0
-    emit g_h_1
+        emit a_cmp_10_22
+        emit a_ref_10_22
+        emit ratio_10_22
+        emit c_signed
+        emit g_h_0
+        emit g_h_1
 
-    quarantine Q_ext:
-        # 2-segment cross-module Q_ext (`SiMetrology::...`): (3, 2) -> exact reduced 1/4596315885 (`P1-2`)
-        let t_3_2 = SiMetrology::duration_seconds(q_n2)
-        let nu_3_2 = SiMetrology::mean_frequency_hz(q_n3, q_n2)
-        assert t_3_2 == qext_from_ratio(1/4596315885r)
-        assert nu_3_2 == qext_from_ratio(13788947655/1r)
+        quarantine Q_ext:
+            # 2-segment cross-module Q_ext (`SiMetrology::...`): (3, 2) -> exact reduced 1/4596315885 (`P1-2`)
+            let t_3_2 = SiMetrology::duration_seconds(q_n2)
+            let nu_3_2 = SiMetrology::mean_frequency_hz(q_n3, q_n2)
+            assert t_3_2 == qext_from_ratio(1/4596315885r)
+            assert nu_3_2 == qext_from_ratio(13788947655/1r)
 
-        # 3-segment cross-module Q_ext (`metrology::SiMetrology::...`): (10, 22] A=7/2, A_R=17/2
-        let t_10_22 = metrology::SiMetrology::duration_seconds(a_ref_10_22)
-        let nu_10_22 = metrology::SiMetrology::mean_frequency_hz(a_cmp_10_22, a_ref_10_22)
-        assert t_10_22 == qext_from_ratio(17/18385263540r)
-        assert nu_10_22 == qext_from_ratio(64348422390/17r)
+            # 3-segment cross-module Q_ext (`metrology::SiMetrology::...`): (10, 22] A=7/2, A_R=17/2
+            let t_10_22 = metrology::SiMetrology::duration_seconds(a_ref_10_22)
+            let nu_10_22 = metrology::SiMetrology::mean_frequency_hz(a_cmp_10_22, a_ref_10_22)
+            assert t_10_22 == qext_from_ratio(17/18385263540r)
+            assert nu_10_22 == qext_from_ratio(64348422390/17r)
 
-        # Nonrecurrent localization q_a = 0, C_Cs = 10
-        let t_nonrec = SiMetrology::duration_seconds(q_ten)
-        let nu_nonrec = SiMetrology::mean_frequency_hz(q_zero, q_ten)
-        assert nu_nonrec == qext_from_ratio(0/1r)
+            # Nonrecurrent localization q_a = 0, C_Cs = 10
+            let t_nonrec = SiMetrology::duration_seconds(q_ten)
+            let nu_nonrec = SiMetrology::mean_frequency_hz(q_zero, q_ten)
+            assert nu_nonrec == qext_from_ratio(0/1r)
 
-        # Signed compared advance C_a = -1/2 against positive reference C_Cs = 1
-        let nu_signed = SiMetrology::mean_frequency_hz(c_signed, q_one)
-        assert nu_signed == qext_from_ratio(-4596315885/1r)
+            # Signed compared advance C_a = -1/2 against positive reference C_Cs = 1
+            let nu_signed = SiMetrology::mean_frequency_hz(c_signed, q_one)
+            assert nu_signed == qext_from_ratio(-4596315885/1r)
 
-        # Hellwig et al. (1970) H-maser midpoint = 14204057517679/10000 Hz
-        let h_mid = SiMetrology::hellwig_midpoint_hz()
-        assert h_mid == qext_from_ratio(14204057517679/10000r)
+            # Hellwig et al. (1970) H-maser midpoint = 14204057517679/10000 Hz
+            let h_mid = SiMetrology::hellwig_midpoint_hz()
+            assert h_mid == qext_from_ratio(14204057517679/10000r)
 
-        # Separate NIST-F2 budgets (Aug 2013 u_B = 0.16e-15 vs Table 1 u_B = 0.11e-15 kept strictly distinct!)
-        let aug_ua_hz = SiMetrology::nist_f2_hz_uncertainty(SiMetrology::NIST_F2_AUG2013_UA)
-        let aug_ub_hz = SiMetrology::nist_f2_hz_uncertainty(metrology::SiMetrology::NIST_F2_AUG2013_UB)
-        let tab1_ub_hz = SiMetrology::nist_f2_hz_uncertainty(SiMetrology::NIST_F2_TABLE1_UB)
-        assert aug_ub_hz != tab1_ub_hz
+            # Separate NIST-F2 budgets (Aug 2013 u_B = 0.16e-15 vs Table 1 u_B = 0.11e-15 kept strictly distinct!)
+            let aug_ua_hz = SiMetrology::nist_f2_hz_uncertainty(SiMetrology::NIST_F2_AUG2013_UA)
+            let aug_ub_hz = SiMetrology::nist_f2_hz_uncertainty(metrology::SiMetrology::NIST_F2_AUG2013_UB)
+            let tab1_ub_hz = SiMetrology::nist_f2_hz_uncertainty(SiMetrology::NIST_F2_TABLE1_UB)
+            assert aug_ub_hz != tab1_ub_hz
 
-        emit qext_render(t_3_2)
-        emit qext_render(nu_3_2)
-        emit qext_render(t_10_22)
-        emit qext_render(nu_10_22)
-        emit qext_render(t_nonrec)
-        emit qext_render(nu_nonrec)
-        emit qext_render(nu_signed)
-        emit qext_render(h_mid)
-        emit qext_render(aug_ua_hz)
-        emit qext_render(aug_ub_hz)
-        emit qext_render(tab1_ub_hz)
-    return 0
+            emit qext_render_bytes(t_3_2)
+            emit qext_render_bytes(nu_3_2)
+            emit qext_render_bytes(t_10_22)
+            emit qext_render_bytes(nu_10_22)
+            emit qext_render_bytes(t_nonrec)
+            emit qext_render_bytes(nu_nonrec)
+            emit qext_render_bytes(nu_signed)
+            emit qext_render_bytes(h_mid)
+            emit qext_render_bytes(aug_ua_hz)
+            emit qext_render_bytes(aug_ub_hz)
+            emit qext_render_bytes(tab1_ub_hz)
+        return 0

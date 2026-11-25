@@ -206,3 +206,108 @@ fn sha256_nist_vectors_and_strict_json_python_parity() {
         Err(CoreError::FloatForbidden(_))
     ));
 }
+
+#[test]
+fn phase_d1_t9_superpose_radix_and_bytes_primitives() {
+    use aod_core::ternary::{render_bytes_literal, T9};
+
+    assert_eq!(
+        BigInt::parse_hex_underscored("FF_00").unwrap(),
+        BigInt::from_u64(0xFF00)
+    );
+    assert_eq!(
+        BigInt::parse_binary_underscored("1010_0101").unwrap(),
+        BigInt::from_u64(0xA5)
+    );
+    for bad_hex in ["", "_1", "1_", "1__2", "1G"] {
+        assert!(BigInt::parse_hex_underscored(bad_hex).is_err());
+    }
+    for bad_bin in ["", "_0", "0_", "1__0", "102"] {
+        assert!(BigInt::parse_binary_underscored(bad_bin).is_err());
+    }
+
+    let hi = T9::new(9841).unwrap();
+    let lo = T9::new(-9841).unwrap();
+    assert!(T9::new(9842).is_err());
+    assert!(T9::new(-9842).is_err());
+    assert_eq!(T9::unpack(hi.pack() as u64).unwrap(), hi);
+    assert_eq!(T9::unpack(lo.pack() as u64).unwrap(), lo);
+    assert!(T9::unpack(1 << 18).is_err());
+    assert!(matches!(
+        T9::unpack(0b11),
+        Err(CoreError::InvalidTritEncoding(3))
+    ));
+
+    assert_eq!(T1::POS.superpose_cancel(T1::NEG), T1::ZERO);
+    assert_eq!(T1::POS.superpose_cancel(T1::POS), T1::POS);
+    assert_eq!(T1::NEG.superpose_cancel(T1::NEG), T1::NEG);
+
+    let a32 = T32::new(1 + 3 + 9).unwrap();
+    let b32 = T32::new(-1 + 3 - 27).unwrap();
+    assert_eq!(a32.superpose_cancel(b32), T32::new(-15).unwrap());
+
+    assert_eq!(Addr8::from_u64_min2(0).render(), "00_8");
+    assert_eq!(Addr8::from_u64_min2(7).render(), "07_8");
+    assert_eq!(Addr8::from_u64_min2(8).render(), "10_8");
+    assert_eq!(Addr8::from_u64_min2(64).render(), "100_8");
+
+    assert_eq!(
+        render_bytes_literal(b"A\0\n\r\t\\\"'\xff"),
+        "b\"A\\0\\n\\r\\t\\\\\\\"'\\xff\""
+    );
+}
+
+#[test]
+fn phase_d2_checked_pow_bit_ceiling_abs_and_signum() {
+    use aod_core::error::CoreError;
+    use aod_core::ternary::T9;
+
+    assert_eq!(BigInt::zero().checked_pow(0).unwrap(), BigInt::one());
+    assert_eq!(BigInt::zero().checked_pow(7).unwrap(), BigInt::zero());
+    assert_eq!(BigInt::from_i64(-3).checked_pow(3).unwrap(), BigInt::from_i64(-27));
+    assert_eq!(BigInt::from_i64(-3).checked_pow(4).unwrap(), BigInt::from_i64(81));
+    assert!(BigInt::from_i64(2).checked_pow(65_537).is_err());
+    assert!(BigInt::from_i64(2).checked_pow_bigint(&BigInt::from_i64(-1)).is_err());
+
+    // P1-6 OOM guard: 10^65536 (~217,706 bits) fits under 1M bits, while (10^65536)^65536 traps immediately!
+    let ten_pow = BigInt::from_i64(10).checked_pow(65_536).unwrap();
+    assert!(ten_pow.bit_len() > 200_000 && ten_pow.bit_len() <= BigInt::MAX_POW_BITS);
+    assert!(matches!(
+        ten_pow.checked_pow(65_536),
+        Err(CoreError::Overflow(_))
+    ));
+
+    let r = Ratio::from_i64(2, 3).unwrap();
+    assert_eq!(r.checked_pow(0).unwrap(), Ratio::one());
+    assert_eq!(Ratio::zero().checked_pow(0).unwrap(), Ratio::one());
+    assert_eq!(Ratio::zero().checked_pow(5).unwrap(), Ratio::zero());
+    assert_eq!(r.checked_pow(3).unwrap(), Ratio::from_i64(8, 27).unwrap());
+    assert_eq!((-&r).checked_pow(3).unwrap(), Ratio::from_i64(-8, 27).unwrap());
+    assert!(Ratio::from_i64(2, 3).unwrap().checked_pow(65_537).is_err());
+    assert!(matches!(
+        r.checked_pow_bigint(&BigInt::from_i64(-1)),
+        Err(CoreError::DomainError(_))
+    ));
+
+    assert_eq!(T1::NEG.abs(), T1::POS);
+    assert_eq!(T1::NEG.signum(), T1::NEG);
+    assert_eq!(T9::new(-9841).unwrap().abs(), T9::new(9841).unwrap());
+    assert_eq!(T9::new(-9841).unwrap().signum(), T1::NEG);
+    assert_eq!(T9::new(0).unwrap().signum(), T1::ZERO);
+    assert_eq!(T9::new(-3).unwrap().checked_pow(5).unwrap(), T9::new(-243).unwrap());
+    assert_eq!(T9::new(-1).unwrap().checked_pow(65_536).unwrap(), T9::new(1).unwrap());
+    assert!(T9::new(3).unwrap().checked_pow(9).is_err());
+    assert_eq!(T9::new(-84).unwrap().gcd(T9::new(30).unwrap()), T9::new(6).unwrap());
+    assert_eq!(
+        T32::new(61).unwrap().checked_lcm(T32::new(137).unwrap()).unwrap(),
+        T32::new(8357).unwrap()
+    );
+    assert_eq!(
+        T32::new(-T32::LIMIT).unwrap().abs(),
+        T32::new(T32::LIMIT).unwrap()
+    );
+    assert_eq!(T32::new(-T32::LIMIT).unwrap().signum(), T1::NEG);
+    assert_eq!(Ratio::from_i64(-3, 4).unwrap().signum(), T1::NEG);
+    assert_eq!(Ratio::zero().signum(), T1::ZERO);
+}
+

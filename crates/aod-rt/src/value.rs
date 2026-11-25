@@ -4,7 +4,7 @@ use aod_core::bigint::BigInt;
 use aod_core::qext::QExtRatio;
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, Q4, T1, T32};
+use aod_core::ternary::{render_bytes_literal, Addr8, Q4, T1, T32, T9};
 use aod_core::wavelet::{RecipientOutcome, RecipientOutcomeStage, SingleContactStageAssociation};
 use aod_core::witness::{Coupling, Fusion, Trace};
 
@@ -13,10 +13,15 @@ use crate::sim::{BoxRegion, ChamberSnapshot, SimRunResult};
 /// Deterministic totally-ordered map key matching `aodc::eval::MapKey`.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum RtMapKey {
+    Null,
     Int(BigInt),
+    U8(u8),
+    B64(u64),
     Bool(bool),
     Str(String),
+    Bytes(Vec<u8>),
     T1(T1),
+    T9(T9),
     T32(T32),
     Q4(Q4),
     Ratio(Ratio),
@@ -30,15 +35,21 @@ pub enum RtMapKey {
         payloads: Vec<RtMapKey>,
     },
     Tuple(Vec<RtMapKey>),
+    Array(Vec<RtMapKey>),
 }
 
 impl RtMapKey {
     pub fn from_value(v: &RtValue) -> Result<Self, String> {
         match v {
+            RtValue::Null => Ok(RtMapKey::Null),
             RtValue::Int(n) => Ok(RtMapKey::Int(n.clone())),
+            RtValue::U8(b) => Ok(RtMapKey::U8(*b)),
+            RtValue::B64(w) => Ok(RtMapKey::B64(*w)),
             RtValue::Bool(b) => Ok(RtMapKey::Bool(*b)),
             RtValue::Str(s) => Ok(RtMapKey::Str(s.clone())),
+            RtValue::Bytes(bs) => Ok(RtMapKey::Bytes(bs.clone())),
             RtValue::T1(t) => Ok(RtMapKey::T1(*t)),
+            RtValue::T9(t) => Ok(RtMapKey::T9(*t)),
             RtValue::T32(t) => Ok(RtMapKey::T32(*t)),
             RtValue::Q4(q) => Ok(RtMapKey::Q4(*q)),
             RtValue::Ratio(r) => Ok(RtMapKey::Ratio(r.clone())),
@@ -64,16 +75,28 @@ impl RtMapKey {
                 }
                 Ok(RtMapKey::Tuple(tk))
             }
+            RtValue::Array(elems) => {
+                let mut ak = Vec::with_capacity(elems.len());
+                for e in elems {
+                    ak.push(Self::from_value(e)?);
+                }
+                Ok(RtMapKey::Array(ak))
+            }
             other => Err(format!("unsupported map key value: {}", other.render())),
         }
     }
 
     pub fn to_value(&self) -> RtValue {
         match self {
+            RtMapKey::Null => RtValue::Null,
             RtMapKey::Int(n) => RtValue::Int(n.clone()),
+            RtMapKey::U8(b) => RtValue::U8(*b),
+            RtMapKey::B64(w) => RtValue::B64(*w),
             RtMapKey::Bool(b) => RtValue::Bool(*b),
             RtMapKey::Str(s) => RtValue::Str(s.clone()),
+            RtMapKey::Bytes(bs) => RtValue::Bytes(bs.clone()),
             RtMapKey::T1(t) => RtValue::T1(*t),
+            RtMapKey::T9(t) => RtValue::T9(*t),
             RtMapKey::T32(t) => RtValue::T32(*t),
             RtMapKey::Q4(q) => RtValue::Q4(*q),
             RtMapKey::Ratio(r) => RtValue::Ratio(r.clone()),
@@ -93,6 +116,7 @@ impl RtMapKey {
                 payloads: payloads.iter().map(RtMapKey::to_value).collect(),
             })),
             RtMapKey::Tuple(elems) => RtValue::Tuple(elems.iter().map(RtMapKey::to_value).collect()),
+            RtMapKey::Array(elems) => RtValue::Array(elems.iter().map(RtMapKey::to_value).collect()),
         }
     }
 }
@@ -117,10 +141,15 @@ pub struct RtEnumValue {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RtValue {
     Unit,
+    Null,
     Int(BigInt),
+    U8(u8),
+    B64(u64),
     Bool(bool),
     Str(String),
+    Bytes(Vec<u8>),
     T1(T1),
+    T9(T9),
     T32(T32),
     Q4(Q4),
     Ratio(Ratio),
@@ -139,11 +168,13 @@ pub enum RtValue {
     Struct(Box<RtStructValue>),
     Enum(Box<RtEnumValue>),
     List(Vec<RtValue>),
+    Array(Vec<RtValue>),
     Map(Box<BTreeMap<RtMapKey, RtValue>>),
     Tuple(Vec<RtValue>),
     QExtRatio(QExtRatio),
     QExtBool(bool),
     QExtStr(String),
+    QExtBytes(Vec<u8>),
 }
 
 impl RtValue {
@@ -151,10 +182,15 @@ impl RtValue {
     pub fn render(&self) -> String {
         match self {
             RtValue::Unit => "()".to_string(),
+            RtValue::Null => "null".to_string(),
             RtValue::Int(n) => n.to_decimal_string(),
+            RtValue::U8(b) => format!("u8({b})"),
+            RtValue::B64(w) => format!("b64(0x{w:016x})"),
             RtValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
             RtValue::Str(s) => s.clone(),
+            RtValue::Bytes(bs) => render_bytes_literal(bs),
             RtValue::T1(v) => v.render_v1(),
+            RtValue::T9(v) => v.render(),
             RtValue::T32(v) => v.render_v1(),
             RtValue::Q4(v) => v.render_v1(),
             RtValue::Ratio(r) => r.render_v1(),
@@ -203,7 +239,7 @@ impl RtValue {
                     format!("{}::{}({})", ev.name, ev.variant, inner.join(", "))
                 }
             }
-            RtValue::List(items) => {
+            RtValue::List(items) | RtValue::Array(items) => {
                 let inner: Vec<String> = items.iter().map(RtValue::render).collect();
                 format!("[{}]", inner.join(", "))
             }
@@ -221,7 +257,32 @@ impl RtValue {
             RtValue::QExtRatio(q) => q.render_quarantined(),
             RtValue::QExtBool(b) => format!("Q_ext({})", if *b { "true" } else { "false" }),
             RtValue::QExtStr(s) => format!("Q_ext({s})"),
+            RtValue::QExtBytes(bs) => format!("Q_ext({})", render_bytes_literal(bs)),
         }
+    }
+}
+
+pub fn model_status_variant_and_tag(status: &str) -> (&'static str, i32) {
+    match status {
+        "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED" => {
+            ("DeclaredSandboxNotS3Authenticated", 0)
+        }
+        _ => ("DeclaredSandboxNotS3Authenticated", 0),
+    }
+}
+
+pub fn recipient_stage_variant_and_tag(stage: RecipientOutcomeStage) -> (&'static str, i32) {
+    match stage {
+        RecipientOutcomeStage::Emitted => ("Emitted", 0),
+        RecipientOutcomeStage::Delivered => ("Delivered", 1),
+        RecipientOutcomeStage::Accepted => ("Accepted", 2),
+        RecipientOutcomeStage::UnacceptedPass => ("UnacceptedPass", 3),
+        RecipientOutcomeStage::Seated => ("Seated", 4),
+        RecipientOutcomeStage::PendingUnseated => ("PendingUnseated", 5),
+        RecipientOutcomeStage::ClosedOrigin => ("ClosedOrigin", 6),
+        RecipientOutcomeStage::Reclosed => ("Reclosed", 7),
+        RecipientOutcomeStage::ReclosedReplay => ("ReclosedReplay", 8),
+        RecipientOutcomeStage::ReclosedOutOfWindow => ("ReclosedOutOfWindow", 9),
     }
 }
 

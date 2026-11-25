@@ -58,4 +58,15 @@ impl RtArena {
             .get(idx)
             .ok_or_else(|| format!("invalid or stale arena handle {handle}"))
     }
+
+    /// Safely resolve a mutable reference to a 1-based handle (`P0-3`, zero `unsafe`).
+    pub fn get_mut(&mut self, handle: u64) -> Result<&mut RtValue, String> {
+        if handle == 0 {
+            return Err("invalid null arena handle 0".to_string());
+        }
+        let idx = (handle - 1) as usize;
+        self.entries
+            .get_mut(idx)
+            .ok_or_else(|| format!("invalid or stale arena handle {handle}"))
+    }
 }

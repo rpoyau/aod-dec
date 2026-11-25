@@ -40,6 +40,16 @@ impl T1 {
         Self(-self.0)
     }
 
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline]
+    pub fn signum(self) -> Self {
+        self
+    }
+
     pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
         Self::new(self.0 + rhs.0)
     }
@@ -52,6 +62,17 @@ impl T1 {
         Self::new(self.0 * rhs.0)
     }
 
+    /// Balanced-trit destructive cancellation (`+1` meeting `-1` cancels to `0`; same-sign saturates).
+    #[inline]
+    pub fn superpose_cancel(self, other: Self) -> Self {
+        match (self.0 + other.0).signum() {
+            -1 => Self::NEG,
+            0 => Self::ZERO,
+            1 => Self::POS,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn render_v1(self) -> String {
         format!("t1({})", self.0)
     }
@@ -60,6 +81,213 @@ impl T1 {
 impl fmt::Display for T1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "t1({})", self.0)
+    }
+}
+
+/// Checked 9-trit balanced ternary integer in `[-9841, +9841]` (`(3^9 - 1) / 2 = 9841`).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct T9(i16);
+
+impl T9 {
+    /// `(3^9 - 1) / 2 = 9841`.
+    pub const LIMIT: i16 = 9841;
+
+    pub fn new(v: i64) -> CoreResult<Self> {
+        if (-(Self::LIMIT as i64)..=(Self::LIMIT as i64)).contains(&v) {
+            Ok(Self(v as i16))
+        } else {
+            Err(CoreError::Overflow(format!("t9 overflow: {v}")))
+        }
+    }
+
+    pub fn from_bigint(v: &BigInt) -> CoreResult<Self> {
+        let n = v
+            .to_i64()
+            .ok_or_else(|| CoreError::Overflow(format!("t9 overflow: {v}")))?;
+        Self::new(n)
+    }
+
+    #[inline]
+    pub fn value(self) -> i16 {
+        self.0
+    }
+
+    #[inline]
+    pub fn checked_neg(self) -> Self {
+        Self(-self.0)
+    }
+
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline]
+    pub fn signum(self) -> T1 {
+        match self.0.signum() {
+            -1 => T1::NEG,
+            0 => T1::ZERO,
+            1 => T1::POS,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
+        Self::new((self.0 as i64) + (rhs.0 as i64))
+    }
+
+    pub fn checked_sub(self, rhs: Self) -> CoreResult<Self> {
+        Self::new((self.0 as i64) - (rhs.0 as i64))
+    }
+
+    pub fn checked_mul(self, rhs: Self) -> CoreResult<Self> {
+        Self::new((self.0 as i64) * (rhs.0 as i64))
+    }
+
+    /// Exact floor quotient matching Dec `//`.
+    pub fn checked_div_floor(self, rhs: Self) -> CoreResult<Self> {
+        if rhs.0 == 0 {
+            return Err(CoreError::ZeroDivision);
+        }
+        let a = self.0 as i64;
+        let b = rhs.0 as i64;
+        let mut q = a / b;
+        let r = a % b;
+        if r != 0 && ((r < 0) != (b < 0)) {
+            q -= 1;
+        }
+        Self::new(q)
+    }
+
+    /// Exact floor remainder matching Dec `%`.
+    pub fn checked_rem_floor(self, rhs: Self) -> CoreResult<Self> {
+        if rhs.0 == 0 {
+            return Err(CoreError::ZeroDivision);
+        }
+        let a = self.0 as i64;
+        let b = rhs.0 as i64;
+        let mut r = a % b;
+        if r != 0 && ((r < 0) != (b < 0)) {
+            r += b;
+        }
+        Self::new(r)
+    }
+
+    /// Checked non-negative exponentiation (`0 <= exp <= 65_536`, `P0-3`).
+    pub fn checked_pow(self, mut exp: u32) -> CoreResult<Self> {
+        if exp > BigInt::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "t9 pow exponent {exp} exceeds safety limit {}",
+                BigInt::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self(1));
+        }
+        match self.0 {
+            0 => return Ok(Self(0)),
+            1 => return Ok(Self(1)),
+            -1 => return Ok(if exp.is_multiple_of(2) { Self(1) } else { Self(-1) }),
+            _ => {}
+        }
+        let mut acc = Self(1);
+        let mut base = self;
+        loop {
+            if exp & 1 == 1 {
+                acc = acc.checked_mul(base)?;
+            }
+            exp >>= 1;
+            if exp == 0 {
+                break;
+            }
+            base = base.checked_mul(base)?;
+        }
+        Ok(acc)
+    }
+
+    pub fn gcd(self, other: Self) -> Self {
+        let mut a = self.0.unsigned_abs() as u32;
+        let mut b = other.0.unsigned_abs() as u32;
+        while b != 0 {
+            let r = a % b;
+            a = b;
+            b = r;
+        }
+        Self(a as i16)
+    }
+
+    pub fn checked_lcm(self, other: Self) -> CoreResult<Self> {
+        if self.0 == 0 || other.0 == 0 {
+            return Ok(Self(0));
+        }
+        let g = self.gcd(other).0 as i64;
+        let prod = ((self.0.abs() as i64) / g) * (other.0.abs() as i64);
+        Self::new(prod)
+    }
+
+    /// Pack 9 balanced trits into an 18-bit word (`00 = 0`, `01 = +1`, `10 = -1`; `11` unused).
+    pub fn pack(self) -> u32 {
+        let mut n = self.0 as i32;
+        let mut result = 0u32;
+        for lane in 0..9u32 {
+            let rem = n.rem_euclid(3);
+            let digit: i32 = if rem == 2 { -1 } else { rem };
+            n = (n - digit) / 3;
+            let code: u32 = match digit {
+                0 => 0,
+                1 => 1,
+                -1 => 2,
+                _ => unreachable!(),
+            };
+            result |= code << (2 * lane);
+        }
+        debug_assert_eq!(n, 0);
+        result
+    }
+
+    /// Unpack an 18-bit 2-bit-per-trit word, rejecting `>= (1 << 18)` (`DomainError`)
+    /// and any `0b11` lane (`InvalidTritEncoding(3)`).
+    pub fn unpack(bits: u64) -> CoreResult<Self> {
+        if bits >= (1u64 << 18) {
+            return Err(CoreError::DomainError(format!(
+                "packed t9 outside 18-bit domain: {bits:#x}"
+            )));
+        }
+        let mut n = 0i64;
+        let mut pow3 = 1i64;
+        for lane in 0..9u32 {
+            let code = ((bits >> (2 * lane)) & 3) as u8;
+            let digit: i64 = match code {
+                0 => 0,
+                1 => 1,
+                2 => -1,
+                3 => return Err(CoreError::InvalidTritEncoding(3)),
+                _ => unreachable!(),
+            };
+            n += digit * pow3;
+            if lane < 8 {
+                pow3 *= 3;
+            }
+        }
+        Self::new(n)
+    }
+
+    /// Unpack a `BigInt` 18-bit packed word, rejecting `< 0`, `>= 2^18`, or any `0b11` lane.
+    pub fn unpack_bigint(bits: &BigInt) -> CoreResult<Self> {
+        let raw = bits.to_u64().ok_or_else(|| {
+            CoreError::DomainError(format!("packed t9 outside 18-bit domain: {bits}"))
+        })?;
+        Self::unpack(raw)
+    }
+
+    pub fn render(self) -> String {
+        format!("t9({})", self.0)
+    }
+}
+
+impl fmt::Display for T9 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "t9({})", self.0)
     }
 }
 
@@ -93,6 +321,21 @@ impl T32 {
 
     pub fn checked_neg(self) -> CoreResult<Self> {
         Self::new(-self.0)
+    }
+
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline]
+    pub fn signum(self) -> T1 {
+        match self.0.signum() {
+            -1 => T1::NEG,
+            0 => T1::ZERO,
+            1 => T1::POS,
+            _ => unreachable!(),
+        }
     }
 
     pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
@@ -144,6 +387,62 @@ impl T32 {
         Self::new(r)
     }
 
+    /// Checked non-negative exponentiation (`0 <= exp <= 65_536`, `P0-3`).
+    pub fn checked_pow(self, mut exp: u32) -> CoreResult<Self> {
+        if exp > BigInt::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "t32 pow exponent {exp} exceeds safety limit {}",
+                BigInt::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self(1));
+        }
+        match self.0 {
+            0 => return Ok(Self(0)),
+            1 => return Ok(Self(1)),
+            -1 => return Ok(if exp.is_multiple_of(2) { Self(1) } else { Self(-1) }),
+            _ => {}
+        }
+        let mut acc = Self(1);
+        let mut base = self;
+        loop {
+            if exp & 1 == 1 {
+                acc = acc.checked_mul(base)?;
+            }
+            exp >>= 1;
+            if exp == 0 {
+                break;
+            }
+            base = base.checked_mul(base)?;
+        }
+        Ok(acc)
+    }
+
+    pub fn gcd(self, other: Self) -> Self {
+        let mut a = self.0.unsigned_abs();
+        let mut b = other.0.unsigned_abs();
+        while b != 0 {
+            let r = a % b;
+            a = b;
+            b = r;
+        }
+        Self(a as i128)
+    }
+
+    pub fn checked_lcm(self, other: Self) -> CoreResult<Self> {
+        if self.0 == 0 || other.0 == 0 {
+            return Ok(Self(0));
+        }
+        let g = self.gcd(other).0.unsigned_abs();
+        let q = self.0.unsigned_abs() / g;
+        let prod = q
+            .checked_mul(other.0.unsigned_abs())
+            .and_then(|v| i128::try_from(v).ok())
+            .ok_or_else(|| CoreError::Overflow("t32 lcm overflow".to_string()))?;
+        Self::new(prod)
+    }
+
     /// Pack 32 balanced trits into a 64-bit word (`00 = 0`, `01 = +1`, `10 = -1`; `11` unused).
     pub fn pack(self) -> u64 {
         let mut n = self.0;
@@ -191,6 +490,19 @@ impl T32 {
             .to_u64()
             .ok_or_else(|| CoreError::DomainError(format!("packed t32 outside u64: {bits}")))?;
         Self::unpack(raw)
+    }
+
+    /// Branchless 32-lane balanced-trit superposition with destructive cancellation (`+1` + `-1` -> `0`;
+    /// `+1` + `+1` -> `+1`; `-1` + `-1` -> `-1`; `0` + `x` -> `x`).
+    pub fn superpose_cancel(self, other: Self) -> Self {
+        let pa = self.pack();
+        let pb = other.pack();
+        let crest = (pa | pb) & 0x5555_5555_5555_5555;
+        let trough = ((pa | pb) & 0xAAAA_AAAA_AAAA_AAAA) >> 1;
+        let cancel = crest & trough;
+        let clear_mask = !(cancel | (cancel << 1));
+        let out_bits = (pa | pb) & clear_mask;
+        Self::unpack(out_bits).expect("superpose_cancel clears all 0b11 lanes")
     }
 
     pub fn render_v1(self) -> String {
@@ -261,6 +573,26 @@ impl Q4 {
                 "Q4 axis index must be in 0..4, got {axis}"
             )))
         }
+    }
+
+    #[inline]
+    pub fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+
+    #[inline]
+    pub fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+
+    #[inline]
+    pub fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+
+    #[inline]
+    pub fn popcnt_xor(self, rhs: Self) -> u8 {
+        self.hamming_distance(rhs)
     }
 
     pub fn render_v1(self) -> String {
@@ -364,6 +696,21 @@ impl Addr8 {
         acc
     }
 
+    /// Construct a canonical retained octal address from `val` with minimum 2 octal digits
+    /// (`0 -> 00_8`, `7 -> 07_8`, `8 -> 10_8`, `64 -> 100_8`).
+    pub fn from_u64_min2(mut val: u64) -> Self {
+        let mut rev = Vec::new();
+        while val > 0 {
+            rev.push((val & 7) as u8);
+            val >>= 3;
+        }
+        while rev.len() < 2 {
+            rev.push(0);
+        }
+        rev.reverse();
+        Self { digits: rev }
+    }
+
     pub fn render(&self) -> String {
         let mut out = String::with_capacity(self.digits.len() + 2);
         for &d in &self.digits {
@@ -378,4 +725,28 @@ impl fmt::Display for Addr8 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.render())
     }
+}
+
+/// Deterministic canonical rendering for Dec v2 `bytes` values (`b"..."`), shared by
+/// `aodc::eval::Value::Bytes` and `aod_rt::value::RtValue::Bytes`.
+pub fn render_bytes_literal(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::with_capacity(bytes.len() + 3);
+    out.push_str("b\"");
+    for &b in bytes {
+        match b {
+            b'\\' => out.push_str("\\\\"),
+            b'"' => out.push_str("\\\""),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            b'\0' => out.push_str("\\0"),
+            0x20..=0x7E => out.push(b as char),
+            other => {
+                let _ = write!(out, "\\x{other:02x}");
+            }
+        }
+    }
+    out.push('"');
+    out
 }

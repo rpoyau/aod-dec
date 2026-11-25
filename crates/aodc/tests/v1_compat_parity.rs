@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use aod_core::sha256::Sha256;
 use aodc::diagnostics::CompatMode;
-use aodc::{compile_file_to_ir, exec_ir_str, run_file};
+use aodc::{check_file, check_file_with_options, compile_file_to_ir, exec_ir_str, run_file, LoadOptions};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -14,7 +14,7 @@ fn repo_root() -> PathBuf {
 }
 
 #[test]
-fn all_10_frozen_v1_examples_match_manifest_and_stdout_in_v1_v2_and_ir() {
+fn all_10_frozen_v1_examples_match_manifest_and_stdout_in_v1_ir_and_reject_in_v2() {
     let v1_dir = repo_root().join("tests/fixtures/v1_examples");
     let manifest = std::fs::read_to_string(v1_dir.join("MANIFEST.txt")).unwrap();
     let lines: Vec<&str> = manifest.lines().filter(|l| !l.trim().is_empty()).collect();
@@ -44,7 +44,9 @@ fn all_10_frozen_v1_examples_match_manifest_and_stdout_in_v1_v2_and_ir() {
         );
         let expected_stdout = String::from_utf8(out_bytes).unwrap();
 
-        // 1. --compat v1 mode
+        // 1. `--compat v1` mode (`LoadOptions::for_compat` AND `LoadOptions::default()`, `[P0-3]`, `AC-05`)
+        check_file_with_options(&src_path, CompatMode::V1, &LoadOptions::default())
+            .unwrap_or_else(|e| panic!("v1 check_file_with_options(default) failed for {name}: {e}"));
         let v1_out = run_file(&src_path, CompatMode::V1)
             .unwrap_or_else(|e| panic!("v1 compat run failed for {name}: {e}"));
         assert_eq!(
@@ -53,16 +55,7 @@ fn all_10_frozen_v1_examples_match_manifest_and_stdout_in_v1_v2_and_ir() {
             "v1 compat stdout mismatch for {name}"
         );
 
-        // 2. Default Dec v2 mode
-        let v2_out = run_file(&src_path, CompatMode::V2)
-            .unwrap_or_else(|e| panic!("v2 default run failed for {name}: {e}"));
-        assert_eq!(
-            v2_out.to_stdout_string(),
-            expected_stdout,
-            "v2 default stdout mismatch for {name}"
-        );
-
-        // 3. DecIR v1 compile -> loads_ir -> exec round-trip
+        // 2. DecIR v1 compile -> loads_ir -> exec round-trip
         let ir_v1 = compile_file_to_ir(&src_path, CompatMode::V1).unwrap();
         assert!(ir_v1.contains("\"version\": 1"));
         let exec_v1 = exec_ir_str(&ir_v1).unwrap();
@@ -72,21 +65,17 @@ fn all_10_frozen_v1_examples_match_manifest_and_stdout_in_v1_v2_and_ir() {
             "DecIR v1 exec mismatch for {name}"
         );
 
-        // 4. DecIR v2 compile -> loads_ir -> exec round-trip
-        let ir_v2 = compile_file_to_ir(&src_path, CompatMode::V2).unwrap();
-        assert!(ir_v2.contains("\"version\": 2"));
-        let exec_v2 = exec_ir_str(&ir_v2).unwrap();
-        assert_eq!(
-            exec_v2.to_stdout_string(),
-            expected_stdout,
-            "DecIR v2 exec mismatch for {name}"
+        // 3. Unconditional PureWaveV2 `CompatMode::V2` MUST reject legacy v1 syntax (`AC-05`)
+        assert!(
+            check_file(&src_path, CompatMode::V2).is_err(),
+            "CompatMode::V2 must reject legacy v1 fixture {name}"
         );
     }
 }
 
 #[test]
 fn compat_v1_rejects_v2_only_syntax() {
-    let v2_prog = "Dec main() -> int:\n    let x = 1/3r\n    return 0\n";
+    let v2_prog = "dec main:\n    () -> int:\n        let x = 1/3r\n        return 0\n";
     assert!(aodc::check_source(v2_prog, CompatMode::V2).is_ok());
     assert!(aodc::check_source(v2_prog, CompatMode::V1).is_err());
 }

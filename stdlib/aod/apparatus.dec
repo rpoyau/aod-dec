@@ -1,0 +1,132 @@
+# AOD Unbiased Apparatus Ergonomics — Strictly Pure Native Builders & Read-Only Summaries
+#
+# STRICT PROVENANCE & ZERO-BIAS POLICY:
+# - 100% pure native Dec v2 structs and functions: ZERO Q_ext imports, ZERO external unit
+#   conversions, ZERO hardcoded physical outcome tables, and ZERO experimental target numbers.
+# - All chamber runs inherit `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED` from the shared
+#   sandbox engine (`crates/aod-rt/src/sim.rs`).
+
+use aod::core:
+    t1
+
+use aod::sim:
+    ModelStatus
+
+use stdlib::aod::boundary:
+    proton_support
+
+struct OpposingBeamSpec:
+    support_form: support
+    left_pos: (int, int, int)
+    right_pos: (int, int, int)
+    shells: int
+    clock_period: int
+    orient_left: t1
+    orient_right: t1
+
+struct PassiveProbeReading:
+    tick: int
+    carrier_count: int
+    boundary_crossings: int
+    shedding_count: int
+    wavelet_count: int
+    clock_count: int
+
+struct BlindApparatusReport:
+    status: ModelStatus
+    model_status: bytes
+    chamber_name: bytes
+    ticks: int
+    carrier_count: int
+    shedding_event_count: int
+    wavelet_event_count: int
+    boundary_crossings: int
+    total_returns: int
+    total_hinges: int
+    total_shedding_events: int
+    final_state_hash: bytes
+
+# Build an axis-aligned 3D chamber domain [0..size_x] x [0..size_y] x [0..size_z].
+dec chamber_box:
+    (size_x: int, size_y: int, size_z: int) -> box:
+        assert size_x > 0 and size_y > 0 and size_z > 0
+        return box([0..size_x, 0..size_y, 0..size_z])
+
+# Build a concentric cubic passive sensor shell centered at (cx, cy, cz).
+dec concentric_shell_box:
+    (cx: int, cy: int, cz: int, half_width: int) -> box:
+        assert half_width > 0 and cx >= half_width and cy >= half_width and cz >= half_width
+        return box([
+            (cx - half_width)..(cx + half_width),
+            (cy - half_width)..(cy + half_width),
+            (cz - half_width)..(cz + half_width)
+        ])
+
+# Construct a symmetric opposing 3:3:6 carrier preparation specification around (cx, cy, cz).
+dec symmetric_opposing_336:
+    (cx: int, cy: int, cz: int, half_sep: int, shells: int, clock_period: int) -> OpposingBeamSpec:
+        assert half_sep > 0 and cx >= half_sep and shells >= 1 and clock_period >= 1
+        return OpposingBeamSpec(
+            proton_support(),
+            (cx - half_sep, cy, cz),
+            (cx + half_sep, cy, cz),
+            shells,
+            clock_period,
+            1t,
+            t1(-1)
+        )
+
+# Strictly passive read-only projection of a sandbox `ReadOnly<ChamberView>`.
+dec read_passive_snapshot:
+    (view: ReadOnly<ChamberView>) -> PassiveProbeReading:
+        return PassiveProbeReading(
+            view.tick,
+            view.carrier_count,
+            view.boundary_crossings,
+            view.shedding_count,
+            view.wavelet_count,
+            view.clock_count
+        )
+
+# Extract a blind summary report from a completed `SimResult` without injecting physical claims.
+dec summarize_blind_run:
+    (sim: SimResult) -> BlindApparatusReport:
+        return BlindApparatusReport(
+            sim.model_status,
+            sim.model_status_bytes,
+            sim.chamber_name,
+            sim.ticks,
+            sim.carrier_count,
+            sim.shedding_event_count,
+            sim.wavelet_event_count,
+            sim.boundary_crossings,
+            sim.total_returns,
+            sim.total_hinges,
+            sim.total_shedding_events,
+            sim.final_state_hash
+        )
+
+# Verify exact zero observer back-reaction across 0-, 1-, 2-, and 4-observer chamber runs.
+dec verify_multi_observer_invariance:
+    (r0: SimResult, r1: SimResult, r2: SimResult, r4: SimResult) -> bool:
+        let status_ok = (
+            r0.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+            and r0.model_status_bytes == b"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
+            and r1.model_status == r0.model_status
+            and r2.model_status == r0.model_status
+            and r4.model_status == r0.model_status
+        )
+        let hash_ok = (
+            r0.final_state_hash == r1.final_state_hash
+            and r0.final_state_hash == r2.final_state_hash
+            and r0.final_state_hash == r4.final_state_hash
+        )
+        let counts_ok = (
+            r0.ticks == r4.ticks
+            and r0.carrier_count == r4.carrier_count
+            and r0.shedding_event_count == r4.shedding_event_count
+            and r0.wavelet_event_count == r4.wavelet_event_count
+            and r0.total_returns == r4.total_returns
+            and r0.total_hinges == r4.total_hinges
+        )
+        return status_ok and hash_ok and counts_ok

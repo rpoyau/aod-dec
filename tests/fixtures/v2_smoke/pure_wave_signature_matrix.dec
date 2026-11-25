@@ -1,0 +1,165 @@
+# Phase D2 pure indentation-delimited, loop-free, brace-free, string-free Dec v2 showcase.
+use aod::core:
+    t1, t9, t32, q4, u8, b64
+    addr8, support, support_pi, support_rd
+    array, array_set, select, len, contains
+    evolve, scan, fold_seq, map_seq, sum, dot
+    num, den, abs, signum, min, max, clamp, gcd, lcm, pow
+
+use aod::witness:
+    trace
+    step
+    hinge
+    dwell
+    close
+    fold
+    outer
+    fuse
+    coupling
+    contact
+    cadence
+
+use aod::qext:
+    ext_decimal, qext_add, qext_to_bytes_exact, qext_format_bytes_fixed
+
+struct WavePacket:
+    anchor: addr8
+    form: support
+    phase_sum: int
+
+enum GateRoute:
+    Closed
+    Exo(int)
+    Shed(t9, int)
+
+dec scale_val:
+    (x: int) -> int:
+        return x * 2
+    (x: int, factor: int) -> int:
+        return x * factor
+
+dec route_gain:
+    (GateRoute::Closed) -> int:
+        return 0
+    (GateRoute::Exo(k)) where k > 10 -> int:
+        return k * 3
+    (GateRoute::Exo(k)) -> int:
+        return k + 1
+    (GateRoute::Shed(tr, w)) where int(tr) < 0 -> int:
+        return w - int(tr)
+    (_) -> int:
+        return -1
+
+dec read_packet_pi:
+    (pkt: ReadOnly<WavePacket>) -> int:
+        return support_pi(pkt.form) + pkt.phase_sum
+
+dec tick_recurrence:
+    ((a, b): (int, int), tick: int) -> (int, int):
+        return (b, a + b + tick)
+
+dec prefix_accum:
+    (acc: int, x: int) -> int:
+        return acc + x
+
+dec square_t9:
+    (v: t9) -> t9:
+        return v * v
+
+dec close_cycle:
+    (t: trace) -> trace:
+        return close(step(hinge(step(t, q4(1), 1t)), q4(0), t1(-1)))
+
+dec main:
+    () -> int:
+        # 1. Multi-arity overloads, pattern rows with `where` guards, and positional structs/enums
+        assert scale_val(7) == 14
+        assert scale_val(7, 5) == 35
+        assert route_gain(GateRoute::Closed) == 0
+        assert route_gain(GateRoute::Exo(12)) == 36
+        assert route_gain(GateRoute::Exo(4)) == 5
+        assert route_gain(GateRoute::Shed(t9(-3), 10)) == 13
+
+        let a8 = addr8(b"07_8")
+        let sf_even = support(b"3:3:6")
+        let sf_odd = support(b"3:3:7_yro")
+        assert support_rd(sf_even, 1) == 61
+        assert support_pi(sf_odd) == 30
+
+        let pkt = WavePacket(a8, sf_even, 9)
+        let pkt_score = read_packet_pi(pkt)
+        assert pkt_score == 39
+        emit a8
+        emit pkt_score
+
+        # 2. Brace-free `map[...]` and typed empty `map[]`
+        let empty_lut: map[u8, int] = map[]
+        assert len(empty_lut) == 0
+        let lut: map[bytes, int] = map[(b"beta", 20), (b"alpha", 10), (b"gamma", 30)]
+        assert len(lut) == 3 and contains(lut, b"alpha") and not contains(lut, b"delta")
+        assert lut[b"beta"] - lut[b"alpha"] == 10
+        emit lut
+
+        # 3. Engine-driven AFC scope operators: `evolve`, `scan`, `fold_seq`, `map_seq`, `sum`, `dot`
+        let id0 = evolve((3, 5), 0..0, tick_recurrence)
+        assert id0 == (3, 5)
+        let ev5 = evolve((1, 2), 0..5, tick_recurrence)
+        assert ev5 == (20, 35)
+        emit ev5
+
+        let weights: array[int, 4] = [2, 4, 6, 8]
+        let prefixes = scan(0, weights, prefix_accum)
+        assert prefixes == [2, 6, 12, 20]
+        let folded = fold_seq(100, prefixes, prefix_accum)
+        assert folded == 140
+        let scaled_list = map_seq(prefixes, scale_val)
+        assert scaled_list == [4, 12, 24, 40]
+
+        let tr_arr: array[t9, 3] = [t9(-2), t9(3), t9(-4)]
+        let sq_list: [t9] = map_seq(tr_arr, square_t9)
+        let sq_updated = aod::core::list_set(sq_list, 0, t9(5))
+        assert sum(sq_updated) == t9(30)
+        assert dot([t9(-2), t9(3), t9(-4)], sq_list) == t9(-45)
+
+        let empty_ints: [int] = []
+        let empty_rats: [ratio] = []
+        assert sum(empty_ints) == 0
+        assert sum(empty_rats) == 0/1r
+        assert sum([t32(10), t32(-3), t32(5)]) == t32(12)
+        assert dot([1/2r, 2/3r], [3/4r, 3/2r]) == 11/8r
+        assert dot(weights, [1, 2, 3, 4]) == 60
+
+        # 4. String-free witness / fusion / coupling over `bytes`
+        let ta = close_cycle(trace(b"inner", b"a", q4(0)))
+        let tb = close_cycle(trace(b"inner", b"b", q4(0)))
+        let fus = fold(ta, tb, b"outer", b"ab")
+        let tout = fuse(fus, close_cycle(outer(fus, q4(0))))
+        let ca = dwell(close_cycle(close_cycle(trace(b"B", b"a", q4(0)))))
+        let cb = close_cycle(close_cycle(dwell(trace(b"B", b"b", q4(0)))))
+        let cp = contact(contact(coupling(ca, cb, b"seven-events"), 3, 4), 6, 7)
+        let cad = cadence(cp)
+        assert cad == 1/1r
+        emit tout == tout
+        emit cad
+
+        # 5. Exact scalar & rational intrinsics
+        let r_neg = -6/8r
+        assert num(r_neg) == -3 and den(r_neg) == 4
+        assert abs(-42) == 42 and abs(t1(-1)) == 1t and abs(t9(-9841)) == t9(9841)
+        assert abs(t32(-125)) == t32(125) and abs(r_neg) == 3/4r
+        assert signum(-99) == t1(-1) and signum(0) == 0t and signum(r_neg) == t1(-1)
+        assert min(u8(9), u8(4)) == u8(4) and max(b64(0x10), b64(0x20)) == b64(0x20)
+        assert clamp(15, 0, 10) == 10 and clamp(-5, 0, 10) == 0 and clamp(3/4r, 1/4r, 1/2r) == 1/2r
+        assert gcd(-84, 30) == 6 and lcm(-12, 18) == 36
+        assert pow(-3, 5) == -243 and pow(0, 0) == 1
+        assert pow(2/3r, 3) == 8/27r and pow(0/1r, 0) == 1/1r
+
+        # 6. Quarantined decimal ingestion & formatting strictly over `bytes`
+        quarantine Q_ext:
+            let q1 = ext_decimal(b"1.25")
+            let q2 = ext_decimal(b"2.50")
+            let qsum = qext_add(q1, q2)
+            emit qext_to_bytes_exact(qsum)
+            emit qext_format_bytes_fixed(qsum, 3)
+
+        return select(folded == 140, 2026, 0)

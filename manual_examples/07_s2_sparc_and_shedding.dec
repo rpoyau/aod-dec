@@ -2,54 +2,56 @@
 # Exercises RC-014, RC-015, RC-016 (negative Vgas), and RC-024 (18-digit BigInt denominator)
 # purely in native Dec v2 with zero floating-point arithmetic.
 
-use stdlib::aod::sectors::{sparc_bin_eval, cycle_shedding_step, map21_eval}
+use stdlib::aod::sectors:
+    sparc_bin_eval, cycle_shedding_step, map21_eval
 
-Dec main() -> int:
-    # 1. SPARC row 0 (RC-015): exact sigma_U = 13867/100 (vs legacy float 138.67000000000002)
-    let r0 = sparc_bin_eval(16/100r, 245/10r, 283/100r, 0/1r, 2321/100r, 0/1r)
-    assert r0.u_obs == 2401/4r
-    assert r0.sigma_u == 13867/100r
-    assert r0.u_bar == 5387041/20000r
-    assert r0.c_cap == 2321/625r
-    assert r0.u_ao == 5981217/20000r
-    assert r0.delta_u == -6023783/20000r
-    assert r0.z_u == -6023783/2773400r
+dec main:
+    () -> int:
+        # 1. SPARC row 0 (RC-015): exact sigma_U = 13867/100 (vs legacy float 138.67000000000002)
+        let r0 = sparc_bin_eval(16/100r, 245/10r, 283/100r, 0/1r, 2321/100r, 0/1r)
+        assert r0.u_obs == 2401/4r
+        assert r0.sigma_u == 13867/100r
+        assert r0.u_bar == 5387041/20000r
+        assert r0.c_cap == 2321/625r
+        assert r0.u_ao == 5981217/20000r
+        assert r0.delta_u == -6023783/20000r
+        assert r0.z_u == -6023783/2773400r
 
-    # 2. SPARC row 78 NGC3198 (RC-016): verifies |Vgas| in C_cap and Vgas^2 in U_gas for Vgas = -0.05
-    let r78 = sparc_bin_eval(193/100r, 769/10r, 103/10r, -5/100r, 8317/100r, 0/1r)
-    assert r78.u_obs == 591361/100r
-    assert r78.sigma_u == 79207/50r
-    assert r78.u_gas == 1/400r
-    assert r78.u_bar == 69172539/20000r
-    assert r78.c_cap == 803073/5000r
-    assert r78.u_ao == 758967/160r
-    assert r78.delta_u == -936053/800r
-    assert r78.z_u == -936053/1267312r
+        # 2. SPARC row 78 NGC3198 (RC-016): verifies |Vgas| in C_cap and Vgas^2 in U_gas for Vgas = -0.05
+        let r78 = sparc_bin_eval(193/100r, 769/10r, 103/10r, -5/100r, 8317/100r, 0/1r)
+        assert r78.u_obs == 591361/100r
+        assert r78.sigma_u == 79207/50r
+        assert r78.u_gas == 1/400r
+        assert r78.u_bar == 69172539/20000r
+        assert r78.c_cap == 803073/5000r
+        assert r78.u_ao == 758967/160r
+        assert r78.delta_u == -936053/800r
+        assert r78.z_u == -936053/1267312r
 
-    # 3. Cycle-shedding exact rational step (RC-014)
-    let cs = cycle_shedding_step(1/2r, 4/5r, 1/5r, 11/20r, 41/50r, 11/20r, 19/50r)
-    assert cs.span == 3/5r
-    assert cs.before_clipping == 37/50r
-    assert cs.shed_excess == 19/100r
-    assert cs.padar_burden == 11/20r
-    assert cs.outward_shedding == 589/5000r
-    assert cs.local_reclosure == 361/5000r
-    assert cs.remainder_sum == 19/100r
+        # 3. Cycle-shedding exact rational step (RC-014)
+        let cs = cycle_shedding_step(1/2r, 4/5r, 1/5r, 11/20r, 41/50r, 11/20r, 19/50r)
+        assert cs.span == 3/5r
+        assert cs.before_clipping == 37/50r
+        assert cs.shed_excess == 19/100r
+        assert cs.padar_burden == 11/20r
+        assert cs.outward_shedding == 589/5000r
+        assert cs.local_reclosure == 361/5000r
+        assert cs.remainder_sum == 19/100r
 
-    # 4. MAP-21 exact finite-support nonlinear variance (RC-024): 18-digit exact denominator
-    let m21 = map21_eval([1/2r, 1/2r], [-1/1000r, 1/1000r], [-1/1000r, 1/1000r])
-    assert m21.output_mean == 1000000/999999r
-    assert m21.mean_shift == 1/999999r
-    assert m21.output_variance == 1/999998000001000000r
-    assert m21.linearized_variance_diagnostic == 0/1r
+        # 4. MAP-21 exact finite-support nonlinear variance (RC-024): 18-digit exact denominator
+        let m21 = map21_eval([1/2r, 1/2r], [-1/1000r, 1/1000r], [-1/1000r, 1/1000r])
+        assert m21.output_mean == 1000000/999999r
+        assert m21.mean_shift == 1/999999r
+        assert m21.output_variance == 1/999998000001000000r
+        assert m21.linearized_variance_diagnostic == 0/1r
 
-    emit r0.sigma_u
-    emit r0.z_u
-    emit r78.u_ao
-    emit r78.z_u
-    emit cs.outward_shedding
-    emit cs.local_reclosure
-    emit m21.output_mean
-    emit m21.output_variance
-    emit m21.linearized_variance_diagnostic
-    return 0
+        emit r0.sigma_u
+        emit r0.z_u
+        emit r78.u_ao
+        emit r78.z_u
+        emit cs.outward_shedding
+        emit cs.local_reclosure
+        emit m21.output_mean
+        emit m21.output_variance
+        emit m21.linearized_variance_diagnostic
+        return 0

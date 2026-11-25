@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use aod_core::bigint::BigInt;
@@ -22,7 +23,7 @@ fn source_binding_schema_v2_p2_1_equations_and_vendored_hashes_verified() {
     assert_eq!(sb.get("schema_version").and_then(JsonValue::as_int), Some(&BigInt::from_i64(2)));
 
     let upstream = sb.get("upstream_bindings").and_then(JsonValue::as_array).unwrap();
-    assert_eq!(upstream.len(), 3);
+    assert_eq!(upstream.len(), 4);
 
     // Load vendored main_registry.json to cross-check every single equation label & number!
     let reg_bytes = std::fs::read(root.join("bindings/aod/main_registry.json")).unwrap();
@@ -112,6 +113,57 @@ fn source_binding_schema_v2_p2_1_equations_and_vendored_hashes_verified() {
             "vendored S2 file SHA-256 mismatch for {local_path}"
         );
     }
+
+    // Verify S4@e013401 draft-candidate binding and vendored 90-tick CRLF CSV SHA-256 byte-for-byte
+    let s4 = &upstream[3];
+    assert_eq!(s4.get("id").and_then(JsonValue::as_str), Some("S4@e013401"));
+    assert_eq!(s4.get("stage").and_then(JsonValue::as_str), Some("S4"));
+    assert_eq!(
+        s4.get("status").and_then(JsonValue::as_str),
+        Some("DRAFT_CANDIDATE_UNDER_S4_REVIEW")
+    );
+    assert_eq!(
+        s4.get("pr_number").and_then(JsonValue::as_int),
+        Some(&BigInt::from_i64(53))
+    );
+    assert_eq!(
+        s4.get("ref_name").and_then(JsonValue::as_str),
+        Some("m4-s4-rust-exact-core")
+    );
+    assert_eq!(
+        s4.get("commit").and_then(JsonValue::as_str),
+        Some("e0134017a816c699ee71a4342044c007b63917db")
+    );
+    assert_eq!(
+        s4.get("tree").and_then(JsonValue::as_str),
+        Some("789e28b5c0c7c24c91f580b643e1bd0017a89dd6")
+    );
+    assert_eq!(
+        s4.get("base_commit_binding").and_then(JsonValue::as_str),
+        Some("3a2418defb4fa92e6fbfc8951b81990fc57ce0e6")
+    );
+    let s4_vendored = s4.get("vendored_files").and_then(JsonValue::as_array).unwrap();
+    assert_eq!(s4_vendored.len(), 1);
+    assert_eq!(
+        s4_vendored[0].get("upstream_path").and_then(JsonValue::as_str),
+        Some("wavelet_shedding_simulation.csv")
+    );
+    assert_eq!(
+        s4_vendored[0].get("local_path").and_then(JsonValue::as_str),
+        Some("bindings/aod/s4_fixtures/wavelet_shedding_simulation.csv")
+    );
+    let s4_csv_bytes =
+        std::fs::read(root.join("bindings/aod/s4_fixtures/wavelet_shedding_simulation.csv"))
+            .unwrap();
+    assert_eq!(s4_csv_bytes.len(), 11245);
+    assert_eq!(
+        Sha256::digest_hex(&s4_csv_bytes),
+        s4_vendored[0].get("sha256").and_then(JsonValue::as_str).unwrap()
+    );
+    assert_eq!(
+        Sha256::digest_hex(&s4_csv_bytes),
+        "d7b0592997d47b2b550508d663afe8943a98ba9d58d087ce77e9d4d0a0c3ff40"
+    );
 
     // Verify historical v1 binding preserved verbatim
     let hist = sb.get("historical_bindings").and_then(JsonValue::as_array).unwrap();
@@ -265,3 +317,439 @@ fn static_audit_zero_floats_zero_unsafe_and_zero_external_deps() {
         }
     }
 }
+
+fn has_dot_py_token(lower: &str) -> bool {
+    let bytes = lower.as_bytes();
+    let mut i = 0usize;
+    while i + 3 <= bytes.len() {
+        if &bytes[i..i + 3] == b".py" {
+            let after = bytes.get(i + 3).copied();
+            let after2 = bytes.get(i + 4).copied();
+            let is_py_ext = match after {
+                None => true,
+                Some(b) if !(b.is_ascii_alphanumeric() || b == b'_') => true,
+                Some(b'c' | b'o' | b'i') => match after2 {
+                    None => true,
+                    Some(b2) => !(b2.is_ascii_alphanumeric() || b2 == b'_'),
+                },
+                _ => false,
+            };
+            if is_py_ext {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
+fn check_repo_zero_python(root: &Path, dir: &Path) {
+    for entry_res in std::fs::read_dir(dir).unwrap() {
+        let entry = entry_res.unwrap();
+        let ft = entry.file_type().unwrap(); // Never follows symlinks (`P0-3`)
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        let path = entry.path();
+
+        if ft.is_dir() {
+            if name_str == ".git" || name_str == "target" {
+                continue;
+            }
+            assert_ne!(
+                name_str, "__pycache__",
+                "forbidden __pycache__ directory found at {}",
+                path.display()
+            );
+            check_repo_zero_python(root, &path);
+            continue;
+        }
+
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let ext_lower = ext.to_ascii_lowercase();
+            assert!(
+                !matches!(ext_lower.as_str(), "py" | "pyc" | "pyo" | "pyi"),
+                "forbidden Python artifact `{}` found in repository",
+                path.display()
+            );
+        }
+
+        if ft.is_file() {
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            if rel == "SOURCE_BINDING.json" || rel.starts_with("bindings/aod/s2_vectors/") {
+                continue;
+            }
+            let mut f = std::fs::File::open(&path).unwrap();
+            let mut head = [0u8; 128];
+            let mut read_len = 0usize;
+            while read_len < head.len() {
+                let n = f.read(&mut head[read_len..]).unwrap();
+                if n == 0 {
+                    break;
+                }
+                read_len += n;
+            }
+            let prefix = &head[..read_len];
+            if prefix.starts_with(b"#!") {
+                let first_line_end = prefix
+                    .iter()
+                    .position(|&b| b == b'\n' || b == b'\r')
+                    .unwrap_or(prefix.len());
+                let shebang = String::from_utf8_lossy(&prefix[..first_line_end]).to_ascii_lowercase();
+                assert!(
+                    !shebang.contains("python") && !shebang.contains("pypy"),
+                    "forbidden Python shebang `{shebang}` in {rel}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn zero_python_repository_and_ci_guard() {
+    let root = repo_root();
+
+    // 1. Walk entire repository (skipping .git & target, never following symlinks)
+    check_repo_zero_python(&root, &root);
+
+    // 2. Confirm legacy Python scripts are removed and .gitignore has no Python cache entries
+    assert!(!root.join("scripts/audit_pdf_zero_raster.py").exists());
+    assert!(!root.join("scripts/test_audit_pdf_zero_raster.py").exists());
+    let gitignore = std::fs::read_to_string(root.join(".gitignore")).unwrap();
+    assert!(
+        !gitignore.contains("__pycache__") && !gitignore.contains("*.pyc"),
+        ".gitignore must not retain Python cache entries"
+    );
+
+    // 3. Scan every `.github/workflows/*.{yml,yaml}` file strictly per P0-3
+    let wf_dir = root.join(".github/workflows");
+    let mut wf_files: Vec<PathBuf> = std::fs::read_dir(&wf_dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| {
+            matches!(
+                p.extension().and_then(|e| e.to_str()),
+                Some("yml" | "yaml")
+            )
+        })
+        .collect();
+    wf_files.sort();
+    assert!(!wf_files.is_empty(), "expected at least one CI workflow file");
+
+    let forbidden_tokens = [
+        "python3",
+        "python2",
+        "pypy",
+        "pytest",
+        "pip",
+        "pip3",
+        "unittest",
+        "setup-python",
+        "virtualenv",
+        "conda",
+        "poetry",
+    ];
+    let forbidden_substrings = [
+        "python3",
+        "python2",
+        "pypy",
+        "pytest",
+        "setup-python",
+        "virtualenv",
+        "unittest",
+    ];
+
+    let mut saw_ci_yml = false;
+    for wf in &wf_files {
+        let rel = wf
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let text = std::fs::read_to_string(wf).unwrap();
+        if rel == ".github/workflows/ci.yml" {
+            saw_ci_yml = true;
+            assert!(
+                text.contains("aodc audit-pdf"),
+                "ci.yml must invoke pure-Rust `aodc audit-pdf`"
+            );
+            assert!(
+                text.contains("pdfimages"),
+                "ci.yml must retain `pdfimages` cross-check"
+            );
+        }
+
+        for (idx, line) in text.lines().enumerate() {
+            let line_no = idx + 1;
+            let lower = line.to_ascii_lowercase();
+
+            for sub in forbidden_substrings {
+                assert!(
+                    !lower.contains(sub),
+                    "forbidden Python substring `{sub}` in {rel}:{line_no}: {line}"
+                );
+            }
+            for tok in lower.split(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_')) {
+                if forbidden_tokens.contains(&tok) {
+                    panic!(
+                        "forbidden Python token `{tok}` in {rel}:{line_no}: {line}"
+                    );
+                }
+            }
+            assert!(
+                !has_dot_py_token(&lower),
+                "forbidden `.py` file token in {rel}:{line_no}: {line}"
+            );
+
+            let trimmed = line.trim();
+            let bare_check = if trimmed.starts_with("branches:") {
+                trimmed.replace("\"v2/zero-python-evolution\"", "")
+            } else {
+                line.to_string()
+            };
+            assert!(
+                !bare_check.to_ascii_lowercase().contains("python"),
+                "forbidden bare `python` mention outside exact allowlisted branch literal in {rel}:{line_no}: {line}"
+            );
+        }
+    }
+    assert!(saw_ci_yml, "expected .github/workflows/ci.yml");
+}
+
+fn collect_v2_dec_files_no_symlinks(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry_res in std::fs::read_dir(dir).unwrap() {
+        let entry = entry_res.unwrap();
+        let ft = entry.file_type().unwrap(); // Never follows symlinks
+        assert!(
+            !ft.is_symlink(),
+            "unexpected symlink at {}",
+            entry.path().display()
+        );
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        if ft.is_dir() {
+            if matches!(
+                rel.as_str(),
+                ".git" | "target" | "_build" | "reference/aod-dec-dev" | "tests/fixtures/v1_examples"
+            ) || rel.starts_with("reference/aod-dec-dev/")
+            {
+                continue;
+            }
+            collect_v2_dec_files_no_symlinks(root, &path, out);
+            continue;
+        }
+
+        if ft.is_file() && path.extension().and_then(|s| s.to_str()) == Some("dec") {
+            out.push(path);
+        }
+    }
+}
+
+fn collect_typ_files_no_symlinks(dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry_res in std::fs::read_dir(dir).unwrap() {
+        let entry = entry_res.unwrap();
+        let ft = entry.file_type().unwrap();
+        assert!(!ft.is_symlink());
+        let path = entry.path();
+        if ft.is_dir() {
+            collect_typ_files_no_symlinks(&path, out);
+        } else if ft.is_file() && path.extension().and_then(|s| s.to_str()) == Some("typ") {
+            out.push(path);
+        }
+    }
+}
+
+fn assert_pure_wave_dec_text(label: &str, text: &str) {
+    let banned_tokens = [
+        "Dec", "if", "elif", "else", "while", "break", "continue", "mut", "match", "str",
+    ];
+    for (idx, line) in text.lines().enumerate() {
+        let line_no = idx + 1;
+        let bytes = line.as_bytes();
+        let mut stripped = String::with_capacity(bytes.len());
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let b = bytes[i];
+            if b == b'#' {
+                break;
+            }
+            if b == b'b'
+                && i + 1 < bytes.len()
+                && (bytes[i + 1] == b'"' || bytes[i + 1] == b'\'')
+                && (i == 0 || !(bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_'))
+            {
+                let quote = bytes[i + 1];
+                i += 2;
+                let mut closed = false;
+                while i < bytes.len() {
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == quote {
+                        i += 1;
+                        closed = true;
+                        break;
+                    }
+                    i += 1;
+                }
+                assert!(
+                    closed,
+                    "unterminated byte literal in {label}:{line_no}: {line}"
+                );
+                stripped.push(' ');
+                continue;
+            }
+            assert!(
+                b != b'{' && b != b'}',
+                "forbidden brace `{}` in {label}:{line_no}: {line}",
+                b as char
+            );
+            assert!(
+                b != b'"' && b != b'\'',
+                "forbidden unprefixed string quote `{}` in {label}:{line_no}: {line}",
+                b as char
+            );
+            stripped.push(b as char);
+            i += 1;
+        }
+
+        let toks: Vec<&str> = stripped
+            .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .filter(|s| !s.is_empty())
+            .collect();
+        for (ti, tok) in toks.iter().enumerate() {
+            assert!(
+                !banned_tokens.contains(tok),
+                "forbidden legacy token `{tok}` in {label}:{line_no}: {line}"
+            );
+            if *tok == "for" {
+                let is_sim_for_ticks =
+                    ti >= 2 && toks[ti - 2] == "simulate" && toks.contains(&"ticks");
+                assert!(
+                    is_sim_for_ticks,
+                    "forbidden legacy `for` loop outside `simulate <Prep> for <N> ticks` in {label}:{line_no}: {line}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn pure_wave_dec_v2_repository_guard() {
+    use aodc::diagnostics::{CompatMode, DiagnosticCode, SyntaxDiscipline};
+    use aodc::parser::parse_source_with_discipline;
+
+    let root = repo_root();
+
+    // 1. Walk repo_root() (never following symlinks; skipping .git, target, _build,
+    //    reference/aod-dec-dev/**, and tests/fixtures/v1_examples/*.dec)
+    let mut v2_files = Vec::new();
+    collect_v2_dec_files_no_symlinks(&root, &root, &mut v2_files);
+    v2_files.sort();
+    assert!(
+        v2_files.len() >= 41,
+        "expected >= 41 V2 .dec files in repository, found {}",
+        v2_files.len()
+    );
+
+    let mut positive_count = 0usize;
+    let mut negative_count = 0usize;
+    for path in &v2_files {
+        let rel = path
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let raw = std::fs::read_to_string(path).unwrap();
+        assert_pure_wave_dec_text(&rel, &raw);
+
+        if rel.starts_with("manual_examples/negative_controls/") {
+            negative_count += 1;
+            let fname = path.file_name().unwrap().to_string_lossy();
+            if fname.starts_with("nc03_") {
+                let err =
+                    parse_source_with_discipline(&raw, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
+                        .unwrap_err();
+                assert_eq!(
+                    err.code,
+                    DiagnosticCode::OddSupportRequiresYro,
+                    "nc03 must fail with OddSupportRequiresYro, got {err}"
+                );
+            } else {
+                parse_source_with_discipline(&raw, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
+                    .unwrap_or_else(|e| panic!("negative control {rel} failed PureWaveV2 parse: {e}"));
+            }
+        } else {
+            positive_count += 1;
+            if rel.starts_with("stdlib/aod/") {
+                let loaded =
+                    aodc::modules::load_from_source(&raw, path.parent(), CompatMode::V2)
+                        .unwrap_or_else(|e| panic!("load failed on {rel}: {e}"));
+                aodc::checker::check_unit(loaded, false)
+                    .unwrap_or_else(|e| panic!("stdlib check failed on {rel}: {e}"));
+            } else {
+                aodc::check_file(path, CompatMode::V2)
+                    .unwrap_or_else(|e| panic!("check_file failed on {rel}: {e}"));
+            }
+            let audit =
+                aodc::audit_dec_file_with_options(path, CompatMode::V2, &aodc::LoadOptions::default());
+            assert!(
+                audit.passed() && audit.hooks_passed() == 6,
+                "audit-dec failed on {rel}: {:?}",
+                audit.errors
+            );
+        }
+    }
+    assert_eq!(positive_count, 34, "expected 34 positive V2 .dec files");
+    assert_eq!(negative_count, 7, "expected 7 negative-control V2 .dec files");
+
+    // 2. Scan all inline ```dec and ```dec-fail blocks in docs/manual/**/*.typ
+    let mut typ_files = Vec::new();
+    collect_typ_files_no_symlinks(&root.join("docs/manual"), &mut typ_files);
+    typ_files.sort();
+    let mut inline_blocks_scanned = 0usize;
+    for tp in &typ_files {
+        let rel = tp
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let content = std::fs::read_to_string(tp).unwrap();
+        let mut in_dec_block = false;
+        let mut block_start_line = 0usize;
+        let mut buf = String::new();
+        for (lidx, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            if !in_dec_block {
+                if trimmed == "```dec" || trimmed.starts_with("```dec-fail ") {
+                    in_dec_block = true;
+                    block_start_line = lidx + 1;
+                    buf.clear();
+                }
+            } else if trimmed == "```" {
+                in_dec_block = false;
+                inline_blocks_scanned += 1;
+                let block_label = format!("{rel}@{block_start_line}");
+                assert_pure_wave_dec_text(&block_label, &buf);
+            } else {
+                buf.push_str(line);
+                buf.push('\n');
+            }
+        }
+        assert!(!in_dec_block, "unclosed ```dec block in {rel}");
+    }
+    assert_eq!(
+        inline_blocks_scanned, 11,
+        "expected 11 inline dec/dec-fail blocks across docs/manual"
+    );
+}
+
