@@ -17,5 +17,6 @@ pub mod s4_report;
 pub mod sha256;
 pub mod support;
 pub mod ternary;
+pub mod trit_int;
 pub mod wavelet;
 pub mod witness;

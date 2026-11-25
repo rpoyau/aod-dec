@@ -2,8 +2,9 @@ use std::fmt;
 
 use crate::bigint::BigInt;
 use crate::error::{CoreError, CoreResult};
+use crate::trit_int::{swar_unpack_t32, TritInt};
 
-/// Balanced single trit in `{-1, 0, +1}`.
+/// Balanced single trit in `{-1, 0, +1}` (`00 = 0`, `01 = +1`, `10 = -1`; `11` rejected).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct T1(i8);
 
@@ -32,11 +33,35 @@ impl T1 {
     }
 
     #[inline]
-    pub fn value(self) -> i8 {
+    pub const fn value(self) -> i8 {
         self.0
     }
 
-    pub fn checked_neg(self) -> Self {
+    /// 2-bit encoding: `0 -> 0b00`, `+1 -> 0b01`, `-1 -> 0b10`.
+    #[inline]
+    pub const fn pack2(self) -> u8 {
+        match self.0 {
+            0 => 0,
+            1 => 1,
+            -1 => 2,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Decode a 2-bit lane, rejecting `0b11` (`3`) or `>= 4`.
+    #[inline]
+    pub fn unpack2(code: u8) -> CoreResult<Self> {
+        match code {
+            0 => Ok(Self::ZERO),
+            1 => Ok(Self::POS),
+            2 => Ok(Self::NEG),
+            3 => Err(CoreError::InvalidTritEncoding(3)),
+            other => Err(CoreError::InvalidTritEncoding(other)),
+        }
+    }
+
+    #[inline]
+    pub const fn checked_neg(self) -> Self {
         Self(-self.0)
     }
 
@@ -48,12 +73,30 @@ impl T1 {
         Self::new(self.0 - rhs.0)
     }
 
-    pub fn checked_mul(self, rhs: Self) -> CoreResult<Self> {
-        Self::new(self.0 * rhs.0)
+    #[inline]
+    pub const fn checked_mul(self, rhs: Self) -> CoreResult<Self> {
+        Ok(Self(self.0 * rhs.0))
+    }
+
+    /// Exact 9-pair idempotent superposition & opposing cancellation (`+1` meets `-1` -> `0`).
+    #[inline]
+    pub const fn superpose_cancel(self, rhs: Self) -> Self {
+        let sum = self.0 + rhs.0;
+        if sum > 0 {
+            Self::POS
+        } else if sum < 0 {
+            Self::NEG
+        } else {
+            Self::ZERO
+        }
+    }
+
+    pub fn render(self) -> String {
+        format!("t1({})", self.0)
     }
 
     pub fn render_v1(self) -> String {
-        format!("t1({})", self.0)
+        self.render()
     }
 }
 
@@ -63,144 +106,175 @@ impl fmt::Display for T1 {
     }
 }
 
-/// Checked 32-trit balanced ternary integer in `[-926_510_094_425_920, +926_510_094_425_920]`.
+/// Raw non-arithmetic 8-bit octet (`0x00..=0xFF`) for `bytes`, syscalls, and binary I/O.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct T32(i128);
+pub struct B8(pub u8);
 
-impl T32 {
-    /// `(3^32 - 1) / 2 = 926_510_094_425_920`.
-    pub const LIMIT: i128 = 926_510_094_425_920;
-
-    pub fn new(v: i128) -> CoreResult<Self> {
-        if (-Self::LIMIT..=Self::LIMIT).contains(&v) {
-            Ok(Self(v))
-        } else {
-            Err(CoreError::Overflow(format!("t32 overflow: {v}")))
-        }
-    }
-
-    pub fn from_bigint(v: &BigInt) -> CoreResult<Self> {
+impl B8 {
+    pub fn from_int(v: &TritInt) -> CoreResult<Self> {
         let n = v
-            .to_i128()
-            .ok_or_else(|| CoreError::Overflow(format!("t32 overflow: {v}")))?;
-        Self::new(n)
+            .to_u64()
+            .ok_or_else(|| CoreError::DomainError(format!("b8 outside 0..=255: {v}")))?;
+        if n <= 255 {
+            Ok(Self(n as u8))
+        } else {
+            Err(CoreError::DomainError(format!("b8 outside 0..=255: {v}")))
+        }
     }
 
     #[inline]
-    pub fn value(self) -> i128 {
+    pub const fn value(self) -> u8 {
         self.0
     }
 
-    pub fn checked_neg(self) -> CoreResult<Self> {
-        Self::new(-self.0)
+    #[inline]
+    pub const fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
     }
 
-    pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
-        let sum = self
-            .0
-            .checked_add(rhs.0)
-            .ok_or_else(|| CoreError::Overflow("t32 addition overflow".to_string()))?;
-        Self::new(sum)
+    #[inline]
+    pub const fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
     }
 
-    pub fn checked_sub(self, rhs: Self) -> CoreResult<Self> {
-        let diff = self
-            .0
-            .checked_sub(rhs.0)
-            .ok_or_else(|| CoreError::Overflow("t32 subtraction overflow".to_string()))?;
-        Self::new(diff)
+    #[inline]
+    pub const fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
     }
 
-    pub fn checked_mul(self, rhs: Self) -> CoreResult<Self> {
-        let prod = self
-            .0
-            .checked_mul(rhs.0)
-            .ok_or_else(|| CoreError::Overflow("t32 multiplication overflow".to_string()))?;
-        Self::new(prod)
+    #[inline]
+    pub const fn bitnot(self) -> Self {
+        Self(!self.0)
     }
 
-    /// Floor quotient matching Python / Dec v1 `//`.
-    pub fn checked_div_floor(self, rhs: Self) -> CoreResult<Self> {
-        if rhs.0 == 0 {
-            return Err(CoreError::ZeroDivision);
+    pub fn checked_shl(self, shift: u32) -> CoreResult<Self> {
+        if shift < 8 {
+            Ok(Self(self.0 << shift))
+        } else {
+            Err(CoreError::DomainError(format!(
+                "b8 shift count must be in 0..8, got {shift}"
+            )))
         }
-        let mut q = self.0 / rhs.0;
-        let r = self.0 % rhs.0;
-        if r != 0 && ((r < 0) != (rhs.0 < 0)) {
-            q -= 1;
-        }
-        Self::new(q)
     }
 
-    /// Floor remainder matching Python / Dec v1 `%`.
-    pub fn checked_rem_floor(self, rhs: Self) -> CoreResult<Self> {
-        if rhs.0 == 0 {
-            return Err(CoreError::ZeroDivision);
+    pub fn checked_shr(self, shift: u32) -> CoreResult<Self> {
+        if shift < 8 {
+            Ok(Self(self.0 >> shift))
+        } else {
+            Err(CoreError::DomainError(format!(
+                "b8 shift count must be in 0..8, got {shift}"
+            )))
         }
-        let mut r = self.0 % rhs.0;
-        if r != 0 && ((r < 0) != (rhs.0 < 0)) {
-            r += rhs.0;
-        }
-        Self::new(r)
     }
 
-    /// Pack 32 balanced trits into a 64-bit word (`00 = 0`, `01 = +1`, `10 = -1`; `11` unused).
-    pub fn pack(self) -> u64 {
-        let mut n = self.0;
-        let mut result = 0u64;
-        for lane in 0..32u32 {
-            let rem = n.rem_euclid(3);
-            let digit: i128 = if rem == 2 { -1 } else { rem };
-            n = (n - digit) / 3;
-            let code: u64 = match digit {
-                0 => 0,
-                1 => 1,
-                -1 => 2,
-                _ => unreachable!(),
-            };
-            result |= code << (2 * lane);
-        }
-        debug_assert_eq!(n, 0);
-        result
-    }
-
-    /// Unpack a 64-bit 2-bit-per-trit word, rejecting any `0b11` lane with `InvalidTritEncoding(3)`.
-    pub fn unpack(bits: u64) -> CoreResult<Self> {
-        let mut n = 0i128;
-        let mut pow3 = 1i128;
-        for lane in 0..32u32 {
-            let code = ((bits >> (2 * lane)) & 3) as u8;
-            let digit: i128 = match code {
-                0 => 0,
-                1 => 1,
-                2 => -1,
-                3 => return Err(CoreError::InvalidTritEncoding(3)),
-                _ => unreachable!(),
-            };
-            n += digit * pow3;
-            if lane < 31 {
-                pow3 *= 3;
-            }
-        }
-        Self::new(n)
-    }
-
-    /// Unpack a `BigInt` packed word, rejecting `< 0`, `>= 2^64`, or any `0b11` lane.
-    pub fn unpack_bigint(bits: &BigInt) -> CoreResult<Self> {
-        let raw = bits
-            .to_u64()
-            .ok_or_else(|| CoreError::DomainError(format!("packed t32 outside u64: {bits}")))?;
-        Self::unpack(raw)
-    }
-
-    pub fn render_v1(self) -> String {
-        format!("t32({})", self.0)
+    pub fn render(self) -> String {
+        format!("b8(0x{:02x})", self.0)
     }
 }
 
-impl fmt::Display for T32 {
+impl fmt::Display for B8 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "t32({})", self.0)
+        f.write_str(&self.render())
+    }
+}
+
+/// Raw non-arithmetic 64-bit hardware register view (`b64`).
+///
+/// Inspecting an inline 32-trit `int` via `B64::from_trit_int` is a 0-cycle bitcast returning
+/// its exact 2-bit-per-trit 64-bit hardware word (`w < 0xC000_0000_0000_0000`), while
+/// `B64::to_trit_int` unpacks/validates 32 trits and rejects any `0b11` lane with `InvalidTritEncoding(3)`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct B64(pub u64);
+
+impl B64 {
+    #[inline]
+    pub const fn new(bits: u64) -> Self {
+        Self(bits)
+    }
+
+    /// Zero-cost register view of an inline 32-trit `TritInt`.
+    /// Rejects spilled `> 32`-trit integers with `Overflow`.
+    pub fn from_trit_int(v: &TritInt) -> CoreResult<Self> {
+        match v.inline_word() {
+            Some(w) => Ok(Self(w)),
+            None => Err(CoreError::Overflow(format!(
+                "int exceeds 32-trit single-register view for b64: {v}"
+            ))),
+        }
+    }
+
+    /// Construct from an unsigned bit-pattern integer in `0..=u64::MAX` (for `0x`/`0b` literals).
+    pub fn from_unsigned_int(v: &TritInt) -> CoreResult<Self> {
+        let bits = v
+            .to_u64()
+            .ok_or_else(|| CoreError::Overflow(format!("b64 unsigned literal out of range: {v}")))?;
+        Ok(Self(bits))
+    }
+
+    /// Reinterpret a 64-bit word as a 32-trit `TritInt`, rejecting any `0b11` lane!
+    pub fn to_trit_int(self) -> CoreResult<TritInt> {
+        let _ = swar_unpack_t32(self.0)?;
+        TritInt::from_inline_word(self.0)
+    }
+
+    #[inline]
+    pub const fn value(self) -> u64 {
+        self.0
+    }
+
+    #[inline]
+    pub const fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+
+    #[inline]
+    pub const fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+
+    #[inline]
+    pub const fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+
+    #[inline]
+    pub const fn bitnot(self) -> Self {
+        Self(!self.0)
+    }
+
+    #[inline]
+    pub const fn popcnt(self) -> u32 {
+        self.0.count_ones()
+    }
+
+    pub fn checked_shl(self, shift: u32) -> CoreResult<Self> {
+        if shift < 64 {
+            Ok(Self(self.0 << shift))
+        } else {
+            Err(CoreError::DomainError(format!(
+                "b64 shift count must be in 0..64, got {shift}"
+            )))
+        }
+    }
+
+    pub fn checked_shr(self, shift: u32) -> CoreResult<Self> {
+        if shift < 64 {
+            Ok(Self(self.0 >> shift))
+        } else {
+            Err(CoreError::DomainError(format!(
+                "b64 shift count must be in 0..64, got {shift}"
+            )))
+        }
+    }
+
+    pub fn render(self) -> String {
+        format!("b64(0x{:016x})", self.0)
+    }
+}
+
+impl fmt::Display for B64 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.render())
     }
 }
 
@@ -229,22 +303,37 @@ impl Q4 {
     }
 
     #[inline]
-    pub fn value(self) -> u8 {
+    pub const fn value(self) -> u8 {
         self.0
     }
 
     #[inline]
-    pub fn hamming_distance(self, other: Self) -> u8 {
+    pub const fn bitand(self, other: Self) -> Self {
+        Self(self.0 & other.0)
+    }
+
+    #[inline]
+    pub const fn bitor(self, other: Self) -> Self {
+        Self((self.0 | other.0) & 0x0F)
+    }
+
+    #[inline]
+    pub const fn bitxor(self, other: Self) -> Self {
+        Self((self.0 ^ other.0) & 0x0F)
+    }
+
+    #[inline]
+    pub const fn hamming_distance(self, other: Self) -> u8 {
         (self.0 ^ other.0).count_ones() as u8
     }
 
     #[inline]
-    pub fn is_hamming1(self, other: Self) -> bool {
+    pub const fn is_hamming1(self, other: Self) -> bool {
         self.hamming_distance(other) == 1
     }
 
     #[inline]
-    pub fn neighbors(self) -> [Q4; 4] {
+    pub const fn neighbors(self) -> [Q4; 4] {
         [
             Q4(self.0 ^ 1),
             Q4(self.0 ^ 2),
@@ -263,8 +352,12 @@ impl Q4 {
         }
     }
 
-    pub fn render_v1(self) -> String {
+    pub fn render(self) -> String {
         format!("q4({})", self.0)
+    }
+
+    pub fn render_v1(self) -> String {
+        self.render()
     }
 }
 
@@ -311,7 +404,8 @@ impl Addr8 {
             return Err(CoreError::InvalidOctalAnchor(format!(
                 "expected octal anchor suffix (_8 or |-) or 0o prefix, got {s:?}"
             )));
-        };
+        }
+        ;
 
         if raw_digits.is_empty() {
             return Err(CoreError::InvalidOctalAnchor(format!(
