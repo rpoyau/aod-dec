@@ -103,6 +103,7 @@ pub struct CodegenPlan {
     pub unroll_hint: UnrollHint,
     pub target_cpu_native: bool,
     pub inline_ratio_fastpath: bool,
+    pub trit_ssa_promotion: bool,
     pub vectorize_loops: bool,
     /// LLVM loop interleave count hint: strictly `0` (default/off), `2`, or `4`.
     pub interleave_count: u8,
@@ -129,6 +130,7 @@ impl CodegenPlan {
             unroll_hint: UnrollHint::Default,
             target_cpu_native: false,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: false,
             vectorize_loops: false,
             interleave_count: 0,
             layout_prefer_soa: false,
@@ -143,6 +145,7 @@ impl CodegenPlan {
             unroll_hint: UnrollHint::Default,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: false,
             interleave_count: 0,
             layout_prefer_soa: false,
@@ -157,6 +160,7 @@ impl CodegenPlan {
             unroll_hint: UnrollHint::Default,
             target_cpu_native: opt_level != OptLevel::O0,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: opt_level != OptLevel::O0,
             vectorize_loops: false,
             interleave_count: 0,
             layout_prefer_soa: false,
@@ -177,7 +181,7 @@ impl CodegenPlan {
 
     pub fn plan_id(&self) -> String {
         format!(
-            "{}_sel{}_u{}_cpu{}_rat{}_vec{}_ic{}_soa{}_par{}",
+            "{}_sel{}_u{}_cpu{}_rat{}_trit{}_vec{}_ic{}_soa{}_par{}",
             self.opt_level.as_str(),
             u8::from(self.branchless_select),
             self.unroll_hint.as_str(),
@@ -187,6 +191,7 @@ impl CodegenPlan {
                 "generic"
             },
             u8::from(self.inline_ratio_fastpath),
+            u8::from(self.trit_ssa_promotion),
             u8::from(self.vectorize_loops),
             self.interleave_count,
             u8::from(self.layout_prefer_soa),
@@ -226,6 +231,10 @@ impl CodegenPlan {
             JsonValue::Bool(self.target_cpu_native),
         );
         m.insert(
+            "trit_ssa_promotion".to_string(),
+            JsonValue::Bool(self.trit_ssa_promotion),
+        );
+        m.insert(
             "unroll_hint".to_string(),
             JsonValue::from_str_val(self.unroll_hint.as_str()),
         );
@@ -263,12 +272,18 @@ impl CodegenPlan {
         };
         let opt_level = OptLevel::from_name(get_str("opt_level")?).map_err(|e| e.message)?;
         let unroll_hint = UnrollHint::from_name(get_str("unroll_hint")?)?;
+        let trit_ssa_promotion = match map.get("trit_ssa_promotion") {
+            Some(JsonValue::Bool(b)) => *b,
+            None => opt_level != OptLevel::O0,
+            _ => return Err("invalid bool field plan.trit_ssa_promotion".to_string()),
+        };
         let plan = Self {
             opt_level,
             branchless_select: get_bool("branchless_select")?,
             unroll_hint,
             target_cpu_native: get_bool("target_cpu_native")?,
             inline_ratio_fastpath: get_bool("inline_ratio_fastpath")?,
+            trit_ssa_promotion,
             vectorize_loops: get_bool("vectorize_loops")?,
             interleave_count: get_u8("interleave_count")?,
             layout_prefer_soa: get_bool("layout_prefer_soa")?,
@@ -291,13 +306,14 @@ impl CodegenPlan {
 pub fn recommend_candidates(hints: &HwPlanHints, baseline: &CodegenPlan) -> Vec<CodegenPlan> {
     let par_ok = hints.recommended_workers > 1;
     let raw = [
-        // 1. Hardware-probe-guided O2 plan
+        // 1. Hardware-probe-guided O2 plan with SSA shadow-ALU promotion
         CodegenPlan {
             opt_level: OptLevel::O2,
             branchless_select: hints.prefer_branchless,
             unroll_hint: hints.recommended_unroll,
             target_cpu_native: hints.prefer_native_cpu,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: hints.has_avx2,
             interleave_count: if hints.has_avx2 { 2 } else { 0 },
             layout_prefer_soa: hints.prefer_soa,
@@ -310,6 +326,7 @@ pub fn recommend_candidates(hints: &HwPlanHints, baseline: &CodegenPlan) -> Vec<
             unroll_hint: UnrollHint::Default,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: false,
             interleave_count: 0,
             layout_prefer_soa: false,
@@ -322,6 +339,7 @@ pub fn recommend_candidates(hints: &HwPlanHints, baseline: &CodegenPlan) -> Vec<
             unroll_hint: UnrollHint::Unroll4,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: true,
             interleave_count: 2,
             layout_prefer_soa: hints.prefer_soa,
@@ -334,6 +352,7 @@ pub fn recommend_candidates(hints: &HwPlanHints, baseline: &CodegenPlan) -> Vec<
             unroll_hint: UnrollHint::Default,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: true,
             interleave_count: 4,
             layout_prefer_soa: true,
@@ -346,6 +365,7 @@ pub fn recommend_candidates(hints: &HwPlanHints, baseline: &CodegenPlan) -> Vec<
             unroll_hint: UnrollHint::Default,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: false,
             interleave_count: 0,
             layout_prefer_soa: false,
@@ -358,6 +378,7 @@ pub fn recommend_candidates(hints: &HwPlanHints, baseline: &CodegenPlan) -> Vec<
             unroll_hint: UnrollHint::Unroll4,
             target_cpu_native: true,
             inline_ratio_fastpath: true,
+            trit_ssa_promotion: true,
             vectorize_loops: true,
             interleave_count: if hints.has_avx2 { 4 } else { 2 },
             layout_prefer_soa: hints.prefer_soa,

@@ -6,8 +6,8 @@ use std::time::Instant;
 use aod_core::bigint::BigInt;
 use aod_core::json::JsonValue;
 use aod_core::ratio::Ratio;
-use aod_core::ternary::T32;
-use aod_rt::abi::{DecInt, OwnedRtContext};
+use aod_core::trit_int::{fast_pack_t32, T32_LIMIT};
+use aod_rt::abi::{aod_rt_int_from_i64, OwnedRtContext};
 
 use crate::hw_info::HostHardwareInfo;
 use crate::jit::OrcJitSession;
@@ -610,11 +610,9 @@ done:
 
 fn run_probe_exact_arith() -> LlvmResult<ExactArithReport> {
     let ir = r#"
-%DecInt = type { i8, i64 }
-
 declare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)
 declare i128 @llvm.cttz.i128(i128, i1 immarg)
-declare void @aod_rt_int_add(ptr, ptr, ptr, ptr)
+declare i64 @aod_rt_int_add(ptr, i64, i64)
 
 define i64 @probe_i64_checked_add(i64 %n) {
 entry:
@@ -707,25 +705,20 @@ done:
   ret i64 %comb
 }
 
-define void @probe_bigint_spill(ptr %ctx, ptr %init_a, ptr %step_b, i64 %n, ptr %out) {
+define i64 @probe_bigint_spill(ptr %ctx, i64 %init_a, i64 %step_b, i64 %n) {
 entry:
-  %cur = alloca %DecInt, align 8
-  %v0 = load %DecInt, ptr %init_a
-  store %DecInt %v0, ptr %cur
   %z = icmp sle i64 %n, 0
   br i1 %z, label %done, label %loop
 loop:
   %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
-  call void @aod_rt_int_add(ptr %ctx, ptr %cur, ptr %step_b, ptr %out)
-  %nxt = load %DecInt, ptr %out
-  store %DecInt %nxt, ptr %cur
+  %cur = phi i64 [ %init_a, %entry ], [ %nxt, %loop ]
+  %nxt = call i64 @aod_rt_int_add(ptr %ctx, i64 %cur, i64 %step_b)
   %i_next = add nsw i64 %i, 1
   %more = icmp slt i64 %i_next, %n
   br i1 %more, label %loop, label %done
 done:
-  %fin = load %DecInt, ptr %cur
-  store %DecInt %fin, ptr %out
-  ret void
+  %fin = phi i64 [ %init_a, %entry ], [ %nxt, %loop ]
+  ret i64 %fin
 }
 "#;
     let sess = OrcJitSession::compile_named_with_plan(ir, &CodegenPlan::baseline_o2(), None)?;
@@ -735,7 +728,7 @@ done:
         unsafe { std::mem::transmute(sess.lookup_symbol_addr("probe_t32_checked_add")? as usize) };
     let f_rat: unsafe extern "C" fn(i64) -> i64 =
         unsafe { std::mem::transmute(sess.lookup_symbol_addr("probe_ratio_inline_gcd")? as usize) };
-    let f_big: unsafe extern "C" fn(*mut aod_rt::abi::AodRtContext, *const DecInt, *const DecInt, i64, *mut DecInt) =
+    let f_big: unsafe extern "C" fn(*mut aod_rt::abi::AodRtContext, u64, u64, i64) -> u64 =
         unsafe { std::mem::transmute(sess.lookup_symbol_addr("probe_bigint_spill")? as usize) };
 
     let n_fast: i64 = 50_000;
@@ -749,19 +742,18 @@ done:
         return Err(LlvmError::new("probe_i64_checked_add verification mismatch"));
     }
 
-    // 2. t32 checked add
-    let mut ref_t32 = T32::new(0).unwrap();
+    // 2. Inline 32-trit shadow-ALU checked add
+    let mut ref_t32: i64 = 0;
     for i in 0..n_fast {
-        ref_t32 = ref_t32
-            .checked_add(T32::new(((i & 7) - 3) as i128).unwrap())
-            .unwrap();
+        ref_t32 += (i & 7) - 3;
+        debug_assert!((-T32_LIMIT..=T32_LIMIT).contains(&ref_t32));
     }
     let (got_t32, ns_t32, _) = time_closure(|| unsafe { f_t32(n_fast) });
-    if got_t32 != ref_t32.value() as i64 {
+    if got_t32 != ref_t32 {
         return Err(LlvmError::new("probe_t32_checked_add verification mismatch"));
     }
 
-    // 3. ratio inline binary GCD
+    // 3. ratio inline GCD
     let mut ref_r = Ratio::from_i64(0, 1).unwrap();
     for i in 0..n_rat {
         ref_r = &ref_r + &Ratio::from_i64(i & 7, 8).unwrap();
@@ -772,25 +764,21 @@ done:
         return Err(LlvmError::new("probe_ratio_inline_gcd verification mismatch"));
     }
 
-    // 4. BigInt spill add via real `aod_rt_int_add`
+    // 4. BigTrit 1-GPR `0b11` spill add via real `aod_rt_int_add`
     let mut rt_ctx = OwnedRtContext::new(100_000, 64, true);
-    let init_a = DecInt {
-        tag: 0,
-        val: i64::MAX,
-    };
-    let step_b = DecInt { tag: 0, val: 1 };
-    let mut out_d = DecInt::ZERO;
-    let (_, ns_big, _) = time_closure(|| unsafe {
-        f_big(rt_ctx.as_mut_ptr(), &init_a, &step_b, n_big, &mut out_d);
+    let init_a = unsafe { aod_rt_int_from_i64(rt_ctx.as_mut_ptr(), T32_LIMIT) };
+    let step_b = fast_pack_t32(1);
+    let (out_w, ns_big, _) = time_closure(|| unsafe {
+        f_big(rt_ctx.as_mut_ptr(), init_a, step_b, n_big)
     });
     if rt_ctx.failed() {
         return Err(LlvmError::new("probe_bigint_spill runtime error"));
     }
     let got_big = rt_ctx
         .state()
-        .get_bigint(out_d.tag, out_d.val)
+        .unpack_dec_int(out_w)
         .map_err(LlvmError::new)?;
-    let expected_big = &BigInt::from_i64(i64::MAX) + &BigInt::from_i64(n_big);
+    let expected_big = &BigInt::from_i64(T32_LIMIT) + &BigInt::from_i64(n_big);
     if got_big != expected_big {
         return Err(LlvmError::new("probe_bigint_spill verification mismatch"));
     }

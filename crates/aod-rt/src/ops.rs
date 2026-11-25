@@ -1,12 +1,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
+use std::path::Path;
 
 use aod_core::bigint::BigInt;
 use aod_core::ledger::{probability, SadarPromotion};
 use aod_core::qext::{parse_decimal_exact, QExtRatio};
 use aod_core::ratio::Ratio;
+use aod_core::sha256::Sha256;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, Q4, T1, T32};
+use aod_core::ternary::{Addr8, B64, B8, Q4, T1};
+use aod_core::trit_int::{
+    SUBTAG_MASK, TAG_ABSENT_PREFIX, TAG_NULL_SENTINEL, TAG_PAYLOAD_MASK, TAG_SPILL_PREFIX,
+    TOP_TAG_MASK, TritInt,
+};
 use aod_core::wavelet::{
     declare_synthetic_lineage_registry, deduplicated_return_count, native_cadence_ratio,
     AdmittedClosureRecord, M3ClosureTrace, RecipientContext, RecipientLattice, RecipientStage,
@@ -21,6 +27,9 @@ use crate::sim::{
     ProbeKind, ReferenceClock, SensorCurrentSummary, SimRunResult, WallPolicy,
 };
 use crate::value::{recipient_stage_name, RtEnumValue, RtMapKey, RtStructValue, RtValue};
+
+/// Maximum file size permitted across capability-gated `aod::sys` bootstrap I/O (`64 MiB`).
+pub const MAX_SYS_IO_BYTES: usize = 64 * 1024 * 1024;
 
 /// Pending simulation configuration built incrementally before `aod_rt_sim_run`.
 #[derive(Clone, Debug)]
@@ -41,6 +50,7 @@ pub struct RtState {
     pub arena: RtArena,
     pub sim_builders: Vec<SimBuilder>,
     pub emits: Vec<String>,
+    pub cli_args: Vec<Vec<u8>>,
     pub error: Option<String>,
     pub capture_stdout: bool,
 }
@@ -51,6 +61,7 @@ impl RtState {
             arena: RtArena::new(max_arena_entries),
             sim_builders: Vec::new(),
             emits: Vec::new(),
+            cli_args: Vec::new(),
             error: None,
             capture_stdout,
         }
@@ -76,43 +87,70 @@ impl RtState {
         }
     }
 
-    pub fn get_bigint(&self, tag: u8, val: i64) -> Result<BigInt, String> {
-        match tag {
-            0 => Ok(BigInt::from_i64(val)),
-            1 => match self.arena.get(val as u64)? {
-                RtValue::Int(n) => Ok(n.clone()),
-                other => Err(format!("expected BigInt handle, got {}", other.render())),
-            },
-            other => Err(format!("invalid DecInt tag {other}")),
+    /// Decode a 1-GPR Trit-Boxed `DecInt` word (`w < 0xC000...` inline 32-trit, `0xD000...` arena spill).
+    pub fn unpack_dec_int(&self, word: u64) -> Result<BigInt, String> {
+        if word < TOP_TAG_MASK {
+            TritInt::from_inline_word(word).map_err(|e| e.to_string())
+        } else {
+            match word & SUBTAG_MASK {
+                TAG_SPILL_PREFIX => {
+                    let handle = word & TAG_PAYLOAD_MASK;
+                    match self.arena.get(handle)? {
+                        RtValue::Int(n) => Ok(n.clone()),
+                        other => Err(format!("expected spilled int handle, got {}", other.render())),
+                    }
+                }
+                w if word == TAG_NULL_SENTINEL || w == TAG_NULL_SENTINEL => {
+                    Err("unexpected Null sentinel in int register".to_string())
+                }
+                TAG_ABSENT_PREFIX => {
+                    Err("unexpected structural absence S_k^{+,-e} sentinel in int register".to_string())
+                }
+                _ => Err(format!("trapped or invalid 0b11 DecInt word 0x{word:016x}")),
+            }
         }
     }
 
-    pub fn pack_bigint(&mut self, n: BigInt) -> Result<(u8, i64), String> {
-        if let Some(i) = n.to_i64() {
-            Ok((0, i))
+    /// Encode an exact `BigInt` (`TritInt`) into a 1-GPR Trit-Boxed `u64` word.
+    pub fn pack_dec_int(&mut self, n: BigInt) -> Result<u64, String> {
+        if let Some(w) = n.inline_word() {
+            Ok(w)
         } else {
             let h = self.arena.insert(RtValue::Int(n))?;
-            Ok((1, h as i64))
+            if h > TAG_PAYLOAD_MASK {
+                return Err("arena handle exceeded 60-bit 0b11 tag payload".to_string());
+            }
+            Ok(TAG_SPILL_PREFIX | h)
         }
     }
 
-    pub fn get_ratio(&self, tag: u8, num: i64, den: i64) -> Result<Ratio, String> {
-        match tag {
-            0 => Ratio::from_i64(num, den).map_err(|e| e.to_string()),
-            1 => match self.arena.get(num as u64)? {
+    /// Decode 2-GPR `DecRatio` words `(num, den)` (`(num | den) < 0xC000...` inline, `0xD000...` spill).
+    pub fn unpack_dec_ratio(&self, num: u64, den: u64) -> Result<Ratio, String> {
+        if (num | den) < TOP_TAG_MASK {
+            Ratio::from_inline_words_reduced(num, den).map_err(|e| e.to_string())
+        } else if (num & SUBTAG_MASK) == TAG_SPILL_PREFIX && den == 0 {
+            let handle = num & TAG_PAYLOAD_MASK;
+            match self.arena.get(handle)? {
                 RtValue::Ratio(r) => Ok(r.clone()),
-                other => Err(format!("expected Ratio handle, got {}", other.render())),
-            },
-            other => Err(format!("invalid DecRatio tag {other}")),
+                other => Err(format!("expected spilled ratio handle, got {}", other.render())),
+            }
+        } else {
+            Err(format!(
+                "invalid DecRatio words (num=0x{num:016x}, den=0x{den:016x})"
+            ))
         }
     }
 
-    pub fn pack_ratio(&mut self, r: Ratio) -> Result<(u8, i64, i64), String> {
-        if let (Some(n), Some(d)) = (r.num().to_i64(), r.den().to_i64()) {
-            Ok((0, n, d))
+    /// Encode a canonical `Ratio` into 2-GPR `(num, den)` words.
+    pub fn pack_dec_ratio(&mut self, r: Ratio) -> Result<(u64, u64), String> {
+        if let Some((nw, dw)) = r.inline_words() {
+            Ok((nw, dw))
         } else {
             let h = self.arena.insert(RtValue::Ratio(r))?;
-            Ok((1, h as i64, 0))
+            if h > TAG_PAYLOAD_MASK {
+                return Err("arena handle exceeded 60-bit 0b11 tag payload".to_string());
+            }
+            Ok((TAG_SPILL_PREFIX | h, 0))
         }
     }
 
@@ -120,6 +158,13 @@ impl RtState {
         match self.arena.get(handle)? {
             RtValue::Str(s) => Ok(s.as_str()),
             other => Err(format!("expected str handle, got {}", other.render())),
+        }
+    }
+
+    pub fn get_bytes(&self, handle: u64) -> Result<&[u8], String> {
+        match self.arena.get(handle)? {
+            RtValue::Bytes(bs) => Ok(bs.as_slice()),
+            other => Err(format!("expected bytes handle, got {}", other.render())),
         }
     }
 
@@ -172,38 +217,164 @@ impl RtState {
         }
     }
 
-    // --- Safe high-level operations invoked from abi.rs ---
+    // --- Sequence, Array, Bytes, & Map operations ---
 
-    pub fn op_list_get(&self, list_h: u64, idx: &BigInt) -> Result<RtValue, String> {
+    pub fn op_seq_get(&self, seq_h: u64, idx: &BigInt) -> Result<RtValue, String> {
         let i = idx
             .to_i64()
-            .ok_or_else(|| format!("list index {idx} out of i64 range"))?;
-        match self.arena.get(list_h)? {
+            .ok_or_else(|| format!("index {idx} out of i64 range"))?;
+        match self.arena.get(seq_h)? {
+            RtValue::Array(items) | RtValue::List(items) => {
+                if i < 0 || (i as usize) >= items.len() {
+                    return Err(format!("index {i} out of bounds"));
+                }
+                Ok(items[i as usize].clone())
+            }
+            RtValue::Bytes(bs) => {
+                if i < 0 || (i as usize) >= bs.len() {
+                    return Err(format!("bytes index {i} out of bounds"));
+                }
+                Ok(RtValue::B8(B8(bs[i as usize])))
+            }
+            other => Err(format!("indexing unsupported on {}", other.render())),
+        }
+    }
+
+    pub fn op_array_set(&mut self, arr_h: u64, idx: &BigInt, val_h: u64) -> Result<u64, String> {
+        let i = idx
+            .to_i64()
+            .ok_or_else(|| format!("index {idx} out of i64 range"))?;
+        let new_val = self.arena.get(val_h)?.clone();
+        match self.arena.get(arr_h)? {
+            RtValue::Array(items) => {
+                if i < 0 || (i as usize) >= items.len() {
+                    return Err(format!("array index {i} out of bounds"));
+                }
+                let mut cloned = items.clone();
+                cloned[i as usize] = new_val;
+                self.arena.insert(RtValue::Array(cloned))
+            }
             RtValue::List(items) => {
                 if i < 0 || (i as usize) >= items.len() {
                     return Err(format!("list index {i} out of bounds"));
                 }
-                Ok(items[i as usize].clone())
+                let mut cloned = items.clone();
+                cloned[i as usize] = new_val;
+                self.arena.insert(RtValue::List(cloned))
             }
-            other => Err(format!("expected list handle, got {}", other.render())),
+            other => Err(format!("expected array or list handle, got {}", other.render())),
         }
     }
 
-    /// Deep-copy / copy-on-write list update returning a NEW arena handle (`P0-3`).
-    pub fn op_list_set(&mut self, list_h: u64, idx: &BigInt, val_h: u64) -> Result<u64, String> {
-        let i = idx
+    pub fn op_bytes_slice(&mut self, b_h: u64, start: &BigInt, end: &BigInt) -> Result<u64, String> {
+        let bs = self.get_bytes(b_h)?;
+        let s = start
             .to_i64()
-            .ok_or_else(|| format!("list index {idx} out of i64 range"))?;
-        let new_val = self.arena.get(val_h)?.clone();
-        let mut cloned = match self.arena.get(list_h)? {
-            RtValue::List(items) => items.clone(),
-            other => return Err(format!("expected list handle, got {}", other.render())),
-        };
-        if i < 0 || (i as usize) >= cloned.len() {
-            return Err(format!("list index {i} out of bounds"));
+            .ok_or_else(|| format!("slice start {start} out of range"))?;
+        let e = end
+            .to_i64()
+            .ok_or_else(|| format!("slice end {end} out of range"))?;
+        if s < 0 || e < s || (e as usize) > bs.len() {
+            return Err(format!(
+                "slice_bytes({s}, {e}) out of bounds for length {}",
+                bs.len()
+            ));
         }
-        cloned[i as usize] = new_val;
-        self.arena.insert(RtValue::List(cloned))
+        let sliced = bs[s as usize..e as usize].to_vec();
+        self.arena.insert(RtValue::Bytes(sliced))
+    }
+
+    pub fn op_bytes_concat(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let a = self.get_bytes(a_h)?;
+        let b = self.get_bytes(b_h)?;
+        let mut out = Vec::with_capacity(a.len() + b.len());
+        out.extend_from_slice(a);
+        out.extend_from_slice(b);
+        self.arena.insert(RtValue::Bytes(out))
+    }
+
+    pub fn op_bytes_sha256(&mut self, b_h: u64) -> Result<u64, String> {
+        let bs = self.get_bytes(b_h)?;
+        let digest = Sha256::digest(bs);
+        self.arena.insert(RtValue::Bytes(digest.to_vec()))
+    }
+
+    pub fn op_bytes_hex(&mut self, b_h: u64) -> Result<u64, String> {
+        let bs = self.get_bytes(b_h)?;
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let mut out = Vec::with_capacity(bs.len() * 2);
+        for &byte in bs {
+            out.push(HEX[(byte >> 4) as usize]);
+            out.push(HEX[(byte & 0x0F) as usize]);
+        }
+        self.arena.insert(RtValue::Bytes(out))
+    }
+
+    pub fn op_sys_cli_args(&mut self) -> Result<u64, String> {
+        let items: Vec<RtValue> = self
+            .cli_args
+            .iter()
+            .cloned()
+            .map(RtValue::Bytes)
+            .collect();
+        self.arena.insert(RtValue::List(items))
+    }
+
+    pub fn op_sys_read_file_bytes(&mut self, path_h: u64) -> Result<u64, String> {
+        let raw_path = self.get_bytes(path_h)?;
+        if raw_path.is_empty() || raw_path.contains(&0) {
+            return Err("invalid empty or NUL-containing file path".to_string());
+        }
+        let path_str = std::str::from_utf8(raw_path)
+            .map_err(|_| "file path must be valid UTF-8".to_string())?;
+        let meta = std::fs::metadata(path_str)
+            .map_err(|e| format!("failed to stat {path_str:?}: {e}"))?;
+        if meta.len() > (MAX_SYS_IO_BYTES as u64) {
+            return Err(format!(
+                "file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
+            ));
+        }
+        let data = std::fs::read(path_str)
+            .map_err(|e| format!("failed to read {path_str:?}: {e}"))?;
+        if data.len() > MAX_SYS_IO_BYTES {
+            return Err(format!(
+                "file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
+            ));
+        }
+        self.arena.insert(RtValue::Bytes(data))
+    }
+
+    pub fn op_sys_write_executable_elf(&mut self, path_h: u64, img_h: u64) -> Result<BigInt, String> {
+        let path_bytes = self.get_bytes(path_h)?.to_vec();
+        let img = self.get_bytes(img_h)?.to_vec();
+        if path_bytes.is_empty() || path_bytes.contains(&0) {
+            return Err("invalid empty or NUL-containing output ELF path".to_string());
+        }
+        if img.len() < 64 || &img[0..4] != b"\x7FELF" {
+            return Err("write_executable_elf requires a valid ELF64 header (\\x7FELF)".to_string());
+        }
+        if img.len() > MAX_SYS_IO_BYTES {
+            return Err(format!(
+                "ELF image exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
+            ));
+        }
+        let path_str = std::str::from_utf8(&path_bytes)
+            .map_err(|_| "output ELF path must be valid UTF-8".to_string())?;
+        let target = Path::new(path_str);
+        if let Ok(meta) = std::fs::symlink_metadata(target) {
+            if meta.file_type().is_symlink() {
+                return Err(format!("refusing to overwrite symlink {path_str:?}"));
+            }
+        }
+        std::fs::write(target, &img)
+            .map_err(|e| format!("failed to write ELF {path_str:?}: {e}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(target, std::fs::Permissions::from_mode(0o755))
+                .map_err(|e| format!("failed to chmod +x {path_str:?}: {e}"))?;
+        }
+        Ok(BigInt::from_u64(img.len() as u64))
     }
 
     pub fn op_map_get(&self, map_h: u64, key_h: u64) -> Result<RtValue, String> {
@@ -218,7 +389,6 @@ impl RtState {
         }
     }
 
-    /// Deep-copy / copy-on-write map update returning a NEW arena handle (`P0-3`).
     pub fn op_map_set(&mut self, map_h: u64, key_h: u64, val_h: u64) -> Result<u64, String> {
         let kv = self.arena.get(key_h)?.clone();
         let vv = self.arena.get(val_h)?.clone();
@@ -240,20 +410,6 @@ impl RtState {
         }
     }
 
-    /// Deep-copy / copy-on-write struct field update returning a NEW arena handle (`P0-3`).
-    pub fn op_struct_set(&mut self, s_h: u64, field: &str, val_h: u64) -> Result<u64, String> {
-        let new_val = self.arena.get(val_h)?.clone();
-        let mut cloned = match self.arena.get(s_h)? {
-            RtValue::Struct(sv) => (**sv).clone(),
-            other => return Err(format!("expected struct handle, got {}", other.render())),
-        };
-        if !cloned.fields.contains_key(field) {
-            return Err(format!("no field .{field} on struct {}", cloned.name));
-        }
-        cloned.fields.insert(field.to_string(), new_val);
-        self.arena.insert(RtValue::Struct(Box::new(cloned)))
-    }
-
     pub fn op_field_get(&mut self, h: u64, field: &str) -> Result<RtValue, String> {
         let val = self.arena.get(h)?.clone();
         match (val, field) {
@@ -262,6 +418,51 @@ impl RtState {
                 .get(f)
                 .cloned()
                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name)),
+            // Struct-field array projection (`bins.t0` across `[Struct; N]` or `[Struct]`):
+            (RtValue::Array(items), f) => {
+                let mut projected = Vec::with_capacity(items.len());
+                for item in items {
+                    match item {
+                        RtValue::Struct(sv) => {
+                            let fv = sv
+                                .fields
+                                .get(f)
+                                .cloned()
+                                .ok_or_else(|| format!("no field .{f} on struct {}", sv.name))?;
+                            projected.push(fv);
+                        }
+                        other => {
+                            return Err(format!(
+                                "cannot project field .{f} on array element {}",
+                                other.render()
+                            ));
+                        }
+                    }
+                }
+                Ok(RtValue::Array(projected))
+            }
+            (RtValue::List(items), f) => {
+                let mut projected = Vec::with_capacity(items.len());
+                for item in items {
+                    match item {
+                        RtValue::Struct(sv) => {
+                            let fv = sv
+                                .fields
+                                .get(f)
+                                .cloned()
+                                .ok_or_else(|| format!("no field .{f} on struct {}", sv.name))?;
+                            projected.push(fv);
+                        }
+                        other => {
+                            return Err(format!(
+                                "cannot project field .{f} on slice element {}",
+                                other.render()
+                            ));
+                        }
+                    }
+                }
+                Ok(RtValue::List(projected))
+            }
             (RtValue::SimResult(s), "model_status") => Ok(RtValue::Str(s.model_status)),
             (RtValue::SimResult(s), "chamber_name") => Ok(RtValue::Str(s.chamber_name)),
             (RtValue::SimResult(s), "final_state_hash") => Ok(RtValue::Str(s.final_state_hash)),
@@ -356,6 +557,14 @@ impl RtState {
                 RtValue::Int(BigInt::from_i64(u)),
                 RtValue::Int(BigInt::from_i64(v)),
             ]),
+            RtValue::Array(xs) => {
+                let diff = finite_diff_values(&xs)?;
+                RtValue::Array(diff)
+            }
+            RtValue::List(xs) => {
+                let diff = finite_diff_values(&xs)?;
+                RtValue::List(diff)
+            }
             other => return Err(format!("boundary_of unsupported on {}", other.render())),
         };
         self.arena.insert(out)
@@ -364,7 +573,8 @@ impl RtState {
     pub fn op_len(&self, h: u64) -> Result<BigInt, String> {
         match self.arena.get(h)? {
             RtValue::Str(s) => Ok(BigInt::from_u64(s.chars().count() as u64)),
-            RtValue::List(xs) => Ok(BigInt::from_u64(xs.len() as u64)),
+            RtValue::Bytes(bs) => Ok(BigInt::from_u64(bs.len() as u64)),
+            RtValue::Array(xs) | RtValue::List(xs) => Ok(BigInt::from_u64(xs.len() as u64)),
             RtValue::Map(m) => Ok(BigInt::from_u64(m.len() as u64)),
             other => Err(format!("len unsupported on {}", other.render())),
         }
@@ -380,7 +590,7 @@ impl RtState {
         let lin = self.get_str(lin_h)?;
         let scope = self.get_str(scope_h)?;
         let cuts = match self.arena.get(cuts_h)? {
-            RtValue::List(items) => {
+            RtValue::List(items) | RtValue::Array(items) => {
                 let mut v = Vec::with_capacity(items.len());
                 for it in items {
                     match it {
@@ -392,10 +602,10 @@ impl RtState {
                 }
                 v
             }
-            other => return Err(format!("expected list of cuts, got {}", other.render())),
+            other => return Err(format!("expected sequence of cuts, got {}", other.render())),
         };
         let wins = match self.arena.get(wins_h)? {
-            RtValue::List(items) => {
+            RtValue::List(items) | RtValue::Array(items) => {
                 let mut v = Vec::with_capacity(items.len());
                 for it in items {
                     match it {
@@ -405,7 +615,7 @@ impl RtState {
                 }
                 v
             }
-            other => return Err(format!("expected list of windows, got {}", other.render())),
+            other => return Err(format!("expected sequence of windows, got {}", other.render())),
         };
         let (witnesses, reg) =
             declare_synthetic_lineage_registry(lin, scope, &cuts, 0, "native_cut", None)
@@ -743,7 +953,13 @@ impl RtState {
     }
 
     pub fn op_qext_ext_decimal(&mut self, str_h: u64) -> Result<u64, String> {
-        let s = self.get_str(str_h)?.to_string();
+        let s = match self.arena.get(str_h)? {
+            RtValue::Str(s) => s.clone(),
+            RtValue::Bytes(bs) => std::str::from_utf8(bs)
+                .map_err(|_| "ext_decimal bytes must be ASCII".to_string())?
+                .to_string(),
+            other => return Err(format!("expected str or bytes in ext_decimal, got {}", other.render())),
+        };
         let q = parse_decimal_exact(&s).map_err(|e| e.to_string())?;
         self.arena.insert(RtValue::QExtRatio(q))
     }
@@ -798,6 +1014,30 @@ impl RtState {
     }
 }
 
+fn finite_diff_values(xs: &[RtValue]) -> Result<Vec<RtValue>, String> {
+    if xs.len() < 2 {
+        return Err("finite difference (∂) requires at least 2 elements".to_string());
+    }
+    let mut out = Vec::with_capacity(xs.len() - 1);
+    for w in xs.windows(2) {
+        let d = match (&w[0], &w[1]) {
+            (RtValue::Int(a), RtValue::Int(b)) => RtValue::Int(b - a),
+            (RtValue::Ratio(a), RtValue::Ratio(b)) => RtValue::Ratio(b - a),
+            (RtValue::T1(a), RtValue::T1(b)) => {
+                RtValue::T1(b.checked_sub(*a).map_err(|e| e.to_string())?)
+            }
+            (other_a, _) => {
+                return Err(format!(
+                    "finite difference (∂) requires numeric elements, got {}",
+                    other_a.render()
+                ));
+            }
+        };
+        out.push(d);
+    }
+    Ok(out)
+}
+
 fn builder_idx(handle: u64, len: usize) -> Result<usize, String> {
     if handle == 0 || (handle as usize) > len {
         return Err(format!("invalid simulation builder handle {handle}"));
@@ -811,15 +1051,27 @@ pub fn exact_t1(v: &BigInt) -> Result<i8, String> {
         .map_err(|e| e.to_string())
 }
 
-pub fn exact_t32(v: &BigInt) -> Result<i64, String> {
-    T32::from_bigint(v)
-        .map(|t| t.value() as i64)
-        .map_err(|e| e.to_string())
-}
-
 pub fn exact_q4(v: &BigInt) -> Result<i8, String> {
     Q4::from_bigint(v)
         .map(|q| q.value() as i8)
+        .map_err(|e| e.to_string())
+}
+
+pub fn exact_b8(v: &BigInt) -> Result<u8, String> {
+    B8::from_int(v)
+        .map(B8::value)
+        .map_err(|e| e.to_string())
+}
+
+pub fn exact_b64_from_trit_int(v: &BigInt) -> Result<u64, String> {
+    B64::from_trit_int(v)
+        .map(B64::value)
+        .map_err(|e| e.to_string())
+}
+
+pub fn exact_trit_int_from_b64(bits: u64) -> Result<BigInt, String> {
+    B64::new(bits)
+        .to_trit_int()
         .map_err(|e| e.to_string())
 }
 
@@ -829,12 +1081,6 @@ pub fn exact_addr8_parse(s: &str) -> Result<Addr8, String> {
 
 pub fn exact_support_parse(s: &str) -> Result<SupportForm, String> {
     SupportForm::parse(s).map_err(|e| e.to_string())
-}
-
-pub fn exact_t32_unpack_bigint(bits: &BigInt) -> Result<i64, String> {
-    T32::unpack_bigint(bits)
-        .map(|t| t.value() as i64)
-        .map_err(|e| e.to_string())
 }
 
 pub fn exact_trace_new(sc: &str, lin: &str, q4: i8) -> Result<Trace, String> {
