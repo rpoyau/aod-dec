@@ -3,11 +3,13 @@
 # cross-module `quarantine Q_ext` access, exact canonical reduced rationals (`P1-2`),
 # prop:m3-atomic-gain identifiability countermodels, Hellwig H-maser midpoint, and separate NIST-F2 budgets.
 
-use aod::qext::{qext_from_ratio, qext_render}
+use aod::qext:
+    qext_from_ratio, qext_render
 use stdlib::aod::metrology
-use stdlib::aod::metrology::{observed_advance, atomic_gain_family, SiMetrology}
+use stdlib::aod::metrology:
+    observed_advance, atomic_gain_family, SiMetrology
 
-Dec main() -> int:
+dec main() -> int:
     # 1. Purely native turn advances and prop:m3-atomic-gain countermodels (zero SI constants!)
     let a_cmp_10_22 = observed_advance(4, 2/3r, 1/6r)
     let a_ref_10_22 = observed_advance(8, 1/4r, 3/4r)
@@ -81,4 +83,4 @@ Dec main() -> int:
         emit qext_render(aug_ua_hz)
         emit qext_render(aug_ub_hz)
         emit qext_render(tab1_ub_hz)
-    return 0
+    0

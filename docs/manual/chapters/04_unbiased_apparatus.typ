@@ -4,7 +4,7 @@
 = Unbiased Chamber Sandbox Apparatus <sec:apparatus>
 
 #aod-paragraph("Setup.")
-Dec v2 provides first-class declarative apparatus blocks (`chamber`, `prepare`, `observe`, `simulate`)
+Dec provides first-class declarative apparatus blocks (`chamber`, `prepare`, `observe`, `simulate`)
 backed by a shared deterministic sandbox engine in `crates/aod-rt/src/sim.rs`. Both the Exact Reference VM
 and compiled native binaries invoke the exact same sandbox stepper so tick transitions, carrier shedding,
 hinge saturation (#mainsection("main:sec:afc-stokes-seed"), #mainequation("main:eq:hinge-saturation")),
@@ -21,7 +21,7 @@ byte-identical across all five execution modes.
 
 #aod-paragraph("Derivation.")
 In `06_unbiased_chamber_sandbox.dec`, two opposing `3:3:6` supports (`proton_support()`) are injected inside
-`box([0..64, 0..64, 0..64])` with open walls and stepped for `12` ticks under three observer configurations:
+`box([0..64, 0..64, 0..64])` with open walls and stepped across `12` ticks under three observer configurations:
 zero observers (`r0`), one declarative sensor (`r1`), and combined declarative plus procedural read-only
 observers (`r2`). As illustrated in #figref("fig:sandbox-chamber"), the read-only firewall ensures all
 three runs produce identical SHA-256 final state hashes (`0` bytes of observer back-reaction).
@@ -46,15 +46,15 @@ observe PassiveEye:
     tracer count_eye(view):
         let _k = view.carrier_count
 
-Dec main() -> int:
-    let a = simulate SingleCarrier for 4 ticks
-    let b = simulate SingleCarrier for 4 ticks with PassiveEye
+dec main() -> int:
+    let a = simulate SingleCarrier over 4 ticks
+    let b = simulate SingleCarrier over 4 ticks with PassiveEye
     assert a.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
     assert a.final_state_hash == b.final_state_hash
     emit a.model_status
     emit a.ticks
     emit a.carrier_count
-    return 0
+    0
 ```
 
 ```dec-expect

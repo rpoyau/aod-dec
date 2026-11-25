@@ -1,10 +1,11 @@
 # AOD Manual Fixture 07 — S2 SPARC G0 Exact Bins, Cycle Shedding, & MAP-21 BigInt Variance
 # Exercises RC-014, RC-015, RC-016 (negative Vgas), and RC-024 (18-digit BigInt denominator)
-# purely in native Dec v2 with zero floating-point arithmetic.
+# purely in native Dec with zero floating-point arithmetic.
 
-use stdlib::aod::sectors::{sparc_bin_eval, cycle_shedding_step, map21_eval}
+use stdlib::aod::sectors:
+    sparc_bin_eval, cycle_shedding_step, map21_eval
 
-Dec main() -> int:
+dec main() -> int:
     # 1. SPARC row 0 (RC-015): exact sigma_U = 13867/100 (vs legacy float 138.67000000000002)
     let r0 = sparc_bin_eval(16/100r, 245/10r, 283/100r, 0/1r, 2321/100r, 0/1r)
     assert r0.u_obs == 2401/4r
@@ -52,4 +53,4 @@ Dec main() -> int:
     emit m21.output_mean
     emit m21.output_variance
     emit m21.linearized_variance_diagnostic
-    return 0
+    0

@@ -18,7 +18,6 @@ use aod_core::s4_report::{
     MAX_S4_INPUT_BYTES, S4_BASE_COMMIT_BINDING, S4_BINDING_ID, S4_CYCLE_SHEDDING_CSV_REL,
     S4_REPORT_SCHEMA,
 };
-use aodc::diagnostics::CompatMode;
 use aodc::eval::{Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::ir::loads_ir;
 use aodc::{
@@ -776,16 +775,14 @@ fn ac10_pure_dec_90tick_fixture_exact_csv_parity_and_5mode_hermetic_ir() {
     );
 
     // 2. Exact VM parity within DEFAULT_FUEL = 100_000
-    let vm_out = run_file(&dec_path, CompatMode::V2)
-        .unwrap()
-        .to_stdout_string();
+    let vm_out = run_file(&dec_path).unwrap().to_stdout_string();
     assert_eq!(vm_out, expected_stdout);
 
     // 3. AOT -O0 and AOT -O2 parity
     let tmp = TempDirGuard::new("dec10_5mode");
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
         let exe = tmp.path().join(format!("dec10_{tag}"));
-        build_aot_file(&dec_path, CompatMode::V2, opt, &exe).unwrap();
+        build_aot_file(&dec_path, opt, &exe).unwrap();
         let out = Command::new(&exe).output().unwrap();
         assert!(
             out.status.success(),
@@ -798,14 +795,13 @@ fn ac10_pure_dec_90tick_fixture_exact_csv_parity_and_5mode_hermetic_ir() {
     // 4. ORC LLJIT -O0 and -O2 parity within DEFAULT_FUEL
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
         let (stdout, res) =
-            jit_file_captured(&dec_path, CompatMode::V2, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
-                .unwrap();
+            jit_file_captured(&dec_path, opt, DEFAULT_FUEL, DEFAULT_MAX_DEPTH).unwrap();
         res.unwrap_or_else(|e| panic!("JIT -{tag} runtime error: {e}"));
         assert_eq!(stdout, expected_stdout);
     }
 
-    // 5. Hermetic DecIR v2 parity
-    let ir_json = compile_file_to_ir(&dec_path, CompatMode::V2).unwrap();
+    // 5. Hermetic DecIR v3 parity
+    let ir_json = compile_file_to_ir(&dec_path).unwrap();
     let checked = loads_ir(&ir_json).unwrap();
     let ir_out = Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
         .unwrap()
@@ -818,11 +814,11 @@ fn ac10_pure_dec_90tick_fixture_exact_csv_parity_and_5mode_hermetic_ir() {
     let bad_dec = tmp.path().join("bad_len.dec");
     std::fs::write(
         &bad_dec,
-        "use stdlib::aod::sectors::cycle_shedding_trace_summary\n\
-         Dec main() -> int:\n\
+        "use stdlib::aod::sectors:\n    cycle_shedding_trace_summary\n\
+         dec main() -> int:\n\
              let _ = cycle_shedding_trace_summary(0/1r, [1/2r, 1/3r], [1/4r], [1/2r, 1/2r], 41/50r, 11/20r, 19/50r)\n\
-             return 0\n",
+             0\n",
     )
     .unwrap();
-    assert!(run_file(&bad_dec, CompatMode::V2).is_err());
+    assert!(run_file(&bad_dec).is_err());
 }

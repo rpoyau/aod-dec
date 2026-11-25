@@ -1,0 +1,30 @@
+dec scoped_flux(capacity: int, duration: int, window: int, lag: int, intensity: ratio) -> ratio:
+    assert capacity >= 0 and duration >= 0 and window >= 0
+    assert intensity >= 0/1r
+    let participation = select(duration < window, duration, window)
+    ratio(capacity * participation * lag, 1) * intensity
+
+dec oriented_current(value: ratio, source_inside: int, target_inside: int, available: int) -> ratio:
+    assert source_inside == 0 or source_inside == 1
+    assert target_inside == 0 or target_inside == 1
+    assert available == 0 or available == 1
+    select(available == 1, value * ratio(source_inside - target_inside, 1), 0/1r)
+
+dec swept_current(value: ratio, before_inside: int, after_inside: int) -> ratio:
+    assert value >= 0/1r
+    assert before_inside == 0 or before_inside == 1
+    assert after_inside == 0 or after_inside == 1
+    value * ratio(after_inside - before_inside, 1)
+
+dec moving_current(crossing: ratio, sweep: ratio, shedding: ratio) -> ratio:
+    crossing - sweep + shedding
+
+dec main() -> int:
+    let channel = scoped_flux(3, 5, 4, 1, 1/3r)
+    assert channel == 4/1r
+    emit oriented_current(channel, 1, 0, 1)
+    emit oriented_current(channel, 0, 1, 1)
+    emit oriented_current(channel, 1, 1, 1)
+    emit oriented_current(channel, 1, 0, 0)
+    emit moving_current(8/1r, swept_current(3/1r, 0, 1), 2/1r)
+    0

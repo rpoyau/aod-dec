@@ -2,23 +2,14 @@
 # Half-Open Window Dedup, Opposing-Current Cancellation, 6 Recipient Stages,
 # Cadence Guard, and Exact Cyclotomic Z_12 DFT over Q[x]/(x^4 - x^2 + 1)
 
-use aod::wavelet::{
-    window_dedup_count,
-    native_cadence_ratio,
-    single_contact_association,
-    recipient_eval_demo
-}
-use stdlib::aod::wavelet::{
-    DUON_VARIANT_COUNT,
-    DuadSeat,
-    seat_duad,
-    count_cuts_window,
-    cancel_opposing_currents,
-    dft_z12_mode,
-    dft_z12_parseval
-}
+use aod::core::len
+use aod::wavelet:
+    window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
+use stdlib::aod::wavelet:
+    DUON_VARIANT_COUNT, DuadSeat, seat_duad, count_cuts_window,
+    cancel_opposing_currents, dft_z12_mode, dft_z12_parseval
 
-Dec main() -> int:
+dec main() -> int:
     # 1. 12 canonical Duon variants & same-current Duad seating (eq:duad-same-current)
     assert DUON_VARIANT_COUNT == 12
     let seated = seat_duad(1, 1, true)
@@ -85,4 +76,4 @@ Dec main() -> int:
     emit sc.is_cadence_ratio
     emit m3.c0
     emit pars.c0
-    return 0
+    0

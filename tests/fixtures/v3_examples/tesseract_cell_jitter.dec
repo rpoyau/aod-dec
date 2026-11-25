@@ -1,0 +1,88 @@
+# Declared exact cell-transport fixture across 4 retained jitter intervals.
+# Retained jitter schedule SHA-256: 0dfa296c43153b2690e25d0cd565de5ca837542f2aeeb26a2e1ec0e45f49d5ad
+
+struct TransportState:
+    emitter: ratio
+    cells: [ratio; 8]
+    output: ratio
+    loss: ratio
+    injected: ratio
+
+dec step_interval(st: TransportState, mat: [[ratio; 8]; 8]) -> TransportState:
+    let c = st.cells
+    let next_emitter = st.emitter * 3/4r + 1/4r
+    let next_cells: [ratio; 8] = [
+        st.emitter * 1/4r + ((c * mat[0]) |> +/),
+        (c * mat[1]) |> +/,
+        (c * mat[2]) |> +/,
+        (c * mat[3]) |> +/,
+        (c * mat[4]) |> +/,
+        (c * mat[5]) |> +/,
+        (c * mat[6]) |> +/,
+        (c * mat[7]) |> +/,
+    ]
+    let next_output = c[1] * 1/4r + st.output
+    let next_loss = ((c * 1/32r) |> +/) + st.loss
+    let next_injected = st.injected + 1/4r
+    assert next_emitter + (next_cells |> +/) + next_output + next_loss == 1/1r + next_injected
+    TransportState(next_emitter, next_cells, next_output, next_loss, next_injected)
+
+dec emit_cell(x: ratio) -> int:
+    emit x
+    0
+
+dec main() -> int:
+    let m0: [[ratio; 8]; 8] = [
+        [77/128r, 0/1r, 17/256r, 7/128r, 9/128r, 3/64r, 13/256r, 5/64r],
+        [0/1r, 95/256r, 13/256r, 17/256r, 3/64r, 5/64r, 15/256r, 3/64r],
+        [17/256r, 13/256r, 39/64r, 0/1r, 13/256r, 9/128r, 9/128r, 13/256r],
+        [7/128r, 17/256r, 0/1r, 151/256r, 15/256r, 13/256r, 5/64r, 9/128r],
+        [9/128r, 3/64r, 13/256r, 15/256r, 165/256r, 0/1r, 3/64r, 13/256r],
+        [3/64r, 5/64r, 9/128r, 13/256r, 0/1r, 79/128r, 15/256r, 3/64r],
+        [13/256r, 15/256r, 9/128r, 5/64r, 3/64r, 15/256r, 155/256r, 0/1r],
+        [5/64r, 3/64r, 13/256r, 9/128r, 13/256r, 3/64r, 0/1r, 5/8r],
+    ]
+    let m1: [[ratio; 8]; 8] = [
+        [157/256r, 0/1r, 9/128r, 3/64r, 15/256r, 3/64r, 5/64r, 7/128r],
+        [0/1r, 87/256r, 1/16r, 9/128r, 7/128r, 5/64r, 13/256r, 1/16r],
+        [9/128r, 1/16r, 19/32r, 0/1r, 5/64r, 7/128r, 13/256r, 15/256r],
+        [3/64r, 9/128r, 0/1r, 155/256r, 17/256r, 13/256r, 5/64r, 13/256r],
+        [15/256r, 7/128r, 5/64r, 17/256r, 155/256r, 0/1r, 3/64r, 15/256r],
+        [3/64r, 5/64r, 7/128r, 13/256r, 0/1r, 75/128r, 19/256r, 5/64r],
+        [5/64r, 13/256r, 13/256r, 5/64r, 3/64r, 19/256r, 151/256r, 0/1r],
+        [7/128r, 1/16r, 15/256r, 13/256r, 15/256r, 5/64r, 0/1r, 155/256r],
+    ]
+    let m2: [[ratio; 8]; 8] = [
+        [71/128r, 0/1r, 9/128r, 17/256r, 19/256r, 19/256r, 17/256r, 1/16r],
+        [0/1r, 91/256r, 15/256r, 7/128r, 15/256r, 13/256r, 1/16r, 5/64r],
+        [9/128r, 15/256r, 9/16r, 0/1r, 19/256r, 17/256r, 19/256r, 1/16r],
+        [17/256r, 7/128r, 0/1r, 153/256r, 13/256r, 13/256r, 5/64r, 9/128r],
+        [19/256r, 15/256r, 19/256r, 13/256r, 151/256r, 0/1r, 7/128r, 17/256r],
+        [19/256r, 13/256r, 17/256r, 13/256r, 0/1r, 153/256r, 7/128r, 19/256r],
+        [17/256r, 1/16r, 19/256r, 5/64r, 7/128r, 7/128r, 37/64r, 0/1r],
+        [1/16r, 5/64r, 1/16r, 9/128r, 17/256r, 19/256r, 0/1r, 71/128r],
+    ]
+    let m3: [[ratio; 8]; 8] = [
+        [151/256r, 0/1r, 9/128r, 3/64r, 13/256r, 5/64r, 17/256r, 17/256r],
+        [0/1r, 87/256r, 17/256r, 19/256r, 19/256r, 13/256r, 13/256r, 1/16r],
+        [9/128r, 17/256r, 153/256r, 0/1r, 19/256r, 13/256r, 3/64r, 1/16r],
+        [3/64r, 19/256r, 0/1r, 147/256r, 19/256r, 1/16r, 9/128r, 17/256r],
+        [13/256r, 19/256r, 19/256r, 19/256r, 147/256r, 0/1r, 3/64r, 19/256r],
+        [5/64r, 13/256r, 13/256r, 1/16r, 0/1r, 155/256r, 17/256r, 7/128r],
+        [17/256r, 13/256r, 3/64r, 9/128r, 3/64r, 17/256r, 159/256r, 0/1r],
+        [17/256r, 1/16r, 1/16r, 17/256r, 19/256r, 7/128r, 0/1r, 149/256r],
+    ]
+    let init = TransportState(
+        1/1r,
+        [0/1r, 0/1r, 0/1r, 0/1r, 0/1r, 0/1r, 0/1r, 0/1r],
+        0/1r,
+        0/1r,
+        0/1r,
+    )
+    let fin = fold([m0, m1, m2, m3], init, step_interval)
+    emit fin.emitter
+    let _ = each(fin.cells, emit_cell)
+    emit fin.output
+    emit fin.loss
+    emit fin.injected
+    0

@@ -1,13 +1,15 @@
 # Native freeze -> one-way quarantine Q_ext sink smoke fixture (P0-1).
-use aod::qext::{ext_decimal, qext_from_ratio, qext_render}
+use aod::core::ratio
+use aod::qext:
+    ext_decimal, qext_from_ratio, qext_render
 
 quarantine Q_ext ReportCal:
     const SCALE_FACTOR = ext_decimal("1.25")
-    Dec apply_scale(native_ratio: ratio) -> QExt<ratio>:
+    dec apply_scale(native_ratio: ratio) -> QExt<ratio>:
         let lifted = qext_from_ratio(native_ratio)
-        return lifted * SCALE_FACTOR
+        lifted * SCALE_FACTOR
 
-Dec main() -> int:
+dec main() -> int:
     # Frozen immutable native ratio computed strictly in native exact arithmetic
     let frozen_native = 4/5r
     assert frozen_native == ratio(4, 5)
@@ -21,4 +23,4 @@ Dec main() -> int:
         emit qext_render(scaled)
 
     emit frozen_native
-    return 0
+    0

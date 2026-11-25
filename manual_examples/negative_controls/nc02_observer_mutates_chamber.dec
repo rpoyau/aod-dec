@@ -1,7 +1,10 @@
-# Negative Control nc02 — Read-only observer attempting to mutate ChamberView MUST fail!
+# Negative Control nc02 — Read-only observer attempting to strip ReadOnly<ChamberView> MUST fail!
+dec tamper_chamber(v: ChamberView) -> int:
+    v.tick
+
 observe MutatingProbe:
     tracer bad(view):
-        view.tick = 0
+        let _x = tamper_chamber(view)
 
-Dec main() -> int:
-    return 0
+dec main() -> int:
+    0

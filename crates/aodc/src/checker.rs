@@ -2833,7 +2833,14 @@ impl<'a> Checker<'a> {
                 }
             }
             ("push", [xs, elem]) => {
-                let inner_e = match xs.unwrap_read_only() {
+                if xs.is_read_only() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ObserverMutationForbidden,
+                        line,
+                        format!("cannot call push on read-only sequence {xs}"),
+                    ));
+                }
+                let inner_e = match xs {
                     Type::Array(e, _) | Type::List(e) => (**e).clone(),
                     other => {
                         return Err(Diagnostic::at_line(
@@ -2852,6 +2859,7 @@ impl<'a> Checker<'a> {
                 return Ok(Some(Type::List(Box::new(resolved_e))));
             }
             ("concat", [a, b]) => {
+                let is_ro = a.is_read_only() || b.is_read_only();
                 let ea = match a.unwrap_read_only() {
                     Type::Array(e, _) | Type::List(e) => (**e).clone(),
                     other => {
@@ -2880,7 +2888,7 @@ impl<'a> Checker<'a> {
                     enforce_annotation_compatibility(&eb, &ea, line, "concat")?;
                     ea
                 };
-                return Ok(Some(Type::List(Box::new(out_e))));
+                return Ok(Some(Type::List(Box::new(wrap_ro_if_needed(out_e, is_ro)))));
             }
             ("slice", [xs, start, end]) => {
                 if *start.unwrap_read_only() != Type::Int || *end.unwrap_read_only() != Type::Int {
@@ -2890,6 +2898,7 @@ impl<'a> Checker<'a> {
                         "slice(xs, start, end) requires int bounds",
                     ));
                 }
+                let is_ro = xs.is_read_only();
                 let e = match xs.unwrap_read_only() {
                     Type::Array(e, _) | Type::List(e) => (**e).clone(),
                     other => {
@@ -2900,7 +2909,7 @@ impl<'a> Checker<'a> {
                         ));
                     }
                 };
-                return Ok(Some(Type::List(Box::new(e))));
+                return Ok(Some(Type::List(Box::new(wrap_ro_if_needed(e, is_ro)))));
             }
             ("set_at", [xs, idx, val]) => {
                 if xs.is_read_only() {
@@ -2968,6 +2977,35 @@ impl<'a> Checker<'a> {
                         DiagnosticCode::TypeError,
                         line,
                         format!("map_put expects map[K, V], got {other}"),
+                    )),
+                };
+            }
+            ("map_keys", [m]) => {
+                let is_ro = m.is_read_only();
+                return match m.unwrap_read_only() {
+                    Type::Map(kt, _) => {
+                        let elem = wrap_ro_if_needed((**kt).clone(), is_ro);
+                        Ok(Some(Type::List(Box::new(elem))))
+                    }
+                    other => Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("map_keys expects map[K, V], got {other}"),
+                    )),
+                };
+            }
+            ("map_entries", [m]) => {
+                let is_ro = m.is_read_only();
+                return match m.unwrap_read_only() {
+                    Type::Map(kt, vt) => {
+                        let k_out = wrap_ro_if_needed((**kt).clone(), is_ro);
+                        let v_out = wrap_ro_if_needed((**vt).clone(), is_ro);
+                        Ok(Some(Type::List(Box::new(Type::Tuple(vec![k_out, v_out])))))
+                    }
+                    other => Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("map_entries expects map[K, V], got {other}"),
                     )),
                 };
             }
@@ -3601,14 +3639,6 @@ impl<'a> Checker<'a> {
                         {
                             continue;
                         }
-                        if ctx.effect == Effect::ReadOnlyObserver
-                            && types_compatible_with_annotation(
-                                a.unwrap_read_only(),
-                                p.unwrap_read_only(),
-                            )
-                        {
-                            continue;
-                        }
                         if a.is_read_only()
                             && !p.is_read_only()
                             && types_compatible_with_annotation(a.unwrap_read_only(), p)
@@ -3850,21 +3880,21 @@ fn check_mux_types(
             let u1 = unify_branch_types(on_neg, on_zero, line)?;
             unify_branch_types(&u1, on_pos, line)
         }
-        Type::Array(e, n) if **e == Type::T1 => {
-            let b_neg = extract_broadcast_branch(on_neg, Some(*n), line)?;
-            let b_zero = extract_broadcast_branch(on_zero, Some(*n), line)?;
-            let b_pos = extract_broadcast_branch(on_pos, Some(*n), line)?;
-            let u1 = unify_branch_types(&b_neg, &b_zero, line)?;
-            let u2 = unify_branch_types(&u1, &b_pos, line)?;
-            Ok(Type::Array(Box::new(u2), *n))
+        Type::Array(e, n) => {
+            let cr = seq_rank_chk(r);
+            let b_neg = extract_broadcast_branch_ranked(on_neg, cr, Some(*n), line)?;
+            let b_zero = extract_broadcast_branch_ranked(on_zero, cr, Some(*n), line)?;
+            let b_pos = extract_broadcast_branch_ranked(on_pos, cr, Some(*n), line)?;
+            let inner = check_mux_types(e, &b_neg, &b_zero, &b_pos, line)?;
+            Ok(Type::Array(Box::new(inner), *n))
         }
-        Type::List(e) if **e == Type::T1 => {
-            let b_neg = extract_broadcast_branch(on_neg, None, line)?;
-            let b_zero = extract_broadcast_branch(on_zero, None, line)?;
-            let b_pos = extract_broadcast_branch(on_pos, None, line)?;
-            let u1 = unify_branch_types(&b_neg, &b_zero, line)?;
-            let u2 = unify_branch_types(&u1, &b_pos, line)?;
-            Ok(Type::List(Box::new(u2)))
+        Type::List(e) => {
+            let cr = seq_rank_chk(r);
+            let b_neg = extract_broadcast_branch_ranked(on_neg, cr, None, line)?;
+            let b_zero = extract_broadcast_branch_ranked(on_zero, cr, None, line)?;
+            let b_pos = extract_broadcast_branch_ranked(on_pos, cr, None, line)?;
+            let inner = check_mux_types(e, &b_neg, &b_zero, &b_pos, line)?;
+            Ok(Type::List(Box::new(inner)))
         }
         other => Err(Diagnostic::at_line(
             DiagnosticCode::TypeError,
@@ -3887,17 +3917,19 @@ fn check_select_types(
         Type::QExt(inner) if ctx.effect == Effect::QExt && **inner == Type::Bool => {
             unify_branch_types(on_true, on_false, line)
         }
-        Type::Array(e, n) if **e == Type::Bool => {
-            let bt = extract_broadcast_branch(on_true, Some(*n), line)?;
-            let bf = extract_broadcast_branch(on_false, Some(*n), line)?;
-            let u = unify_branch_types(&bt, &bf, line)?;
-            Ok(Type::Array(Box::new(u), *n))
+        Type::Array(e, n) => {
+            let cr = seq_rank_chk(c);
+            let bt = extract_broadcast_branch_ranked(on_true, cr, Some(*n), line)?;
+            let bf = extract_broadcast_branch_ranked(on_false, cr, Some(*n), line)?;
+            let inner = check_select_types(e, &bt, &bf, line, ctx)?;
+            Ok(Type::Array(Box::new(inner), *n))
         }
-        Type::List(e) if **e == Type::Bool => {
-            let bt = extract_broadcast_branch(on_true, None, line)?;
-            let bf = extract_broadcast_branch(on_false, None, line)?;
-            let u = unify_branch_types(&bt, &bf, line)?;
-            Ok(Type::List(Box::new(u)))
+        Type::List(e) => {
+            let cr = seq_rank_chk(c);
+            let bt = extract_broadcast_branch_ranked(on_true, cr, None, line)?;
+            let bf = extract_broadcast_branch_ranked(on_false, cr, None, line)?;
+            let inner = check_select_types(e, &bt, &bf, line, ctx)?;
+            Ok(Type::List(Box::new(inner)))
         }
         other => Err(Diagnostic::at_line(
             DiagnosticCode::TypeError,
@@ -3911,29 +3943,18 @@ fn check_gate_types(cond: &Type, val: &Type, line: usize) -> DecResult<Type> {
     let c = cond.unwrap_read_only();
     let v = val.unwrap_read_only();
     match (c, v) {
-        (Type::Bool, t) if t.is_numeric() => Ok(t.clone()),
-        (Type::Bool, Type::Array(e, n)) if e.is_numeric() => Ok(Type::Array(e.clone(), *n)),
-        (Type::Bool, Type::List(e)) if e.is_numeric() => Ok(Type::List(e.clone())),
-        (Type::Array(ce, n), t) if **ce == Type::Bool && t.is_numeric() => {
-            Ok(Type::Array(Box::new(t.clone()), *n))
+        (Type::Bool, t) if is_numeric_or_numeric_seq(t) => Ok(t.clone()),
+        (Type::Array(ce, n), _) => {
+            let cr = seq_rank_chk(c);
+            let bv = extract_broadcast_branch_ranked(v, cr, Some(*n), line)?;
+            let inner = check_gate_types(ce, &bv, line)?;
+            Ok(Type::Array(Box::new(inner), *n))
         }
-        (Type::Array(ce, n), Type::Array(ve, m)) if **ce == Type::Bool && ve.is_numeric() => {
-            if n != m {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::ShapeMismatch,
-                    line,
-                    format!("gate shape mismatch: [{ce}; {n}] vs [{ve}; {m}]"),
-                ));
-            }
-            Ok(Type::Array(ve.clone(), *n))
-        }
-        (Type::List(ce), t) if **ce == Type::Bool && t.is_numeric() => {
-            Ok(Type::List(Box::new(t.clone())))
-        }
-        (Type::List(ce) | Type::Array(ce, _), Type::List(ve) | Type::Array(ve, _))
-            if **ce == Type::Bool && ve.is_numeric() =>
-        {
-            Ok(Type::List(ve.clone()))
+        (Type::List(ce), _) => {
+            let cr = seq_rank_chk(c);
+            let bv = extract_broadcast_branch_ranked(v, cr, None, line)?;
+            let inner = check_gate_types(ce, &bv, line)?;
+            Ok(Type::List(Box::new(inner)))
         }
         _ => Err(Diagnostic::at_line(
             DiagnosticCode::TypeError,
@@ -3943,7 +3964,31 @@ fn check_gate_types(cond: &Type, val: &Type, line: usize) -> DecResult<Type> {
     }
 }
 
-fn extract_broadcast_branch(branch: &Type, expected_len: Option<usize>, line: usize) -> DecResult<Type> {
+fn seq_rank_chk(ty: &Type) -> usize {
+    match ty.unwrap_read_only() {
+        Type::Array(inner, _) | Type::List(inner) => 1 + seq_rank_chk(inner),
+        _ => 0,
+    }
+}
+
+fn is_numeric_or_numeric_seq(ty: &Type) -> bool {
+    match ty.unwrap_read_only() {
+        t if t.is_numeric() => true,
+        Type::Array(e, _) | Type::List(e) => is_numeric_or_numeric_seq(e),
+        _ => false,
+    }
+}
+
+fn extract_broadcast_branch_ranked(
+    branch: &Type,
+    cond_rank: usize,
+    expected_len: Option<usize>,
+    line: usize,
+) -> DecResult<Type> {
+    let br = seq_rank_chk(branch);
+    if br < cond_rank {
+        return Ok(branch.clone());
+    }
     match (branch.unwrap_read_only(), expected_len) {
         (Type::Array(e, m), Some(n)) => {
             if *m != n {

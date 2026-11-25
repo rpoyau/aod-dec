@@ -1,0 +1,17 @@
+# Equal acquisition spans, two distinct return contacts, and an unwrapped lag.
+dec recur(t: trace) -> trace:
+    let t1 = step(t, q4(1), +1t)
+    let t2 = hinge(t1)
+    let t3 = step(t2, q4(0), -1t)
+    close(t3)
+
+dec main() -> int:
+    let a = dwell(recur(recur(trace("B", "a", q4(0)))))
+    let b = recur(recur(dwell(trace("B", "b", q4(0)))))
+    let pair0 = coupling(a, b, "seven-events")
+    let pair1 = contact(pair0, 3, 4)
+    let pair = contact(pair1, 6, 7)
+    emit cadence(pair)
+    emit lag(pair)
+    emit drift(pair)
+    0

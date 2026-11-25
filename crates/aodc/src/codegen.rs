@@ -6869,6 +6869,30 @@ impl FnBuilder {
                     dec_ty: Type::Map(Box::new(out_k), Box::new(out_v)),
                 }
             }
+            ("map_keys", [Type::Map(kt, _)]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_map_keys_list(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(kt.clone()),
+                }
+            }
+            ("map_entries", [Type::Map(kt, vt)]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_map_entries_list(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(Box::new(Type::Tuple(vec![(**kt).clone(), (**vt).clone()]))),
+                }
+            }
             ("contains", [Type::Map(_, _), _]) => {
                 let kh = self.box_val_to_handle(&vals[1]);
                 let b8 = self.fresh_reg();
@@ -7705,7 +7729,7 @@ const LLVM_MODULE_PREAMBLE: &str = r#"; AOD Dec Clean-Break LLVM 18 Module (Trit
 @.t1_ovf_msg = private unnamed_addr constant [20 x i8] c"t1 addition overflow", align 1
 
 declare i64 @llvm.ctlz.i64(i64, i1 immarg)
-declare i128 @llvm.cttz.i128(i128, i1 immarg)
+declare i64 @llvm.cttz.i64(i64, i1 immarg)
 declare i64 @llvm.ctpop.i64(i64)
 declare i8 @llvm.ctpop.i8(i8)
 
@@ -8184,41 +8208,41 @@ slow:
   ret i64 %rs
 }
 
-define internal i128 @__aod_gcd_u128(i128 %a0, i128 %b0) {
+define internal i64 @__aod_gcd_u64(i64 %a0, i64 %b0) {
 entry:
-  %az = icmp eq i128 %a0, 0
+  %az = icmp eq i64 %a0, 0
   br i1 %az, label %ret_b, label %chk_b
 ret_b:
-  ret i128 %b0
+  ret i64 %b0
 chk_b:
-  %bz = icmp eq i128 %b0, 0
+  %bz = icmp eq i64 %b0, 0
   br i1 %bz, label %ret_a, label %init
 ret_a:
-  ret i128 %a0
+  ret i64 %a0
 init:
-  %za = call i128 @llvm.cttz.i128(i128 %a0, i1 true)
-  %zb = call i128 @llvm.cttz.i128(i128 %b0, i1 true)
-  %lt_z = icmp ult i128 %za, %zb
-  %k = select i1 %lt_z, i128 %za, i128 %zb
-  %u_init = lshr i128 %a0, %za
+  %za = call i64 @llvm.cttz.i64(i64 %a0, i1 true)
+  %zb = call i64 @llvm.cttz.i64(i64 %b0, i1 true)
+  %lt_z = icmp ult i64 %za, %zb
+  %k = select i1 %lt_z, i64 %za, i64 %zb
+  %u_init = lshr i64 %a0, %za
   br label %loop
 loop:
-  %u = phi i128 [ %u_init, %init ], [ %u_next, %step ]
-  %v_raw = phi i128 [ %b0, %init ], [ %diff, %step ]
-  %zv = call i128 @llvm.cttz.i128(i128 %v_raw, i1 true)
-  %v = lshr i128 %v_raw, %zv
-  %gt = icmp ugt i128 %u, %v
-  %u_min = select i1 %gt, i128 %v, i128 %u
-  %v_max = select i1 %gt, i128 %u, i128 %v
-  %diff = sub i128 %v_max, %u_min
-  %done = icmp eq i128 %diff, 0
-  %u_next = add i128 %u_min, 0
+  %u = phi i64 [ %u_init, %init ], [ %u_next, %step ]
+  %v_raw = phi i64 [ %b0, %init ], [ %diff, %step ]
+  %zv = call i64 @llvm.cttz.i64(i64 %v_raw, i1 true)
+  %v = lshr i64 %v_raw, %zv
+  %gt = icmp ugt i64 %u, %v
+  %u_min = select i1 %gt, i64 %v, i64 %u
+  %v_max = select i1 %gt, i64 %u, i64 %v
+  %diff = sub i64 %v_max, %u_min
+  %done = icmp eq i64 %diff, 0
+  %u_next = add i64 %u_min, 0
   br i1 %done, label %exit, label %step
 step:
   br label %loop
 exit:
-  %g = shl i128 %u_min, %k
-  ret i128 %g
+  %g = shl i64 %u_min, %k
+  ret i64 %g
 }
 
 define internal %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %n_in, i128 %d_in) {
@@ -8239,22 +8263,25 @@ canon:
   %nneg = icmp slt i128 %n1, 0
   %nneg_abs = sub i128 0, %n1
   %un = select i1 %nneg, i128 %nneg_abs, i128 %n1
-  %g = call i128 @__aod_gcd_u128(i128 %un, i128 %d1)
-  %rn_u = udiv i128 %un, %g
-  %rd_u = udiv i128 %d1, %g
-  %rn_neg = sub i128 0, %rn_u
-  %rn = select i1 %nneg, i128 %rn_neg, i128 %rn_u
-  %n_ge = icmp sge i128 %rn, -926510094425920
-  %n_le = icmp sle i128 %rn, 926510094425920
-  %d_le = icmp ule i128 %rd_u, 926510094425920
-  %fit1 = and i1 %n_ge, %n_le
-  %fit = and i1 %fit1, %d_le
+  %or_ud = or i128 %un, %d1
+  %hi_ud = lshr i128 %or_ud, 64
+  %fit64 = icmp eq i128 %hi_ud, 0
+  br i1 %fit64, label %gcd64, label %slow
+gcd64:
+  %un64 = trunc i128 %un to i64
+  %d1_64 = trunc i128 %d1 to i64
+  %g = call i64 @__aod_gcd_u64(i64 %un64, i64 %d1_64)
+  %rn_u = udiv i64 %un64, %g
+  %rd_u = udiv i64 %d1_64, %g
+  %u_fit = icmp ule i64 %rn_u, 926510094425920
+  %d_fit = icmp ule i64 %rd_u, 926510094425920
+  %fit = and i1 %u_fit, %d_fit
   br i1 %fit, label %pack, label %slow
 pack:
-  %rn64 = trunc i128 %rn to i64
-  %rd64 = trunc i128 %rd_u to i64
+  %rn_neg = sub i64 0, %rn_u
+  %rn64 = select i1 %nneg, i64 %rn_neg, i64 %rn_u
   %nw = call i64 @__aod_fast_pack_t32(i64 %rn64)
-  %dw = call i64 @__aod_fast_pack_t32(i64 %rd64)
+  %dw = call i64 @__aod_fast_pack_t32(i64 %rd_u)
   %p0 = insertvalue %DecRatio undef, i64 %nw, 0
   %p1 = insertvalue %DecRatio %p0, i64 %dw, 1
   ret %DecRatio %p1

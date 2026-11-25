@@ -2,9 +2,10 @@
 # Explicitly tagged DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED, importing stdlib::aod::{ledger,boundary},
 # proving exact zero observer back-reaction across 0-, 1-, and 2-observer configurations with zero hardcoded outcomes.
 
-use aod::core::{support_pi, support_rd}
-use stdlib::aod::ledger::{boundary_audit}
-use stdlib::aod::boundary::{proton_support}
+use aod::core:
+    support_pi, support_rd
+use stdlib::aod::ledger::boundary_audit
+use stdlib::aod::boundary::proton_support
 
 chamber SandboxLab:
     space = box([0..64, 0..64, 0..64])
@@ -25,16 +26,16 @@ observe ProcProbe:
     tracer tick_watcher(view):
         let _c = view.carrier_count
 
-Dec main() -> int:
+dec main() -> int:
     let p = proton_support()
     assert support_pi(p) == 30 and support_rd(p, 1) == 61
     let pre_aud = boundary_audit(27, 24)
     assert pre_aud.x_shedding == 3
 
     # Run identical initial preparation with 0, 1, and 2 passive observers
-    let r0 = simulate Opposing336 for 12 ticks
-    let r1 = simulate Opposing336 for 12 ticks with DeclProbe
-    let r2 = simulate Opposing336 for 12 ticks with DeclProbe, ProcProbe
+    let r0 = simulate Opposing336 over 12 ticks
+    let r1 = simulate Opposing336 over 12 ticks with DeclProbe
+    let r2 = simulate Opposing336 over 12 ticks with DeclProbe, ProcProbe
 
     # Provenance & zero observer back-reaction invariants (exact SHA-256 state hash identity)
     assert r0.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
@@ -52,4 +53,4 @@ Dec main() -> int:
     emit r0.total_hinges
     emit r0.final_state_hash
     emit ∂r0
-    return 0
+    0

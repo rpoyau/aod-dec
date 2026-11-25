@@ -101,6 +101,8 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "slice",
             "set_at",
             "map_put",
+            "map_keys",
+            "map_entries",
             "addr8",
             "support",
             "support_pi",

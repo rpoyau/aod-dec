@@ -1,17 +1,11 @@
 # AOD Manual Fixture 04 — M3 PR #43 Cubical 4-Cube Measures, Quarter-Symmetry Disk Enclosures,
 # 2x1 Rectangle Metric/Coord Swap, Exact Discrete-Law Moments, Affine Covariance, & Tesseract Transport
 
-use stdlib::aod::cells::{
-    four_cube_counts,
-    four_cube_measure,
-    disk_enclosure,
-    rect_boundary,
-    moments_from_atoms,
-    affine_cov,
-    tesseract_transport_16
-}
+use stdlib::aod::cells:
+    four_cube_counts, four_cube_measure, disk_enclosure,
+    rect_boundary, moments_from_atoms, affine_cov, tesseract_transport_16
 
-Dec main() -> int:
+dec main() -> int:
     # 1. Filled 4-cube cell counts (16, 32, 24, 8, 1) -> total 81, Euler 1
     let fc = four_cube_counts()
     assert fc.v0 == 16 and fc.v1 == 32 and fc.v2 == 24 and fc.v3 == 8 and fc.v4 == 1
@@ -41,22 +35,18 @@ Dec main() -> int:
 
     # 5. Exact discrete-law moments (T, F, Rf, U) matching Manual 02_mapping_error.tex
     let p_3 = [1/4r, 1/2r, 1/4r]
-    # T = 1 / ((1 + d)(1 - d)), d in {-1/100, 0, +1/100}
     let t_edge = 1/1r / ((1/1r + 1/100r) * (1/1r - 1/100r))
     let m_t = moments_from_atoms([t_edge, 1/1r, t_edge], p_3)
     assert m_t.mean == 19999/19998r and m_t.variance == 1/399920004r
 
-    # F = (1 + d)(1 - 999*d/1000), d in {-1/100, 0, +1/100}
     let f_neg = (1/1r - 1/100r) * (1/1r + 999/100000r)
     let f_pos = (1/1r + 1/100r) * (1/1r - 999/100000r)
     let m_f = moments_from_atoms([f_neg, 1/1r, f_pos], p_3)
     assert m_f.mean == 19999001/20000000r and m_f.variance == 1018001/400000000000000r
 
-    # Rf = (1 + d)(1 - d), d in {-1/2, 0, +1/2}
     let m_rf = moments_from_atoms([3/4r, 1/1r, 3/4r], p_3)
     assert m_rf.mean == 7/8r and m_rf.variance == 1/64r
 
-    # U = 1/(1+y) + y, y in {-1/1000, +1/1000}, probs [1/2, 1/2]
     let u_neg = 1/1r / (1/1r - 1/1000r) - 1/1000r
     let u_pos = 1/1r / (1/1r + 1/1000r) + 1/1000r
     let m_u = moments_from_atoms([u_neg, u_pos], [1/2r, 1/2r])
@@ -93,4 +83,4 @@ Dec main() -> int:
     emit ac.var_b
     emit ac.cov_ab
     emit conserved
-    return 0
+    0

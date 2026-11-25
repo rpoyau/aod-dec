@@ -1,20 +1,13 @@
 # AOD Manual Fixture 01 — Manual §4 D.E.C. Ledger, Kernel Normalization, Hinge Slide,
 # Field Tunnelling, ADAR/SADAR, 1:2:9_yro Surplus, Tau Missing-Burden, and R02 Gap
 
-use aod::core::{support_pi, support_rd, support_pressure, support_overhang}
-use stdlib::aod::ledger::{
-    isotropic_four,
-    normalize_four,
-    role_sums_four,
-    block_dwell_slide,
-    tunnel_clip,
-    sadar_from_clipped,
-    boundary_audit,
-    tau_missing_burden,
-    r02_gap
-}
+use aod::core:
+    support_pi, support_rd, support_pressure, support_overhang
+use stdlib::aod::ledger:
+    isotropic_four, normalize_four, role_sums_four, block_dwell_slide,
+    tunnel_clip, sadar_from_clipped, boundary_audit, tau_missing_burden, r02_gap
 
-Dec main() -> int:
+dec main() -> int:
     # 1. Isotropic 4-edge kernel (1/4)^4
     let iso = isotropic_four()
     assert iso.p1 == 1/4r and iso.p2 == 1/4r and iso.p3 == 1/4r and iso.p4 == 1/4r
@@ -73,4 +66,4 @@ Dec main() -> int:
     emit aud.x_shedding
     emit tau_mb
     emit gap
-    return 0
+    0

@@ -3608,6 +3608,17 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             out.insert(mk, v.clone());
             Ok(Value::Map(Box::new(out)))
         }
+        ("map_keys", [Value::Map(m)]) => {
+            let keys: Vec<Value> = m.keys().map(MapKey::to_value).collect();
+            Ok(Value::List(keys))
+        }
+        ("map_entries", [Value::Map(m)]) => {
+            let entries: Vec<Value> = m
+                .iter()
+                .map(|(k, v)| Value::Tuple(vec![k.to_value(), v.clone()]))
+                .collect();
+            Ok(Value::List(entries))
+        }
 
         // --- Witness primitives ---
         ("trace", [Value::Str(sc), Value::Str(lin), Value::Q4(st)]) => {

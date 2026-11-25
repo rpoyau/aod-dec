@@ -1,15 +1,11 @@
 # AOD Manual Fixture 08 — S2 Awareness, Mindfulness Delay, Stokes Cut, & 3D Octants
 # Exercises RC-008, RC-009, RC-010, RC-012 (MSB-x Brownian), and RC-013 (LSB-x Run-Tumble contrast).
 
-use stdlib::aod::sectors::{
-    awareness_current_update,
-    awareness_mindfulness_eval,
-    stokes_cut_balance,
-    brownian_msb_x_summary,
-    run_tumble_point_eval
-}
+use stdlib::aod::sectors:
+    awareness_current_update, awareness_mindfulness_eval,
+    stokes_cut_balance, brownian_msb_x_summary, run_tumble_point_eval
 
-Dec main() -> int:
+dec main() -> int:
     # 1. Oriented finite Stokes cut balance (RC-008)
     let st = stokes_cut_balance([0, 1, 0], [1, 2, 2], [3/2r, 5/4r, 1/2r], [2/1r, 4/1r, -2/1r], [0, 1])
     assert st.internal == 0/1r and st.boundary == 4/1r and st.divergence == 4/1r
@@ -53,4 +49,4 @@ Dec main() -> int:
     emit br.r_x
     emit rt0.octant_lsb_x
     emit rt0.octant_msb_x_contrast
-    return 0
+    0

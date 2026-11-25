@@ -2,19 +2,14 @@
 # Short-Window Clipping Table, Purely Native 3:3:7_yro Saddle (zero external mass map),
 # Moving Boundary, Scoped Channel, Stokes Cancellation, and Proton/Electron Support Accessors
 
-use aod::core::{support_pi, support_rd}
-use stdlib::aod::boundary::{
-    double_slit_eval,
-    eval_short_window,
-    moving_boundary_flux,
-    scoped_channel_flux,
-    stokes_cancellation,
-    proton_support,
-    electron_support,
-    saddle_337_support
-}
+use aod::core:
+    support_pi, support_rd
+use stdlib::aod::boundary:
+    double_slit_eval, eval_short_window, moving_boundary_flux,
+    scoped_channel_flux, stokes_cancellation, proton_support,
+    electron_support, saddle_337_support
 
-Dec main() -> int:
+dec main() -> int:
     # 1. 11-bin Dimonhexon double-slit cross-return delta_3 tally
     let ds = double_slit_eval()
     assert ds.sum_t0 == 410 and ds.sum_cx == 38 and ds.sum_tx == 448 and ds.sum_obs == 448
@@ -72,4 +67,4 @@ Dec main() -> int:
     emit stokes
     emit p_sup
     emit e_sup
-    return 0
+    0

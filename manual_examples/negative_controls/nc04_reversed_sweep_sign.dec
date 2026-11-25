@@ -1,8 +1,8 @@
 # Negative Control nc04 — Reversing sweep sign in moving-boundary flux MUST fail audit assertion!
 use stdlib::aod::boundary::moving_boundary_flux
 
-Dec main() -> int:
+dec main() -> int:
     let exact_mov = moving_boundary_flux(8, 3, 2)
     let reversed_sweep = 8 + 3 + 2
     assert reversed_sweep == exact_mov
-    return 0
+    0

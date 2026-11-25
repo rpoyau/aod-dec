@@ -1,23 +1,21 @@
-# Irregular branch selection benchmark (`P1-2`, `AC-15`):
+# Irregular pseudo-random branch vs branchless select benchmark:
 # - Fits comfortably within DEFAULT_FUEL = 100_000 for Exact VM parity.
-# - Both branch arms are pure `is_pure_select_safe` local identifiers (`hi` / `lo`), so
-#   `CodegenPlan { branchless_select: true }` lowers to LLVM `select` while `false` lowers to `br i1`!
+# - Both `select` arms are pure `is_pure_select_safe` local identifiers (`hi` / `lo`), so
+#   `CodegenPlan.branchless_select == true` lowers to LLVM `select` while `false` lowers to `br i1`.
 
-Dec run_irregular_select(n: int) -> int:
-    mut state = 20261113
-    mut acc = 0
-    mut pick = 0
-    for i in 0..n:
-        state = (state * 1103515245 + 12345) % 2147483647
-        let hi = i + 17
-        let lo = i - 9
-        if (state % 2) == 1:
-            pick = hi
-        else:
-            pick = lo
-        acc = acc + pick
-    emit acc
-    return 0
+use aod::core:
+    select, walk
 
-Dec main() -> int:
-    return run_irregular_select(1500)
+dec irregular_step(state: int) -> int:
+    let nxt = (state * 1103515245 + 12345) % 2147483647
+    let hi = nxt + 17
+    let lo = nxt - 9
+    select((nxt % 2) == 1, hi, lo)
+
+dec run_irregular_select(n: int) -> int:
+    let out = walk(20261113, n, irregular_step)
+    emit out
+    0
+
+dec main() -> int:
+    run_irregular_select(1500)

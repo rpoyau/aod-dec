@@ -24,12 +24,12 @@ observe ExtraProbes:
         region = box([20..44, 28..36, 28..36])
         capture = [support, shedding]
     sensor tick_counter(view) -> int:
-        return view.carrier_count
+        view.carrier_count
 
-Dec main() -> int:
-    let run_zero = simulate TwoOpposing336 for 16 ticks
-    let run_one = simulate TwoOpposing336 for 16 ticks with CoreProbe
-    let run_multi = simulate TwoOpposing336 for 16 ticks with CoreProbe, ExtraProbes
+dec main() -> int:
+    let run_zero = simulate TwoOpposing336 over 16 ticks
+    let run_one = simulate TwoOpposing336 over 16 ticks with CoreProbe
+    let run_multi = simulate TwoOpposing336 over 16 ticks with CoreProbe, ExtraProbes
 
     assert run_zero.model_status == "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"
     assert run_zero.final_state_hash == run_one.final_state_hash
@@ -42,4 +42,4 @@ Dec main() -> int:
     emit run_zero.final_state_hash
     emit run_zero.shedding_event_count
     emit run_zero.total_returns
-    return 0
+    0

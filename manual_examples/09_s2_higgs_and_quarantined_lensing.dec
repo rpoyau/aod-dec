@@ -4,20 +4,17 @@
 #   Phase 2 (quarantine Q_ext): post-freeze MeV/GeV map, LHC CMS/ATLAS 6-dp half-even display &
 #   exact rounding residuals, and half-ULP enclosure (RC-011, RC-020, SD-004..SD-006).
 
-use aod::qext::{ext_decimal, qext_from_ratio, qext_render}
-use stdlib::aod::sectors::{
-    HiggsCandidate,
-    higgs_candidate_score,
-    higgs_select_winner_index,
-    swells_delta3_tau_audit
-}
+use aod::qext:
+    ext_decimal, qext_from_ratio, qext_render
+use stdlib::aod::sectors:
+    HiggsCandidate, higgs_candidate_score, higgs_select_winner_index, swells_delta3_tau_audit
 use stdlib::aod::metrology
 use stdlib::aod::metrology::DisplayQuarantine
 
-Dec main() -> int:
+dec main() -> int:
     # Phase 1: Purely native dimensionless Higgs scoring (zero MeV/GeV, zero LHC targets!)
-    let c0 = HiggsCandidate { p: 3, q: 3, win_l: 7, c3: 3, ca: 18, cb: 24 }
-    let c1 = HiggsCandidate { p: 3, q: 2, win_l: 7, c3: 3, ca: 18, cb: 24 }
+    let c0 = HiggsCandidate(3, 3, 7, 3, 18, 24)
+    let c1 = HiggsCandidate(3, 2, 7, 3, 18, 24)
     let s0 = higgs_candidate_score(c0)
     let s1 = higgs_candidate_score(c1)
     assert s0.score == 0/1r and s1.score == 79/50r
@@ -105,4 +102,4 @@ Dec main() -> int:
         emit atl_ape_disp
         emit qext_render(lo)
         emit qext_render(hi)
-    return 0
+    0

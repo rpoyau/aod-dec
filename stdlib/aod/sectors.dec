@@ -10,7 +10,8 @@
 #   enclosures live strictly inside `quarantine Q_ext DisplayQuarantine:` in
 #   `stdlib/aod/metrology.dec`.
 
-use aod::core::{ratio, len}
+use aod::core:
+    abs, argmin, contains, fold, gate, len, max, min, pow, range_seq, ratio, select, walk
 
 struct SparcBinResult:
     u_obs: ratio
@@ -47,6 +48,24 @@ struct CycleSheddingTraceSummary:
     total_local: ratio
     zero_residual_all: bool
 
+struct CycleTraceAcc:
+    leads: [ratio]
+    lags: [ratio]
+    compats: [ratio]
+    eta: ratio
+    gamma: ratio
+    lambda_reclose: ratio
+    prev: ratio
+    max_span: ratio
+    max_burden: ratio
+    max_excess: ratio
+    total_outward: ratio
+    total_local: ratio
+    shedding_ticks: int
+    first_shed: int
+    last_shed: int
+    zero_res: bool
+
 struct AwarenessUpdate:
     carried: ratio
     native_current: ratio
@@ -61,11 +80,34 @@ struct MindfulnessOutcome:
     final_extra_delay: ratio
     extra_delay_stable_at_one: bool
 
+struct MindNoDelayState:
+    j_cur: ratio
+    forcing: ratio
+    pressure: ratio
+    stable: bool
+
+struct MindDelayState:
+    j_cur: ratio
+    prev_obs: ratio
+    forcing: ratio
+    pressure: ratio
+    stable: bool
+
 struct StokesCutSummary:
     internal: ratio
     boundary: ratio
     divergence: ratio
     divergence_equals_boundary: bool
+
+struct StokesFoldState:
+    src_nodes: [int]
+    dst_nodes: [int]
+    p_vals: [ratio]
+    a_vals: [ratio]
+    region: [int]
+    internal: ratio
+    boundary: ratio
+    divergence: ratio
 
 struct BrownianSummary:
     sum_q: int
@@ -110,49 +152,27 @@ struct Map21Summary:
     output_variance: ratio
     linearized_variance_diagnostic: ratio
 
-Dec abs_int(x: int) -> int:
-    if x < 0:
-        return -x
-    return x
+dec abs_int(x: int) -> int:
+    abs(x)
 
-Dec abs_ratio(x: ratio) -> ratio:
-    if x < 0/1r:
-        return -x
-    return x
+dec abs_ratio(x: ratio) -> ratio:
+    abs(x)
 
-Dec min_int(a: int, b: int) -> int:
-    if a <= b:
-        return a
-    return b
+dec min_int(a: int, b: int) -> int:
+    min(a, b)
 
-Dec max_int(a: int, b: int) -> int:
-    if a >= b:
-        return a
-    return b
+dec max_int(a: int, b: int) -> int:
+    max(a, b)
 
-Dec pow_int(base: int, exp: int) -> int:
+dec pow_int(base: int, exp: int) -> int:
     assert exp >= 0
-    mut acc = 1
-    for i in 0..exp:
-        acc = acc * base
-    return acc
+    pow(base, exp)
 
-Dec contains_int(xs: [int], target: int) -> bool:
-    let n = len(xs)
-    for i in 0..n:
-        if xs[i] == target:
-            return true
-    return false
+dec contains_int(xs: [int], target: int) -> bool:
+    contains(xs, target)
 
 # 1. SPARC G0 exact radial bin evaluation (parameterized over declared-fixture bin values)
-Dec sparc_bin_eval(
-    r: ratio,
-    v_obs: ratio,
-    err_v: ratio,
-    v_gas: ratio,
-    v_disk: ratio,
-    v_bul: ratio
-) -> SparcBinResult:
+dec sparc_bin_eval(r: ratio, v_obs: ratio, err_v: ratio, v_gas: ratio, v_disk: ratio, v_bul: ratio) -> SparcBinResult:
     let u_obs = v_obs * v_obs
     let sigma_u = 2/1r * v_obs * err_v
     assert sigma_u != 0/1r
@@ -165,286 +185,198 @@ Dec sparc_bin_eval(
     let u_ao = u_bar + 8/1r * d_bf
     let delta_u = u_ao - u_obs
     let z_u = delta_u / sigma_u
-    return SparcBinResult {
-        u_obs: u_obs,
-        sigma_u: sigma_u,
-        u_gas: u_gas,
-        u_disk: u_disk,
-        u_bulge: u_bulge,
-        u_bar: u_bar,
-        c_cap: c_cap,
-        d_bf: d_bf,
-        u_ao: u_ao,
-        delta_u: delta_u,
-        z_u: z_u
-    }
+    SparcBinResult(u_obs, sigma_u, u_gas, u_disk, u_bulge, u_bar, c_cap, d_bf, u_ao, delta_u, z_u)
 
 # 2. Exact rational cycle-shedding recurrence step (parameterized)
-Dec cycle_shedding_step(
-    prev_burden: ratio,
-    lead: ratio,
-    lag: ratio,
-    compatibility: ratio,
-    eta: ratio,
-    gamma: ratio,
-    lambda_reclose: ratio
-) -> CycleSheddingStep:
+dec cycle_shedding_step(prev_burden: ratio, lead: ratio, lag: ratio, compatibility: ratio, eta: ratio, gamma: ratio, lambda_reclose: ratio) -> CycleSheddingStep:
     let span = abs_ratio(lead - lag)
     let before = eta * prev_burden + gamma * span
     let diff = before - compatibility
-    let exc = diff if diff > 0/1r else 0/1r
+    let exc = max(diff, 0/1r)
     let bur = before - exc
     let out = (1/1r - lambda_reclose) * exc
     let loc = lambda_reclose * exc
-    return CycleSheddingStep {
-        span: span,
-        before_clipping: before,
-        shed_excess: exc,
-        padar_burden: bur,
-        outward_shedding: out,
-        local_reclosure: loc,
-        remainder_sum: out + loc
-    }
+    CycleSheddingStep(span, before, exc, bur, out, loc, out + loc)
+
+dec cycle_trace_fold_step(acc: CycleTraceAcc, idx: int) -> CycleTraceAcc:
+    let comp_i = acc.compats[idx]
+    let st = cycle_shedding_step(acc.prev, acc.leads[idx], acc.lags[idx], comp_i, acc.eta, acc.gamma, acc.lambda_reclose)
+    let did_shed = st.shed_excess > 0/1r
+    let next_ticks = acc.shedding_ticks + select(did_shed, 1, 0)
+    let next_first = select(did_shed and acc.first_shed < 0, idx, acc.first_shed)
+    let next_last = select(did_shed, idx, acc.last_shed)
+    let shed_cap_ok = select(did_shed, st.padar_burden == comp_i, true)
+    let step_ok = (
+        shed_cap_ok
+        and st.outward_shedding + st.local_reclosure == st.remainder_sum
+        and st.remainder_sum == st.shed_excess
+        and st.padar_burden + st.shed_excess == st.before_clipping
+        and st.padar_burden <= comp_i
+    )
+    CycleTraceAcc(
+        acc.leads,
+        acc.lags,
+        acc.compats,
+        acc.eta,
+        acc.gamma,
+        acc.lambda_reclose,
+        st.padar_burden,
+        max(acc.max_span, st.span),
+        max(acc.max_burden, st.padar_burden),
+        max(acc.max_excess, st.shed_excess),
+        acc.total_outward + st.outward_shedding,
+        acc.total_local + st.local_reclosure,
+        next_ticks,
+        next_first,
+        next_last,
+        acc.zero_res and step_ok
+    )
 
 # 2b. Exact multi-tick cycle-shedding trace summary (S4@e013401, strictly native & parameterized)
-Dec cycle_shedding_trace_summary(
-    initial_burden: ratio,
-    leads: [ratio],
-    lags: [ratio],
-    compats: [ratio],
-    eta: ratio,
-    gamma: ratio,
-    lambda_reclose: ratio
-) -> CycleSheddingTraceSummary:
+dec cycle_shedding_trace_summary(initial_burden: ratio, leads: [ratio], lags: [ratio], compats: [ratio], eta: ratio, gamma: ratio, lambda_reclose: ratio) -> CycleSheddingTraceSummary:
     let n = len(leads)
     assert n == len(lags) and n == len(compats)
-    mut prev = initial_burden
-    mut max_span = 0/1r
-    mut max_burden = 0/1r
-    mut max_excess = 0/1r
-    mut total_outward = 0/1r
-    mut total_local = 0/1r
-    mut shedding_ticks = 0
-    mut first_shed = -1
-    mut last_shed = -1
-    mut zero_res = true
-    for i in 0..n:
-        let step = cycle_shedding_step(prev, leads[i], lags[i], compats[i], eta, gamma, lambda_reclose)
-        if step.span > max_span:
-            max_span = step.span
-        if step.padar_burden > max_burden:
-            max_burden = step.padar_burden
-        if step.shed_excess > max_excess:
-            max_excess = step.shed_excess
-        total_outward = total_outward + step.outward_shedding
-        total_local = total_local + step.local_reclosure
-        if step.shed_excess > 0/1r:
-            shedding_ticks = shedding_ticks + 1
-            if first_shed < 0:
-                first_shed = i
-            last_shed = i
-            if step.padar_burden != compats[i]:
-                zero_res = false
-        if step.outward_shedding + step.local_reclosure != step.remainder_sum:
-            zero_res = false
-        if step.remainder_sum != step.shed_excess:
-            zero_res = false
-        if step.padar_burden + step.shed_excess != step.before_clipping:
-            zero_res = false
-        if step.padar_burden > compats[i]:
-            zero_res = false
-        prev = step.padar_burden
-    return CycleSheddingTraceSummary {
-        ticks_processed: n,
-        shedding_ticks: shedding_ticks,
-        first_shed_tick: first_shed,
-        last_shed_tick: last_shed,
-        final_burden: prev,
-        max_span: max_span,
-        max_burden: max_burden,
-        max_excess: max_excess,
-        total_outward: total_outward,
-        total_local: total_local,
-        zero_residual_all: zero_res
-    }
+    let init = CycleTraceAcc(leads, lags, compats, eta, gamma, lambda_reclose, initial_burden, 0/1r, 0/1r, 0/1r, 0/1r, 0/1r, 0, -1, -1, true)
+    let fin = fold(range_seq(0, n), init, cycle_trace_fold_step)
+    CycleSheddingTraceSummary(
+        n,
+        fin.shedding_ticks,
+        fin.first_shed,
+        fin.last_shed,
+        fin.prev,
+        fin.max_span,
+        fin.max_burden,
+        fin.max_excess,
+        fin.total_outward,
+        fin.total_local,
+        fin.zero_res
+    )
 
 # 3. Finite active awareness current update (RC-009)
-Dec awareness_current_update(
-    current: ratio,
-    pressure: ratio,
-    attention: ratio,
-    query: ratio,
-    gain: ratio,
-    retained: [ratio],
-    selector_threshold: ratio
-) -> AwarenessUpdate:
+dec awareness_current_update(current: ratio, pressure: ratio, attention: ratio, query: ratio, gain: ratio, retained: [ratio], selector_threshold: ratio) -> AwarenessUpdate:
     assert pressure > 0/1r
-    mut ret_sum = 0/1r
-    let n = len(retained)
-    for i in 0..n:
-        ret_sum = ret_sum + retained[i]
+    let ret_sum = +/ retained
     let carried = gain * ret_sum
     let native_cur = current + attention / pressure
     let next_cur = native_cur + (query + carried) / pressure
     let rem_cur = native_cur + query / pressure
-    let slot = 0 if next_cur > selector_threshold else 1
-    return AwarenessUpdate {
-        carried: carried,
-        native_current: native_cur,
-        next_current: next_cur,
-        selected_slot: slot,
-        removal_current: rem_cur,
-        awareness_effect: next_cur != rem_cur
-    }
+    let slot = select(next_cur > selector_threshold, 0, 1)
+    AwarenessUpdate(carried, native_cur, next_cur, slot, rem_cur, next_cur != rem_cur)
+
+dec mind_no_delay_step(st: MindNoDelayState) -> MindNoDelayState:
+    let nxt = st.j_cur + (st.forcing - st.j_cur) / st.pressure
+    MindNoDelayState(nxt, st.forcing, st.pressure, st.stable and (nxt == 1/1r))
+
+dec mind_delay_step(st: MindDelayState) -> MindDelayState:
+    let obs = st.j_cur
+    let nxt = st.j_cur + (st.forcing - st.prev_obs) / st.pressure
+    MindDelayState(nxt, obs, st.forcing, st.pressure, st.stable and (nxt == 1/1r))
 
 # 4. Delayed feedback mindfulness recurrence (RC-010)
-Dec awareness_mindfulness_eval(
-    pressure: ratio,
-    initial_current: ratio,
-    constant_forcing: ratio,
-    delay_initial_history: ratio,
-    steps: int
-) -> MindfulnessOutcome:
+dec awareness_mindfulness_eval(pressure: ratio, initial_current: ratio, constant_forcing: ratio, delay_initial_history: ratio, steps: int) -> MindfulnessOutcome:
     assert pressure > 0/1r and steps >= 1
-    mut j_no = initial_current
-    mut no_stable = true
-    for i in 0..steps:
-        j_no = j_no + (constant_forcing - j_no) / pressure
-        if j_no != 1/1r:
-            no_stable = false
+    let no_fin = walk(MindNoDelayState(initial_current, constant_forcing, pressure, true), steps, mind_no_delay_step)
+    let del_fin = walk(MindDelayState(initial_current, delay_initial_history, constant_forcing, pressure, true), steps, mind_delay_step)
+    MindfulnessOutcome(no_fin.j_cur, no_fin.stable, del_fin.j_cur, del_fin.stable)
 
-    mut j_del = initial_current
-    mut prev_obs = delay_initial_history
-    mut del_stable = true
-    for i in 0..steps:
-        let obs = j_del
-        j_del = j_del + (constant_forcing - prev_obs) / pressure
-        prev_obs = obs
-        if j_del != 1/1r:
-            del_stable = false
-
-    return MindfulnessOutcome {
-        final_no_delay: j_no,
-        no_delay_stable_at_one: no_stable,
-        final_extra_delay: j_del,
-        extra_delay_stable_at_one: del_stable
-    }
+dec stokes_fold_step(st: StokesFoldState, k: int) -> StokesFoldState:
+    let u = st.src_nodes[k]
+    let v = st.dst_nodes[k]
+    let p_k = st.p_vals[k]
+    assert u != v and p_k >= 0/1r
+    let val = p_k * st.a_vals[k]
+    let u_in = contains_int(st.region, u)
+    let v_in = contains_int(st.region, v)
+    let d_int = gate(u_in and v_in, val) - gate(v_in and u_in, val)
+    let d_div = gate(u_in, val) - gate(v_in, val)
+    let d_bdy = gate(u_in and not v_in, val) - gate(v_in and not u_in, val)
+    StokesFoldState(
+        st.src_nodes,
+        st.dst_nodes,
+        st.p_vals,
+        st.a_vals,
+        st.region,
+        st.internal + d_int,
+        st.boundary + d_bdy,
+        st.divergence + d_div
+    )
 
 # 5. Finite oriented Stokes cut balance (RC-008)
-Dec stokes_cut_balance(
-    src_nodes: [int],
-    dst_nodes: [int],
-    p_vals: [ratio],
-    a_vals: [ratio],
-    region: [int]
-) -> StokesCutSummary:
+dec stokes_cut_balance(src_nodes: [int], dst_nodes: [int], p_vals: [ratio], a_vals: [ratio], region: [int]) -> StokesCutSummary:
     let n = len(src_nodes)
     assert n == len(dst_nodes) and n == len(p_vals) and n == len(a_vals)
-    mut internal = 0/1r
-    mut boundary = 0/1r
-    mut divergence = 0/1r
-    for k in 0..n:
-        let u = src_nodes[k]
-        let v = dst_nodes[k]
-        assert u != v and p_vals[k] >= 0/1r
-        let val = p_vals[k] * a_vals[k]
-        let u_in = contains_int(region, u)
-        let v_in = contains_int(region, v)
-        # Forward oriented channel (u -> v): +val
-        if u_in and v_in:
-            internal = internal + val
-        if u_in:
-            divergence = divergence + val
-        if u_in and not v_in:
-            boundary = boundary + val
-        # Antisymmetric reverse oriented channel (v -> u): -val
-        if v_in and u_in:
-            internal = internal - val
-        if v_in:
-            divergence = divergence - val
-        if v_in and not u_in:
-            boundary = boundary - val
-    return StokesCutSummary {
-        internal: internal,
-        boundary: boundary,
-        divergence: divergence,
-        divergence_equals_boundary: divergence == boundary and internal == 0/1r
-    }
+    let init = StokesFoldState(src_nodes, dst_nodes, p_vals, a_vals, region, 0/1r, 0/1r, 0/1r)
+    let fin = fold(range_seq(0, n), init, stokes_fold_step)
+    StokesCutSummary(
+        fin.internal,
+        fin.boundary,
+        fin.divergence,
+        fin.divergence == fin.boundary and fin.internal == 0/1r
+    )
 
 # 6. 3D octant encodings: explicit Brownian MSB-x vs Run-Tumble LSB-x separation (RC-012, RC-013)
-Dec octant_msb_x(x: int, y: int, z: int) -> int:
-    let bx = 4 if x < 0 else 0
-    let by = 2 if y < 0 else 0
-    let bz = 1 if z < 0 else 0
-    return bx + by + bz
+dec octant_msb_x(x: int, y: int, z: int) -> int:
+    select(x < 0, 4, 0) + select(y < 0, 2, 0) + select(z < 0, 1, 0)
 
-Dec octant_lsb_x(x: int, y: int, z: int) -> int:
-    let bx = 1 if x < 0 else 0
-    let by = 2 if y < 0 else 0
-    let bz = 4 if z < 0 else 0
-    return bx + by + bz
+dec octant_lsb_x(x: int, y: int, z: int) -> int:
+    select(x < 0, 1, 0) + select(y < 0, 2, 0) + select(z < 0, 4, 0)
 
-Dec run_tumble_point_eval(x: int, y: int, z: int, beta_a: int) -> RunTumblePoint:
+dec run_tumble_point_eval(x: int, y: int, z: int, beta_a: int) -> RunTumblePoint:
     assert beta_a > 0
     let q3 = x * x + y * y + z * z
-    return RunTumblePoint {
-        octant_lsb_x: octant_lsb_x(x, y, z),
-        octant_msb_x_contrast: octant_msb_x(x, y, z),
-        q3: q3,
-        theta: q3 % beta_a
-    }
+    RunTumblePoint(octant_lsb_x(x, y, z), octant_msb_x(x, y, z), q3, q3 % beta_a)
 
-Dec brownian_msb_x_summary(xs: [int], ys: [int], zs: [int], beta_a: int) -> BrownianSummary:
+dec brownian_msb_x_summary(xs: [int], ys: [int], zs: [int], beta_a: int) -> BrownianSummary:
     let n = len(xs)
     assert n > 0 and n == len(ys) and n == len(zs) and beta_a == 5
-    mut phase_cnt = [0, 0, 0, 0, 0]
-    mut oct_cnt = [0, 0, 0, 0, 0, 0, 0, 0]
-    mut sx = 0
-    mut sy = 0
-    mut sz = 0
-    mut sum_q = 0
-    for i in 0..n:
-        let a = xs[i]
-        let b = ys[i]
-        let c = zs[i]
-        let a2 = a * a
-        let b2 = b * b
-        let c2 = c * c
-        let qv = a2 + b2 + c2
-        let oc = octant_msb_x(a, b, c)
-        let ps = qv % beta_a
-        phase_cnt[ps] = phase_cnt[ps] + 1
-        oct_cnt[oc] = oct_cnt[oc] + 1
-        sx = sx + a2
-        sy = sy + b2
-        sz = sz + c2
-        sum_q = sum_q + qv
+    let a2 = xs * xs
+    let b2 = ys * ys
+    let c2 = zs * zs
+    let qv = a2 + b2 + c2
+    let sx = +/ a2
+    let sy = +/ b2
+    let sz = +/ c2
+    let sum_q = +/ qv
     assert sum_q > 0
+    let phases = qv % beta_a
+    let octs = select(xs < 0, 4, 0) + select(ys < 0, 2, 0) + select(zs < 0, 1, 0)
+    let phase_cnt = [
+        len((phases == 0) ?> phases),
+        len((phases == 1) ?> phases),
+        len((phases == 2) ?> phases),
+        len((phases == 3) ?> phases),
+        len((phases == 4) ?> phases)
+    ]
+    let oct_cnt = [
+        len((octs == 0) ?> octs),
+        len((octs == 1) ?> octs),
+        len((octs == 2) ?> octs),
+        len((octs == 3) ?> octs),
+        len((octs == 4) ?> octs),
+        len((octs == 5) ?> octs),
+        len((octs == 6) ?> octs),
+        len((octs == 7) ?> octs)
+    ]
     let p_base = n // beta_a
     let p_rem = n % beta_a
-    mut sum_phase_m = 0
-    for k in 0..5:
-        let comp = p_base + (1 if k < p_rem else 0)
-        sum_phase_m = sum_phase_m + abs_int(comp - phase_cnt[k])
+    let p_comp = p_base + select([0, 1, 2, 3, 4] < p_rem, 1, 0)
+    let sum_phase_m = +/ abs(p_comp - phase_cnt)
     let o_base = n // 8
     let o_rem = n % 8
-    mut sum_octant_m = 0
-    for k in 0..8:
-        let comp = o_base + (1 if k < o_rem else 0)
-        sum_octant_m = sum_octant_m + abs_int(comp - oct_cnt[k])
-    return BrownianSummary {
-        sum_q: sum_q,
-        sum_phase_m: sum_phase_m,
-        sum_octant_m: sum_octant_m,
-        r_q: ratio(sum_q, n),
-        r_x: ratio(sx, sum_q),
-        r_y: ratio(sy, sum_q),
-        r_z: ratio(sz, sum_q)
-    }
+    let o_comp = o_base + select([0, 1, 2, 3, 4, 5, 6, 7] < o_rem, 1, 0)
+    let sum_octant_m = +/ abs(o_comp - oct_cnt)
+    BrownianSummary(
+        sum_q,
+        sum_phase_m,
+        sum_octant_m,
+        ratio(sum_q, n),
+        ratio(sx, sum_q),
+        ratio(sy, sum_q),
+        ratio(sz, sum_q)
+    )
 
 # 7. Strictly internal dimensionless Higgs candidate scoring & winner selection (P0-2)
-# ZERO external energy units (MeV/GeV) and ZERO external experimental targets!
-Dec higgs_candidate_score(c: HiggsCandidate) -> HiggsInternalScore:
+dec higgs_candidate_score(c: HiggsCandidate) -> HiggsInternalScore:
     let pi_v = pow_int(c.q, c.p) + c.q
     let rd_v = 2 * pi_v + 1
     let rho = min_int(rd_v, c.win_l)
@@ -454,88 +386,48 @@ Dec higgs_candidate_score(c: HiggsCandidate) -> HiggsInternalScore:
     let du = pd_v - c.cb
     let d_sad = abs_int(dl - 3) + abs_int(du + 3)
     let in_band = qd_v >= 100 and qd_v <= 250
-    mut d_q = 0
-    if qd_v < 100:
-        d_q = 100 - qd_v
-    elif qd_v > 250:
-        d_q = qd_v - 250
-    let d_route = 0 if (c.win_l == 7 and dl == 3 and du == -3 and in_band) else 1
+    let d_q = max_int(0, 100 - qd_v) + max_int(0, qd_v - 250)
+    let d_route = select(c.win_l == 7 and dl == 3 and du == -3 and in_band, 0, 1)
     let score = ratio(d_sad, 12) + ratio(d_q, 100) + ratio(abs_int(c.win_l - 7), 2) + ratio(d_route, 1)
-    return HiggsInternalScore {
-        pi_val: pi_v,
-        rd_val: rd_v,
-        pd_val: pd_v,
-        qd_val: qd_v,
-        score: score
-    }
+    HiggsInternalScore(pi_v, rd_v, pd_v, qd_v, score)
 
-Dec higgs_select_winner_index(scores: [ratio]) -> int:
-    let n = len(scores)
-    assert n > 0
-    mut best_idx = 0
-    for i in 1..n:
-        if scores[i] < scores[best_idx]:
-            best_idx = i
-    return best_idx
+dec higgs_select_winner_index(scores: [ratio]) -> int:
+    assert len(scores) > 0
+    argmin(scores)
 
 # 8. SWELLS K1 delta_3 & Tau non-conflation provenance guard (RC-020, P0-2)
-# Explicitly preserves UNRESOLVED_PROVENANCE_QUARANTINED status.
-Dec swells_delta3_tau_audit(
-    pred: [int],
-    obs: [int],
-    tau_diagnostic: ratio,
-    tau_summary_nominal: ratio
-) -> SwellsTauAudit:
+dec swells_delta3_tau_audit(pred: [int], obs: [int], tau_diagnostic: ratio, tau_summary_nominal: ratio) -> SwellsTauAudit:
     let n = len(pred)
     assert n == len(obs) and n > 0
-    mut sum_dz = 0
-    mut sum_m = 0
-    for i in 0..n:
-        let d = pred[i] - obs[i]
-        sum_dz = sum_dz + d
-        sum_m = sum_m + abs_int(d)
+    let d = pred - obs
+    let sum_dz = +/ d
+    let sum_m = +/ abs(d)
     let tau_diff = tau_summary_nominal - tau_diagnostic
-    return SwellsTauAudit {
-        sum_delta_z: sum_dz,
-        sum_m: sum_m,
-        tau_difference: tau_diff,
-        tau_distinct: tau_diagnostic != tau_summary_nominal,
-        scientific_status: "UNRESOLVED_PROVENANCE_QUARANTINED"
-    }
+    SwellsTauAudit(
+        sum_dz,
+        sum_m,
+        tau_diff,
+        tau_diagnostic != tau_summary_nominal,
+        "UNRESOLVED_PROVENANCE_QUARANTINED"
+    )
 
 # 9. MAP-21 exact finite-support nonlinear variance propagation (RC-024)
-Dec map21_eval(probs: [ratio], ys: [ratio], ds: [ratio]) -> Map21Summary:
+dec map21_eval(probs: [ratio], ys: [ratio], ds: [ratio]) -> Map21Summary:
     let n = len(probs)
     assert n > 0 and n == len(ys) and n == len(ds)
-    mut p_sum = 0/1r
-    mut mean = 0/1r
-    mut my = 0/1r
-    mut md = 0/1r
-    for i in 0..n:
-        p_sum = p_sum + probs[i]
-        let denom = 1/1r + ys[i]
-        assert denom != 0/1r
-        let out_i = 1/1r / denom + ds[i]
-        mean = mean + probs[i] * out_i
-        my = my + probs[i] * ys[i]
-        md = md + probs[i] * ds[i]
+    let p_sum = +/ probs
     assert p_sum == 1/1r
-    mut var = 0/1r
-    mut cyy = 0/1r
-    mut cdd = 0/1r
-    mut cyd = 0/1r
-    for i in 0..n:
-        let out_i = 1/1r / (1/1r + ys[i]) + ds[i]
-        let dout = out_i - mean
-        var = var + probs[i] * dout * dout
-        let dy = ys[i] - my
-        let dd = ds[i] - md
-        cyy = cyy + probs[i] * dy * dy
-        cdd = cdd + probs[i] * dd * dd
-        cyd = cyd + probs[i] * dy * dd
-    return Map21Summary {
-        output_mean: mean,
-        mean_shift: mean - 1/1r,
-        output_variance: var,
-        linearized_variance_diagnostic: cyy - 2/1r * cyd + cdd
-    }
+    let denom = 1/1r + ys
+    assert (&/ (denom != 0/1r))
+    let outs = 1/1r / denom + ds
+    let mean = +/ (probs * outs)
+    let my = +/ (probs * ys)
+    let md = +/ (probs * ds)
+    let dout = outs - mean
+    let dy = ys - my
+    let dd = ds - md
+    let var = +/ (probs * dout * dout)
+    let cyy = +/ (probs * dy * dy)
+    let cdd = +/ (probs * dd * dd)
+    let cyd = +/ (probs * dy * dd)
+    Map21Summary(mean, mean - 1/1r, var, cyy - 2/1r * cyd + cdd)

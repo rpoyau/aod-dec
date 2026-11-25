@@ -1,0 +1,80 @@
+# Generated scalar D.E.C. completed-return replay; no native random sampling.
+# Coarse facet motion and Q4 return realizations are separately declared maps.
+# Scalar output: q_a, q_b, chi_a, chi_b, phases_a, phases_b, beats_a, beats_b; then A trace, B trace, result.
+
+struct EncounterTick:
+    idx: int
+    facet_a: str
+    facet_b: str
+    ticket_a: ratio
+    ticket_b: ratio
+
+struct EncounterState:
+    chi_a: int
+    chi_b: int
+    a: trace
+    b: trace
+
+dec population_count(facet: str) -> int:
+    assert facet == "0***" or facet == "1***" or facet == "*0**" or facet == "*1**" or facet == "**0*" or facet == "**1*" or facet == "***0" or facet == "***1"
+    select(facet == "*0**", 4, 1)
+
+dec q_local(facet: str) -> ratio:
+    let score = ratio(population_count(facet) - 1, 3)
+    1/16r + (1/4r - 1/16r) * score
+
+dec q_contact(base: ratio, present: bool) -> ratio:
+    select(present, base + 0/1r * (1/1r - base), base)
+
+dec recur_plus(t: trace) -> trace:
+    close(step(hinge(step(t, q4(1), +1t)), q4(0), -1t))
+
+dec recur_minus(t: trace) -> trace:
+    close(step(hinge(step(t, q4(1), -1t)), q4(0), +1t))
+
+dec recur_chi(t: trace, chi: int) -> trace:
+    select(chi == 1, recur_plus(t), recur_minus(t))
+
+dec step_encounter(st: EncounterState, tk: EncounterTick) -> EncounterState:
+    let present = tk.facet_a == tk.facet_b
+    let q_a = q_contact(q_local(tk.facet_a), present)
+    let q_b = q_contact(q_local(tk.facet_b), present)
+    let chi_a = select(tk.ticket_a < q_a, -st.chi_a, st.chi_a)
+    let chi_b = select(tk.ticket_b < q_b, -st.chi_b, st.chi_b)
+    let a = recur_chi(st.a, chi_a)
+    let b = recur_chi(st.b, chi_b)
+    assert phases(a) == tk.idx + 2
+    assert phases(b) == tk.idx + 2
+    assert beats(a) == tk.idx + 1
+    assert beats(b) == tk.idx + 1
+    emit q_a
+    emit q_b
+    emit chi_a
+    emit chi_b
+    emit phases(a)
+    emit phases(b)
+    emit beats(a)
+    emit beats(b)
+    EncounterState(chi_a, chi_b, a, b)
+
+dec main() -> int:
+    let a0 = recur_chi(recur_chi(trace("chiral-encounter:declared-support", "carrier-A", q4(0)), 1), 1)
+    let b0 = recur_chi(recur_chi(trace("chiral-encounter:declared-support", "carrier-B", q4(0)), -1), -1)
+    assert phases(a0) == 2
+    assert beats(a0) == 1
+    assert phases(b0) == 2
+    assert beats(b0) == 1
+    let schedule: [EncounterTick] = [
+        EncounterTick(1, "*0**", "1***", 21/64r, 28/64r),
+        EncounterTick(2, "1***", "***1", 37/64r, 46/64r),
+        EncounterTick(3, "***1", "***1", 2/64r, 10/64r),
+        EncounterTick(4, "**1*", "*1**", 41/64r, 26/64r),
+        EncounterTick(5, "1***", "*1**", 40/64r, 57/64r),
+        EncounterTick(6, "***1", "**0*", 4/64r, 12/64r),
+        EncounterTick(7, "***1", "**0*", 39/64r, 41/64r),
+        EncounterTick(8, "***1", "***0", 53/64r, 59/64r),
+    ]
+    let fin = fold(schedule, EncounterState(1, -1, a0, b0), step_encounter)
+    emit fin.a
+    emit fin.b
+    0

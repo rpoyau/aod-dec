@@ -7,7 +7,7 @@
 #aod-paragraph("Setup.")
 Seven pure Dec modules under `stdlib/aod/` expose executable Manual calculations through the `use stdlib::aod::*`
 namespace, resolved with strict root precedence (`--stdlib <dir>`, then `AOD_STDLIB_DIR`, then automatic
-upward discovery, with zero silent fallback on explicit override) and bundled hermetically into `DecIR v2`.
+upward discovery, with zero silent fallback on explicit override) and bundled hermetically into `DecIR v3`.
 Module constants initialize in post-order DFS topological dependency order so intra-stdlib dependencies
 (such as `stdlib::aod::boundary` importing `stdlib::aod::ledger`) evaluate identically across Exact VM,
 AOT, and ORC LLJIT.
@@ -93,14 +93,15 @@ Each module in #tabref("tab:stdlib-modules") binds directly to canonical Main eq
 An inline check against `stdlib::aod::ledger` confirms exact tunnelling clip preservation:
 
 ```dec
-use stdlib::aod::ledger::{block_dwell_slide, tunnel_clip}
+use stdlib::aod::ledger:
+    block_dwell_slide, tunnel_clip
 
-Dec main() -> int:
+dec main() -> int:
     let slide = block_dwell_slide(3, 3, 1)
     let tun = tunnel_clip(5, 2, 3, slide.tunnel_prob)
     emit tun.rd_unclipped
     emit tun.tunnel_contrib
-    return 0
+    0
 ```
 
 ```dec-expect

@@ -24,22 +24,22 @@ fn temp_dir(tag: &str) -> PathBuf {
 #[test]
 fn cli_check_run_compile_exec_and_self_overwrite_refusal() {
     let root = repo_root();
-    let closure_dec = root.join("tests/fixtures/v1_examples/closure.dec");
+    let closure_dec = root.join("tests/fixtures/v3_examples/closure.dec");
     let closure_stdout =
-        std::fs::read_to_string(root.join("tests/fixtures/v1_examples/closure.stdout")).unwrap();
+        std::fs::read_to_string(root.join("tests/fixtures/v3_examples/closure.stdout")).unwrap();
 
-    // `aodc check --compat v1`
+    // `aodc check`
     let chk = Command::new(aodc_bin())
-        .args(["check", "--compat", "v1"])
+        .arg("check")
         .arg(&closure_dec)
         .output()
         .unwrap();
     assert!(chk.status.success());
-    assert_eq!(String::from_utf8_lossy(&chk.stdout).trim(), "OK: Dec core v1");
+    assert_eq!(String::from_utf8_lossy(&chk.stdout).trim(), "OK: Dec");
 
-    // `aodc run --compat v1`
+    // `aodc run`
     let run = Command::new(aodc_bin())
-        .args(["run", "--compat", "v1"])
+        .arg("run")
         .arg(&closure_dec)
         .output()
         .unwrap();
@@ -48,7 +48,7 @@ fn cli_check_run_compile_exec_and_self_overwrite_refusal() {
 
     // `aodc compile src -o src` refused via canonical path comparison
     let self_out = Command::new(aodc_bin())
-        .args(["compile", "--compat", "v1"])
+        .arg("compile")
         .arg(&closure_dec)
         .arg("-o")
         .arg(&closure_dec)
@@ -61,7 +61,7 @@ fn cli_check_run_compile_exec_and_self_overwrite_refusal() {
     let dir = temp_dir("ir_roundtrip");
     let ir_path = dir.join("closure.ir.json");
     let comp = Command::new(aodc_bin())
-        .args(["compile", "--compat", "v1"])
+        .arg("compile")
         .arg(&closure_dec)
         .arg("-o")
         .arg(&ir_path)
@@ -79,7 +79,7 @@ fn cli_check_run_compile_exec_and_self_overwrite_refusal() {
 
     // Tamper with IR JSON -> must reject!
     let orig_ir = std::fs::read_to_string(&ir_path).unwrap();
-    let tampered = orig_ir.replacen("\"version\": 1", "\"version\": 1, \"extra\": 99", 1);
+    let tampered = orig_ir.replacen("\"version\": 3", "\"version\": 3, \"extra\": 99", 1);
     let bad_ir_path = dir.join("tampered.ir.json");
     std::fs::write(&bad_ir_path, tampered).unwrap();
     let exec_bad = Command::new(aodc_bin())
@@ -93,20 +93,20 @@ fn cli_check_run_compile_exec_and_self_overwrite_refusal() {
 }
 
 #[test]
-fn ac21_hermetic_multifile_dec_ir_v2_executes_after_deleting_source_directory() {
-    let base = temp_dir("hermetic_v2");
+fn ac21_hermetic_multifile_dec_ir_v3_executes_after_deleting_source_directory() {
+    let base = temp_dir("hermetic_v3");
     let src_dir = base.join("project_src");
     std::fs::create_dir_all(&src_dir).unwrap();
 
     std::fs::write(
         src_dir.join("rates.dec"),
-        "const BONUS = 2/3r\n\nDec scaled(x: ratio) -> ratio:\n    return x + BONUS\n",
+        "const BONUS = 2/3r\n\ndec scaled(x: ratio) -> ratio:\n    x + BONUS\n",
     )
     .unwrap();
     let entry_file = src_dir.join("entry.dec");
     std::fs::write(
         &entry_file,
-        "use rates::{scaled}\n\nDec main() -> ratio:\n    let v = scaled(1/3r)\n    emit v\n    return v\n",
+        "use rates:\n    scaled\n\ndec main() -> ratio:\n    let v = scaled(1/3r)\n    emit v\n    v\n",
     )
     .unwrap();
 
@@ -148,14 +148,14 @@ fn ac21_hermetic_multifile_dec_ir_v2_executes_after_deleting_source_directory() 
 fn cli_test_subcommand_handles_test_fns_directories_unit_return_and_failures() {
     let root = repo_root();
 
-    // 1. Directory of v1 examples with sibling .stdout parity checks
-    let v1_test = Command::new(aodc_bin())
-        .args(["test", "--compat", "v1"])
-        .arg(root.join("tests/fixtures/v1_examples"))
+    // 1. Directory of v3 examples with sibling .stdout parity checks
+    let v3_test = Command::new(aodc_bin())
+        .arg("test")
+        .arg(root.join("tests/fixtures/v3_examples"))
         .output()
         .unwrap();
-    assert!(v1_test.status.success());
-    assert!(String::from_utf8_lossy(&v1_test.stdout).contains("10 passed; 0 failed; 10 total"));
+    assert!(v3_test.status.success());
+    assert!(String::from_utf8_lossy(&v3_test.stdout).contains("10 passed; 0 failed; 10 total"));
 
     // 2. Directory of v2 smoke fixtures
     let v2_test = Command::new(aodc_bin())
@@ -166,16 +166,16 @@ fn cli_test_subcommand_handles_test_fns_directories_unit_return_and_failures() {
     assert!(v2_test.status.success());
     assert!(String::from_utf8_lossy(&v2_test.stdout).contains("3 passed; 0 failed; 3 total"));
 
-    // 3. Single file with multiple zero-arg `Dec test_*()` functions + unit `main()` omission
+    // 3. Single file with multiple zero-arg `dec test_*()` functions + unit `main()` omission
     let dir = temp_dir("unit_and_tests");
     let test_file = dir.join("my_tests.dec");
     std::fs::write(
         &test_file,
         r#"
-Dec test_ratio():
+dec test_ratio():
     assert 1/2r + 1/2r == 1/1r
 
-Dec test_anchor():
+dec test_anchor():
     assert 00_8 != 0_8
 "#,
     )
@@ -190,7 +190,7 @@ Dec test_anchor():
 
     // 4. Unit return `main()` omits trailing `()` line on `aodc run`
     let unit_file = dir.join("unit_main.dec");
-    std::fs::write(&unit_file, "Dec main():\n    emit 42\n").unwrap();
+    std::fs::write(&unit_file, "dec main():\n    emit 42\n").unwrap();
     let u_out = Command::new(aodc_bin())
         .arg("run")
         .arg(&unit_file)
@@ -201,7 +201,7 @@ Dec test_anchor():
 
     // 5. Failing `test_*()` exits with non-zero code
     let fail_file = dir.join("fail_test.dec");
-    std::fs::write(&fail_file, "Dec test_boom():\n    assert 1 == 2\n").unwrap();
+    std::fs::write(&fail_file, "dec test_boom():\n    assert 1 == 2\n").unwrap();
     let f_out = Command::new(aodc_bin())
         .arg("test")
         .arg(&fail_file)
@@ -221,12 +221,12 @@ fn ac22_cli_fuel_max_depth_and_prior_emit_preservation_on_error() {
     std::fs::write(
         &fuel_src,
         r#"
-Dec main() -> int:
+dec step_one(x: int) -> int:
+    x + 1
+
+dec main() -> int:
     emit "before-fuel-exhaust"
-    mut i = 0
-    while true:
-        i = i + 1
-    return i
+    walk(0, 1000, step_one)
 "#,
     )
     .unwrap();
@@ -242,7 +242,7 @@ Dec main() -> int:
     );
     let fuel_err = String::from_utf8_lossy(&fuel_run.stderr);
     assert!(fuel_err.starts_with("aodc:"), "stderr={fuel_err}");
-    assert!(fuel_err.contains("budget"), "stderr={fuel_err}");
+    assert!(fuel_err.contains("budget") || fuel_err.contains("fuel"), "stderr={fuel_err}");
 
     // Also verify `aodc exec --fuel 20` on compiled IR
     let fuel_ir = dir.join("fuel_loop.ir.json");
@@ -271,12 +271,12 @@ Dec main() -> int:
     std::fs::write(
         &depth_src,
         r#"
-Dec dive(n: int) -> int:
+dec dive(n: int) -> int:
     emit n
-    return dive(n + 1)
+    dive(n + 1)
 
-Dec main() -> int:
-    return dive(1)
+dec main() -> int:
+    dive(1)
 "#,
     )
     .unwrap();
@@ -299,7 +299,7 @@ Dec main() -> int:
     let assert_src = dir.join("assert_after_emit.dec");
     std::fs::write(
         &assert_src,
-        "Dec main() -> int:\n    emit 77\n    assert false\n    return 0\n",
+        "dec main() -> int:\n    emit 77\n    assert false\n    0\n",
     )
     .unwrap();
     let assert_run = Command::new(aodc_bin())

@@ -3,14 +3,9 @@
 # to declare 4 independent concentric passive observers and prove exact SHA-256 invariance across
 # 0-, 1-, 2-, and 4-observer runs (sequential & parallel read-only execution) with zero hardcoded outcomes.
 
-use stdlib::aod::apparatus::{
-    chamber_box,
-    concentric_shell_box,
-    symmetric_opposing_336,
-    read_passive_snapshot,
-    summarize_blind_run,
-    verify_multi_observer_invariance
-}
+use stdlib::aod::apparatus:
+    chamber_box, concentric_shell_box, symmetric_opposing_336,
+    read_passive_snapshot, summarize_blind_run, verify_multi_observer_invariance
 
 chamber OpposingShellLab:
     space = chamber_box(64, 64, 64)
@@ -51,11 +46,11 @@ observe OuterShellSensor:
         let reading = read_passive_snapshot(view)
         assert reading.shedding_count >= 0
 
-Dec main() -> int:
-    let r0 = simulate Opposing336Shells for 12 ticks
-    let r1 = simulate Opposing336Shells for 12 ticks with CoreTracer
-    let r2 = simulate Opposing336Shells for 12 ticks with CoreTracer, InnerShellSensor
-    let r4 = simulate Opposing336Shells for 12 ticks with CoreTracer, InnerShellSensor, MidShellSensor, OuterShellSensor
+dec main() -> int:
+    let r0 = simulate Opposing336Shells over 12 ticks
+    let r1 = simulate Opposing336Shells over 12 ticks with CoreTracer
+    let r2 = simulate Opposing336Shells over 12 ticks with CoreTracer, InnerShellSensor
+    let r4 = simulate Opposing336Shells over 12 ticks with CoreTracer, InnerShellSensor, MidShellSensor, OuterShellSensor
 
     assert verify_multi_observer_invariance(r0, r1, r2, r4)
     let rep = summarize_blind_run(r4)
@@ -73,4 +68,4 @@ Dec main() -> int:
     emit final_snap.clock_count
     emit rep.final_state_hash
     emit ∂r4
-    return 0
+    0

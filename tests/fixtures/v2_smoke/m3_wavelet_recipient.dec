@@ -1,8 +1,11 @@
 # M3 wavelet localization, half-open window overlap deduplication, cadence ratio vs
 # single-contact stage association, and recipient lattice evaluation.
-use aod::wavelet::{window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo}
+use aod::core:
+    support_pi, support_rd
+use aod::wavelet:
+    window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
 
-Dec main() -> int:
+dec main() -> int:
     let cuts = [0, 2, 6, 8]
     let windows = [(0, 6], (4, 8]]
     let dedup = window_dedup_count("W_B_1", "B:main", cuts, windows)
@@ -34,4 +37,4 @@ Dec main() -> int:
     emit dedup
     emit cad
     emit rec.stage
-    return 0
+    0
