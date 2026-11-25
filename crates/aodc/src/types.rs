@@ -106,7 +106,6 @@ impl Type {
             | Type::U8
             | Type::B64
             | Type::Bool
-            | Type::Str
             | Type::Bytes
             | Type::T1
             | Type::T9
@@ -123,18 +122,21 @@ impl Type {
     }
 
     /// Composite/container types that propagate `ReadOnly<...>` when accessed through a read-only view.
+    /// Zero-payload `<builtin>` status/stage enums (`ModelStatus`, `RecipientStage`) are scalar-like
+    /// and never require `ReadOnly<...>` wrapping (`[P0-2]`).
     pub fn needs_readonly_propagation(&self) -> bool {
-        matches!(
-            self,
+        match self {
+            Type::Enum { module, .. } if module == BUILTIN_MOD => false,
             Type::List(_)
-                | Type::Array(_, _)
-                | Type::Map(_, _)
-                | Type::Struct { .. }
-                | Type::Enum { .. }
-                | Type::Tuple(_)
-                | Type::ChamberView
-                | Type::SimResult
-        )
+            | Type::Array(_, _)
+            | Type::Map(_, _)
+            | Type::Struct { .. }
+            | Type::Enum { .. }
+            | Type::Tuple(_)
+            | Type::ChamberView
+            | Type::SimResult => true,
+            _ => false,
+        }
     }
 
     pub fn is_read_only(&self) -> bool {
@@ -170,7 +172,7 @@ impl Type {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::TypeError,
                 line,
-                format!("UTF-8 `str` type is forbidden in --strict-wave (got {ty}); use `bytes`"),
+                format!("UTF-8 `str` type is forbidden in Dec v2 (got {ty}); use `bytes`"),
             ));
         }
         Ok(ty)
@@ -282,6 +284,13 @@ impl Type {
                 DiagnosticCode::TypeError,
                 line,
                 format!("unknown type {ty} in --compat v1"),
+            ));
+        }
+        if compat == CompatMode::V2 && ty.contains_str() {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::TypeError,
+                line,
+                format!("UTF-8 `str` type is forbidden in Dec v2 (got {ty}); use `bytes`"),
             ));
         }
         Ok(ty)
@@ -478,7 +487,6 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
                 PureNative,
                 false,
             ),
-            s(vec![Type::Str], Type::Bytes, PureNative, false),
             s(vec![Type::Bytes], Type::Bytes, PureNative, false),
             s(vec![Type::B64], Type::Bytes, PureNative, false),
             s(vec![Type::Addr8], Type::Bytes, PureNative, false),
@@ -594,12 +602,8 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
         )],
 
         // --- v2 exact AOD / support / ledger / M3 wavelet helpers ---
-        "addr8" => vec![
-            s(vec![Type::Str], Type::Addr8, PureNative, false),
-            s(vec![Type::Bytes], Type::Addr8, PureNative, false),
-        ],
+        "addr8" => vec![s(vec![Type::Bytes], Type::Addr8, PureNative, false)],
         "support" => vec![
-            s(vec![Type::Str], Type::Support, PureNative, false),
             s(vec![Type::Bytes], Type::Support, PureNative, false),
             s(
                 vec![Type::Int, Type::Int, Type::Int, Type::Bool],
@@ -640,7 +644,7 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             false,
         )],
         "boundary_of" => vec![
-            s(vec![Type::Box3], Type::Str, PureNative, false),
+            s(vec![Type::Box3], Type::Bytes, PureNative, false),
             s(
                 vec![Type::Window],
                 Type::Tuple(vec![Type::Int, Type::Int]),
@@ -653,81 +657,45 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
                 PureNative,
                 false,
             ),
-            s(vec![Type::SimResult], Type::Str, PureNative, false),
+            s(vec![Type::SimResult], Type::Bytes, PureNative, false),
         ],
-        "len" => vec![s(vec![Type::Str], Type::Int, PureNative, false)],
-        "window_dedup_count" => vec![
-            s(
-                vec![
-                    Type::Str,
-                    Type::Str,
-                    Type::List(Box::new(Type::Int)),
-                    Type::List(Box::new(Type::Window)),
-                ],
+        "len" => vec![s(vec![Type::Bytes], Type::Int, PureNative, false)],
+        "window_dedup_count" => vec![s(
+            vec![
+                Type::Bytes,
+                Type::Bytes,
+                Type::List(Box::new(Type::Int)),
+                Type::List(Box::new(Type::Window)),
+            ],
+            Type::Int,
+            PureNative,
+            false,
+        )],
+        "native_cadence_ratio" => vec![s(
+            vec![
+                Type::Bytes,
                 Type::Int,
-                PureNative,
-                false,
-            ),
-            s(
-                vec![
-                    Type::Bytes,
-                    Type::Bytes,
-                    Type::List(Box::new(Type::Int)),
-                    Type::List(Box::new(Type::Window)),
-                ],
+                Type::Bytes,
                 Type::Int,
-                PureNative,
-                false,
-            ),
-        ],
-        "native_cadence_ratio" => vec![
-            s(
-                vec![
-                    Type::Str,
-                    Type::Int,
-                    Type::Str,
-                    Type::Int,
-                    Type::Bool,
-                    Type::Int,
-                ],
-                Type::Ratio,
-                PureNative,
-                false,
-            ),
-            s(
-                vec![
-                    Type::Bytes,
-                    Type::Int,
-                    Type::Bytes,
-                    Type::Int,
-                    Type::Bool,
-                    Type::Int,
-                ],
-                Type::Ratio,
-                PureNative,
-                false,
-            ),
-        ],
-        "single_contact_association" => vec![
-            s(
-                vec![Type::Str, Type::Str, Type::Str, Type::Window, Type::Int],
-                Type::CadenceAssociation,
-                PureNative,
-                false,
-            ),
-            s(
-                vec![
-                    Type::Bytes,
-                    Type::Bytes,
-                    Type::Bytes,
-                    Type::Window,
-                    Type::Int,
-                ],
-                Type::CadenceAssociation,
-                PureNative,
-                false,
-            ),
-        ],
+                Type::Bool,
+                Type::Int,
+            ],
+            Type::Ratio,
+            PureNative,
+            false,
+        )],
+        "single_contact_association" => vec![s(
+            vec![
+                Type::Bytes,
+                Type::Bytes,
+                Type::Bytes,
+                Type::Window,
+                Type::Int,
+            ],
+            Type::CadenceAssociation,
+            PureNative,
+            false,
+        )],
         "recipient_eval_demo" => vec![s(
             vec![Type::Int, Type::Int, Type::Window],
             Type::RecipientOutcome,
@@ -834,20 +802,12 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
         ],
 
         // --- Strictly quarantined `aod::qext` builtins (`P0-1`, NO unwrap to native!) ---
-        "aod::qext::ext_decimal" => vec![
-            s(
-                vec![Type::Str],
-                Type::QExt(Box::new(Type::Ratio)),
-                QExt,
-                false,
-            ),
-            s(
-                vec![Type::Bytes],
-                Type::QExt(Box::new(Type::Ratio)),
-                QExt,
-                false,
-            ),
-        ],
+        "aod::qext::ext_decimal" => vec![s(
+            vec![Type::Bytes],
+            Type::QExt(Box::new(Type::Ratio)),
+            QExt,
+            false,
+        )],
         "aod::qext::qext_from_ratio" => vec![s(
             vec![Type::Ratio],
             Type::QExt(Box::new(Type::Ratio)),
@@ -866,9 +826,11 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             QExt,
             false,
         )],
-        "aod::qext::qext_render" => vec![s(
+        "aod::qext::qext_render"
+        | "aod::qext::qext_to_bytes_exact"
+        | "aod::qext::qext_render_bytes" => vec![s(
             vec![Type::QExt(Box::new(Type::Ratio))],
-            Type::QExt(Box::new(Type::Str)),
+            Type::QExt(Box::new(Type::Bytes)),
             QExt,
             false,
         )],
@@ -878,19 +840,9 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             QExt,
             false,
         )],
-        "aod::qext::qext_format_fixed" => vec![s(
-            vec![Type::QExt(Box::new(Type::Ratio)), Type::Int],
-            Type::QExt(Box::new(Type::Str)),
-            QExt,
-            false,
-        )],
-        "aod::qext::qext_to_bytes_exact" | "aod::qext::qext_render_bytes" => vec![s(
-            vec![Type::QExt(Box::new(Type::Ratio))],
-            Type::QExt(Box::new(Type::Bytes)),
-            QExt,
-            false,
-        )],
-        "aod::qext::qext_format_bytes_fixed" | "aod::qext::qext_format_fixed_bytes" => vec![s(
+        "aod::qext::qext_format_fixed"
+        | "aod::qext::qext_format_bytes_fixed"
+        | "aod::qext::qext_format_fixed_bytes" => vec![s(
             vec![Type::QExt(Box::new(Type::Ratio)), Type::Int],
             Type::QExt(Box::new(Type::Bytes)),
             QExt,
@@ -902,4 +854,36 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
 
 pub fn is_v1_builtin_name(name: &str) -> bool {
     lookup_builtin(name).iter().any(|sig| sig.v1_allowed)
+}
+
+pub const BUILTIN_MOD: &str = "<builtin>";
+
+pub const MODEL_STATUS_VARIANTS: &[(&str, i32)] = &[("DeclaredSandboxNotS3Authenticated", 0)];
+
+pub const RECIPIENT_STAGE_VARIANTS: &[(&str, i32)] = &[
+    ("Emitted", 0),
+    ("Delivered", 1),
+    ("Accepted", 2),
+    ("UnacceptedPass", 3),
+    ("Seated", 4),
+    ("PendingUnseated", 5),
+    ("ClosedOrigin", 6),
+    ("Reclosed", 7),
+    ("ReclosedReplay", 8),
+    ("ReclosedOutOfWindow", 9),
+];
+
+pub fn builtin_enum_variants(name: &str) -> Option<&'static [(&'static str, i32)]> {
+    match name {
+        "ModelStatus" => Some(MODEL_STATUS_VARIANTS),
+        "RecipientStage" => Some(RECIPIENT_STAGE_VARIANTS),
+        _ => None,
+    }
+}
+
+pub fn builtin_ns_exports_enum(ns_tail: &str, enum_name: &str) -> bool {
+    matches!(
+        (ns_tail, enum_name),
+        ("core" | "sim", "ModelStatus") | ("core" | "wavelet", "RecipientStage")
+    )
 }

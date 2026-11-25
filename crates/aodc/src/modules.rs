@@ -12,8 +12,17 @@ pub struct LoadOptions {
     /// Explicit `--stdlib <dir>` override pointing to the `stdlib/` directory itself
     /// (containing `aod/ledger.dec`). When set, NO silent fallback is permitted (`P0-2`).
     pub stdlib_dir: Option<PathBuf>,
-    /// Syntax discipline (`TransitionalV2` default vs opt-in `--pure-wave` `PureWaveV2`).
+    /// Syntax discipline (`PureWaveV2` default for V2; resolved via `SyntaxDiscipline::for_compat` on V1).
     pub discipline: SyntaxDiscipline,
+}
+
+impl LoadOptions {
+    pub fn for_compat(compat: CompatMode) -> Self {
+        Self {
+            stdlib_dir: None,
+            discipline: SyntaxDiscipline::for_compat(compat),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -122,6 +131,8 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "gcd",
             "lcm",
             "pow",
+            "ModelStatus",
+            "RecipientStage",
         ]),
         "witness" => Some(&[
             "trace", "step", "hinge", "dwell", "close", "phases", "beats", "rate", "fold",
@@ -140,8 +151,9 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "native_cadence_ratio",
             "single_contact_association",
             "recipient_eval_demo",
+            "RecipientStage",
         ]),
-        "sim" => Some(&["boundary_of"]),
+        "sim" => Some(&["boundary_of", "ModelStatus"]),
         "qext" => Some(&[
             "ext_decimal",
             "qext_from_ratio",
@@ -218,13 +230,18 @@ pub fn resolve_stdlib_root(options: &LoadOptions, base_dir: Option<&Path>) -> Op
     None
 }
 
-/// Load a source file (or in-memory source with optional base directory) with default `LoadOptions`.
+/// Load a source file (or in-memory source with optional base directory) with `LoadOptions::for_compat(compat)`.
 pub fn load_from_source(
     entry_source: &str,
     base_dir: Option<&Path>,
     compat: CompatMode,
 ) -> DecResult<LoadedUnit> {
-    load_from_source_with_options(entry_source, base_dir, compat, &LoadOptions::default())
+    load_from_source_with_options(
+        entry_source,
+        base_dir,
+        compat,
+        &LoadOptions::for_compat(compat),
+    )
 }
 
 /// Load a source file (or in-memory source with optional base directory and explicit `LoadOptions`)
@@ -235,7 +252,10 @@ pub fn load_from_source_with_options(
     compat: CompatMode,
     options: &LoadOptions,
 ) -> DecResult<LoadedUnit> {
-    let discipline = options.discipline;
+    let discipline = match compat {
+        CompatMode::V1 => SyntaxDiscipline::for_compat(compat),
+        CompatMode::V2 => options.discipline,
+    };
     let entry_program = parse_source_with_discipline(entry_source, compat, discipline)?;
     let entry_sha256 = Sha256::digest_hex(entry_source.as_bytes());
     let stdlib_root = resolve_stdlib_root(options, base_dir);
@@ -271,7 +291,7 @@ pub fn load_from_source_with_options(
 }
 
 /// Load a `LoadedUnit` strictly hermetically from embedded `entry_source` + `bundled_modules`
-/// under `TransitionalV2` discipline (`P0-2`, `P1-2`).
+/// under `SyntaxDiscipline::for_compat(compat)` (`P0-2`, `P0-3`, `P1-2`).
 pub fn load_hermetic(
     entry_source: &str,
     bundled_modules: &BTreeMap<String, BundledModule>,
@@ -281,7 +301,7 @@ pub fn load_hermetic(
         entry_source,
         bundled_modules,
         compat,
-        SyntaxDiscipline::TransitionalV2,
+        SyntaxDiscipline::for_compat(compat),
     )
 }
 

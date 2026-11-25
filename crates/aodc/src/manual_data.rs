@@ -388,21 +388,14 @@ fn generate_double_slit_json(
     }
 
     let driver = "\
-use stdlib::aod::boundary::{double_slit_eval, double_slit_bins}
-Dec main() -> int:
-    let ds = double_slit_eval()
-    emit ds.sum_t0
-    emit ds.sum_cx
-    emit ds.sum_tx
-    emit ds.sum_obs
-    emit ds.sum_delta
-    emit ds.sum_mag
-    emit int(ds.center_sign)
-    emit ds.center_mag
-    let bins = double_slit_bins()
-    emit len(bins)
-    for i in 0..len(bins):
-        let b = bins[i]
+use aod::core:
+    int, len, fold_seq
+
+use stdlib::aod::boundary:
+    DoubleSlitBin, double_slit_eval, double_slit_bins
+
+dec emit_slit_bin:
+    (_: Null, b: DoubleSlitBin) -> Null:
         emit b.k
         emit b.s
         emit b.t0
@@ -412,7 +405,23 @@ Dec main() -> int:
         emit b.delta
         emit int(b.sign)
         emit b.mag
-    return 0
+        return null
+
+dec main:
+    () -> int:
+        let ds = double_slit_eval()
+        emit ds.sum_t0
+        emit ds.sum_cx
+        emit ds.sum_tx
+        emit ds.sum_obs
+        emit ds.sum_delta
+        emit ds.sum_mag
+        emit int(ds.center_sign)
+        emit ds.center_mag
+        let bins = double_slit_bins()
+        emit len(bins)
+        let _done = fold_seq(null, bins, emit_slit_bin)
+        return 0
 ";
     let emits = eval_dec_source_vm(
         driver,
@@ -550,18 +559,28 @@ fn generate_disk_enclosure_json(
     }
 
     let driver = "\
-use stdlib::aod::cells::disk_enclosure
-Dec main() -> int:
-    let ns = [1, 2, 4, 8, 16]
-    emit len(ns)
-    for i in 0..len(ns):
-        let d = disk_enclosure(ns[i])
+use aod::core:
+    len, fold_seq
+
+use stdlib::aod::cells:
+    disk_enclosure
+
+dec emit_disk_row:
+    (_: Null, n: int) -> Null:
+        let d = disk_enclosure(n)
         emit d.n
         emit d.a_minus
         emit d.a_plus
         emit d.c_n
         emit d.excess
-    return 0
+        return null
+
+dec main:
+    () -> int:
+        let ns = [1, 2, 4, 8, 16]
+        emit len(ns)
+        let _done = fold_seq(null, ns, emit_disk_row)
+        return 0
 ";
     let emits = eval_dec_source_vm(
         driver,

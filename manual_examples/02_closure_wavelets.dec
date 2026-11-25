@@ -6,7 +6,7 @@ use aod::core:
     len
 
 use aod::wavelet:
-    window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
+    RecipientStage, window_dedup_count, native_cadence_ratio, single_contact_association, recipient_eval_demo
 
 use stdlib::aod::wavelet:
     DUON_VARIANT_COUNT, DuadSeat, seat_duad, count_cuts_window
@@ -43,12 +43,21 @@ dec main:
         assert opp.net_current == 0 and opp.retained_histories == 2
 
         # 5. Recipient lattice stages (6 distinct canonical stages verified)
-        let stages = [b"emitted", b"delivered", b"accepted", b"seated", b"reclosed", b"reclosed_out_of_window"]
+        let stages = [
+            RecipientStage::Emitted,
+            RecipientStage::Delivered,
+            RecipientStage::Accepted,
+            RecipientStage::Seated,
+            RecipientStage::Reclosed,
+            RecipientStage::ReclosedOutOfWindow
+        ]
         assert len(stages) == 6
         let rec_ok = recipient_eval_demo(5, 6, (4, 10])
         let rec_oow = recipient_eval_demo(5, 11, (4, 10])
-        assert rec_ok.stage_bytes == b"reclosed" and rec_ok.closure_phase_delta == 1 and rec_ok.reclosure_bip_delta == 1
-        assert rec_oow.stage_bytes == b"reclosed_out_of_window" and rec_oow.reclosure_bip_delta == 0
+        assert rec_ok.stage == RecipientStage::Reclosed and rec_ok.stage_bytes == b"reclosed"
+        assert rec_ok.closure_phase_delta == 1 and rec_ok.reclosure_bip_delta == 1
+        assert rec_oow.stage == RecipientStage::ReclosedOutOfWindow and rec_oow.stage_bytes == b"reclosed_out_of_window"
+        assert rec_oow.reclosure_bip_delta == 0
 
         # 6. Repeated-contact cadence (3/5 and 0/10 -> 0/1) vs single-contact guard (is_cadence_ratio == false)
         let cad_35 = native_cadence_ratio(b"a", 3, b"r", 5, true, 2)

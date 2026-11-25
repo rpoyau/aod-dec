@@ -61,9 +61,10 @@ We don't drop exact half-open windows $(0, 6]$ (#mainequation("main:eq:first-anc
 See #secref("sec:intro").
 
 ```dec
-Dec main() -> int:
-    emit 42
-    return 0
+dec main:
+    () -> int:
+        emit 42
+        return 0
 ```
 
 ```dec-expect
@@ -183,7 +184,7 @@ fn ac06_hostile_inline_tamper_unexpected_pass_and_unpaired_dec() {
     write_minimal_valid_manual(&d2);
     let ch2 = d2.join("chapters/ch1.typ");
     let mut s2 = std::fs::read_to_string(&ch2).unwrap();
-    s2.push_str("\n```dec-fail AssertionFailed\nDec main() -> int:\n    return 0\n```\n");
+    s2.push_str("\n```dec-fail AssertionFailed\ndec main:\n    () -> int:\n        return 0\n```\n");
     std::fs::write(&ch2, s2).unwrap();
     let r2 = verify_manual_dir(&d2, &opts);
     assert!(!r2.is_ok());
@@ -195,7 +196,7 @@ fn ac06_hostile_inline_tamper_unexpected_pass_and_unpaired_dec() {
     write_minimal_valid_manual(&d3);
     let ch3 = d3.join("chapters/ch1.typ");
     let mut s3 = std::fs::read_to_string(&ch3).unwrap();
-    s3.push_str("\n```dec\nDec main() -> int:\n    return 0\n```\n");
+    s3.push_str("\n```dec\ndec main:\n    () -> int:\n        return 0\n```\n");
     std::fs::write(&ch3, s3).unwrap();
     let r3 = verify_manual_dir(&d3, &opts);
     assert!(!r3.is_ok());

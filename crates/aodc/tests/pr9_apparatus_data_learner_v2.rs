@@ -149,19 +149,21 @@ fn p1_apparatus_11_opposing_sensors_6way_parity_and_firewall() {
         .to_stdout_string();
     assert_eq!(ir_out, expected_stdout);
 
-    // 7. Compile-time observer firewall still rejects mutating `ReadOnly<ChamberView>`
+    // 7. Compile-time observer firewall still rejects non-ReadOnly `ChamberView`
     let hostile_obs = r#"
 chamber C:
     space = box([0..16, 0..16, 0..16])
     walls = open
 prepare P in C:
-    inject 3:3:6 at (4, 8, 8) dir +X orient +1t shells 1
+    inject 3:3:6 at (4, 8, 8) dir +X orient 1t shells 1
 observe Bad:
-    tracer mutator(view):
-        view.carriers[0] = 99
-Dec main() -> int:
-    let _r = simulate P for 2 ticks with Bad
-    return 0
+    tracer mutator:
+        (view: ChamberView) -> Null:
+            return null
+dec main:
+    () -> int:
+        let _r = simulate P for 2 ticks with Bad
+        return 0
 "#;
     assert!(check_source(hostile_obs, CompatMode::V2).is_err());
 }
@@ -411,7 +413,7 @@ fn p3_codegen_plan_v2_loop_metadata_legacy_v1_fallback_and_soa_bench() {
             "interleave_count={bad_ic} must fail from_json()"
         );
 
-        let checked = check_source("Dec main() -> int:\n    return 0\n", CompatMode::V2).unwrap();
+        let checked = check_source("dec main:\n    () -> int:\n        return 0\n", CompatMode::V2).unwrap();
         assert!(
             lower_to_llvm_ir_with_plan(&checked, &bad).is_err(),
             "interleave_count={bad_ic} must fail lower_to_llvm_ir_with_plan()"
@@ -437,12 +439,17 @@ fn p3_codegen_plan_v2_loop_metadata_legacy_v1_fallback_and_soa_bench() {
 
     // 2. Combined single `!llvm.loop` node (`P0-4`): unroll + vectorize + interleave in ONE distinct node!
     let loop_src = r#"
-Dec main() -> int:
-    mut acc = 0
-    for i in 0..64:
-        acc = acc + i
-    emit acc
-    return 0
+use aod::core::evolve
+
+dec add_step:
+    (acc: int, i: int) -> int:
+        return acc + i
+
+dec main:
+    () -> int:
+        let acc = evolve(0, 0..64, add_step)
+        emit acc
+        return 0
 "#;
     let checked = check_source(loop_src, CompatMode::V2).unwrap();
 
@@ -587,41 +594,49 @@ Dec main() -> int:
 fn p3_parallel_observers_tight_fuel_consts_emits_and_error_precedence() {
     // 1. Heap-spilled 40-digit module `const` + 3 ordered emitting observers across VM, JIT, and AOT!
     let const_and_emit_src = r#"
+use aod::core:
+    t1, evolve
+
 const BIG_TAG: int = 1234567890123456789012345678901234567890
+
+dec obs_burn:
+    (acc: int, i: int) -> int:
+        return acc + i
 
 chamber ParLab:
     space = box([0..32, 0..32, 0..32])
     walls = open
 
 prepare Beam in ParLab:
-    inject 3:3:6 at (10, 16, 16) dir +X orient +1t shells 1
-    inject 3:3:6 at (22, 16, 16) dir -X orient -1t shells 1
+    inject 3:3:6 at (10, 16, 16) dir +X orient 1t shells 1
+    inject 3:3:6 at (22, 16, 16) dir -X orient t1(-1) shells 1
 
 observe ObsA:
-    tracer watch_a(view):
-        mut acc = 0
-        for i in 0..4:
-            acc = acc + i
-        emit BIG_TAG + view.tick * 10 + 1
+    tracer watch_a:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let _acc = evolve(0, 0..4, obs_burn)
+            emit BIG_TAG + view.tick * 10 + 1
+            return null
 
 observe ObsB:
-    tracer watch_b(view):
-        mut acc = 0
-        for i in 0..4:
-            acc = acc + i
-        emit BIG_TAG + view.tick * 10 + 2
+    tracer watch_b:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let _acc = evolve(0, 0..4, obs_burn)
+            emit BIG_TAG + view.tick * 10 + 2
+            return null
 
 observe ObsC:
-    tracer watch_c(view):
-        mut acc = 0
-        for i in 0..4:
-            acc = acc + i
-        emit BIG_TAG + view.tick * 10 + 3
+    tracer watch_c:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let _acc = evolve(0, 0..4, obs_burn)
+            emit BIG_TAG + view.tick * 10 + 3
+            return null
 
-Dec main() -> int:
-    let r = simulate Beam for 3 ticks with ObsA, ObsB, ObsC
-    emit r.final_state_hash
-    return 0
+dec main:
+    () -> int:
+        let r = simulate Beam for 3 ticks with ObsA, ObsB, ObsC
+        emit r.final_state_hash
+        return 0
 "#;
     let checked = check_source(const_and_emit_src, CompatMode::V2).unwrap();
 
@@ -733,20 +748,30 @@ chamber ErrLab:
     space = box([0..16, 0..16, 0..16])
     walls = open
 prepare P in ErrLab:
-    inject 3:3:6 at (4, 8, 8) dir +X orient +1t shells 1
+    inject 3:3:6 at (4, 8, 8) dir +X orient 1t shells 1
 observe Obs1:
-    tracer t1(view):
-        emit "obs1_ok"
+    tracer t1:
+        (view: ReadOnly<ChamberView>) -> Null:
+            assert view.tick >= 0
+            emit b"obs1_ok"
+            return null
 observe Obs2:
-    tracer t2(view):
-        emit "obs2_before_fail"
-        assert false
+    tracer t2:
+        (view: ReadOnly<ChamberView>) -> Null:
+            assert view.tick >= 0
+            emit b"obs2_before_fail"
+            assert false
+            return null
 observe Obs3:
-    tracer t3(view):
-        emit "obs3_must_be_discarded"
-Dec main() -> int:
-    let _r = simulate P for 2 ticks with Obs1, Obs2, Obs3
-    return 0
+    tracer t3:
+        (view: ReadOnly<ChamberView>) -> Null:
+            assert view.tick >= 0
+            emit b"obs3_must_be_discarded"
+            return null
+dec main:
+    () -> int:
+        let _r = simulate P for 2 ticks with Obs1, Obs2, Obs3
+        return 0
 "#;
     let err_checked = check_source(err_prec_src, CompatMode::V2).unwrap();
     let (ev_seq_e, ev_seq_r) = Evaluator::new(&err_checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)
@@ -758,7 +783,13 @@ Dec main() -> int:
         .with_parallel_observers(true)
         .run_main_capturing();
     assert!(ev_seq_r.is_err() && ev_par_r.is_err());
-    assert_eq!(ev_seq_e, vec!["obs1_ok".to_string(), "obs2_before_fail".to_string()]);
+    assert_eq!(
+        ev_seq_e,
+        vec![
+            "b\"obs1_ok\"".to_string(),
+            "b\"obs2_before_fail\"".to_string()
+        ]
+    );
     assert_eq!(ev_par_e, ev_seq_e);
 
     let (je_seq_out, je_seq_r) = jit_source_with_plan_captured(
@@ -778,7 +809,7 @@ Dec main() -> int:
     )
     .unwrap();
     assert!(je_seq_r.is_err() && je_par_r.is_err());
-    assert_eq!(je_seq_out, "obs1_ok\nobs2_before_fail\n");
+    assert_eq!(je_seq_out, "b\"obs1_ok\"\nb\"obs2_before_fail\"\n");
     assert_eq!(je_par_out, je_seq_out);
     assert_eq!(je_par_r, je_seq_r);
 }

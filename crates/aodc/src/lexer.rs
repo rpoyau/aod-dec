@@ -153,9 +153,9 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
     tokenize_with_compat(source, CompatMode::V2)
 }
 
-/// Tokenize Dec v1 / v2 source code under `TransitionalV2` discipline.
+/// Tokenize Dec v1 / v2 source code under canonical `SyntaxDiscipline::for_compat(compat)`.
 pub fn tokenize_with_compat(source: &str, compat: CompatMode) -> DecResult<Vec<Token>> {
-    tokenize_with_discipline(source, compat, SyntaxDiscipline::TransitionalV2)
+    tokenize_with_discipline(source, compat, SyntaxDiscipline::for_compat(compat))
 }
 
 pub fn tokenize_with_discipline(
@@ -181,7 +181,13 @@ pub fn tokenize_with_options(
     if compat == CompatMode::V1 && discipline == SyntaxDiscipline::PureWaveV2 {
         return Err(Diagnostic::new(
             DiagnosticCode::ParseError,
-            "--pure-wave cannot be combined with --compat v1",
+            "--strict-wave / PureWaveV2 cannot be combined with --compat v1",
+        ));
+    }
+    if compat == CompatMode::V2 && discipline == SyntaxDiscipline::LegacyV1 {
+        return Err(Diagnostic::new(
+            DiagnosticCode::ParseError,
+            "LegacyV1 cannot be combined with CompatMode::V2; Dec v2 is unconditionally PureWaveV2",
         ));
     }
     let mut tokens: Vec<Token> = Vec::new();

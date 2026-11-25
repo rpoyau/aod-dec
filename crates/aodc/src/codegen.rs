@@ -12,7 +12,10 @@ use crate::ast::{
 use crate::checker::CheckedUnit;
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{builtin_namespace_items, canonical_builtin_name, ImportedSymbol};
-use crate::types::Type;
+use crate::types::{
+    builtin_enum_variants, builtin_ns_exports_enum, Type, BUILTIN_MOD, MODEL_STATUS_VARIANTS,
+    RECIPIENT_STAGE_VARIANTS,
+};
 
 /// Lower a verified `CheckedUnit` using the default baseline `CodegenPlan`.
 pub fn lower_to_llvm_ir(checked: &CheckedUnit) -> DecResult<String> {
@@ -126,6 +129,7 @@ struct EnumMeta {
 #[derive(Clone, Debug)]
 struct FnOverload {
     llvm_name: String,
+    unboxed_evolve_llvm_name: Option<String>,
     mod_key: String,
     param_types: Vec<Type>,
     ret_type: Type,
@@ -293,8 +297,73 @@ impl<'a> Codegen<'a> {
         }
     }
 
+    fn register_builtin_enums(&mut self) {
+        if self.compat() != CompatMode::V2 {
+            return;
+        }
+        for (ename, variants) in [
+            ("ModelStatus", MODEL_STATUS_VARIANTS),
+            ("RecipientStage", RECIPIENT_STAGE_VARIANTS),
+        ] {
+            self.enums.insert(
+                (BUILTIN_MOD.to_string(), ename.to_string()),
+                EnumMeta {
+                    module: BUILTIN_MOD.to_string(),
+                    name: ename.to_string(),
+                    variants: variants
+                        .iter()
+                        .map(|(vn, tag)| ((*vn).to_string(), *tag, Vec::new()))
+                        .collect(),
+                },
+            );
+        }
+    }
+
     fn lookup_user_type(&self, mod_key: &str, name: &str) -> Option<Type> {
         let base = self.base_module_of(mod_key);
+        if name.contains("::") {
+            if self.compat() != CompatMode::V2 {
+                return None;
+            }
+            let segs: Vec<&str> = name.split("::").collect();
+            if segs.len() == 2 {
+                if let Some(ImportedSymbol::ModuleNamespace(m)) =
+                    self.imports_for(mod_key).get(segs[0])
+                {
+                    if let Some(ns_tail) = m.strip_prefix("aod::") {
+                        if builtin_ns_exports_enum(ns_tail, segs[1]) {
+                            return Some(Type::Enum {
+                                module: BUILTIN_MOD.to_string(),
+                                name: segs[1].to_string(),
+                            });
+                        }
+                        return None;
+                    }
+                    if self.structs.contains_key(&(m.clone(), segs[1].to_string())) {
+                        return Some(Type::Struct {
+                            module: m.clone(),
+                            name: segs[1].to_string(),
+                        });
+                    }
+                    if self.enums.contains_key(&(m.clone(), segs[1].to_string())) {
+                        return Some(Type::Enum {
+                            module: m.clone(),
+                            name: segs[1].to_string(),
+                        });
+                    }
+                }
+            } else if segs.len() == 3
+                && segs[0] == "aod"
+                && builtin_ns_exports_enum(segs[1], segs[2])
+            {
+                return Some(Type::Enum {
+                    module: BUILTIN_MOD.to_string(),
+                    name: segs[2].to_string(),
+                });
+            }
+            return None;
+        }
+
         if self.structs.contains_key(&(base.to_string(), name.to_string())) {
             return Some(Type::Struct {
                 module: base.to_string(),
@@ -307,21 +376,36 @@ impl<'a> Codegen<'a> {
                 name: name.to_string(),
             });
         }
-        if let Some(ImportedSymbol::ModuleItem { module, item }) =
-            self.imports_for(mod_key).get(name)
-        {
-            if self.structs.contains_key(&(module.clone(), item.clone())) {
-                return Some(Type::Struct {
-                    module: module.clone(),
-                    name: item.clone(),
-                });
+        match self.imports_for(mod_key).get(name) {
+            Some(ImportedSymbol::ModuleItem { module, item }) => {
+                if self.structs.contains_key(&(module.clone(), item.clone())) {
+                    return Some(Type::Struct {
+                        module: module.clone(),
+                        name: item.clone(),
+                    });
+                }
+                if self.enums.contains_key(&(module.clone(), item.clone())) {
+                    return Some(Type::Enum {
+                        module: module.clone(),
+                        name: item.clone(),
+                    });
+                }
             }
-            if self.enums.contains_key(&(module.clone(), item.clone())) {
+            Some(ImportedSymbol::Builtin(canon))
+                if self.compat() == CompatMode::V2 && builtin_enum_variants(canon).is_some() =>
+            {
                 return Some(Type::Enum {
-                    module: module.clone(),
-                    name: item.clone(),
+                    module: BUILTIN_MOD.to_string(),
+                    name: canon.clone(),
                 });
             }
+            _ => {}
+        }
+        if self.compat() == CompatMode::V2 && builtin_enum_variants(name).is_some() {
+            return Some(Type::Enum {
+                module: BUILTIN_MOD.to_string(),
+                name: name.to_string(),
+            });
         }
         None
     }
@@ -344,6 +428,8 @@ impl<'a> Codegen<'a> {
     }
 
     fn index_all(&mut self) -> DecResult<()> {
+        // Pre-register `<builtin>` enums (`ModelStatus`, `RecipientStage`) in V2
+        self.register_builtin_enums();
         // Pass 1: register struct/enum/qext names
         self.collect_names("<entry>", &self.checked.unit.entry_program);
         for (mk, prog) in &self.checked.unit.parsed_modules {
@@ -555,6 +641,7 @@ impl<'a> Codegen<'a> {
                     .or_default()
                     .push(FnOverload {
                         llvm_name,
+                        unboxed_evolve_llvm_name: None,
                         mod_key: mod_key.to_string(),
                         param_types,
                         ret_type,
@@ -632,11 +719,22 @@ impl<'a> Codegen<'a> {
                     } else {
                         format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id)
                     };
+                    let unboxed_evolve_llvm_name = if qualifies_for_unboxed_evolve(
+                        &f.name,
+                        &param_types,
+                        &ret_type,
+                        &group_arms,
+                    ) {
+                        Some(format!("{llvm_name}_unboxed"))
+                    } else {
+                        None
+                    };
                     self.fn_overloads
                         .entry((mod_key.to_string(), f.name.clone()))
                         .or_default()
                         .push(FnOverload {
                             llvm_name,
+                            unboxed_evolve_llvm_name,
                             mod_key: mod_key.to_string(),
                             param_types,
                             ret_type,
@@ -717,10 +815,26 @@ impl<'a> Codegen<'a> {
             let base = self.base_module_of(mod_key);
             if self.enums.contains_key(&(base.to_string(), path[0].clone())) {
                 (base.to_string(), path[0].clone(), path[1].clone())
-            } else if let Some(ImportedSymbol::ModuleItem { module, item }) =
-                self.imports_for(mod_key).get(&path[0])
+            } else if let Some(imp) = self.imports_for(mod_key).get(&path[0]) {
+                match imp {
+                    ImportedSymbol::ModuleItem { module, item } => {
+                        (module.clone(), item.clone(), path[1].clone())
+                    }
+                    ImportedSymbol::Builtin(canon)
+                        if self.compat() == CompatMode::V2
+                            && builtin_enum_variants(canon).is_some() =>
+                    {
+                        (BUILTIN_MOD.to_string(), canon.clone(), path[1].clone())
+                    }
+                    _ => return None,
+                }
+            } else if self.compat() == CompatMode::V2
+                && !self
+                    .structs
+                    .contains_key(&(base.to_string(), path[0].clone()))
+                && builtin_enum_variants(&path[0]).is_some()
             {
-                (module.clone(), item.clone(), path[1].clone())
+                (BUILTIN_MOD.to_string(), path[0].clone(), path[1].clone())
             } else {
                 return None;
             }
@@ -728,10 +842,26 @@ impl<'a> Codegen<'a> {
             if let Some(ImportedSymbol::ModuleNamespace(m)) =
                 self.imports_for(mod_key).get(&path[0])
             {
-                (m.clone(), path[1].clone(), path[2].clone())
+                if let Some(ns_tail) = m.strip_prefix("aod::") {
+                    if self.compat() == CompatMode::V2
+                        && builtin_ns_exports_enum(ns_tail, &path[1])
+                    {
+                        (BUILTIN_MOD.to_string(), path[1].clone(), path[2].clone())
+                    } else {
+                        return None;
+                    }
+                } else {
+                    (m.clone(), path[1].clone(), path[2].clone())
+                }
             } else {
                 return None;
             }
+        } else if path.len() == 4
+            && self.compat() == CompatMode::V2
+            && path[0] == "aod"
+            && builtin_ns_exports_enum(&path[1], &path[2])
+        {
+            (BUILTIN_MOD.to_string(), path[2].clone(), path[3].clone())
         } else {
             return None;
         };
@@ -796,6 +926,9 @@ impl<'a> Codegen<'a> {
             .collect();
         for ov in all_overloads {
             self.emit_user_fn(&ov)?;
+            if ov.unboxed_evolve_llvm_name.is_some() {
+                self.emit_unboxed_evolve_fn(&ov)?;
+            }
         }
 
         // 3. Emit `@aod_init_consts(ptr %ctx)`
@@ -934,6 +1067,8 @@ impl<'a> Codegen<'a> {
                 fb.emit_depth_dec();
                 fb.emit_default_ret();
             }
+        } else if self.try_emit_two_arm_branchless_select(&mut fb, ov, ret_lt)? {
+            // Emitted pure 2-arm `dec` signature matrix via LLVM `select` + `emit_depth_dec()` (`[P0-4]`).
         } else {
             // Multi-arm dispatch (1 arm for plain v1/v2 overload, or N arms top-to-bottom for patterns/guards!)
             for (arm_idx, arm) in ov.multi_arms.iter().enumerate() {
@@ -1022,6 +1157,298 @@ impl<'a> Codegen<'a> {
             fb.emit_depth_dec();
             fb.emit_default_ret();
         }
+
+        self.fn_defs.push_str(&fb.render_fn(&header));
+        Ok(())
+    }
+
+    fn try_emit_two_arm_branchless_select(
+        &mut self,
+        fb: &mut FnBuilder,
+        ov: &FnOverload,
+        ret_lt: LlvmTy,
+    ) -> DecResult<bool> {
+        if !self.plan.branchless_select
+            || ov.multi_arms.len() != 2
+            || matches!(ret_lt, LlvmTy::Handle | LlvmTy::Void)
+            || ov
+                .param_types
+                .iter()
+                .any(|pt| matches!(LlvmTy::from_dec(pt), LlvmTy::Handle | LlvmTy::Void))
+        {
+            return Ok(false);
+        }
+        let arm0 = &ov.multi_arms[0];
+        let arm1 = &ov.multi_arms[1];
+        if arm0.output_name.is_some()
+            || arm1.output_name.is_some()
+            || arm1.guard.is_some()
+            || arm0.body.len() != 1
+            || arm1.body.len() != 1
+        {
+            return Ok(false);
+        }
+        let StmtKind::Return(Some(ref e_then)) = arm0.body[0].kind else {
+            return Ok(false);
+        };
+        let StmtKind::Return(Some(ref e_else)) = arm1.body[0].kind else {
+            return Ok(false);
+        };
+
+        let mut arm0_has_refutable_pat = false;
+        for p in &arm0.params {
+            match p {
+                DecArmParam::TypedVar { .. } => {}
+                DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+                    match pattern {
+                        Pattern::Wildcard | Pattern::Binding(_) => {}
+                        Pattern::NullLit
+                        | Pattern::BoolLit(_)
+                        | Pattern::U8Lit(_)
+                        | Pattern::B64Lit(_)
+                        | Pattern::TritLit(_)
+                        | Pattern::T9Lit(_)
+                        | Pattern::T32Lit(_)
+                        | Pattern::Q4Lit(_) => {
+                            arm0_has_refutable_pat = true;
+                        }
+                        _ => return Ok(false),
+                    }
+                }
+            }
+        }
+        if !arm0_has_refutable_pat && arm0.guard.is_none() {
+            return Ok(false);
+        }
+        for p in &arm1.params {
+            match p {
+                DecArmParam::TypedVar { .. } => {}
+                DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+                    if !matches!(pattern, Pattern::Wildcard | Pattern::Binding(_)) {
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+
+        // Pre-verify purity of `e_then` (and `guard` if paired with a refutable literal pattern)
+        // in Arm 0's isolated parameter scope BEFORE emitting any IR!
+        fb.push_scope();
+        for (param, pty) in arm0.params.iter().zip(&ov.param_types) {
+            match param {
+                DecArmParam::TypedVar { name, .. }
+                | DecArmParam::TypedPattern {
+                    pattern: Pattern::Binding(name),
+                    ..
+                }
+                | DecArmParam::Pattern(Pattern::Binding(name))
+                    if name != "_" =>
+                {
+                    fb.scopes.last_mut().unwrap().insert(
+                        name.clone(),
+                        LocalSlot {
+                            alloca: String::new(),
+                            dec_ty: pty.clone(),
+                        },
+                    );
+                }
+                _ => {}
+            }
+        }
+        let guard_ok_with_pat = match (arm0_has_refutable_pat, &arm0.guard) {
+            (true, Some(g)) => fb.is_pure_select_safe(self, g),
+            _ => true,
+        };
+        let then_pure = guard_ok_with_pat && fb.is_pure_select_safe(self, e_then);
+        fb.pop_scope();
+        if !then_pure {
+            return Ok(false);
+        }
+
+        // Pre-verify purity of `e_else` in Arm 1's isolated parameter scope BEFORE emitting any IR!
+        fb.push_scope();
+        for (param, pty) in arm1.params.iter().zip(&ov.param_types) {
+            match param {
+                DecArmParam::TypedVar { name, .. }
+                | DecArmParam::TypedPattern {
+                    pattern: Pattern::Binding(name),
+                    ..
+                }
+                | DecArmParam::Pattern(Pattern::Binding(name))
+                    if name != "_" =>
+                {
+                    fb.scopes.last_mut().unwrap().insert(
+                        name.clone(),
+                        LocalSlot {
+                            alloca: String::new(),
+                            dec_ty: pty.clone(),
+                        },
+                    );
+                }
+                _ => {}
+            }
+        }
+        let else_pure = fb.is_pure_select_safe(self, e_else);
+        fb.pop_scope();
+        if !else_pure {
+            return Ok(false);
+        }
+
+        // Emit Arm 0 in its own isolated scope
+        fb.push_scope();
+        let mut cond_reg = "true".to_string();
+        for (i, (param, pty)) in arm0.params.iter().zip(&ov.param_types).enumerate() {
+            let arg_val = Val {
+                reg: format!("%arg{i}"),
+                dec_ty: pty.clone(),
+            };
+            match param {
+                DecArmParam::TypedVar { name, .. } => {
+                    if name != "_" {
+                        let lt = LlvmTy::from_dec(pty);
+                        let slot = fb.alloc_local(name, pty.clone());
+                        fb.line(&format!("  store {} %arg{i}, ptr {}", lt.ir(), slot.alloca));
+                        fb.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                    }
+                }
+                DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+                    let pcond = fb.emit_pattern_match(self, pattern, &arg_val)?;
+                    if cond_reg == "true" {
+                        cond_reg = pcond;
+                    } else if pcond != "true" {
+                        let nxt = fb.fresh_reg();
+                        fb.line(&format!("  {nxt} = and i1 {cond_reg}, {pcond}"));
+                        cond_reg = nxt;
+                    }
+                }
+            }
+        }
+        if let Some(ref guard) = arm0.guard {
+            let gv = fb.emit_expr(self, guard)?;
+            fb.emit_fail_return_check();
+            if cond_reg == "true" {
+                cond_reg = gv.reg;
+            } else {
+                let nxt = fb.fresh_reg();
+                fb.line(&format!("  {nxt} = and i1 {cond_reg}, {}", gv.reg));
+                cond_reg = nxt;
+            }
+        }
+        let v_then = fb.emit_expr(self, e_then)?;
+        fb.pop_scope();
+
+        // Emit Arm 1 in its own fresh scope (isolated from Arm 0 parameter names!)
+        fb.push_scope();
+        for (i, (param, pty)) in arm1.params.iter().zip(&ov.param_types).enumerate() {
+            match param {
+                DecArmParam::TypedVar { name, .. }
+                | DecArmParam::TypedPattern {
+                    pattern: Pattern::Binding(name),
+                    ..
+                }
+                | DecArmParam::Pattern(Pattern::Binding(name)) => {
+                    if name != "_" {
+                        let lt = LlvmTy::from_dec(pty);
+                        let slot = fb.alloc_local(name, pty.clone());
+                        fb.line(&format!("  store {} %arg{i}, ptr {}", lt.ir(), slot.alloca));
+                        fb.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let v_else = fb.emit_expr(self, e_else)?;
+        fb.pop_scope();
+
+        let sel = fb.fresh_reg();
+        fb.line(&format!(
+            "  {sel} = select i1 {cond_reg}, {} {}, {} {}",
+            ret_lt.ir(),
+            v_then.reg,
+            ret_lt.ir(),
+            v_else.reg
+        ));
+        fb.emit_depth_dec();
+        fb.line(&format!("  ret {} {sel}", ret_lt.ir()));
+        fb.terminated = true;
+        Ok(true)
+    }
+
+    fn emit_unboxed_evolve_fn(&mut self, ov: &FnOverload) -> DecResult<()> {
+        let Some(ref unboxed_name) = ov.unboxed_evolve_llvm_name else {
+            return Ok(());
+        };
+        let Type::Tuple(ref state_elems) = ov.param_types[0] else {
+            return Ok(());
+        };
+        let arm = &ov.multi_arms[0];
+        let mut sig_params = String::from("ptr %ctx");
+        for j in 0..state_elems.len() {
+            let _ = write!(sig_params, ", ptr %s{j}");
+        }
+        let _ = write!(sig_params, ", %DecInt %arg_idx");
+        if ov.param_types.len() == 3 {
+            let env_lt = LlvmTy::from_dec(&ov.param_types[2]);
+            if env_lt != LlvmTy::Void {
+                let _ = write!(sig_params, ", {} %arg_env", env_lt.ir());
+            }
+        }
+        let header = format!("define internal void {unboxed_name}({sig_params})");
+
+        let mut fb = FnBuilder::new(unboxed_name, Type::Unit, &ov.mod_key);
+        fb.emit_entry_depth_and_fuel();
+
+        // 1. Pre-load ALL `%s0..%s_{k-1}` into distinct local slots (skipping `_` wildcards!)
+        //    BEFORE evaluating any body statements.
+        let sub_pats = match &arm.params[0] {
+            DecArmParam::TypedPattern {
+                pattern: Pattern::Tuple(ps),
+                ..
+            }
+            | DecArmParam::Pattern(Pattern::Tuple(ps)) => ps,
+            _ => return Ok(()),
+        };
+        for (j, (sp, ety)) in sub_pats.iter().zip(state_elems).enumerate() {
+            if let Pattern::Binding(bname) = sp {
+                if bname != "_" {
+                    let elt = LlvmTy::from_dec(ety);
+                    let loaded = fb.fresh_reg();
+                    fb.line(&format!("  {loaded} = load {}, ptr %s{j}", elt.ir()));
+                    let slot = fb.alloc_local(bname, ety.clone());
+                    fb.line(&format!("  store {} {loaded}, ptr {}", elt.ir(), slot.alloca));
+                    fb.scopes.last_mut().unwrap().insert(bname.clone(), slot);
+                }
+            }
+        }
+
+        // 2. Bind `idx` and optional `env`
+        fb.bind_irrefutable_arm_param(&arm.params[1], "%arg_idx", &Type::Int);
+        if ov.param_types.len() == 3 {
+            fb.bind_irrefutable_arm_param(&arm.params[2], "%arg_env", &ov.param_types[2]);
+        }
+
+        // 3. Emit preceding body statements, then evaluate ALL `k` return tuple elements into SSA
+        //    registers BEFORE calling `emit_depth_dec()` and storing back into `%s0..%s_{k-1}`!
+        let last_idx = arm.body.len() - 1;
+        fb.emit_stmts(self, &arm.body[..last_idx])?;
+        let StmtKind::Return(Some(Expr {
+            kind: ExprKind::Tuple(ref ret_elems),
+            ..
+        })) = arm.body[last_idx].kind
+        else {
+            return Ok(());
+        };
+        let mut out_regs = Vec::with_capacity(ret_elems.len());
+        for re in ret_elems {
+            let rv = fb.emit_expr(self, re)?;
+            out_regs.push((rv.reg, LlvmTy::from_dec(&rv.dec_ty)));
+        }
+        fb.emit_depth_dec();
+        for (j, (oreg, olt)) in out_regs.iter().enumerate() {
+            fb.line(&format!("  store {} {oreg}, ptr %s{j}", olt.ir()));
+        }
+        fb.line("  ret void");
+        fb.terminated = true;
 
         self.fn_defs.push_str(&fb.render_fn(&header));
         Ok(())
@@ -1172,6 +1599,63 @@ impl FnBuilder {
                 .push(format!("  {alloca} = alloca {}, align 8", lt.ir()));
         }
         LocalSlot { alloca, dec_ty }
+    }
+
+    fn bind_irrefutable_arm_param(&mut self, param: &DecArmParam, reg: &str, pty: &Type) {
+        match param {
+            DecArmParam::TypedVar { name, .. } => {
+                if name != "_" {
+                    let lt = LlvmTy::from_dec(pty);
+                    let slot = self.alloc_local(name, pty.clone());
+                    if lt != LlvmTy::Void {
+                        self.line(&format!("  store {} {reg}, ptr {}", lt.ir(), slot.alloca));
+                    }
+                    self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                }
+            }
+            DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+                self.bind_irrefutable_pattern(pattern, reg, pty);
+            }
+        }
+    }
+
+    fn bind_irrefutable_pattern(&mut self, pat: &Pattern, reg: &str, pty: &Type) {
+        match pat {
+            Pattern::Wildcard => {}
+            Pattern::Binding(name) if name == "_" => {}
+            Pattern::Binding(name) => {
+                let lt = LlvmTy::from_dec(pty);
+                let slot = self.alloc_local(name, pty.clone());
+                if lt != LlvmTy::Void {
+                    self.line(&format!("  store {} {reg}, ptr {}", lt.ir(), slot.alloca));
+                }
+                self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+            }
+            Pattern::Tuple(sub_pats) => {
+                if let Type::Tuple(elem_tys) = pty.unwrap_read_only() {
+                    let is_ro = pty.is_read_only();
+                    for (i, (sp, ety)) in sub_pats.iter().zip(elem_tys).enumerate() {
+                        if matches!(sp, Pattern::Wildcard)
+                            || matches!(sp, Pattern::Binding(n) if n == "_")
+                        {
+                            continue;
+                        }
+                        let mut bound_ty = ety.clone();
+                        if is_ro && bound_ty.needs_readonly_propagation() {
+                            bound_ty = bound_ty.wrap_read_only();
+                        }
+                        let eh = self.fresh_reg();
+                        self.line(&format!(
+                            "  {eh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {reg}, i64 {i})"
+                        ));
+                        self.emit_fail_return_check();
+                        let ev = self.unbox_handle_to_val(&eh, &bound_ty);
+                        self.bind_irrefutable_pattern(sp, &ev.reg, &bound_ty);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn alloc_temp(&mut self, llvm_ir_ty: &str) -> String {
@@ -3333,12 +3817,20 @@ impl FnBuilder {
             }
         }
         match (inner, field) {
-            (Type::SimResult, "model_status" | "chamber_name" | "final_state_hash") => Ok(Type::Str),
+            (Type::SimResult, "model_status") | (Type::ChamberView, "model_status") => {
+                Ok(Type::Enum {
+                    module: BUILTIN_MOD.to_string(),
+                    name: "ModelStatus".to_string(),
+                })
+            }
             (
                 Type::SimResult,
-                "model_status_bytes"
+                "chamber_name"
                 | "chamber_name_bytes"
+                | "final_state_hash"
                 | "final_state_hash_bytes"
+                | "final_state_sha256"
+                | "model_status_bytes"
                 | "boundary_bytes",
             ) => Ok(Type::Bytes),
             (Type::Box3, "boundary_bytes") => Ok(Type::Bytes),
@@ -3356,8 +3848,9 @@ impl FnBuilder {
             (Type::SimResult, "final_snapshot") => {
                 Ok(Type::ReadOnly(Box::new(Type::ChamberView)))
             }
-            (Type::ChamberView, "model_status" | "chamber_name") => Ok(Type::Str),
-            (Type::ChamberView, "model_status_bytes" | "chamber_name_bytes") => Ok(Type::Bytes),
+            (Type::ChamberView, "chamber_name" | "model_status_bytes" | "chamber_name_bytes") => {
+                Ok(Type::Bytes)
+            }
             (
                 Type::ChamberView,
                 "tick"
@@ -3370,17 +3863,20 @@ impl FnBuilder {
             (Type::ChamberView, "carriers") => {
                 Ok(Type::ReadOnly(Box::new(Type::List(Box::new(Type::Int)))))
             }
-            (Type::RecipientOutcome, "stage") => Ok(Type::Str),
+            (Type::RecipientOutcome, "stage") => Ok(Type::Enum {
+                module: BUILTIN_MOD.to_string(),
+                name: "RecipientStage".to_string(),
+            }),
             (Type::RecipientOutcome, "stage_bytes") => Ok(Type::Bytes),
             (Type::RecipientOutcome, "closure_phase_delta" | "reclosure_bip_delta") => {
                 Ok(Type::Int)
             }
             (Type::RecipientOutcome, "blocks_later_seating") => Ok(Type::Bool),
             (Type::CadenceAssociation, "is_cadence_ratio") => Ok(Type::Bool),
-            (Type::CadenceAssociation, "wavelet_id" | "reference_id") => Ok(Type::Str),
-            (Type::CadenceAssociation, "wavelet_id_bytes" | "reference_id_bytes") => {
-                Ok(Type::Bytes)
-            }
+            (
+                Type::CadenceAssociation,
+                "wavelet_id" | "wavelet_id_bytes" | "reference_id" | "reference_id_bytes",
+            ) => Ok(Type::Bytes),
             (Type::Support, "is_yro" | "is_closure_certificate") => Ok(Type::Bool),
             (Type::Addr8, "is_first_anchor") => Ok(Type::Bool),
             (Type::Window, "start" | "end" | "len") => Ok(Type::Int),
@@ -3472,7 +3968,7 @@ impl FnBuilder {
                 ));
                 self.emit_fail_return_check();
                 let ret_ty = match ty {
-                    Type::Box3 | Type::SimResult => Type::Str,
+                    Type::Box3 | Type::SimResult => Type::Bytes,
                     _ => Type::Tuple(vec![Type::Int, Type::Int]),
                 };
                 Ok(Val {
@@ -4476,19 +4972,108 @@ impl FnBuilder {
     ) -> DecResult<Val> {
         match op {
             "evolve" => {
-                let init_val = self.emit_expr(cg, &args[0].value)?;
+                let (state_ty, init_unboxed_opt, init_boxed_opt) =
+                    if let ExprKind::Tuple(ref init_elems) = args[0].value.kind {
+                        if !init_elems.is_empty() {
+                            let mut ivs = Vec::with_capacity(init_elems.len());
+                            for ie in init_elems {
+                                ivs.push(self.emit_expr(cg, ie)?);
+                            }
+                            let sty = Type::Tuple(ivs.iter().map(|v| v.dec_ty.clone()).collect());
+                            (sty, Some(ivs), None)
+                        } else {
+                            let iv = self.emit_expr(cg, &args[0].value)?;
+                            (iv.dec_ty.clone(), None, Some(iv))
+                        }
+                    } else {
+                        let iv = self.emit_expr(cg, &args[0].value)?;
+                        (iv.dec_ty.clone(), None, Some(iv))
+                    };
                 let dom_val = self.emit_expr(cg, &args[1].value)?;
                 let env_val = if args.len() == 4 {
                     Some(self.emit_expr(cg, &args[3].value)?)
                 } else {
                     None
                 };
-                let mut cb_tys = vec![init_val.dec_ty.clone(), Type::Int];
+                let mut cb_tys = vec![state_ty.clone(), Type::Int];
                 if let Some(ref ev) = env_val {
                     cb_tys.push(ev.dec_ty.clone());
                 }
                 let target = self.resolve_codegen_ho_target(cg, &args[2].value, &cb_tys, line)?;
-                let state_ty = init_val.dec_ty.clone();
+
+                // Fast-path (`[P0-4]`): unboxed scalar-tuple `evolve` loop (zero arena allocations per tick!)
+                if let (CodegenHoTarget::UserFn(ov), Type::Tuple(elem_tys)) = (&target, &state_ty)
+                {
+                    if let Some(unboxed_fn) = &ov.unboxed_evolve_llvm_name {
+                        let init_elems: Vec<Val> = if let Some(ivs) = init_unboxed_opt {
+                            ivs
+                        } else {
+                            let boxed_iv = init_boxed_opt.unwrap();
+                            let mut extracted = Vec::with_capacity(elem_tys.len());
+                            for (j, ety) in elem_tys.iter().enumerate() {
+                                let eh = self.fresh_reg();
+                                self.line(&format!(
+                                    "  {eh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 {j})",
+                                    boxed_iv.reg
+                                ));
+                                self.emit_fail_return_check();
+                                extracted.push(self.unbox_handle_to_val(&eh, ety));
+                            }
+                            extracted
+                        };
+                        let mut s_ptrs = Vec::with_capacity(elem_tys.len());
+                        for (iv, ety) in init_elems.iter().zip(elem_tys) {
+                            let elt = LlvmTy::from_dec(ety);
+                            let ptr = self.alloc_temp(elt.ir());
+                            self.line(&format!("  store {} {}, ptr {ptr}", elt.ir(), iv.reg));
+                            s_ptrs.push(ptr);
+                        }
+                        let unboxed_fn_name = unboxed_fn.clone();
+                        self.emit_domain_loop(cg, &dom_val, "ev", |this, _cg_inner, k_val| {
+                            let mut call_args = String::from("ptr %ctx");
+                            for sp in &s_ptrs {
+                                let _ = write!(call_args, ", ptr {sp}");
+                            }
+                            let _ = write!(call_args, ", %DecInt {}", k_val.reg);
+                            if let Some(ref ev) = env_val {
+                                let env_lt = LlvmTy::from_dec(&ev.dec_ty);
+                                if env_lt != LlvmTy::Void {
+                                    let _ = write!(call_args, ", {} {}", env_lt.ir(), ev.reg);
+                                }
+                            }
+                            this.line(&format!("  call void {unboxed_fn_name}({call_args})"));
+                            this.emit_fail_return_check();
+                            Ok(())
+                        })?;
+                        let mut final_handles = Vec::with_capacity(elem_tys.len());
+                        for (sp, ety) in s_ptrs.iter().zip(elem_tys) {
+                            let elt = LlvmTy::from_dec(ety);
+                            let r = self.fresh_reg();
+                            self.line(&format!("  {r} = load {}, ptr {sp}", elt.ir()));
+                            final_handles.push(self.box_val_to_handle(&Val {
+                                reg: r,
+                                dec_ty: ety.clone(),
+                            }));
+                        }
+                        let out_h = self.emit_handle_array_call("aod_rt_tuple_new", &final_handles);
+                        return Ok(Val {
+                            reg: out_h,
+                            dec_ty: state_ty,
+                        });
+                    }
+                }
+
+                let init_val = if let Some(iv) = init_boxed_opt {
+                    iv
+                } else {
+                    let ivs = init_unboxed_opt.unwrap();
+                    let handles: Vec<String> = ivs.iter().map(|v| self.box_val_to_handle(v)).collect();
+                    let h = self.emit_handle_array_call("aod_rt_tuple_new", &handles);
+                    Val {
+                        reg: h,
+                        dec_ty: state_ty.clone(),
+                    }
+                };
                 let state_lt = LlvmTy::from_dec(&state_ty).ir();
                 let state_slot = self.alloc_local("ev_state", state_ty.clone());
                 self.line(&format!(
@@ -7062,10 +7647,15 @@ impl FnBuilder {
             ("aod::qext::qext_sub", [a, b]) => self.emit_qext_binop(1, &a.reg, &b.reg),
             ("aod::qext::qext_mul", [a, b]) => self.emit_qext_binop(2, &a.reg, &b.reg),
             ("aod::qext::qext_div", [a, b]) => self.emit_qext_binop(3, &a.reg, &b.reg),
-            ("aod::qext::qext_render", [q]) => self.emit_handle1(
-                "aod_rt_qext_render",
+            (
+                "aod::qext::qext_render"
+                | "aod::qext::qext_to_bytes_exact"
+                | "aod::qext::qext_render_bytes",
+                [q],
+            ) => self.emit_handle1(
+                "aod_rt_qext_render_bytes",
                 &q.reg,
-                Type::QExt(Box::new(Type::Str)),
+                Type::QExt(Box::new(Type::Bytes)),
             ),
             ("aod::qext::qext_round_half_even", [q, dec]) => {
                 let dp = self.store_temp_int(&dec.reg);
@@ -7080,29 +7670,10 @@ impl FnBuilder {
                     dec_ty: Type::QExt(Box::new(Type::Ratio)),
                 })
             }
-            ("aod::qext::qext_format_fixed", [q, dec]) => {
-                let dp = self.store_temp_int(&dec.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_qext_format_fixed(ptr %ctx, i64 {}, ptr {dp})",
-                    q.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::QExt(Box::new(Type::Str)),
-                })
-            }
             (
-                "aod::qext::qext_to_bytes_exact" | "aod::qext::qext_render_bytes",
-                [q],
-            ) => self.emit_handle1(
-                "aod_rt_qext_render_bytes",
-                &q.reg,
-                Type::QExt(Box::new(Type::Bytes)),
-            ),
-            (
-                "aod::qext::qext_format_bytes_fixed" | "aod::qext::qext_format_fixed_bytes",
+                "aod::qext::qext_format_fixed"
+                | "aod::qext::qext_format_bytes_fixed"
+                | "aod::qext::qext_format_fixed_bytes",
                 [q, dec],
             ) => {
                 let dp = self.store_temp_int(&dec.reg);
@@ -9028,3 +9599,193 @@ cold:
   ret i8 %res
 }
 "#;
+
+fn is_irrefutable_codegen_pat(pat: &Pattern) -> bool {
+    match pat {
+        Pattern::Wildcard | Pattern::Binding(_) => true,
+        Pattern::Tuple(ps) => ps.iter().all(is_irrefutable_codegen_pat),
+        _ => false,
+    }
+}
+
+fn is_irrefutable_codegen_param(param: &DecArmParam) -> bool {
+    match param {
+        DecArmParam::TypedVar { .. } => true,
+        DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+            is_irrefutable_codegen_pat(pattern)
+        }
+    }
+}
+
+fn stmt_contains_return(stmt: &Stmt) -> bool {
+    match &stmt.kind {
+        StmtKind::Return(_) => true,
+        StmtKind::If {
+            then_body,
+            elifs,
+            else_body,
+            ..
+        } => {
+            then_body.iter().any(stmt_contains_return)
+                || elifs.iter().any(|(_, b)| b.iter().any(stmt_contains_return))
+                || else_body.iter().any(stmt_contains_return)
+        }
+        StmtKind::Match { arms, .. } => arms.iter().any(|a| a.body.iter().any(stmt_contains_return)),
+        StmtKind::For { body, .. }
+        | StmtKind::While { body, .. }
+        | StmtKind::QuarantineBlock { body } => body.iter().any(stmt_contains_return),
+        _ => false,
+    }
+}
+
+fn expr_mentions_ident(expr: &Expr, target: &str) -> bool {
+    match &expr.kind {
+        ExprKind::Ident(s) => s == target,
+        ExprKind::Path(segs) => segs.last().is_some_and(|s| s == target),
+        ExprKind::Tuple(xs)
+        | ExprKind::List(xs)
+        | ExprKind::ArrayLit(xs)
+        | ExprKind::BoxExpr(xs) => xs.iter().any(|x| expr_mentions_ident(x, target)),
+        ExprKind::MapLit(es) => es
+            .iter()
+            .any(|(k, v)| expr_mentions_ident(k, target) || expr_mentions_ident(v, target)),
+        ExprKind::StructLit { fields, .. } => {
+            fields.iter().any(|(_, e)| expr_mentions_ident(e, target))
+        }
+        ExprKind::WindowLit { start, end } | ExprKind::Range { start, end } => {
+            expr_mentions_ident(start, target) || expr_mentions_ident(end, target)
+        }
+        ExprKind::Simulate { ticks, .. } => expr_mentions_ident(ticks, target),
+        ExprKind::Unary { operand, .. } | ExprKind::Field { base: operand, .. } => {
+            expr_mentions_ident(operand, target)
+        }
+        ExprKind::Binary { left, right, .. }
+        | ExprKind::Index {
+            base: left,
+            index: right,
+        } => expr_mentions_ident(left, target) || expr_mentions_ident(right, target),
+        ExprKind::Ternary { cond, yes, no } => {
+            expr_mentions_ident(cond, target)
+                || expr_mentions_ident(yes, target)
+                || expr_mentions_ident(no, target)
+        }
+        ExprKind::Call { callee, args } => {
+            expr_mentions_ident(callee, target)
+                || args.iter().any(|a| expr_mentions_ident(&a.value, target))
+        }
+        _ => false,
+    }
+}
+
+fn stmts_mention_ident(stmts: &[Stmt], target: &str) -> bool {
+    stmts.iter().any(|s| match &s.kind {
+        StmtKind::Let { value, .. }
+        | StmtKind::LetTuple { value, .. }
+        | StmtKind::Mut { value, .. }
+        | StmtKind::TypedLocal { value, .. }
+        | StmtKind::Assign { value, .. }
+        | StmtKind::Assert(value)
+        | StmtKind::Emit(value)
+        | StmtKind::ExprStmt(value)
+        | StmtKind::Return(Some(value)) => expr_mentions_ident(value, target),
+        StmtKind::If {
+            cond,
+            then_body,
+            elifs,
+            else_body,
+        } => {
+            expr_mentions_ident(cond, target)
+                || stmts_mention_ident(then_body, target)
+                || elifs
+                    .iter()
+                    .any(|(c, b)| expr_mentions_ident(c, target) || stmts_mention_ident(b, target))
+                || stmts_mention_ident(else_body, target)
+        }
+        StmtKind::Match { scrutinee, arms } => {
+            expr_mentions_ident(scrutinee, target)
+                || arms.iter().any(|a| {
+                    a.guard
+                        .as_ref()
+                        .is_some_and(|g| expr_mentions_ident(g, target))
+                        || stmts_mention_ident(&a.body, target)
+                })
+        }
+        StmtKind::For { iter, body, .. } | StmtKind::While { cond: iter, body } => {
+            expr_mentions_ident(iter, target) || stmts_mention_ident(body, target)
+        }
+        StmtKind::QuarantineBlock { body } => stmts_mention_ident(body, target),
+        _ => false,
+    })
+}
+
+fn qualifies_for_unboxed_evolve(
+    fn_name: &str,
+    param_types: &[Type],
+    ret_type: &Type,
+    multi_arms: &[DecArm],
+) -> bool {
+    if multi_arms.len() != 1 || !matches!(param_types.len(), 2 | 3) {
+        return false;
+    }
+    if param_types[1] != Type::Int || &param_types[0] != ret_type {
+        return false;
+    }
+    let Type::Tuple(ref state_elems) = param_types[0] else {
+        return false;
+    };
+    if !(2..=8).contains(&state_elems.len())
+        || state_elems
+            .iter()
+            .any(|et| matches!(LlvmTy::from_dec(et), LlvmTy::Handle | LlvmTy::Void))
+    {
+        return false;
+    }
+    let arm = &multi_arms[0];
+    if arm.guard.is_some() || arm.output_name.is_some() || arm.body.is_empty() {
+        return false;
+    }
+    let sub_pats = match &arm.params[0] {
+        DecArmParam::TypedPattern {
+            pattern: Pattern::Tuple(ps),
+            ..
+        }
+        | DecArmParam::Pattern(Pattern::Tuple(ps)) => ps,
+        _ => return false,
+    };
+    if sub_pats.len() != state_elems.len()
+        || !sub_pats
+            .iter()
+            .all(|sp| matches!(sp, Pattern::Wildcard | Pattern::Binding(_)))
+    {
+        return false;
+    }
+    if !matches!(
+        &arm.params[1],
+        DecArmParam::TypedVar { .. }
+            | DecArmParam::TypedPattern {
+                pattern: Pattern::Wildcard | Pattern::Binding(_),
+                ..
+            }
+            | DecArmParam::Pattern(Pattern::Wildcard | Pattern::Binding(_))
+    ) {
+        return false;
+    }
+    if arm.params.len() == 3 && !is_irrefutable_codegen_param(&arm.params[2]) {
+        return false;
+    }
+    if stmts_mention_ident(&arm.body, fn_name) {
+        return false;
+    }
+    let last_idx = arm.body.len() - 1;
+    if arm.body[..last_idx].iter().any(stmt_contains_return) {
+        return false;
+    }
+    matches!(
+        &arm.body[last_idx].kind,
+        StmtKind::Return(Some(Expr {
+            kind: ExprKind::Tuple(ret_elems),
+            ..
+        })) if ret_elems.len() == state_elems.len()
+    )
+}
+

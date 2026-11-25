@@ -93,14 +93,16 @@ Each module in #tabref("tab:stdlib-modules") binds directly to canonical Main eq
 An inline check against `stdlib::aod::ledger` confirms exact tunnelling clip preservation:
 
 ```dec
-use stdlib::aod::ledger::{block_dwell_slide, tunnel_clip}
+use stdlib::aod::ledger:
+    block_dwell_slide, tunnel_clip
 
-Dec main() -> int:
-    let slide = block_dwell_slide(3, 3, 1)
-    let tun = tunnel_clip(5, 2, 3, slide.tunnel_prob)
-    emit tun.rd_unclipped
-    emit tun.tunnel_contrib
-    return 0
+dec main:
+    () -> int:
+        let slide = block_dwell_slide(3, 3, 1)
+        let tun = tunnel_clip(5, 2, 3, slide.tunnel_prob)
+        emit tun.rd_unclipped
+        emit tun.tunnel_contrib
+        return 0
 ```
 
 ```dec-expect

@@ -137,7 +137,7 @@ fn parse_options(
     allow_parallel: bool,
 ) -> Result<ExecOptions, String> {
     let mut compat = CompatMode::V2;
-    let mut saw_explicit_compat = false;
+    let mut saw_strict_wave_flag = false;
     let mut opt = OptLevel::O2;
     let mut baseline_opt = OptLevel::O0;
     let mut fuel = DEFAULT_FUEL;
@@ -149,7 +149,6 @@ fn parse_options(
     let mut profile = None;
     let mut parallel_observers = false;
     let mut stdlib_dir = None;
-    let mut discipline = SyntaxDiscipline::TransitionalV2;
     let mut rest = Vec::new();
     let mut i = 0usize;
     while i < args.len() {
@@ -163,10 +162,9 @@ fn parse_options(
                 "v2" => CompatMode::V2,
                 other => return Err(format!("unknown --compat mode {other:?} (expected v1 or v2)")),
             };
-            saw_explicit_compat = true;
             i += 2;
         } else if allow_compat && (a == "--strict-wave" || a == "--pure-wave") {
-            discipline = SyntaxDiscipline::PureWaveV2;
+            saw_strict_wave_flag = true;
             i += 1;
         } else if allow_stdlib && a == "--stdlib" {
             let val = args
@@ -227,12 +225,10 @@ fn parse_options(
             i += 1;
         }
     }
-    if saw_explicit_compat && discipline == SyntaxDiscipline::PureWaveV2 {
-        return Err(
-            "UsageError: --strict-wave cannot be combined with --compat v1 or --compat v2"
-                .to_string(),
-        );
+    if compat == CompatMode::V1 && saw_strict_wave_flag {
+        return Err("UsageError: --strict-wave cannot be combined with --compat v1".to_string());
     }
+    let discipline = SyntaxDiscipline::for_compat(compat);
     Ok(ExecOptions {
         compat,
         opt,
@@ -300,12 +296,9 @@ fn main() -> ExitCode {
                 }
                 check_file_with_options(Path::new(&opts.rest[0]), opts.compat, &opts.load)
                     .map_err(|e| e.to_string())?;
-                match (opts.compat, opts.load.discipline) {
-                    (CompatMode::V1, _) => println!("OK: Dec core v1"),
-                    (CompatMode::V2, SyntaxDiscipline::TransitionalV2) => println!("OK: Dec v2"),
-                    (CompatMode::V2, SyntaxDiscipline::PureWaveV2) => {
-                        println!("OK: Dec v2 (pure-wave)")
-                    }
+                match opts.compat {
+                    CompatMode::V1 => println!("OK: Dec core v1"),
+                    CompatMode::V2 => println!("OK: Dec v2 (pure-wave)"),
                 }
                 Ok(())
             })
@@ -1244,7 +1237,7 @@ fn main() -> ExitCode {
         "fmt" => {
             let mut compat = CompatMode::V2;
             let mut saw_compat = false;
-            let mut discipline = SyntaxDiscipline::TransitionalV2;
+            let mut saw_strict_wave_flag = false;
             let mut check_only = false;
             let mut write_in_place = false;
             let mut out_path: Option<PathBuf> = None;
@@ -1283,7 +1276,7 @@ fn main() -> ExitCode {
                         }
                     }
                     "--strict-wave" | "--pure-wave" => {
-                        discipline = SyntaxDiscipline::PureWaveV2;
+                        saw_strict_wave_flag = true;
                         idx += 1;
                     }
                     "--check" => {
@@ -1320,12 +1313,11 @@ fn main() -> ExitCode {
                     }
                 }
             }
-            if parse_err.is_none() && saw_compat && discipline == SyntaxDiscipline::PureWaveV2 {
-                parse_err = Some(
-                    "ParseError: --strict-wave cannot be combined with --compat v1 or --compat v2"
-                        .to_string(),
-                );
+            if parse_err.is_none() && compat == CompatMode::V1 && saw_strict_wave_flag {
+                parse_err =
+                    Some("--strict-wave cannot be combined with --compat v1".to_string());
             }
+            let discipline = SyntaxDiscipline::for_compat(compat);
             let mode_count = usize::from(check_only)
                 + usize::from(write_in_place)
                 + usize::from(out_path.is_some());
@@ -1415,14 +1407,13 @@ fn main() -> ExitCode {
         "audit-dec" | "audit" => {
             let mut compat = CompatMode::V2;
             let mut saw_compat = false;
-            let mut discipline = SyntaxDiscipline::TransitionalV2;
+            let mut saw_strict_wave_flag = false;
             let mut stdlib_dir: Option<PathBuf> = None;
             let mut report_path: Option<PathBuf> = None;
             let mut json_mode = false;
             let mut positional: Vec<String> = Vec::new();
             let mut idx = 0usize;
             let mut parse_err: Option<String> = None;
-            let mut mode_collision = false;
             while idx < sub_args.len() {
                 match sub_args[idx].as_str() {
                     "--compat" => {
@@ -1454,7 +1445,7 @@ fn main() -> ExitCode {
                         }
                     }
                     "--strict-wave" | "--pure-wave" => {
-                        discipline = SyntaxDiscipline::PureWaveV2;
+                        saw_strict_wave_flag = true;
                         idx += 1;
                     }
                     "--stdlib" => {
@@ -1505,19 +1496,13 @@ fn main() -> ExitCode {
                     }
                 }
             }
-            if parse_err.is_none() && saw_compat && discipline == SyntaxDiscipline::PureWaveV2 {
-                mode_collision = true;
-                parse_err = Some(
-                    "UsageError: --strict-wave cannot be combined with --compat v1 or --compat v2"
-                        .to_string(),
-                );
+            if parse_err.is_none() && compat == CompatMode::V1 && saw_strict_wave_flag {
+                parse_err =
+                    Some("--strict-wave cannot be combined with --compat v1".to_string());
             }
+            let discipline = SyntaxDiscipline::for_compat(compat);
             if let Some(e) = parse_err {
-                if mode_collision {
-                    Err(CliErr::fail(e))
-                } else {
-                    Err(CliErr::usage(e))
-                }
+                Err(CliErr::usage(e))
             } else if positional.len() != 1 {
                 Err(CliErr::usage(format!(
                     "expected exactly one <source.dec>\n{}",

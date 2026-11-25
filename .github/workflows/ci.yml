@@ -45,25 +45,25 @@ jobs:
             exit 1
           fi
 
-      - name: Run Dec v1, v2 smoke, strict-wave, and Manual fixture suites
+      - name: Run Dec v1, v2 smoke, first_principles, and Manual fixture suites (unconditional PureWaveV2)
         run: |
           ./target/release/aodc test --compat v1 tests/fixtures/v1_examples
           ./target/release/aodc test tests/fixtures/v2_smoke
-          ./target/release/aodc test --strict-wave tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
+          ./target/release/aodc test examples/first_principles
           ./target/release/aodc test manual_examples
-          ./target/release/aodc test --strict-wave manual_examples
+          ./target/release/aodc test --strict-wave tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
+          for f in examples/first_principles/*.dec; do
+            ./target/release/aodc fmt --check "$f"
+          done
 
       - name: Run live hardware discovery & JIT micro-probes
         run: ./target/release/aodc probe-hw
 
-      - name: Audit positive Dec fixtures via 6-hook native auditor (aodc audit-dec --json & --strict-wave)
+      - name: Audit all 34 positive Dec v2 files via 6-hook native auditor (aodc audit-dec --json)
         run: |
-          for f in manual_examples/*.dec; do
+          for f in examples/first_principles/*.dec stdlib/aod/*.dec manual_examples/*.dec tests/fixtures/v2_smoke/*.dec tests/fixtures/v2_bench/*.dec; do
             ./target/release/aodc audit-dec --json "$f"
-            ./target/release/aodc audit-dec --strict-wave --json "$f"
           done
-          ./target/release/aodc audit-dec --json tests/fixtures/v2_smoke/hw_register_primitives.dec
-          ./target/release/aodc audit-dec --strict-wave --json tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
 
       - name: Verify live docs/manual/data/*.json parity via zero-LLVM Exact VM (aodc manual-data --check)
         run: |

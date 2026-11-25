@@ -105,26 +105,37 @@ fn ac03_to_ac07_all_5_live_self_verifying_jit_probes_and_branch_ir_proof() {
 
 #[test]
 fn ac08_ac09_parameterized_codegen_plan_p0_3_safety_and_unroll_metadata() {
-    // 1. P0-3 strict is_pure_select_safe guard: MUST NOT eagerly evaluate trapping div-by-0 or Int neg!
+    // 1. P0-3 / P0-4 strict is_pure_select_safe guard: 2-arm `dec` MUST NOT eagerly evaluate trapping div-by-0 or Int neg!
     let lazy_trap_src = r#"
-Dec main() -> int:
-    let x = 0
-    mut r = 0
-    if x != 0:
-        r = 10 // x
-    else:
-        r = 42
-    let t = (10 // x) if x != 0 else 7
-    let min64 = -9223372036854775807 - 1
-    mut safe_neg = 0
-    if x != 0:
-        safe_neg = -min64
-    else:
-        safe_neg = 5
-    emit r
-    emit t
-    emit safe_neg
-    return 0
+dec safe_div10:
+    (x: int) where x != 0 -> int:
+        return 10 // x
+    (_: int) -> int:
+        return 42
+
+dec safe_div10_alt:
+    (x: int) where x != 0 -> int:
+        return 10 // x
+    (_: int) -> int:
+        return 7
+
+dec safe_neg_min64:
+    (x: int, min64: int) where x != 0 -> int:
+        return -min64
+    (_: int, _: int) -> int:
+        return 5
+
+dec main:
+    () -> int:
+        let x = 0
+        let r = safe_div10(x)
+        let t = safe_div10_alt(x)
+        let min64 = -9223372036854775807 - 1
+        let safe_neg = safe_neg_min64(x, min64)
+        emit r
+        emit t
+        emit safe_neg
+        return 0
 "#;
     let vm_out = run_source(lazy_trap_src, CompatMode::V2)
         .unwrap()
@@ -152,12 +163,17 @@ Dec main() -> int:
 
     // 2. P0-3 unique distinct !llvm.loop metadata passes LLVMVerifyModule for Unroll4 & Disable!
     let loop_src = r#"
-Dec main() -> int:
-    mut s = 0
-    for i in 0..32:
-        s = s + i
-    emit s
-    return 0
+use aod::core::evolve
+
+dec add_step:
+    (s: int, i: int) -> int:
+        return s + i
+
+dec main:
+    () -> int:
+        let s = evolve(0, 0..32, add_step)
+        emit s
+        return 0
 "#;
     let checked = aodc::check_source(loop_src, CompatMode::V2).unwrap();
     for (hint, expected_md) in [
@@ -180,7 +196,7 @@ Dec main() -> int:
     }
 
     // 3. `inline_ratio_fastpath: false` emits direct `@aod_rt_ratio_add` and preserves exact semantics
-    let ratio_src = "Dec main() -> int:\n    let r = 1/3r + 1/6r\n    emit r\n    return 0\n";
+    let ratio_src = "dec main:\n    () -> int:\n        let r = 1/3r + 1/6r\n        emit r\n        return 0\n";
     let no_inline_plan = CodegenPlan {
         opt_level: OptLevel::O0,
         branchless_select: false,
@@ -232,8 +248,8 @@ fn ac10_zero_float_paired_bootstrap_determinism_and_exact_semantic_guard() {
     // 2. Hostile Exact Semantic Guard rejection: candidate produces wrong output -> MUST Rollback!
     let hw = run_all_hw_probes().unwrap();
     let baseline = CodegenPlan::baseline_o0();
-    let ok_src = "Dec main() -> int:\n    emit \"OK\"\n    return 0\n";
-    let bad_src = "Dec main() -> int:\n    emit \"CORRUPTED\"\n    return 0\n";
+    let ok_src = "dec main:\n    () -> int:\n        emit b\"OK\"\n        return 0\n";
+    let bad_src = "dec main:\n    () -> int:\n        emit b\"CORRUPTED\"\n        return 0\n";
     let ok_checked = aodc::check_source(ok_src, CompatMode::V2).unwrap();
     let bad_checked = aodc::check_source(bad_src, CompatMode::V2).unwrap();
 
@@ -583,13 +599,32 @@ fn ac15_branch_irregular_bench_parity_and_branchless_select_ir() {
     };
     let raw_sel = lower_to_llvm_ir_with_plan(&checked, &plan_sel).unwrap();
     let raw_br = lower_to_llvm_ir_with_plan(&checked, &plan_br).unwrap();
+    let pick_sel = raw_sel
+        .split("define internal %DecInt @dec_fn_pick_irregular")
+        .nth(1)
+        .unwrap()
+        .split("\n}\n")
+        .next()
+        .unwrap();
+    let pick_br = raw_br
+        .split("define internal %DecInt @dec_fn_pick_irregular")
+        .nth(1)
+        .unwrap()
+        .split("\n}\n")
+        .next()
+        .unwrap();
     assert!(
-        raw_sel.contains("= select i1 ") && !raw_sel.contains("if_then_"),
-        "expected select lowering with branchless_select=true"
+        pick_sel.contains("= select i1 ")
+            && !pick_sel.contains("guard_ok_")
+            && !pick_sel.contains("arm_next_"),
+        "expected select lowering with branchless_select=true:\n{pick_sel}"
     );
     assert!(
-        raw_br.contains("if_then_") && raw_br.contains("br i1 "),
-        "expected br i1 lowering with branchless_select=false"
+        pick_br.contains("guard_ok_")
+            && pick_br.contains("arm_next_")
+            && pick_br.contains("br i1 ")
+            && !pick_br.contains("= select i1 "),
+        "expected guard_ok_/arm_next_ br i1 lowering with branchless_select=false:\n{pick_br}"
     );
     // Both verify & optimize cleanly in LLVM 18
     let _ = emit_llvm_file_with_plan(&bench, CompatMode::V2, &plan_sel, &LoadOptions::default())

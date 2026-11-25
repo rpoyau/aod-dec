@@ -3,11 +3,14 @@
 = Dec v2 Language and Exact Type System <sec:types>
 
 #aod-paragraph("Setup.")
-Dec v2 extends Dec core v1 with algebraic records (`struct`), tagged unions (`enum`), exhaustive `match`
-dispatch with guards, deterministic key-ordered maps (`map[K, V]`), multi-file `use` imports, and native
-sandbox apparatus declarations, while preserving 100% backward compatibility with all ten frozen Dec v1
-regression programs under `--compat v1` (#aod-cite("aod-main-v41, general-mechanics-style")). All scalar
-and structural primitives carry exact discrete representations grounded in AOD Main:
+Dec v2 enforces pure-wave syntax unconditionally (`SyntaxDiscipline::PureWaveV2`), extending Dec core v1
+with algebraic records (`struct`), tagged unions (`enum`), multi-arm `dec` pattern and `where`-guard
+signature matrices, engine-driven AFC scope operators (`evolve`, `scan`, `fold_seq`, `map_seq`),
+immutable byte sequences (`bytes`), hardware-width registers (`Null`, `u8`, `b64`, `t9`, `array[T, N]`),
+persistent maps (`map[K, V]`), multi-file `use` imports, and native sandbox apparatus declarations, while
+preserving 100% backward compatibility with all ten frozen Dec v1 regression programs under `--compat v1`
+(#aod-cite("aod-main-v41, general-mechanics-style")). All scalar and structural primitives carry exact
+discrete representations grounded in AOD Main:
 - `int`: arbitrary-precision signed integer (`BigInt`) with exact floor division `//` and remainder `%`.
 - `ratio`: canonical reduced rational $p / q$ ($q > 0$, $gcd(|p|, q) = 1$) with zero decimal parsing on native `ratio`.
 - `t1` and `t32`: checked balanced ternary scalar (`-1t`, `0t`, `+1t`) and 32-trit register bounded by $|x| <= (3^(32) - 1)/2 = 926510094425920$, with 2-bit-per-trit `pack`/`unpack` (`00 = 0`, `01 = +1`, `10 = -1`; `11` rejected).
@@ -25,16 +28,20 @@ packing at $-926510094425920$ (where bit 63 is set, spilling cleanly to `BigInt`
 and round-tripping losslessly through `unpack`):
 
 ```dec
-Dec main() -> int:
-    let r02_diff = 23/50r - 9/20r
-    assert r02_diff == 1/100r and r02_diff != 0/1r
-    let neg_lim = t32(-926510094425920)
-    let packed = pack(neg_lim)
-    assert packed == 12297829382473034410
-    assert unpack(packed) == neg_lim
-    emit r02_diff
-    emit packed
-    return 0
+use aod::core:
+    t32, pack, unpack
+
+dec main:
+    () -> int:
+        let r02_diff = 23/50r - 9/20r
+        assert r02_diff == 1/100r and r02_diff != 0/1r
+        let neg_lim = t32(-926510094425920)
+        let packed = pack(neg_lim)
+        assert packed == 12297829382473034410
+        assert unpack(packed) == neg_lim
+        emit r02_diff
+        emit packed
+        return 0
 ```
 
 ```dec-expect
@@ -43,28 +50,30 @@ Dec main() -> int:
 0
 ```
 
-Composite aggregates (`list`, `map`, `struct`, `enum`) obey strict value semantics via copy-on-write
-updates across Exact VM, AOT, and ORC LLJIT: mutating `b[0]` after `mut b = a` never mutates `a[0]`:
+Composite aggregates (`list`, `array`, `map`, `struct`, `enum`) obey strict persistent value semantics via
+copy-on-write helpers (`list_set`, `array_set`, `map_put`) across Exact VM, AOT, and ORC LLJIT: producing
+`b = list_set(a, 0, 99)` never mutates `a[0]`:
 
 ```dec
+use aod::core::list_set
+
 struct Pair:
     left: int
     right: int
 
-Dec main() -> int:
-    mut a = [1, 2, 3]
-    mut b = a
-    b[0] = 99
-    mut p1 = Pair { left: 4, right: 5 }
-    mut p2 = p1
-    p2.left = 77
-    assert a[0] == 1 and b[0] == 99
-    assert p1.left == 4 and p2.left == 77
-    emit a[0]
-    emit b[0]
-    emit p1.left
-    emit p2.left
-    return 0
+dec main:
+    () -> int:
+        let a = [1, 2, 3]
+        let b = list_set(a, 0, 99)
+        let p1 = Pair(4, 5)
+        let p2 = Pair(77, p1.right)
+        assert a[0] == 1 and b[0] == 99
+        assert p1.left == 4 and p2.left == 77
+        emit a[0]
+        emit b[0]
+        emit p1.left
+        emit p2.left
+        return 0
 ```
 
 ```dec-expect
@@ -80,7 +89,8 @@ Any floating-point literal (`1.5`, `5.`, `.5`, `1e3`) is rejected during lexing 
 code generation, ensuring IEEE-754 approximations never enter native calculations:
 
 ```dec-fail FloatLiteralForbidden
-Dec main() -> int:
-    let bad = 1.5
-    return 0
+dec main:
+    () -> int:
+        let bad = 1.5
+        return 0
 ```

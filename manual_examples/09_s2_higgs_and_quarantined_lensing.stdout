@@ -4,7 +4,7 @@
 61
 8
 1/100
-b"UNRESOLVED_PROVENANCE_QUARANTINED"
+ScientificStatus::UnresolvedProvenanceQuarantined
 Q_ext(b"15616/125")
 Q_ext(b"-0.933333")
 Q_ext(b"1/3000000")

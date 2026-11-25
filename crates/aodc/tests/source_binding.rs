@@ -518,3 +518,238 @@ fn zero_python_repository_and_ci_guard() {
     }
     assert!(saw_ci_yml, "expected .github/workflows/ci.yml");
 }
+
+fn collect_v2_dec_files_no_symlinks(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry_res in std::fs::read_dir(dir).unwrap() {
+        let entry = entry_res.unwrap();
+        let ft = entry.file_type().unwrap(); // Never follows symlinks
+        assert!(
+            !ft.is_symlink(),
+            "unexpected symlink at {}",
+            entry.path().display()
+        );
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        if ft.is_dir() {
+            if matches!(
+                rel.as_str(),
+                ".git" | "target" | "_build" | "reference/aod-dec-dev" | "tests/fixtures/v1_examples"
+            ) || rel.starts_with("reference/aod-dec-dev/")
+            {
+                continue;
+            }
+            collect_v2_dec_files_no_symlinks(root, &path, out);
+            continue;
+        }
+
+        if ft.is_file() && path.extension().and_then(|s| s.to_str()) == Some("dec") {
+            out.push(path);
+        }
+    }
+}
+
+fn collect_typ_files_no_symlinks(dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry_res in std::fs::read_dir(dir).unwrap() {
+        let entry = entry_res.unwrap();
+        let ft = entry.file_type().unwrap();
+        assert!(!ft.is_symlink());
+        let path = entry.path();
+        if ft.is_dir() {
+            collect_typ_files_no_symlinks(&path, out);
+        } else if ft.is_file() && path.extension().and_then(|s| s.to_str()) == Some("typ") {
+            out.push(path);
+        }
+    }
+}
+
+fn assert_pure_wave_dec_text(label: &str, text: &str) {
+    let banned_tokens = [
+        "Dec", "if", "elif", "else", "while", "break", "continue", "mut", "match", "str",
+    ];
+    for (idx, line) in text.lines().enumerate() {
+        let line_no = idx + 1;
+        let bytes = line.as_bytes();
+        let mut stripped = String::with_capacity(bytes.len());
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let b = bytes[i];
+            if b == b'#' {
+                break;
+            }
+            if b == b'b'
+                && i + 1 < bytes.len()
+                && (bytes[i + 1] == b'"' || bytes[i + 1] == b'\'')
+                && (i == 0 || !(bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_'))
+            {
+                let quote = bytes[i + 1];
+                i += 2;
+                let mut closed = false;
+                while i < bytes.len() {
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == quote {
+                        i += 1;
+                        closed = true;
+                        break;
+                    }
+                    i += 1;
+                }
+                assert!(
+                    closed,
+                    "unterminated byte literal in {label}:{line_no}: {line}"
+                );
+                stripped.push(' ');
+                continue;
+            }
+            assert!(
+                b != b'{' && b != b'}',
+                "forbidden brace `{}` in {label}:{line_no}: {line}",
+                b as char
+            );
+            assert!(
+                b != b'"' && b != b'\'',
+                "forbidden unprefixed string quote `{}` in {label}:{line_no}: {line}",
+                b as char
+            );
+            stripped.push(b as char);
+            i += 1;
+        }
+
+        let toks: Vec<&str> = stripped
+            .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .filter(|s| !s.is_empty())
+            .collect();
+        for (ti, tok) in toks.iter().enumerate() {
+            assert!(
+                !banned_tokens.contains(tok),
+                "forbidden legacy token `{tok}` in {label}:{line_no}: {line}"
+            );
+            if *tok == "for" {
+                let is_sim_for_ticks =
+                    ti >= 2 && toks[ti - 2] == "simulate" && toks.contains(&"ticks");
+                assert!(
+                    is_sim_for_ticks,
+                    "forbidden legacy `for` loop outside `simulate <Prep> for <N> ticks` in {label}:{line_no}: {line}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn pure_wave_dec_v2_repository_guard() {
+    use aodc::diagnostics::{CompatMode, DiagnosticCode, SyntaxDiscipline};
+    use aodc::parser::parse_source_with_discipline;
+
+    let root = repo_root();
+
+    // 1. Walk repo_root() (never following symlinks; skipping .git, target, _build,
+    //    reference/aod-dec-dev/**, and tests/fixtures/v1_examples/*.dec)
+    let mut v2_files = Vec::new();
+    collect_v2_dec_files_no_symlinks(&root, &root, &mut v2_files);
+    v2_files.sort();
+    assert!(
+        v2_files.len() >= 41,
+        "expected >= 41 V2 .dec files in repository, found {}",
+        v2_files.len()
+    );
+
+    let mut positive_count = 0usize;
+    let mut negative_count = 0usize;
+    for path in &v2_files {
+        let rel = path
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let raw = std::fs::read_to_string(path).unwrap();
+        assert_pure_wave_dec_text(&rel, &raw);
+
+        if rel.starts_with("manual_examples/negative_controls/") {
+            negative_count += 1;
+            let fname = path.file_name().unwrap().to_string_lossy();
+            if fname.starts_with("nc03_") {
+                let err =
+                    parse_source_with_discipline(&raw, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
+                        .unwrap_err();
+                assert_eq!(
+                    err.code,
+                    DiagnosticCode::OddSupportRequiresYro,
+                    "nc03 must fail with OddSupportRequiresYro, got {err}"
+                );
+            } else {
+                parse_source_with_discipline(&raw, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
+                    .unwrap_or_else(|e| panic!("negative control {rel} failed PureWaveV2 parse: {e}"));
+            }
+        } else {
+            positive_count += 1;
+            if rel.starts_with("stdlib/aod/") {
+                let loaded =
+                    aodc::modules::load_from_source(&raw, path.parent(), CompatMode::V2)
+                        .unwrap_or_else(|e| panic!("load failed on {rel}: {e}"));
+                aodc::checker::check_unit(loaded, false)
+                    .unwrap_or_else(|e| panic!("stdlib check failed on {rel}: {e}"));
+            } else {
+                aodc::check_file(path, CompatMode::V2)
+                    .unwrap_or_else(|e| panic!("check_file failed on {rel}: {e}"));
+            }
+            let audit =
+                aodc::audit_dec_file_with_options(path, CompatMode::V2, &aodc::LoadOptions::default());
+            assert!(
+                audit.passed() && audit.hooks_passed() == 6,
+                "audit-dec failed on {rel}: {:?}",
+                audit.errors
+            );
+        }
+    }
+    assert_eq!(positive_count, 34, "expected 34 positive V2 .dec files");
+    assert_eq!(negative_count, 7, "expected 7 negative-control V2 .dec files");
+
+    // 2. Scan all inline ```dec and ```dec-fail blocks in docs/manual/**/*.typ
+    let mut typ_files = Vec::new();
+    collect_typ_files_no_symlinks(&root.join("docs/manual"), &mut typ_files);
+    typ_files.sort();
+    let mut inline_blocks_scanned = 0usize;
+    for tp in &typ_files {
+        let rel = tp
+            .strip_prefix(&root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let content = std::fs::read_to_string(tp).unwrap();
+        let mut in_dec_block = false;
+        let mut block_start_line = 0usize;
+        let mut buf = String::new();
+        for (lidx, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            if !in_dec_block {
+                if trimmed == "```dec" || trimmed.starts_with("```dec-fail ") {
+                    in_dec_block = true;
+                    block_start_line = lidx + 1;
+                    buf.clear();
+                }
+            } else if trimmed == "```" {
+                in_dec_block = false;
+                inline_blocks_scanned += 1;
+                let block_label = format!("{rel}@{block_start_line}");
+                assert_pure_wave_dec_text(&block_label, &buf);
+            } else {
+                buf.push_str(line);
+                buf.push('\n');
+            }
+        }
+        assert!(!in_dec_block, "unclosed ```dec block in {rel}");
+    }
+    assert_eq!(
+        inline_blocks_scanned, 11,
+        "expected 11 inline dec/dec-fail blocks across docs/manual"
+    );
+}
+

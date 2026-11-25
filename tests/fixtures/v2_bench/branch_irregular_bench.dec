@@ -1,23 +1,32 @@
-# Irregular branch selection benchmark (`P1-2`, `AC-15`):
+# Irregular branch selection benchmark (`P0-4`, `P1-2`, `AC-07`, `AC-15`):
 # - Fits comfortably within DEFAULT_FUEL = 100_000 for Exact VM parity.
-# - Both branch arms are pure `is_pure_select_safe` local identifiers (`hi` / `lo`), so
-#   `CodegenPlan { branchless_select: true }` lowers to LLVM `select` while `false` lowers to `br i1`!
+# - `pick_irregular` is a pure 2-arm `dec` signature matrix whose arms return pure local
+#   identifiers (`hi` / `lo`), so `CodegenPlan { branchless_select: true }` lowers to LLVM `select`
+#   while `false` lowers to `guard_ok_*` / `arm_next_*` `br i1`!
 
-Dec run_irregular_select(n: int) -> int:
-    mut state = 20261113
-    mut acc = 0
-    mut pick = 0
-    for i in 0..n:
-        state = (state * 1103515245 + 12345) % 2147483647
+use aod::core:
+    evolve
+
+dec pick_irregular:
+    (bit: int, hi: int, lo: int) where bit == 1 -> int:
+        return hi
+    (_: int, _: int, lo: int) -> int:
+        return lo
+
+dec irregular_step:
+    ((state, acc): (int, int), i: int) -> (int, int):
+        let next_state = (state * 1103515245 + 12345) % 2147483647
         let hi = i + 17
         let lo = i - 9
-        if (state % 2) == 1:
-            pick = hi
-        else:
-            pick = lo
-        acc = acc + pick
-    emit acc
-    return 0
+        let pick = pick_irregular(next_state % 2, hi, lo)
+        return (next_state, acc + pick)
 
-Dec main() -> int:
-    return run_irregular_select(1500)
+dec run_irregular_select:
+    (n: int) -> int:
+        let (_, acc) = evolve((20261113, 0), 0..n, irregular_step)
+        emit acc
+        return 0
+
+dec main:
+    () -> int:
+        return run_irregular_select(1500)

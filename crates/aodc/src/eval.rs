@@ -16,19 +16,25 @@ use aod_core::wavelet::{
 };
 use aod_core::witness::{Coupling, Fusion, SeatState, Trace};
 
+use aod_rt::ops::decode_hex_32;
+use aod_rt::value::{model_status_variant_and_tag, recipient_stage_variant_and_tag};
+
 use crate::ast::{
     AssignTarget, BinaryOp, CallArg, ChamberDecl, DecArmParam, DecFnDecl, DecFnKind, EnumDecl,
-    Expr, ExprKind, ForTarget, Item, ObserveDecl, Pattern, PrepareDecl, ProbeDecl, Program, Stmt,
-    StmtKind, StructDecl, TritLiteral, UnaryOp,
+    EnumVariantDecl, Expr, ExprKind, ForTarget, Item, ObserveDecl, Pattern, PrepareDecl, ProbeDecl,
+    Program, Stmt, StmtKind, StructDecl, TritLiteral, UnaryOp,
 };
 use crate::checker::CheckedUnit;
-use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{builtin_namespace_items, canonical_builtin_name, ImportedSymbol};
 use crate::sim::{
     BlindMotifSpectrum, BoxRegion, CarrierState, ChamberSnapshot, ChamberState,
     DeclarativeObserver, ReferenceClock, SensorCurrentSummary, SimRunResult,
 };
-use crate::types::Type;
+use crate::types::{
+    builtin_enum_variants, builtin_ns_exports_enum, Type, BUILTIN_MOD, MODEL_STATUS_VARIANTS,
+    RECIPIENT_STAGE_VARIANTS,
+};
 
 pub const DEFAULT_FUEL: usize = 100_000;
 pub const DEFAULT_MAX_DEPTH: usize = 128;
@@ -407,6 +413,9 @@ impl<'a> Evaluator<'a> {
             emits: Vec::new(),
             parallel_observers: false,
         };
+        if checked.unit.compat == CompatMode::V2 {
+            ev.register_builtin_enums();
+        }
         ev.index_program("<entry>", &checked.unit.entry_program)?;
         for (mod_key, prog) in &checked.unit.parsed_modules {
             ev.index_program(mod_key, prog)?;
@@ -602,8 +611,85 @@ impl<'a> Evaluator<'a> {
         }
     }
 
+    fn register_builtin_enums(&mut self) {
+        let p = Arc::get_mut(&mut self.program)
+            .expect("Evaluator::register_builtin_enums runs exclusively during initialization");
+        for (ename, variants) in [
+            ("ModelStatus", MODEL_STATUS_VARIANTS),
+            ("RecipientStage", RECIPIENT_STAGE_VARIANTS),
+        ] {
+            p.enums.insert(
+                (BUILTIN_MOD.to_string(), ename.to_string()),
+                EnumDecl {
+                    name: ename.to_string(),
+                    variants: variants
+                        .iter()
+                        .map(|(vn, _)| EnumVariantDecl {
+                            name: (*vn).to_string(),
+                            payloads: Vec::new(),
+                            line: 0,
+                        })
+                        .collect(),
+                    line: 0,
+                },
+            );
+        }
+    }
+
     fn lookup_user_type(&self, mod_key: &str, name: &str) -> Option<Type> {
+        let compat = self.program.checked.unit.compat;
         let base = self.base_module_of(mod_key);
+        if name.contains("::") {
+            if compat != CompatMode::V2 {
+                return None;
+            }
+            let segs: Vec<&str> = name.split("::").collect();
+            if segs.len() == 2 {
+                if let Some(ImportedSymbol::ModuleNamespace(m)) =
+                    self.imports_for(mod_key).get(segs[0])
+                {
+                    if let Some(ns_tail) = m.strip_prefix("aod::") {
+                        if builtin_ns_exports_enum(ns_tail, segs[1]) {
+                            return Some(Type::Enum {
+                                module: BUILTIN_MOD.to_string(),
+                                name: segs[1].to_string(),
+                            });
+                        }
+                        return None;
+                    }
+                    if self
+                        .program
+                        .structs
+                        .contains_key(&(m.clone(), segs[1].to_string()))
+                    {
+                        return Some(Type::Struct {
+                            module: m.clone(),
+                            name: segs[1].to_string(),
+                        });
+                    }
+                    if self
+                        .program
+                        .enums
+                        .contains_key(&(m.clone(), segs[1].to_string()))
+                    {
+                        return Some(Type::Enum {
+                            module: m.clone(),
+                            name: segs[1].to_string(),
+                        });
+                    }
+                }
+            } else if segs.len() == 3
+                && segs[0] == "aod"
+                && builtin_ns_exports_enum(segs[1], segs[2])
+            {
+                return Some(Type::Enum {
+                    module: BUILTIN_MOD.to_string(),
+                    name: segs[2].to_string(),
+                });
+            }
+            return None;
+        }
+
         if self
             .program
             .structs
@@ -624,29 +710,44 @@ impl<'a> Evaluator<'a> {
                 name: name.to_string(),
             });
         }
-        if let Some(ImportedSymbol::ModuleItem { module, item }) =
-            self.imports_for(mod_key).get(name)
-        {
-            if self
-                .program
-                .structs
-                .contains_key(&(module.clone(), item.clone()))
-            {
-                return Some(Type::Struct {
-                    module: module.clone(),
-                    name: item.clone(),
-                });
+        match self.imports_for(mod_key).get(name) {
+            Some(ImportedSymbol::ModuleItem { module, item }) => {
+                if self
+                    .program
+                    .structs
+                    .contains_key(&(module.clone(), item.clone()))
+                {
+                    return Some(Type::Struct {
+                        module: module.clone(),
+                        name: item.clone(),
+                    });
+                }
+                if self
+                    .program
+                    .enums
+                    .contains_key(&(module.clone(), item.clone()))
+                {
+                    return Some(Type::Enum {
+                        module: module.clone(),
+                        name: item.clone(),
+                    });
+                }
             }
-            if self
-                .program
-                .enums
-                .contains_key(&(module.clone(), item.clone()))
+            Some(ImportedSymbol::Builtin(canon))
+                if compat == CompatMode::V2 && builtin_enum_variants(canon).is_some() =>
             {
                 return Some(Type::Enum {
-                    module: module.clone(),
-                    name: item.clone(),
+                    module: BUILTIN_MOD.to_string(),
+                    name: canon.clone(),
                 });
             }
+            _ => {}
+        }
+        if compat == CompatMode::V2 && builtin_enum_variants(name).is_some() {
+            return Some(Type::Enum {
+                module: BUILTIN_MOD.to_string(),
+                name: name.to_string(),
+            });
         }
         None
     }
@@ -656,6 +757,7 @@ impl<'a> Evaluator<'a> {
         mod_key: &str,
         path: &[String],
     ) -> Option<(String, String, String)> {
+        let compat = self.program.checked.unit.compat;
         let (emod, ename, vname) = if path.len() == 2 {
             let base = self.base_module_of(mod_key);
             if self
@@ -664,10 +766,26 @@ impl<'a> Evaluator<'a> {
                 .contains_key(&(base.to_string(), path[0].clone()))
             {
                 (base.to_string(), path[0].clone(), path[1].clone())
-            } else if let Some(ImportedSymbol::ModuleItem { module, item }) =
-                self.imports_for(mod_key).get(&path[0])
+            } else if let Some(imp) = self.imports_for(mod_key).get(&path[0]) {
+                match imp {
+                    ImportedSymbol::ModuleItem { module, item } => {
+                        (module.clone(), item.clone(), path[1].clone())
+                    }
+                    ImportedSymbol::Builtin(canon)
+                        if compat == CompatMode::V2 && builtin_enum_variants(canon).is_some() =>
+                    {
+                        (BUILTIN_MOD.to_string(), canon.clone(), path[1].clone())
+                    }
+                    _ => return None,
+                }
+            } else if compat == CompatMode::V2
+                && !self
+                    .program
+                    .structs
+                    .contains_key(&(base.to_string(), path[0].clone()))
+                && builtin_enum_variants(&path[0]).is_some()
             {
-                (module.clone(), item.clone(), path[1].clone())
+                (BUILTIN_MOD.to_string(), path[0].clone(), path[1].clone())
             } else {
                 return None;
             }
@@ -675,10 +793,24 @@ impl<'a> Evaluator<'a> {
             if let Some(ImportedSymbol::ModuleNamespace(m)) =
                 self.imports_for(mod_key).get(&path[0])
             {
-                (m.clone(), path[1].clone(), path[2].clone())
+                if let Some(ns_tail) = m.strip_prefix("aod::") {
+                    if compat == CompatMode::V2 && builtin_ns_exports_enum(ns_tail, &path[1]) {
+                        (BUILTIN_MOD.to_string(), path[1].clone(), path[2].clone())
+                    } else {
+                        return None;
+                    }
+                } else {
+                    (m.clone(), path[1].clone(), path[2].clone())
+                }
             } else {
                 return None;
             }
+        } else if path.len() == 4
+            && compat == CompatMode::V2
+            && path[0] == "aod"
+            && builtin_ns_exports_enum(&path[1], &path[2])
+        {
+            (BUILTIN_MOD.to_string(), path[2].clone(), path[3].clone())
         } else {
             return None;
         };
@@ -2876,10 +3008,10 @@ fn eval_unary(op: UnaryOp, val: Value, line: usize) -> DecResult<Value> {
             .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())),
         (UnaryOp::Neg, Value::Ratio(r)) => Ok(Value::Ratio(-r)),
         (UnaryOp::Neg, Value::QExtRatio(q)) => Ok(Value::QExtRatio(q.neg())),
-        (UnaryOp::Boundary, Value::Box3(b)) => Ok(Value::Str(b.boundary_descriptor())),
-        (UnaryOp::Boundary, Value::SimResult(s)) => {
-            Ok(Value::Str(s.final_snapshot.space.boundary_descriptor()))
-        }
+        (UnaryOp::Boundary, Value::Box3(b)) => Ok(Value::Bytes(b.boundary_descriptor().into_bytes())),
+        (UnaryOp::Boundary, Value::SimResult(s)) => Ok(Value::Bytes(
+            s.final_snapshot.space.boundary_descriptor().into_bytes(),
+        )),
         (UnaryOp::Boundary, Value::Window(u, v)) | (UnaryOp::Boundary, Value::Range(u, v)) => {
             Ok(Value::Tuple(vec![
                 Value::Int(BigInt::from_i64(u)),
@@ -3275,18 +3407,27 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
         });
     }
     match (base, field) {
-        (Value::SimResult(s), "model_status") => Ok(Value::Str(s.model_status)),
+        (Value::SimResult(s), "model_status") => {
+            let (variant, _) = model_status_variant_and_tag(&s.model_status);
+            Ok(Value::Enum(Box::new(EnumValue {
+                module: BUILTIN_MOD.to_string(),
+                name: "ModelStatus".to_string(),
+                variant: variant.to_string(),
+                payloads: Vec::new(),
+            })))
+        }
         (Value::SimResult(s), "model_status_bytes") => {
             Ok(Value::Bytes(s.model_status.into_bytes()))
         }
-        (Value::SimResult(s), "chamber_name") => Ok(Value::Str(s.chamber_name)),
-        (Value::SimResult(s), "chamber_name_bytes") => {
+        (Value::SimResult(s), "chamber_name" | "chamber_name_bytes") => {
             Ok(Value::Bytes(s.chamber_name.into_bytes()))
         }
-        (Value::SimResult(s), "final_state_hash") => Ok(Value::Str(s.final_state_hash)),
-        (Value::SimResult(s), "final_state_hash_bytes") => {
+        (Value::SimResult(s), "final_state_hash" | "final_state_hash_bytes") => {
             Ok(Value::Bytes(s.final_state_hash.into_bytes()))
         }
+        (Value::SimResult(s), "final_state_sha256") => decode_hex_32(&s.final_state_hash)
+            .map(Value::Bytes)
+            .map_err(|e| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e)),
         (Value::SimResult(s), "boundary_bytes") => Ok(Value::Bytes(
             s.final_snapshot.space.boundary_descriptor().into_bytes(),
         )),
@@ -3319,12 +3460,19 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
             Ok(Value::ChamberView(Box::new(s.final_snapshot)))
         }
 
-        (Value::ChamberView(snap), "model_status") => Ok(Value::Str(snap.model_status)),
+        (Value::ChamberView(snap), "model_status") => {
+            let (variant, _) = model_status_variant_and_tag(&snap.model_status);
+            Ok(Value::Enum(Box::new(EnumValue {
+                module: BUILTIN_MOD.to_string(),
+                name: "ModelStatus".to_string(),
+                variant: variant.to_string(),
+                payloads: Vec::new(),
+            })))
+        }
         (Value::ChamberView(snap), "model_status_bytes") => {
             Ok(Value::Bytes(snap.model_status.into_bytes()))
         }
-        (Value::ChamberView(snap), "chamber_name") => Ok(Value::Str(snap.chamber_name)),
-        (Value::ChamberView(snap), "chamber_name_bytes") => {
+        (Value::ChamberView(snap), "chamber_name" | "chamber_name_bytes") => {
             Ok(Value::Bytes(snap.chamber_name.into_bytes()))
         }
         (Value::ChamberView(snap), "tick") => Ok(Value::Int(BigInt::from_u64(snap.tick))),
@@ -3350,9 +3498,15 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
                 .collect(),
         )),
 
-        (Value::RecipientOutcome(o), "stage") => Ok(Value::Str(
-            eval_recipient_stage_name(o.stage).to_string(),
-        )),
+        (Value::RecipientOutcome(o), "stage") => {
+            let (variant, _) = recipient_stage_variant_and_tag(o.stage);
+            Ok(Value::Enum(Box::new(EnumValue {
+                module: BUILTIN_MOD.to_string(),
+                name: "RecipientStage".to_string(),
+                variant: variant.to_string(),
+                payloads: Vec::new(),
+            })))
+        }
         (Value::RecipientOutcome(o), "stage_bytes") => Ok(Value::Bytes(
             eval_recipient_stage_name(o.stage).as_bytes().to_vec(),
         )),
@@ -3367,12 +3521,10 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
         }
 
         (Value::CadenceAssociation(a), "is_cadence_ratio") => Ok(Value::Bool(a.is_cadence_ratio)),
-        (Value::CadenceAssociation(a), "wavelet_id") => Ok(Value::Str(a.wavelet_id)),
-        (Value::CadenceAssociation(a), "wavelet_id_bytes") => {
+        (Value::CadenceAssociation(a), "wavelet_id" | "wavelet_id_bytes") => {
             Ok(Value::Bytes(a.wavelet_id.into_bytes()))
         }
-        (Value::CadenceAssociation(a), "reference_id") => Ok(Value::Str(a.reference_id)),
-        (Value::CadenceAssociation(a), "reference_id_bytes") => {
+        (Value::CadenceAssociation(a), "reference_id" | "reference_id_bytes") => {
             Ok(Value::Bytes(a.reference_id.into_bytes()))
         }
 
@@ -4151,21 +4303,20 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
         ("aod::qext::qext_div", [Value::QExtRatio(a), Value::QExtRatio(b)]) => {
             a.checked_div(b).map(Value::QExtRatio).map_err(err)
         }
-        ("aod::qext::qext_render", [Value::QExtRatio(q)]) => Ok(Value::QExtStr(q.render_exact())),
+        (
+            "aod::qext::qext_render"
+            | "aod::qext::qext_to_bytes_exact"
+            | "aod::qext::qext_render_bytes",
+            [Value::QExtRatio(q)],
+        ) => Ok(Value::QExtBytes(q.render_exact().into_bytes())),
         ("aod::qext::qext_round_half_even", [Value::QExtRatio(q), Value::Int(d)]) => {
             let dec = checked_eval_qext_decimals(d, line)?;
             q.round_half_even(dec).map(Value::QExtRatio).map_err(err)
         }
-        ("aod::qext::qext_format_fixed", [Value::QExtRatio(q), Value::Int(d)]) => {
-            let dec = checked_eval_qext_decimals(d, line)?;
-            q.format_fixed(dec).map(Value::QExtStr).map_err(err)
-        }
         (
-            "aod::qext::qext_to_bytes_exact" | "aod::qext::qext_render_bytes",
-            [Value::QExtRatio(q)],
-        ) => Ok(Value::QExtBytes(q.render_exact().into_bytes())),
-        (
-            "aod::qext::qext_format_bytes_fixed" | "aod::qext::qext_format_fixed_bytes",
+            "aod::qext::qext_format_fixed"
+            | "aod::qext::qext_format_bytes_fixed"
+            | "aod::qext::qext_format_fixed_bytes",
             [Value::QExtRatio(q), Value::Int(d)],
         ) => {
             let dec = checked_eval_qext_decimals(d, line)?;

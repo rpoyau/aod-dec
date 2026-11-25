@@ -30,23 +30,35 @@ overflowing or pre-spilled operands branch to the cold exact `aod-rt` spill help
 )<fig:unboxed-pipeline>
 
 Sound branchless `select` lowering under `CodegenPlan.branchless_select = true` restricts eager evaluation
-to a strict pure-expression whitelist (`is_pure_select_safe`): literals fitting `i64`, local/const
-identifiers, `Bool` negation, `T1`/`T32` negation, unboxed scalar comparisons, and `T1` multiplication.
-Any potentially trapping or spilling expression (such as `10 // x` or `Int` negation) always keeps lazy
-`br i1` control flow, as verified live below:
+on pure two-arm `dec` signature matrices to a strict pure-expression whitelist (`is_pure_select_safe`):
+literals fitting `i64`, local/const identifiers, `Bool` negation, `T1`/`T9`/`T32` negation, unboxed scalar
+comparisons, and `T1` multiplication, while non-recursive scalar-tuple `evolve` callbacks emit dedicated
+`@dec_fn_*_unboxed` loops with zero arena allocations per tick. Any potentially trapping or spilling arm
+(such as `10 // x` or `Int` negation) always keeps lazy `br i1` control flow, as verified live below:
 
 ```dec
-Dec main() -> int:
-    let x = 0
-    mut safe_val = 0
-    if x != 0:
-        safe_val = 10 // x
-    else:
-        safe_val = 42
-    let tern = (10 // x) if x != 0 else 7
-    emit safe_val
-    emit tern
-    return 0
+use aod::core::select
+
+dec safe_div10:
+    (x: int) where x != 0 -> int:
+        return 10 // x
+    (_: int) -> int:
+        return 42
+
+dec fallback_div10:
+    (x: int) where x != 0 -> int:
+        return 10 // x
+    (_: int) -> int:
+        return 7
+
+dec main:
+    () -> int:
+        let x = 0
+        let safe_val = safe_div10(x)
+        let tern = select(x == 0, fallback_div10(x), 0)
+        emit safe_val
+        emit tern
+        return 0
 ```
 
 ```dec-expect

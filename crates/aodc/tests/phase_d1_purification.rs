@@ -149,7 +149,7 @@ fn assert_6mode_runtime_trap(src: &str, tmp: &Path, stem: &str) {
 
 #[test]
 fn ac01_null_distinctness_incomparability_and_v1_isolation() {
-    // Compile-time incomparability with all numeric, ternary, hypercube, anchor, and unit types
+    // Compile-time incomparability with all numeric, ternary, hypercube, anchor, and bytes types
     for (rhs, expected_code) in [
         ("0", DiagnosticCode::ImplicitCoercionForbidden),
         ("u8(0)", DiagnosticCode::ImplicitCoercionForbidden),
@@ -160,9 +160,11 @@ fn ac01_null_distinctness_incomparability_and_v1_isolation() {
         ("q4(0)", DiagnosticCode::ImplicitCoercionForbidden),
         ("00_8", DiagnosticCode::ImplicitCoercionForbidden),
         ("false", DiagnosticCode::ImplicitCoercionForbidden),
-        ("()", DiagnosticCode::ImplicitCoercionForbidden),
+        ("b\"\"", DiagnosticCode::ImplicitCoercionForbidden),
     ] {
-        let src = format!("Dec main() -> int:\n    let ok = null == {rhs}\n    return 0\n");
+        let src = format!(
+            "use aod::core:\n    u8, b64, t9, t32, q4\ndec main:\n    () -> int:\n        let ok = null == {rhs}\n        return 0\n"
+        );
         let err = check_source(&src, CompatMode::V2)
             .expect_err(&format!("null == {rhs} must fail at compile time"));
         assert_eq!(err.code, expected_code, "mismatch on null == {rhs}: {err}");
@@ -170,10 +172,10 @@ fn ac01_null_distinctness_incomparability_and_v1_isolation() {
 
     // Arithmetic / ordering on Null is forbidden
     for bad in [
-        "Dec main() -> int:\n    let x = -null\n    return 0\n",
-        "Dec main() -> int:\n    let x = null < null\n    return 0\n",
-        "Dec main() -> int:\n    let null = 1\n    return null\n",
-        "Dec f(null: int) -> int:\n    return 0\nDec main() -> int:\n    return f(1)\n",
+        "dec main:\n    () -> int:\n        let x = -null\n        return 0\n",
+        "dec main:\n    () -> int:\n        let x = null < null\n        return 0\n",
+        "dec main:\n    () -> int:\n        let null = 1\n        return null\n",
+        "dec f:\n    (null: int) -> int:\n        return 0\ndec main:\n    () -> int:\n        return f(1)\n",
     ] {
         assert!(check_source(bad, CompatMode::V2).is_err());
     }
@@ -203,37 +205,47 @@ fn ac02_u8_checked_arithmetic_and_6mode_traps() {
 
     // Compile-time rejections: unary `-u8`, implicit coercion with `int`
     assert_eq!(
-        check_source("Dec main() -> int:\n    let x = -u8(1)\n    return 0\n", CompatMode::V2)
-            .unwrap_err()
-            .code,
+        check_source(
+            "use aod::core::u8\ndec main:\n    () -> int:\n        let x = -u8(1)\n        return 0\n",
+            CompatMode::V2
+        )
+        .unwrap_err()
+        .code,
         DiagnosticCode::TypeError
     );
     assert_eq!(
-        check_source("Dec main() -> int:\n    let x = u8(1) + 1\n    return 0\n", CompatMode::V2)
-            .unwrap_err()
-            .code,
+        check_source(
+            "use aod::core::u8\ndec main:\n    () -> int:\n        let x = u8(1) + 1\n        return 0\n",
+            CompatMode::V2
+        )
+        .unwrap_err()
+        .code,
         DiagnosticCode::ImplicitCoercionForbidden
     );
     assert!(check_source("Dec main() -> out:\n    () -> u8 out:\n        out = 0\n", CompatMode::V1).is_err());
 
     // Positive 6-mode parity
     let pos = r#"
-Dec main() -> int:
-    let a = u8(200)
-    let b = u8(55)
-    emit a + b
-    emit a - b
-    emit u8(15) * u8(17)
-    emit a // u8(7)
-    emit a % u8(7)
-    emit (u8(0xAA) & u8(0x0F)) | (u8(1) << 7)
-    emit u8(0xFF) >> u8(4)
-    emit u8(true)
-    emit u8(q4(12))
-    emit u8(t9(255))
-    emit u8(t32(255))
-    emit u8(b64(255))
-    return 0
+use aod::core:
+    u8, b64, t9, t32, q4
+
+dec main:
+    () -> int:
+        let a = u8(200)
+        let b = u8(55)
+        emit a + b
+        emit a - b
+        emit u8(15) * u8(17)
+        emit a // u8(7)
+        emit a % u8(7)
+        emit (u8(0xAA) & u8(0x0F)) | (u8(1) << 7)
+        emit u8(0xFF) >> u8(4)
+        emit u8(true)
+        emit u8(q4(12))
+        emit u8(t9(255))
+        emit u8(t32(255))
+        emit u8(b64(255))
+        return 0
 "#;
     assert_6mode_source_parity(
         pos,
@@ -258,7 +270,9 @@ Dec main() -> int:
         ("u8_from_t9_neg", "let _x = u8(t9(-1))"),
         ("u8_from_b64_ovf", "let _x = u8(b64(256))"),
     ] {
-        let src = format!("Dec main() -> int:\n    {expr}\n    return 0\n");
+        let src = format!(
+            "use aod::core:\n    u8, b64, t9\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
+        );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
 
@@ -282,7 +296,7 @@ fn ac03_b64_hex_bin_lexing_compile_guards_and_6mode_traps() {
         "0b102",
         "0x1G",
     ] {
-        let src = format!("Dec main() -> int:\n    let x = {bad_lex}\n    return x\n");
+        let src = format!("dec main:\n    () -> int:\n        let x = {bad_lex}\n        return x\n");
         let err = check_source(&src, CompatMode::V2)
             .expect_err(&format!("{bad_lex} must fail lexing"));
         assert_eq!(err.code, DiagnosticCode::LexError, "for {bad_lex}: {err}");
@@ -290,14 +304,14 @@ fn ac03_b64_hex_bin_lexing_compile_guards_and_6mode_traps() {
 
     // Float hex/binary -> FloatLiteralForbidden
     for bad_flt in ["0x1.5", "0b1.0"] {
-        let src = format!("Dec main() -> int:\n    let x = {bad_flt}\n    return 0\n");
+        let src = format!("dec main:\n    () -> int:\n        let x = {bad_flt}\n        return 0\n");
         let err = check_source(&src, CompatMode::V2).unwrap_err();
         assert_eq!(err.code, DiagnosticCode::FloatLiteralForbidden);
     }
 
     // Hex range `0x1..0x5` must lex cleanly as IntLit(1) .. IntLit(5)
     assert!(check_source(
-        "Dec main() -> int:\n    mut s = 0\n    for i in 0x1..0x5:\n        s = s + i\n    assert s == 10\n    return 0\n",
+        "use aod::core::evolve\ndec add_step:\n    (s: int, i: int) -> int:\n        return s + i\ndec main:\n    () -> int:\n        let s = evolve(0, 0x1..0x5, add_step)\n        assert s == 10\n        return 0\n",
         CompatMode::V2
     ).is_ok());
 
@@ -319,7 +333,9 @@ fn ac03_b64_hex_bin_lexing_compile_guards_and_6mode_traps() {
         "b64(4) // b64(2)",
         "b64(4) % b64(2)",
     ] {
-        let src = format!("Dec main() -> int:\n    let _x = {op_expr}\n    return 0\n");
+        let src = format!(
+            "use aod::core::b64\ndec main:\n    () -> int:\n        let _x = {op_expr}\n        return 0\n"
+        );
         let err = check_source(&src, CompatMode::V2)
             .expect_err(&format!("{op_expr} must fail on b64"));
         assert_eq!(err.code, DiagnosticCode::TypeError);
@@ -328,26 +344,34 @@ fn ac03_b64_hex_bin_lexing_compile_guards_and_6mode_traps() {
     // Positive 6-mode parity including bit 63 set (`0xFFFF_FFFF_FFFF_FFFF`, `0xAAAA_AAAA_AAAA_AAAA`)
     // AND 1-cycle T32 wire-swap phase flip `((w & 0x5555...) << 1) | ((w & 0xAAAA...) >> 1)` == `b64(neg(t))`
     let pos = r#"
-Dec wire_swap_flip(x: t32) -> t32:
-    let w = b64(x)
-    let lo = (w & b64(0x5555_5555_5555_5555)) << 1
-    let hi = (w & b64(0xAAAA_AAAA_AAAA_AAAA)) >> 1
-    return t32(lo | hi)
+use aod::core:
+    int, b64, t32, neg, popcnt, bitnot, all
 
-Dec main() -> int:
-    let top = b64(0xFFFF_FFFF_FFFF_FFFF)
-    assert int(top) == 18446744073709551615
-    assert popcnt(top) == 64
-    assert bitnot(top) == b64(0)
-    let neg_trits = b64(0xAAAA_AAAA_AAAA_AAAA)
-    let decoded = t32(neg_trits)
-    assert decoded == t32(-926510094425920)
-    assert b64(decoded) == neg_trits
-    for v in [t32(0), t32(1), t32(-1), t32(926510094425920), t32(-926510094425920)]:
-        assert wire_swap_flip(v) == neg(v)
-    emit top
-    emit decoded
-    return 0
+dec wire_swap_flip:
+    (x: t32) -> t32:
+        let w = b64(x)
+        let lo = (w & b64(0x5555_5555_5555_5555)) << 1
+        let hi = (w & b64(0xAAAA_AAAA_AAAA_AAAA)) >> 1
+        return t32(lo | hi)
+
+dec check_flip:
+    (v: t32) -> bool:
+        return wire_swap_flip(v) == neg(v)
+
+dec main:
+    () -> int:
+        let top = b64(0xFFFF_FFFF_FFFF_FFFF)
+        assert int(top) == 18446744073709551615
+        assert popcnt(top) == 64
+        assert bitnot(top) == b64(0)
+        let neg_trits = b64(0xAAAA_AAAA_AAAA_AAAA)
+        let decoded = t32(neg_trits)
+        assert decoded == t32(-926510094425920)
+        assert b64(decoded) == neg_trits
+        assert all([t32(0), t32(1), t32(-1), t32(926510094425920), t32(-926510094425920)], check_flip)
+        emit top
+        emit decoded
+        return 0
 "#;
     assert_6mode_source_parity(
         pos,
@@ -367,7 +391,9 @@ Dec main() -> int:
         ("t32_bad_lane0", "let _x = t32(b64(0b11))"),
         ("t32_bad_lane31", "let _x = t32(b64(0xC000_0000_0000_0000))"),
     ] {
-        let src = format!("Dec main() -> int:\n    {expr}\n    return 0\n");
+        let src = format!(
+            "use aod::core:\n    b64, t32\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
+        );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
 
@@ -379,22 +405,26 @@ fn ac04_t9_checked_ternary_and_18bit_pack_unpack_6mode() {
     let tmp = temp_dir("ac04_t9");
 
     let pos = r#"
-Dec main() -> int:
-    let hi = t9(9841)
-    let lo = t9(-9841)
-    assert hi + lo == t9(0)
-    assert -hi == lo and -lo == hi
-    assert (t9(-8) // t9(3)) == t9(-3) and (t9(-8) % t9(3)) == t9(1)
-    assert (t9(6) / t9(9)) == 2/3r
-    let p_hi = pack(hi)
-    let p_lo = b64(lo)
-    assert unpack_t9(p_hi) == hi
-    assert unpack_t9(p_lo) == lo
-    emit hi
-    emit lo
-    emit p_hi
-    emit p_lo
-    return 0
+use aod::core:
+    b64, t9, pack, unpack_t9
+
+dec main:
+    () -> int:
+        let hi = t9(9841)
+        let lo = t9(-9841)
+        assert hi + lo == t9(0)
+        assert -hi == lo and -lo == hi
+        assert (t9(-8) // t9(3)) == t9(-3) and (t9(-8) % t9(3)) == t9(1)
+        assert (t9(6) / t9(9)) == 2/3r
+        let p_hi = pack(hi)
+        let p_lo = b64(lo)
+        assert unpack_t9(p_hi) == hi
+        assert unpack_t9(p_lo) == lo
+        emit hi
+        emit lo
+        emit p_hi
+        emit p_lo
+        return 0
 "#;
     assert_6mode_source_parity(
         pos,
@@ -416,7 +446,9 @@ Dec main() -> int:
         ("t9_unpack_bad0", "let _x = unpack_t9(3)"),
         ("t9_unpack_bad8", "let _x = unpack_t9(b64(0x30000))"),
     ] {
-        let src = format!("Dec main() -> int:\n    {expr}\n    return 0\n");
+        let src = format!(
+            "use aod::core:\n    b64, t9, unpack_t9\ndec main:\n    () -> int:\n        {expr}\n        return 0\n"
+        );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
 
@@ -428,11 +460,9 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     let tmp = temp_dir("ac05_select");
 
     // Compile-time firewalls on `select`
-    struct S;
-    let _ = S;
     assert_eq!(
         check_source(
-            "Dec main() -> int:\n    let _x = select(true, 1, u8(1))\n    return 0\n",
+            "use aod::core:\n    u8, select\ndec main:\n    () -> int:\n        let _x = select(true, 1, u8(1))\n        return 0\n",
             CompatMode::V2
         )
         .unwrap_err()
@@ -441,7 +471,7 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     );
     assert_eq!(
         check_source(
-            "struct Boxed { v: int }\nDec f(ro: ReadOnly<Boxed>, m: Boxed) -> int:\n    let _x = select(true, ro, m)\n    return 0\nDec main() -> int:\n    return 0\n",
+            "use aod::core::select\nstruct Boxed:\n    v: int\ndec f:\n    (ro: ReadOnly<Boxed>, m: Boxed) -> int:\n        let _x = select(true, ro, m)\n        return 0\ndec main:\n    () -> int:\n        return 0\n",
             CompatMode::V2
         )
         .unwrap_err()
@@ -450,7 +480,7 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     );
     assert_eq!(
         check_source(
-            "Dec nop() -> ():\n    return\nDec main() -> int:\n    select(true, nop(), nop())\n    return 0\n",
+            "use aod::core::select\ndec main:\n    () -> int:\n        let _x = select(1, 2, 3)\n        return 0\n",
             CompatMode::V2
         )
         .unwrap_err()
@@ -459,7 +489,7 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
     );
     assert_eq!(
         check_source(
-            "use aod::qext::{ext_decimal}\nquarantine Q_ext LeakMod:\n    Dec leak_cond(a: int, b: int) -> QExt<ratio>:\n        let q = ext_decimal(\"1.0\")\n        let c = q == q\n        let _bad = select(c, a, b)\n        return q\nDec main() -> int:\n    return 0\n",
+            "use aod::core::select\nuse aod::qext::ext_decimal\nquarantine Q_ext LeakMod:\n    dec leak_cond:\n        (a: int, b: int) -> QExt<ratio>:\n            let q = ext_decimal(b\"1.0\")\n            let c = q == q\n            let _bad = select(c, a, b)\n            return q\ndec main:\n    () -> int:\n        return 0\n",
             CompatMode::V2
         )
         .unwrap_err()
@@ -469,29 +499,33 @@ fn ac05_q4_superpose_cancel_and_eager_select_parity_and_firewalls() {
 
     // Full 9-pair `(t1, t1)` truth table + multi-lane `t32` constructive/destructive `superpose_cancel`
     let sup9 = r#"
-Dec main() -> int:
-    assert superpose_cancel(0t, 0t) == 0t
-    assert superpose_cancel(0t, +1t) == +1t
-    assert superpose_cancel(0t, -1t) == -1t
-    assert superpose_cancel(+1t, 0t) == +1t
-    assert superpose_cancel(+1t, +1t) == +1t
-    assert superpose_cancel(+1t, -1t) == 0t
-    assert superpose_cancel(-1t, 0t) == -1t
-    assert superpose_cancel(-1t, +1t) == 0t
-    assert superpose_cancel(-1t, -1t) == -1t
-    emit superpose_cancel(t32(1 + 3 - 9), t32(-1 + 3 - 9))
-    return 0
+use aod::core:
+    t1, t32, superpose_cancel
+
+dec main:
+    () -> int:
+        assert superpose_cancel(0t, 0t) == 0t
+        assert superpose_cancel(0t, 1t) == 1t
+        assert superpose_cancel(0t, t1(-1)) == t1(-1)
+        assert superpose_cancel(1t, 0t) == 1t
+        assert superpose_cancel(1t, 1t) == 1t
+        assert superpose_cancel(1t, t1(-1)) == 0t
+        assert superpose_cancel(t1(-1), 0t) == t1(-1)
+        assert superpose_cancel(t1(-1), 1t) == 0t
+        assert superpose_cancel(t1(-1), t1(-1)) == t1(-1)
+        emit superpose_cancel(t32(1 + 3 - 9), t32(-1 + 3 - 9))
+        return 0
 "#;
     assert_6mode_source_parity(sup9, "t32(-6)\n0\n", &tmp, "sup9_pos");
 
     // Eager left-to-right semantics: BOTH `select(false, 10 // 0, 0)` and `select(true, 0, 10 // 0)` MUST trap!
     assert_6mode_runtime_trap(
-        "Dec main() -> int:\n    let x = select(false, 10 // 0, 0)\n    return x\n",
+        "use aod::core::select\ndec main:\n    () -> int:\n        let x = select(false, 10 // 0, 0)\n        return x\n",
         &tmp,
         "select_eager_left_trap",
     );
     assert_6mode_runtime_trap(
-        "Dec main() -> int:\n    let x = select(true, 0, 10 // 0)\n    return x\n",
+        "use aod::core::select\ndec main:\n    () -> int:\n        let x = select(true, 0, 10 // 0)\n        return x\n",
         &tmp,
         "select_eager_right_trap",
     );
@@ -503,7 +537,7 @@ Dec main() -> int:
 fn ac06_bytes_escapes_immutability_nist_sha256_and_6mode_traps() {
     let tmp = temp_dir("ac06_bytes");
 
-    // Lex rejections: non-ASCII, \uXXXX, invalid \x, incomplete \x
+    // Lex rejections: non-ASCII, \uXXXX, invalid \x, incomplete \x, and `"..."` UTF-8 string literals
     for bad in [
         "b\"caf\u{00e9}\"",
         "b\"\\u0041\"",
@@ -511,43 +545,51 @@ fn ac06_bytes_escapes_immutability_nist_sha256_and_6mode_traps() {
         "b\"\\x0\"",
         "b\"\\q\"",
     ] {
-        let src = format!("Dec main() -> int:\n    let _b = {bad}\n    return 0\n");
+        let src = format!("dec main:\n    () -> int:\n        let _b = {bad}\n        return 0\n");
         let err = check_source(&src, CompatMode::V2).unwrap_err();
         assert_eq!(err.code, DiagnosticCode::LexError, "for {bad}: {err}");
     }
 
-    // str == bytes -> ImplicitCoercionForbidden; b[0] = u8(1) -> TypeError
     assert_eq!(
         check_source(
-            "Dec main() -> int:\n    let _ok = \"abc\" == b\"abc\"\n    return 0\n",
+            "dec main:\n    () -> int:\n        let _ok = \"abc\" == b\"abc\"\n        return 0\n",
+            CompatMode::V2
+        )
+        .unwrap_err()
+        .code,
+        DiagnosticCode::LexError
+    );
+    assert_eq!(
+        check_source(
+            "use aod::core::u8\ndec main:\n    () -> int:\n        let _ok = [u8(1)] == b\"a\"\n        return 0\n",
             CompatMode::V2
         )
         .unwrap_err()
         .code,
         DiagnosticCode::ImplicitCoercionForbidden
     );
-    assert_eq!(
-        check_source(
-            "Dec main() -> int:\n    mut b = b\"abc\"\n    b[0] = u8(1)\n    return 0\n",
-            CompatMode::V2
-        )
-        .unwrap_err()
-        .code,
-        DiagnosticCode::TypeError
-    );
+    assert!(check_source(
+        "use aod::core::u8\ndec main:\n    () -> int:\n        let b = b\"abc\"\n        b[0] = u8(1)\n        return 0\n",
+        CompatMode::V2
+    )
+    .is_err());
 
     // NIST SHA-256 empty "" and "abc" + single-quoted b'...' + empty bytes([])
     let nist = r#"
-Dec main() -> int:
-    let empty_a = b''
-    let empty_b = bytes([])
-    assert empty_a == empty_b and len(empty_a) == 0
-    let h0 = hex_bytes(sha256_bytes(empty_a))
-    let h1 = hex_bytes(sha256_bytes(b"abc"))
-    emit h0
-    emit h1
-    emit b"\0\t\r\n\\\"'\xff"
-    return 0
+use aod::core:
+    bytes, len, sha256_bytes, hex_bytes
+
+dec main:
+    () -> int:
+        let empty_a = b''
+        let empty_b = bytes([])
+        assert empty_a == empty_b and len(empty_a) == 0
+        let h0 = hex_bytes(sha256_bytes(empty_a))
+        let h1 = hex_bytes(sha256_bytes(b"abc"))
+        emit h0
+        emit h1
+        emit b"\0\t\r\n\\\"'\xff"
+        return 0
 "#;
     assert_6mode_source_parity(
         nist,
@@ -557,13 +599,15 @@ Dec main() -> int:
     );
 
     for (tag, body) in [
-        ("bytes_idx_neg", "let b = b\"abc\"\n    let _x = b[-1]"),
-        ("bytes_idx_oob", "let b = b\"abc\"\n    let _x = b[3]"),
+        ("bytes_idx_neg", "let b = b\"abc\"\n        let _x = b[-1]"),
+        ("bytes_idx_oob", "let b = b\"abc\"\n        let _x = b[3]"),
         ("slice_neg", "let _x = slice_bytes(b\"abc\", -1, 2)"),
         ("slice_rev", "let _x = slice_bytes(b\"abc\", 2, 1)"),
         ("slice_oob", "let _x = slice_bytes(b\"abc\", 0, 4)"),
     ] {
-        let src = format!("Dec main() -> int:\n    {body}\n    return 0\n");
+        let src = format!(
+            "use aod::core::slice_bytes\ndec main:\n    () -> int:\n        {body}\n        return 0\n"
+        );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
 
@@ -577,32 +621,32 @@ fn ac07_fixed_array_bounds_readonly_firewall_and_6mode_traps() {
     // N == 0, N < 0, N > 65536, length mismatch, heterogeneous, array == list, direct arr[i] = v
     for (bad, expected_code) in [
         (
-            "Dec main() -> int:\n    let a: array[u8, 0] = [u8(1)]\n    return 0\n",
+            "use aod::core::u8\ndec main:\n    () -> int:\n        let a: array[u8, 0] = [u8(1)]\n        return 0\n",
             DiagnosticCode::TypeError,
         ),
         (
-            "Dec main() -> int:\n    let a: array[u8, 65537] = [u8(1)]\n    return 0\n",
+            "use aod::core::u8\ndec main:\n    () -> int:\n        let a: array[u8, 65537] = [u8(1)]\n        return 0\n",
             DiagnosticCode::TypeError,
         ),
         (
-            "Dec main() -> int:\n    let a = array()\n    return 0\n",
+            "use aod::core::array\ndec main:\n    () -> int:\n        let a = array()\n        return 0\n",
             DiagnosticCode::TypeError,
         ),
         (
-            "Dec main() -> int:\n    let a: array[u8, 3] = [u8(1), u8(2)]\n    return 0\n",
+            "use aod::core::u8\ndec main:\n    () -> int:\n        let a: array[u8, 3] = [u8(1), u8(2)]\n        return 0\n",
             DiagnosticCode::ImplicitCoercionForbidden,
         ),
         (
-            "Dec main() -> int:\n    let a = array(1, u8(2))\n    return 0\n",
+            "use aod::core:\n    u8, array\ndec main:\n    () -> int:\n        let a = array(1, u8(2))\n        return 0\n",
             DiagnosticCode::ImplicitCoercionForbidden,
         ),
         (
-            "Dec main() -> int:\n    let a: array[int, 2] = [1, 2]\n    let l: [int] = [1, 2]\n    let _eq = a == l\n    return 0\n",
+            "dec main:\n    () -> int:\n        let a: array[int, 2] = [1, 2]\n        let l: [int] = [1, 2]\n        let _eq = a == l\n        return 0\n",
             DiagnosticCode::ImplicitCoercionForbidden,
         ),
         (
-            "Dec main() -> int:\n    mut a: array[int, 2] = [1, 2]\n    a[0] = 9\n    return 0\n",
-            DiagnosticCode::TypeError,
+            "dec main:\n    () -> int:\n        let a: array[int, 2] = [1, 2]\n        a[0] = 9\n        return 0\n",
+            DiagnosticCode::ParseError,
         ),
     ] {
         let err = check_source(bad, CompatMode::V2)
@@ -610,13 +654,17 @@ fn ac07_fixed_array_bounds_readonly_firewall_and_6mode_traps() {
         assert_eq!(err.code, expected_code, "got {err} for:\n{bad}");
     }
 
-    // ReadOnly<array[T, N]> firewall: array_set on ReadOnly<array> and mutating ReadOnly<array[Cell, 2]>[0]
+    // ReadOnly<array[T, N]> firewall: array_set on ReadOnly<array> and passing ReadOnly<array[Cell, 1]>[0] to non-ReadOnly
     let ro_array_set = r#"
-Dec bad(ro: ReadOnly<array[int, 2]>) -> array[int, 2]:
-    return array_set(ro, 0, 99)
+use aod::core::array_set
 
-Dec main() -> int:
-    return 0
+dec bad:
+    (ro: ReadOnly<array[int, 2]>) -> array[int, 2]:
+        return array_set(ro, 0, 99)
+
+dec main:
+    () -> int:
+        return 0
 "#;
     assert_eq!(
         check_source(ro_array_set, CompatMode::V2).unwrap_err().code,
@@ -627,14 +675,17 @@ Dec main() -> int:
 struct Cell:
     v: int
 
-Dec mutate_cell(mut_c: Cell) -> int:
-    return mut_c.v
+dec mutate_cell:
+    (mut_c: Cell) -> int:
+        return mut_c.v
 
-Dec bad(ro: ReadOnly<array[Cell, 1]>) -> int:
-    return mutate_cell(ro[0])
+dec bad:
+    (ro: ReadOnly<array[Cell, 1]>) -> int:
+        return mutate_cell(ro[0])
 
-Dec main() -> int:
-    return 0
+dec main:
+    () -> int:
+        return 0
 "#;
     assert_eq!(
         check_source(ro_nested_elem, CompatMode::V2).unwrap_err().code,
@@ -643,18 +694,20 @@ Dec main() -> int:
 
     // 6-mode out-of-bounds traps on array indexing and array_set
     for (tag, body) in [
-        ("arr_idx_neg", "let a = array(10, 20)\n    let _x = a[-1]"),
-        ("arr_idx_oob", "let a = array(10, 20)\n    let _x = a[2]"),
+        ("arr_idx_neg", "let a = array(10, 20)\n        let _x = a[-1]"),
+        ("arr_idx_oob", "let a = array(10, 20)\n        let _x = a[2]"),
         (
             "arr_set_neg",
-            "let a = array(10, 20)\n    let _b = array_set(a, -1, 5)",
+            "let a = array(10, 20)\n        let _b = array_set(a, -1, 5)",
         ),
         (
             "arr_set_oob",
-            "let a = array(10, 20)\n    let _b = array_set(a, 2, 5)",
+            "let a = array(10, 20)\n        let _b = array_set(a, 2, 5)",
         ),
     ] {
-        let src = format!("Dec main() -> int:\n    {body}\n    return 0\n");
+        let src = format!(
+            "use aod::core:\n    array, array_set\ndec main:\n    () -> int:\n        {body}\n        return 0\n"
+        );
         assert_6mode_runtime_trap(&src, &tmp, tag);
     }
 
@@ -706,8 +759,8 @@ fn ac10_live_walk_anchor_invariance_and_all_11_manual_examples_pass() {
     assert_eq!(eight.final_anchor.render(), "10_8");
 
     // 2. Monotonic dwell accumulation & final_anchor invariance across compact vs padded/commented `.dec`
-    let compact = b"Dec f(x: int) -> int:\n return x + 1\n";
-    let padded = b"# Leading header comment\n\nDec    f (  x :   int  )   ->   int :\n    # inner comment -> ignored in dwell\n    return   x   +   1\n\n";
+    let compact = b"dec f:\n (x: int) -> int:\n  return x + 1\n";
+    let padded = b"# Leading header comment\n\ndec    f :\n    (  x :   int  )   ->   int :\n        # inner comment -> ignored in dwell\n        return   x   +   1\n\n";
     let w_compact = lex_live_walk(compact);
     let w_padded = lex_live_walk(padded);
     assert_eq!(
@@ -767,32 +820,32 @@ fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
         (
             "hook1_missing_hinge",
             "spine_audit",
-            "Dec missing_arrow():\n    emit 1\n",
+            "const ONLY_CONST: int = 1\n",
         ),
         (
             "hook2_degenerate_window",
             "boundary_audit",
-            "Dec main() -> int:\n    let _w = (6, 6]\n    return 0\n",
+            "dec main:\n    () -> int:\n        let _w = (6, 6]\n        return 0\n",
         ),
         (
             "hook3_negative_sadar_c3",
             "sadar_audit",
-            "Dec main() -> int:\n    let _s = sadar_promote(0, -1, 1/2r)\n    return 0\n",
+            "use aod::ledger::sadar_promote\ndec main:\n    () -> int:\n        let _s = sadar_promote(0, -1, 1/2r)\n        return 0\n",
         ),
         (
             "hook4_odd_sheddic_enclosure",
             "sheddic_path_audit",
-            "Dec main() -> int:\n    let _ok = audit_sheddic_route(3, u8(7))\n    return 0\n",
+            "use aod::core::u8\nuse aod::ledger::audit_sheddic_route\ndec main:\n    () -> int:\n        let _ok = audit_sheddic_route(3, u8(7))\n        return 0\n",
         ),
         (
             "hook5_cycle_unclosed_or_zero_rd",
             "cycle_audit",
-            "Dec main() -> int:\n    let _r = support_rd(3:3:6, 0)\n    let _rt = rate(trace(\"s\", \"L\", q4(0)))\n    return 0\n",
+            "use aod::core:\n    q4, support_rd\nuse aod::witness:\n    trace, rate\ndec main:\n    () -> int:\n        let _r = support_rd(3:3:6, 0)\n        let _rt = rate(trace(b\"s\", b\"L\", q4(0)))\n        return 0\n",
         ),
         (
             "hook6_frg_identity_broken",
             "frg_audit",
-            "Dec main() -> int:\n    let _ok = verify_frg_cross_return(100, 112, 9)\n    return 0\n",
+            "use aod::ledger::verify_frg_cross_return\ndec main:\n    () -> int:\n        let _ok = verify_frg_cross_return(100, 112, 9)\n        return 0\n",
         ),
     ];
 
@@ -839,7 +892,10 @@ fn ac11_audit_dec_6_hostile_hooks_and_cli_exit2_report_guards() {
     }
 
     // Also verify empty/pass-only body fails `spine_audit` cleanly
-    let pass_only = audit_dec_source("Dec noop() -> ():\n    pass\n", CompatMode::V2);
+    let pass_only = audit_dec_source(
+        "dec noop:\n    () -> Null:\n        pass\ndec main:\n    () -> int:\n        return 0\n",
+        CompatMode::V2,
+    );
     assert!(!pass_only.spine_audit.passed());
 
     // CLI usage & pre-execution `--report` guards MUST exit 2 BEFORE reading `<source.dec>`!

@@ -205,14 +205,14 @@ dec main:
     let expected = "10\n25\n1\n12\n4\n35\n-9\n77\n-9\n9\n0\n";
     assert_6mode_with_opts(&src_path, expected, &pure, &tmp, "multi_arity");
 
-    // Balanced delimiter tracking inside `where` guard under TransitionalV2 (`AC-01`, Section 3.2.1):
-    // named argument `shift(x: n, delta: 2)` contains `:` inside `(...)` before `->`!
-    let trans_src = r#"
-Dec shift(x: int, delta: int) -> int:
-    return x + delta
+    // Balanced delimiter tracking inside `where` guard under PureWaveV2:
+    // support literal `3:3:6` and `map[(1, n)]` contain `:` / `[...]` inside `(...)` before `->`!
+    let colon_guard_src = r#"
+use aod::core:
+    support_pi
 
-Dec guarded(n) -> out:
-    (n: int) where shift(x: n, delta: 2) > 10 -> int:
+dec guarded:
+    (n: int) where (support_pi(3:3:6) + map[(1, n)][1]) > 35 -> int:
         return n * 10
     (n: int) -> int:
         return n
@@ -224,7 +224,7 @@ dec main:
         return 1
 "#;
     let trans_path = tmp.join("where_colon_balance.dec");
-    fs::write(&trans_path, trans_src).unwrap();
+    fs::write(&trans_path, colon_guard_src).unwrap();
     assert_6mode_with_opts(
         &trans_path,
         "1\n",
@@ -519,9 +519,9 @@ dec main:
 use aod::core:
     evolve
 dec non_ro_step:
-    (xs: [int], _: int) -> ReadOnly<[int]>:
+    (xs: [int], _: int) -> [int]:
         return xs
-dec caller:
+dec z_caller:
     (ro_xs: ReadOnly<[int]>) -> ReadOnly<[int]>:
         return evolve(ro_xs, 0..2, non_ro_step)
 dec main:
@@ -535,20 +535,25 @@ dec main:
         DiagnosticCode::ObserverMutationForbidden
     );
 
-    // 3b. TransitionalV2: `observe` probe calling `evolve(view.carriers, ...)` whose step function mutates its list parameter -> ObserverMutationForbidden!
+    // 3b. `observe` probe calling `evolve(view.carriers, ...)` whose step function calls `list_set` on `ReadOnly<[int]>` -> ObserverMutationForbidden!
     let obs_mut_evolve = r#"
 use aod::core:
-    evolve
-Dec mutating_step(xs, t) -> out:
-    ([int] xs, int t) -> [int]:
-        xs[0] = t
-        return xs
+    len, list_set, evolve
+
+dec mutating_carriers_step:
+    (xs: [int], t: int) -> [int]:
+        return list_set(xs, 0, t)
+
 observe BadObs:
-    tracer tr(view):
-        let res = evolve(view.carriers, 0..2, mutating_step)
-        emit len(res)
-Dec main() -> int:
-    return 0
+    tracer tr:
+        (view: ReadOnly<ChamberView>) -> Null:
+            let res = evolve(view.carriers, 0..2, mutating_carriers_step)
+            emit len(res)
+            return null
+
+dec main:
+    () -> int:
+        return 0
 "#;
     assert_eq!(
         check_source(obs_mut_evolve, CompatMode::V2)
@@ -830,8 +835,8 @@ fn ac09_ac10_pure_wave_rejections_and_hermetic_ir_tamper_defense() {
         ("double_quote_str", "dec main:\n    () -> int:\n        let s = \"hello\"\n        return 0\n"),
         ("single_quote_str", "dec main:\n    () -> int:\n        let s = 'hello'\n        return 0\n"),
         ("str_type_annot", "dec main:\n    () -> int:\n        let xs: [str] = []\n        return len(xs)\n"),
-        ("str_expr_boundary_box", "dec main:\n    () -> int:\n        let b = box([0..2, 0..2, 0..2])\n        emit ∂b\n        return 0\n"),
-        ("qext_render_str_in_pure", "use aod::qext:\n    ext_decimal, qext_render\ndec main:\n    () -> int:\n        quarantine Q_ext:\n            emit qext_render(ext_decimal(b\"1.5\"))\n        return 0\n"),
+        ("str_scalar_annot", "dec main:\n    () -> int:\n        let s: str = b\"x\"\n        return 0\n"),
+        ("qext_str_annot", "dec main:\n    () -> int:\n        quarantine Q_ext:\n            let s: QExt<str> = aod::qext::qext_render(aod::qext::ext_decimal(b\"1.5\"))\n            emit s\n        return 0\n"),
     ];
 
     for (label, code) in banned_cases {
@@ -1068,14 +1073,20 @@ fn ac11_ac12_showcase_6mode_cli_pure_wave_and_zero_regressions() {
         }
     }
 
-    // (l) Legacy file rejected by `aodc check --pure-wave`
-    let legacy_smoke = root.join("tests/fixtures/v2_smoke/opposing_336_chamber.dec");
-    let bad_legacy = Command::new(aodc_bin())
-        .args(["check", "--pure-wave"])
-        .arg(&legacy_smoke)
+    // (l) Legacy v1 file rejected by `aodc check` and `aodc check --pure-wave` in V2
+    let legacy_v1 = root.join("tests/fixtures/v1_examples/closure.dec");
+    let bad_legacy_default = Command::new(aodc_bin())
+        .arg("check")
+        .arg(&legacy_v1)
         .output()
         .unwrap();
-    assert!(!bad_legacy.status.success());
+    assert!(!bad_legacy_default.status.success());
+    let bad_legacy_flag = Command::new(aodc_bin())
+        .args(["check", "--pure-wave"])
+        .arg(&legacy_v1)
+        .output()
+        .unwrap();
+    assert!(!bad_legacy_flag.status.success());
 
     let _ = fs::remove_dir_all(&tmp);
 }

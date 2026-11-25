@@ -3,6 +3,9 @@
 # to declare 4 independent concentric passive observers and prove exact SHA-256 invariance across
 # 0-, 1-, 2-, and 4-observer runs (sequential & parallel read-only execution) with zero hardcoded outcomes.
 
+use aod::sim:
+    ModelStatus
+
 use stdlib::aod::apparatus:
     chamber_box, concentric_shell_box, symmetric_opposing_336
     read_passive_snapshot, summarize_blind_run, verify_multi_observer_invariance
@@ -63,6 +66,8 @@ dec main:
 
         assert verify_multi_observer_invariance(r0, r1, r2, r4)
         let rep = summarize_blind_run(r4)
+        assert r4.model_status == ModelStatus::DeclaredSandboxNotS3Authenticated
+        assert rep.status == ModelStatus::DeclaredSandboxNotS3Authenticated
         let final_snap = read_passive_snapshot(r4.final_snapshot)
         assert final_snap.tick == rep.ticks and final_snap.carrier_count == rep.carrier_count
 
@@ -76,5 +81,5 @@ dec main:
         emit rep.total_hinges
         emit final_snap.clock_count
         emit rep.final_state_hash
-        emit r4.boundary_bytes
+        emit ∂r4
         return 0

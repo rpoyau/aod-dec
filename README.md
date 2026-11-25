@@ -4,7 +4,7 @@
 > The chamber simulator in `crates/aodc/src/sim.rs` is explicitly tagged on every
 > simulation record and snapshot as:
 >
-> `model_status: "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"`
+> `ModelStatus::DeclaredSandboxNotS3Authenticated` (`"DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"`)
 >
 > It is a deterministic, zero-RNG, exact $\mathbb{Z}/\mathbb{Q}$ sandbox model
 > executing Manual §4 kernel/hinge-slide and `SupportForm` shedding rules with
@@ -22,7 +22,7 @@
   - [`crates/aod-core`](crates/aod-core): arbitrary-precision `BigInt` (decimal, `0x` hex, and `0b` binary parsers), canonical exact `Ratio`, quarantined `qext::QExtRatio` (including one-way `round_half_even` & `format_fixed`), checked `T1`/`T9`/`T32`/`Q4`/`Addr8` (including branchless 32-lane `superpose_cancel` & canonical `render_bytes_literal`), pure-`std` FIPS 180-4 `Sha256`, strict float-free `JsonValue`, `SupportForm`, v1-exact `Trace`/`Fusion`/`Coupling` dual JSON witness primitives, complete M3 `F01`–`F07` `wavelet` & `RecipientLattice`, Manual §4 D.E.C. `ledger`, and the shared Stage 2 exact reference kernel & 30-vector verifier (`s2_kernel`, `s2_vectors`).
   - [`crates/aod-rt`](crates/aod-rt): `rlib` + `staticlib` (`libaod_rt.a`) owning the shared sandbox chamber engine, safe 1-based `RtArena` with `max_entries` cap, deep-copy/copy-on-write container semantics (`List`, `Array`, `Bytes`, `Map`, `Struct`, `Enum`, `Tuple`), exact cold-spill math, and panic-safe flat C ABI (`#[unsafe(no_mangle)]` + `catch_unwind`).
   - [`crates/aod-llvm`](crates/aod-llvm): `dlopen`-loaded LLVM 18 C API verifier/optimizer (`LLVMReturnStatusAction = 2`, `default<O0..O3>`), parameterized `CodegenPlan`, CPU microarchitecture discovery (`hw_info`), 6 live self-verifying ORC LLJIT tick/click micro-probes (`hw_probe`, including the barrier-synchronized 2-thread shared-cache-line `frg_ring_gate` cross-return probe & 3-state `Op_e` certification), zero-float paired percentile bootstrap & rollback-safe `RetainedProfile` learner (`learner`, tagged `COMPILER_EXECUTION_POLICY_NOT_PHYSICAL_AOD_LAW`), standalone PIC AOT ELF emitter/linker, and in-process ORC LLJIT session (`OrcJitSession`).
-  - [`crates/aodc`](crates/aodc): Dec v1 & v2 frontend (`Null`/`null`, `u8`, `b64`, `t9`, `bytes`/`b"..."`, `array[T, N]`, `0x`/`0b` integer literals, `q4` bitwise/Hamming, `superpose_cancel`, polymorphic eager `select`, `struct`, `enum`, exhaustive `match`, deterministic `map[K, V]`, multi-arm pattern dispatch), all 5 compile-time firewalls, live-walk byte scanner & 6-hook `.dec` auditor (`src/dec_audit.rs`, `aod.dec.audit.v1`), hermetic `DecIR v1`/`v2` verifier, exact reference VM, parameterized unboxed-first safe textual LLVM 18 IR lowering (`src/codegen.rs`), and CLI.
+  - [`crates/aodc`](crates/aodc): Dec v1 (`--compat v1`, `SyntaxDiscipline::LegacyV1`) & unconditional Pure-Wave Dec v2 (`SyntaxDiscipline::PureWaveV2`) frontend (`Null`/`null`, `u8`, `b64`, `t9`, `bytes`/`b"..."`, `array[T, N]`, `0x`/`0b` integer literals, `q4` bitwise/Hamming, `superpose_cancel`, polymorphic eager `select`, `struct`, `enum`, built-in `ModelStatus` & `RecipientStage` enums, deterministic `map[K, V]`, multi-arm `dec` pattern/`where`-guard signature matrices, AFC scope operators), all 5 compile-time firewalls, live-walk byte scanner & 6-hook `.dec` auditor (`src/dec_audit.rs`, `aod.dec.audit.v1`), hermetic `DecIR v1`/`v2` verifier, exact reference VM, parameterized unboxed-first safe textual LLVM 18 IR lowering (`src/codegen.rs`, including `@dec_fn_*_unboxed` scalar-tuple `evolve` specialization & depth-safe 2-arm `branchless_select`), and CLI.
 
 ## Compile-Time Firewalls
 
@@ -39,10 +39,10 @@
 cargo run --bin aodc -- check tests/fixtures/v2_smoke/opposing_336_chamber.dec
 cargo run --bin aodc -- check --compat v1 tests/fixtures/v1_examples/closure.dec
 
-# Typecheck, format, or execute a Pure-Wave (`--strict-wave`; `--pure-wave` accepted as alias) Dec v2 source file
-cargo run --bin aodc -- check --strict-wave tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
-cargo run --bin aodc -- fmt --strict-wave --check stdlib/aod/ledger.dec
-cargo run --bin aodc -- run --strict-wave tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
+# Typecheck, format, or execute a Pure-Wave Dec v2 source file (`--strict-wave` / `--pure-wave` accepted idempotently)
+cargo run --bin aodc -- check tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
+cargo run --bin aodc -- fmt --check stdlib/aod/ledger.dec
+cargo run --bin aodc -- run tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
 
 # Execute directly via the exact reference VM
 cargo run --bin aodc -- run [--fuel N] [--max-depth N] tests/fixtures/v2_smoke/opposing_336_chamber.dec
@@ -61,7 +61,7 @@ cargo run --bin aodc -- jit -O2 [--profile /tmp/prof.json] tests/fixtures/v2_ben
 cargo run --bin aodc -- probe-hw [--output /tmp/hw_report.json]
 
 # Run the live-walk scanner & 6-hook native Dec auditor (`audit` or `audit-dec`, `aod.dec.audit.v1`)
-cargo run --bin aodc -- audit --strict-wave [--report /tmp/dec_audit.json] [--json] manual_examples/03_short_window_boundary.dec
+cargo run --bin aodc -- audit [--report /tmp/dec_audit.json] [--json] manual_examples/03_short_window_boundary.dec
 
 # Learn a semantically-guarded, honest compile-inclusive JIT execution policy profile
 cargo run --bin aodc -- learn --baseline O0 --fuel 2000000 --pairs 6 --heldout 8 --profile /tmp/prof.json tests/fixtures/v2_bench/learn_amortized_bench.dec
@@ -100,16 +100,18 @@ cargo run --bin aodc -- audit-pdf --min-pages 6 --compare-pdf /tmp/manual-2.pdf 
 # Run Dec tests on a file or directory (including sibling .stdout and .expect_error checks)
 cargo run --bin aodc -- test --compat v1 tests/fixtures/v1_examples
 cargo run --bin aodc -- test tests/fixtures/v2_smoke
-cargo run --bin aodc -- test --strict-wave tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec
-cargo run --bin aodc -- test --strict-wave manual_examples
+cargo run --bin aodc -- test examples/first_principles
+cargo run --bin aodc -- test manual_examples
 ```
 
-## Phase D2 / R02 Strict-Wave Discipline (`--strict-wave`) & AFC Scope Operators
+## Phase D1 → D3 Unconditional Pure-Wave Dec v2 & AFC Scope Operators
 
-- **Opt-in `--strict-wave` (`--pure-wave` accepted as an alias; `SyntaxDiscipline::PureWaveV2`, persisted hermetically as `"syntax_discipline": "pure_wave_v2"` in `DecIR v2`):** Rejects braces (`{`/`}`), uppercase `Dec`, `dec f(...)` header-parameter forms, unit `()` types/returns (`use Null`), `if`/`elif`/`else`, `for`/`while`/`break`/`continue`, `mut` and `=` rebinding/mutation, `match`, named call arguments, and UTF-8 `str` literals/types/builtins while preserving 100% default `TransitionalV2` and `--compat v1` compatibility. Includes `aodc fmt [--compat v1|v2 | --strict-wave] [--check | --write | -o <out.dec>]` for deterministic round-trip-verified formatting.
+- **Ported First-Principles Suite ([`examples/first_principles/`](examples/first_principles)):** Executable pure-wave Dec v2 ports of all 7 original [`reference/aod-dec-dev/dec/`](reference/aod-dec-dev/dec) modules (`00_primitives.dec` .. `05_self_host_compiler_elf64.dec` + deterministic side-effect-free `kernel.dec`) with sibling `.stdout` golden outputs, `aodc fmt --check` canonical formatting, 6-mode parity, and `6/6` §5.17 `aodc audit-dec` verification.
+- **Unconditional Pure-Wave Dec v2 (`CompatMode::V2` → `SyntaxDiscipline::PureWaveV2`, persisted & required hermetically as `"syntax_discipline": "pure_wave_v2"` in `DecIR v2`; `--strict-wave` / `--pure-wave` accepted idempotently on V2 and rejected with exit `2` on `--compat v1`):** Unconditionally rejects braces (`{`/`}`), uppercase `Dec`, `dec f(...)` header-parameter forms, unit `()` types/returns (`use Null`), `if`/`elif`/`else`, `for`/`while`/`break`/`continue`, `mut` and `=` rebinding/mutation, `match`, named call arguments, and UTF-8 `str` literals/types/builtins while preserving 100% `--compat v1` (`SyntaxDiscipline::LegacyV1`) compatibility across all 10 frozen v1 regression fixtures. Includes `aodc fmt [--compat v1|v2] [--check | --write | -o <out.dec>]` for deterministic round-trip-verified formatting.
+- **Typed `<builtin>` & stdlib status/stage `enum`s (`ModelStatus`, `RecipientStage`, `ScientificStatus`), 32-byte `final_state_sha256`, & `bytes` boundaries:** Built-in zero-payload `ModelStatus` (`DeclaredSandboxNotS3Authenticated`) and `RecipientStage` (`Emitted`..`ReclosedOutOfWindow`) resolve across all 4 forms (unqualified, `use aod::...:`, 3-segment alias, and 4-segment `aod::sim::ModelStatus::...`), `SimResult` exposes 32-byte raw `final_state_sha256` alongside 64-byte hex `final_state_hash`, `∂Box3`/`∂SimResult` return `bytes`, `qext_render`/`qext_format_fixed` return `QExt<bytes>`, and `stdlib::aod::sectors::SwellsTauAudit.scientific_status` uses `ScientificStatus::UnresolvedProvenanceQuarantined`.
 - **Indentation-delimited declarations, register patterns, & custom `dec Struct:` overloads:** Pure `dec <name>:` blocks with multi-arity `(x: T, ...)` / register-literal (`u8`, `b64`, `t1`, `t9`, `t32`, `q4`, contextual `t1`) pattern rows and `where <expr>` guards before `->`, non-colliding `dec <StructName>:` constructor overloads alongside canonical positional `StructName(...)`, `let (a, b, ...) = expr` tuple destructuring, indented `use <path>:` import blocks, and brace-free `map[(k1, v1), ...]` / typed `map[]` literals.
-- **All 10 engine-driven AFC higher-order scope/sequence operators (`aod::core`, with optional trailing `env` and user `dec` or `aod::*` builtin callbacks):** `evolve(init, range|window, step_fn[, env])` (lowered to an unboxed LLVM loop at `-O2`), `scan(init, seq|range|window, step_fn[, env])`, `fold_seq(init, seq, step_fn[, env])`, `map_seq(seq, map_fn[, env])`, `filter_seq(seq, pred_fn[, env])`, `tabulate(range|window, fn[, env])`, `zip_seq(seq_a, seq_b)`, `count(seq, pred_fn[, env])`, and short-circuiting `any(seq, pred_fn[, env])` / `all(seq, pred_fn[, env])`.
-- **All 9 pure persistent container helpers, exact contractions, & `bytes` intrinsics (`aod::core` / `aod::qext`):** Pure immutable `map_put`, `map_remove`, `map_get_or`, `map_keys`, `map_entries`, `list_set`, `list_push`, `concat_seq`, and `slice_seq`; `sum(seq)` and `dot(a, b)` over `int`/`u8`/`t1`/`t9`/`t32`/`ratio`/`QExt<ratio>`; `addr8(bytes)`, `support(bytes)`, `trace(bytes, bytes, q4)`, `fold(..., bytes, bytes)`, `coupling(..., bytes)`, M3 wavelet `bytes` overloads, quarantined `aod::qext::{ext_decimal(bytes), qext_render_bytes, qext_format_fixed_bytes}` (`QExt<bytes>`), `r.num`/`r.den`, `abs`, `signum`, `min`, `max`, `clamp`, `gcd`, `lcm`, and bit-ceiling-guarded `pow` across `int`/`t9`/`t32`/`ratio` (see [`tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec`](tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec)).
+- **All 10 engine-driven AFC higher-order scope/sequence operators (`aod::core`, with optional trailing `env` and user `dec` or `aod::*` builtin callbacks):** `evolve(init, range|window, step_fn[, env])` (with dedicated `@dec_fn_*_unboxed` scalar-tuple LLVM specialization at `-O2`), `scan(init, seq|range|window, step_fn[, env])`, `fold_seq(init, seq, step_fn[, env])`, `map_seq(seq, map_fn[, env])`, `filter_seq(seq, pred_fn[, env])`, `tabulate(range|window, fn[, env])`, `zip_seq(seq_a, seq_b)`, `count(seq, pred_fn[, env])`, and short-circuiting `any(seq, pred_fn[, env])` / `all(seq, pred_fn[, env])`.
+- **All 9 pure persistent container helpers, exact contractions, & `bytes` intrinsics (`aod::core` / `aod::qext`):** Pure immutable `map_put`, `map_remove`, `map_get_or`, `map_keys`, `map_entries`, `list_set`, `list_push`, `concat_seq`, and `slice_seq`; `sum(seq)` and `dot(a, b)` over `int`/`u8`/`t1`/`t9`/`t32`/`ratio`/`QExt<ratio>`; `addr8(bytes)`, `support(bytes)`, `trace(bytes, bytes, q4)`, `fold(..., bytes, bytes)`, `coupling(..., bytes)`, M3 wavelet `bytes` overloads, quarantined `aod::qext::{ext_decimal(bytes), qext_render, qext_format_fixed}` (`QExt<bytes>`), `r.num`/`r.den`, `abs`, `signum`, `min`, `max`, `clamp`, `gcd`, `lcm`, and bit-ceiling-guarded `pow` across `int`/`t9`/`t32`/`ratio` (see [`tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec`](tests/fixtures/v2_smoke/pure_wave_signature_matrix.dec)).
 
 ## Native Dec Standard Library (`stdlib/aod/*.dec`) & Executable Manual Fixtures
 
@@ -136,8 +138,8 @@ cargo run --bin aodc -- test --strict-wave manual_examples
 | Gate | Offline Local | GitHub Actions CI |
 | :--- | :---: | :---: |
 | `RUSTFLAGS="-D warnings" cargo test --workspace --offline` (debug & `--release`) | Verified | Verified |
-| `aodc test` (`v1_examples` 10/10, `v2_smoke` 5/5 incl. `--strict-wave` showcase, `--strict-wave manual_examples` 18/18) | Verified | Verified |
-| `aodc audit --json` (live-walk scanner + 6 hooks `aod.dec.audit.v1` on `stdlib/aod/*.dec`, `manual_examples/01..11.dec`, `hw_register_primitives.dec`, & `--strict-wave pure_wave_signature_matrix.dec`) | Verified | Verified |
+| `aodc test` (`v1_examples` 10/10, `v2_smoke` 5/5, `examples/first_principles` 7/7, `manual_examples` 18/18 — all V2 unconditionally Pure-Wave) | Verified | Verified |
+| `aodc audit-dec --json` (live-walk scanner + 6 hooks `aod.dec.audit.v1` across all 34 positive V2 `.dec` files in `examples/first_principles`, `stdlib`, `manual_examples`, `v2_smoke`, & `v2_bench`) | Verified | Verified |
 | `aodc manual-data --check` & `--json` (zero-LLVM Exact VM parity on `docs/manual/data/*.json`) | Verified | Verified |
 | `aodc verify-s2 --s4-report` & `aodc eval-op` (30/30 S2 vectors + 90-tick `S4@e013401` CSV, debug == release `cmp`) | Verified | Verified |
 | `aodc probe-hw` & `aodc learn` (6 JIT probes incl. `frg_ring_gate`, `PROFILE_VERSION = 2`, `--parallel-observers`) | Verified | Verified |
@@ -153,6 +155,6 @@ All upstream AOD commit/tree hashes, equation numbers (`S0@98ddfa0` resolved aga
 ## First-Principles Derivation, Active Plans, & Reference Archive
 
 - **[`docs/FIRST_PRINCIPLES_DERIVATION.md`](docs/FIRST_PRINCIPLES_DERIVATION.md):** Nine-step first-principles derivation showing how explicit signature combinatorics, register encodings, Landauer erasure avoidance, closed-loop memory, double-slit concurrency, balanced ternary trits, and exact ratios converge directly onto AFC and Alpha-Omega Dynamics.
-- **[`docs/plans/`](docs/plans/README.md):** Session continuity index, Reviewer-approved **[First-Principles Wave-Language Purification Plan (`Phase D1` → `D2` → `D3`)](docs/plans/dec_wave_purification_plan.md)**, milestone tracker ([`orchestration_status.md`](docs/plans/orchestration_status.md)), subagent role definitions (`docs/plans/agents/`), and all PR 1–PR 11 Request & Verification Bundles (including [`bundles/pr11_request_bundle.md`](docs/plans/bundles/pr11_request_bundle.md)).
+- **[`docs/plans/`](docs/plans/README.md):** Session continuity index, Reviewer-approved **[First-Principles Wave-Language Purification Plan (`Phase D1` → `D2` → `D3`)](docs/plans/dec_wave_purification_plan.md)**, milestone tracker ([`orchestration_status.md`](docs/plans/orchestration_status.md)), subagent role definitions (`docs/plans/agents/`), and all PR 1–PR 12 Request & Verification Bundles (including [`bundles/pr12_request_bundle.md`](docs/plans/bundles/pr12_request_bundle.md)).
 - **[`reference/aod-dec-dev/`](reference/aod-dec-dev/):** Byte-for-byte SHA-256-verified archive (`sha256sum -c SHA256SUMS`) of the original Stage-0/Stage-1/Stage-2 self-hosting bootstrap kit and `dec/00..05+kernel.dec` modules.
 

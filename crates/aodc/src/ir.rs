@@ -119,12 +119,10 @@ pub fn encode_ir_json(checked: &CheckedUnit) -> JsonValue {
         }
         CompatMode::V2 => {
             root.insert("version".to_string(), JsonValue::from_i64(2));
-            if checked.unit.discipline == SyntaxDiscipline::PureWaveV2 {
-                root.insert(
-                    "syntax_discipline".to_string(),
-                    JsonValue::from_str_val("pure_wave_v2"),
-                );
-            }
+            root.insert(
+                "syntax_discipline".to_string(),
+                JsonValue::from_str_val("pure_wave_v2"),
+            );
             let mut mods_map = BTreeMap::new();
             for (k, m) in &checked.unit.bundled_modules {
                 let mut mobj = BTreeMap::new();
@@ -703,19 +701,16 @@ pub fn loads_ir(text: &str) -> DecResult<CheckedUnit> {
                     "syntax_discipline is not supported in DecIR v1",
                 ));
             }
-            SyntaxDiscipline::TransitionalV2
+            SyntaxDiscipline::LegacyV1
         }
-        CompatMode::V2 => match obj.get("syntax_discipline") {
-            None => SyntaxDiscipline::TransitionalV2,
-            Some(v) => match v.as_str() {
-                Some("pure_wave_v2") => SyntaxDiscipline::PureWaveV2,
-                _ => {
-                    return Err(Diagnostic::new(
-                        DiagnosticCode::IrVerificationError,
-                        "unsupported DecIR v2 syntax_discipline (expected \"pure_wave_v2\")",
-                    ));
-                }
-            },
+        CompatMode::V2 => match obj.get("syntax_discipline").and_then(JsonValue::as_str) {
+            Some("pure_wave_v2") => SyntaxDiscipline::PureWaveV2,
+            _ => {
+                return Err(Diagnostic::new(
+                    DiagnosticCode::IrVerificationError,
+                    "DecIR v2 requires \"syntax_discipline\": \"pure_wave_v2\"",
+                ));
+            }
         },
     };
 

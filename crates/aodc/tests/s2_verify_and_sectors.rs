@@ -314,22 +314,24 @@ fn ac08_native_sectors_firewall_qext_builtins_and_runtime_bounds() {
 
     // 2. P0-1 5-mode parity for direct qext_round_half_even & qext_format_fixed (including ties & negative zero)
     let qext_ok = r#"
-use aod::qext::{qext_from_ratio, qext_round_half_even, qext_format_fixed, qext_render}
+use aod::qext:
+    qext_from_ratio, qext_round_half_even, qext_format_fixed, qext_render
 
-Dec main() -> int:
-    let half_5 = 5/2r
-    let half_7 = 7/2r
-    let tiny_neg = -1/1000000000r
-    quarantine Q_ext:
-        let r5 = qext_round_half_even(qext_from_ratio(half_5), 0)
-        let r7 = qext_round_half_even(qext_from_ratio(half_7), 0)
-        let f_tiny = qext_format_fixed(qext_from_ratio(tiny_neg), 6)
-        emit qext_render(r5)
-        emit qext_render(r7)
-        emit f_tiny
-    return 0
+dec main:
+    () -> int:
+        let half_5 = 5/2r
+        let half_7 = 7/2r
+        let tiny_neg = -1/1000000000r
+        quarantine Q_ext:
+            let r5 = qext_round_half_even(qext_from_ratio(half_5), 0)
+            let r7 = qext_round_half_even(qext_from_ratio(half_7), 0)
+            let f_tiny = qext_format_fixed(qext_from_ratio(tiny_neg), 6)
+            emit qext_render(r5)
+            emit qext_render(r7)
+            emit f_tiny
+        return 0
 "#;
-    let expected = "Q_ext(2/1)\nQ_ext(4/1)\nQ_ext(0.000000)\n0\n";
+    let expected = "Q_ext(b\"2/1\")\nQ_ext(b\"4/1\")\nQ_ext(b\"0.000000\")\n0\n";
     let vm = run_source(qext_ok, CompatMode::V2).unwrap().to_stdout_string();
     assert_eq!(vm, expected);
     for (opt, tag) in [(OptLevel::O0, "o0"), (OptLevel::O2, "o2")] {
@@ -356,13 +358,15 @@ Dec main() -> int:
         for call in ["qext_round_half_even", "qext_format_fixed"] {
             let src = format!(
                 r#"
-use aod::qext::{{qext_from_ratio, {call}}}
+use aod::qext:
+    qext_from_ratio, {call}
 
-Dec main() -> int:
-    let x = 1/3r
-    quarantine Q_ext:
-        let _y = {call}(qext_from_ratio(x), {bad_dec})
-    return 0
+dec main:
+    () -> int:
+        let x = 1/3r
+        quarantine Q_ext:
+            let _y = {call}(qext_from_ratio(x), {bad_dec})
+        return 0
 "#
             );
             assert!(
@@ -415,19 +419,19 @@ Dec main() -> int:
     let hostile_leaks = [
         (
             "2seg_const",
-            "use stdlib::aod::metrology::DisplayQuarantine\nDec main() -> int:\n    let x = DisplayQuarantine::LHC_CMS_H4L_MASS_GEV\n    return 0\n",
+            "use stdlib::aod::metrology::DisplayQuarantine\ndec main:\n    () -> int:\n        let x = DisplayQuarantine::LHC_CMS_H4L_MASS_GEV\n        return 0\n",
         ),
         (
             "3seg_fn",
-            "use stdlib::aod::metrology\nDec main() -> int:\n    let x = metrology::DisplayQuarantine::higgs_freeze_gev(61, 7)\n    return 0\n",
+            "use stdlib::aod::metrology\ndec main:\n    () -> int:\n        let x = metrology::DisplayQuarantine::higgs_freeze_gev(61, 7)\n        return 0\n",
         ),
         (
             "direct_round",
-            "use aod::qext::{qext_from_ratio, qext_round_half_even}\nDec main() -> int:\n    let x = qext_round_half_even(qext_from_ratio(1/3r), 6)\n    return 0\n",
+            "use aod::qext:\n    qext_from_ratio, qext_round_half_even\ndec main:\n    () -> int:\n        let x = qext_round_half_even(qext_from_ratio(1/3r), 6)\n        return 0\n",
         ),
         (
             "direct_format_3seg",
-            "Dec main() -> int:\n    let x = aod::qext::qext_format_fixed(aod::qext::qext_from_ratio(1/3r), 6)\n    return 0\n",
+            "dec main:\n    () -> int:\n        let x = aod::qext::qext_format_fixed(aod::qext::qext_from_ratio(1/3r), 6)\n        return 0\n",
         ),
     ];
     for (tag, src) in hostile_leaks {

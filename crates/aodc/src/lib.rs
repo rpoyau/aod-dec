@@ -22,7 +22,10 @@ pub mod report_guard;
 pub mod sim;
 pub mod types;
 
-pub use crate::fmt::{format_program, format_program_with_mode, format_source_with_discipline};
+pub use crate::fmt::{
+    format_program, format_program_with_mode, format_source, format_source_with_discipline,
+};
+pub use crate::parser::{parse_program, parse_program_with_discipline};
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -76,7 +79,7 @@ use crate::modules::load_from_source_with_options;
 static BENCH_TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 pub fn check_source(source: &str, compat: CompatMode) -> DecResult<CheckedUnit> {
-    check_source_with_options(source, compat, &LoadOptions::default())
+    check_source_with_options(source, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn check_source_with_options(
@@ -89,11 +92,17 @@ pub fn check_source_with_options(
 }
 
 pub fn check_file(path: &Path, compat: CompatMode) -> DecResult<CheckedUnit> {
-    check_file_with_options(path, compat, &LoadOptions::default())
+    check_file_with_options(path, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn audit_dec_source(source: &str, compat: CompatMode) -> DecAuditReport {
-    audit_dec_source_with_options(source, "<memory>", None, compat, LoadOptions::default())
+    audit_dec_source_with_options(
+        source,
+        "<memory>",
+        None,
+        compat,
+        LoadOptions::for_compat(compat),
+    )
 }
 
 pub fn audit_dec_file_with_options(
@@ -165,7 +174,7 @@ pub fn run_file_with_budget_capturing(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    run_file_with_options_capturing(path, compat, fuel, max_depth, &LoadOptions::default())
+    run_file_with_options_capturing(path, compat, fuel, max_depth, &LoadOptions::for_compat(compat))
 }
 
 pub fn run_file_with_options_capturing(
@@ -193,7 +202,7 @@ pub fn run_file_with_parallel_observers_capturing(
 }
 
 pub fn compile_file_to_ir(path: &Path, compat: CompatMode) -> DecResult<String> {
-    compile_file_to_ir_with_options(path, compat, &LoadOptions::default())
+    compile_file_to_ir_with_options(path, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn compile_file_to_ir_with_options(
@@ -255,7 +264,7 @@ pub fn emit_llvm_source_with_plan(
 }
 
 pub fn emit_llvm_file(path: &Path, compat: CompatMode, opt: OptLevel) -> DecResult<String> {
-    emit_llvm_file_with_options(path, compat, opt, &LoadOptions::default())
+    emit_llvm_file_with_options(path, compat, opt, &LoadOptions::for_compat(compat))
 }
 
 pub fn emit_llvm_file_with_options(
@@ -297,7 +306,7 @@ pub fn build_aot_file(
     opt: OptLevel,
     out_exe: &Path,
 ) -> DecResult<()> {
-    build_aot_file_with_options(path, compat, opt, out_exe, &LoadOptions::default())
+    build_aot_file_with_options(path, compat, opt, out_exe, &LoadOptions::for_compat(compat))
 }
 
 pub fn build_aot_file_with_options(
@@ -338,7 +347,7 @@ pub fn compile_jit_file(
     compat: CompatMode,
     opt: OptLevel,
 ) -> DecResult<OrcJitSession> {
-    compile_jit_file_with_options(path, compat, opt, &LoadOptions::default())
+    compile_jit_file_with_options(path, compat, opt, &LoadOptions::for_compat(compat))
 }
 
 pub fn compile_jit_file_with_options(
@@ -391,7 +400,14 @@ pub fn jit_file_captured(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<(String, Result<(), String>)> {
-    jit_file_with_options_captured(path, compat, opt, fuel, max_depth, &LoadOptions::default())
+    jit_file_with_options_captured(
+        path,
+        compat,
+        opt,
+        fuel,
+        max_depth,
+        &LoadOptions::for_compat(compat),
+    )
 }
 
 pub fn jit_file_with_options_captured(
@@ -415,7 +431,7 @@ pub fn compute_profile_bindings(
     let ir_json = dumps_ir(checked);
     let kernel_ir_sha256 = Sha256::digest_hex(ir_json.as_bytes());
     let workload_desc = match checked.unit.discipline {
-        SyntaxDiscipline::TransitionalV2 => {
+        SyntaxDiscipline::LegacyV1 => {
             format!("compat={compat:?};fuel={fuel};max_depth={max_depth}")
         }
         SyntaxDiscipline::PureWaveV2 => {
@@ -584,7 +600,14 @@ pub fn bench_file(
     fuel: usize,
     max_depth: usize,
 ) -> DecResult<BenchReport> {
-    bench_file_with_options(path, compat, iters, fuel, max_depth, &LoadOptions::default())
+    bench_file_with_options(
+        path,
+        compat,
+        iters,
+        fuel,
+        max_depth,
+        &LoadOptions::for_compat(compat),
+    )
 }
 
 pub fn bench_file_with_options(
@@ -750,7 +773,7 @@ pub struct TestCaseResult {
 }
 
 pub fn run_dec_tests(target: &Path, compat: CompatMode) -> DecResult<Vec<TestCaseResult>> {
-    run_dec_tests_with_options(target, compat, &LoadOptions::default())
+    run_dec_tests_with_options(target, compat, &LoadOptions::for_compat(compat))
 }
 
 pub fn run_dec_tests_with_options(

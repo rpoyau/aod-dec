@@ -262,6 +262,30 @@ impl RtValue {
     }
 }
 
+pub fn model_status_variant_and_tag(status: &str) -> (&'static str, i32) {
+    match status {
+        "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED" => {
+            ("DeclaredSandboxNotS3Authenticated", 0)
+        }
+        _ => ("DeclaredSandboxNotS3Authenticated", 0),
+    }
+}
+
+pub fn recipient_stage_variant_and_tag(stage: RecipientOutcomeStage) -> (&'static str, i32) {
+    match stage {
+        RecipientOutcomeStage::Emitted => ("Emitted", 0),
+        RecipientOutcomeStage::Delivered => ("Delivered", 1),
+        RecipientOutcomeStage::Accepted => ("Accepted", 2),
+        RecipientOutcomeStage::UnacceptedPass => ("UnacceptedPass", 3),
+        RecipientOutcomeStage::Seated => ("Seated", 4),
+        RecipientOutcomeStage::PendingUnseated => ("PendingUnseated", 5),
+        RecipientOutcomeStage::ClosedOrigin => ("ClosedOrigin", 6),
+        RecipientOutcomeStage::Reclosed => ("Reclosed", 7),
+        RecipientOutcomeStage::ReclosedReplay => ("ReclosedReplay", 8),
+        RecipientOutcomeStage::ReclosedOutOfWindow => ("ReclosedOutOfWindow", 9),
+    }
+}
+
 pub fn recipient_stage_name(stage: RecipientOutcomeStage) -> &'static str {
     match stage {
         RecipientOutcomeStage::Emitted => "emitted",

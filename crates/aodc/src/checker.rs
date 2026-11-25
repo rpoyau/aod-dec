@@ -11,7 +11,10 @@ use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, Synt
 use crate::modules::{
     builtin_namespace_items, canonical_builtin_name, ImportedSymbol, LoadedUnit,
 };
-use crate::types::{is_v1_builtin_name, lookup_builtin, Effect, Type};
+use crate::types::{
+    builtin_enum_variants, builtin_ns_exports_enum, is_v1_builtin_name, lookup_builtin, Effect,
+    Type, BUILTIN_MOD, MODEL_STATUS_VARIANTS, RECIPIENT_STAGE_VARIANTS,
+};
 
 #[derive(Clone, Debug)]
 struct VarBinding {
@@ -96,6 +99,7 @@ pub fn check_unit(mut unit: LoadedUnit, require_main: bool) -> DecResult<Checked
             poly_call_types: BTreeMap::new(),
         };
 
+        checker.register_builtin_enums();
         checker.collect_type_names()?;
         checker.collect_all_declarations()?;
         checker.check_all_declarations()?;
@@ -284,8 +288,78 @@ impl<'a> Checker<'a> {
         None
     }
 
+    fn register_builtin_enums(&mut self) {
+        if self.compat() != CompatMode::V2 {
+            return;
+        }
+        for (ename, variants) in [
+            ("ModelStatus", MODEL_STATUS_VARIANTS),
+            ("RecipientStage", RECIPIENT_STAGE_VARIANTS),
+        ] {
+            let key = (BUILTIN_MOD.to_string(), ename.to_string());
+            self.enum_names.insert(key.clone());
+            self.enums.insert(
+                key,
+                EnumDef {
+                    module: BUILTIN_MOD.to_string(),
+                    name: ename.to_string(),
+                    variants: variants
+                        .iter()
+                        .map(|(vn, _)| ((*vn).to_string(), Vec::new()))
+                        .collect(),
+                },
+            );
+        }
+    }
+
     fn lookup_user_type(&self, mod_key: &str, name: &str) -> Option<Type> {
         let base = self.base_module_of(mod_key);
+        if name.contains("::") {
+            if self.compat() != CompatMode::V2 {
+                return None;
+            }
+            let segs: Vec<&str> = name.split("::").collect();
+            if segs.len() == 2 {
+                if let Some(ImportedSymbol::ModuleNamespace(m)) =
+                    self.imports_for(mod_key).get(segs[0])
+                {
+                    if let Some(ns_tail) = m.strip_prefix("aod::") {
+                        if builtin_ns_exports_enum(ns_tail, segs[1]) {
+                            return Some(Type::Enum {
+                                module: BUILTIN_MOD.to_string(),
+                                name: segs[1].to_string(),
+                            });
+                        }
+                        return None;
+                    }
+                    if self
+                        .struct_names
+                        .contains(&(m.clone(), segs[1].to_string()))
+                    {
+                        return Some(Type::Struct {
+                            module: m.clone(),
+                            name: segs[1].to_string(),
+                        });
+                    }
+                    if self.enum_names.contains(&(m.clone(), segs[1].to_string())) {
+                        return Some(Type::Enum {
+                            module: m.clone(),
+                            name: segs[1].to_string(),
+                        });
+                    }
+                }
+            } else if segs.len() == 3
+                && segs[0] == "aod"
+                && builtin_ns_exports_enum(segs[1], segs[2])
+            {
+                return Some(Type::Enum {
+                    module: BUILTIN_MOD.to_string(),
+                    name: segs[2].to_string(),
+                });
+            }
+            return None;
+        }
+
         if self
             .struct_names
             .contains(&(base.to_string(), name.to_string()))
@@ -304,24 +378,39 @@ impl<'a> Checker<'a> {
                 name: name.to_string(),
             });
         }
-        if let Some(ImportedSymbol::ModuleItem { module, item }) =
-            self.imports_for(mod_key).get(name)
-        {
-            if self
-                .struct_names
-                .contains(&(module.clone(), item.clone()))
+        match self.imports_for(mod_key).get(name) {
+            Some(ImportedSymbol::ModuleItem { module, item }) => {
+                if self
+                    .struct_names
+                    .contains(&(module.clone(), item.clone()))
+                {
+                    return Some(Type::Struct {
+                        module: module.clone(),
+                        name: item.clone(),
+                    });
+                }
+                if self.enum_names.contains(&(module.clone(), item.clone())) {
+                    return Some(Type::Enum {
+                        module: module.clone(),
+                        name: item.clone(),
+                    });
+                }
+            }
+            Some(ImportedSymbol::Builtin(canon))
+                if self.compat() == CompatMode::V2 && builtin_enum_variants(canon).is_some() =>
             {
-                return Some(Type::Struct {
-                    module: module.clone(),
-                    name: item.clone(),
-                });
-            }
-            if self.enum_names.contains(&(module.clone(), item.clone())) {
                 return Some(Type::Enum {
-                    module: module.clone(),
-                    name: item.clone(),
+                    module: BUILTIN_MOD.to_string(),
+                    name: canon.clone(),
                 });
             }
+            _ => {}
+        }
+        if self.compat() == CompatMode::V2 && builtin_enum_variants(name).is_some() {
+            return Some(Type::Enum {
+                module: BUILTIN_MOD.to_string(),
+                name: name.to_string(),
+            });
         }
         None
     }
@@ -330,11 +419,13 @@ impl<'a> Checker<'a> {
         let ty = Type::resolve_with(expr, self.compat(), line, &|name| {
             self.lookup_user_type(mod_key, name)
         })?;
-        if self.unit.discipline == SyntaxDiscipline::PureWaveV2 && ty.contains_str() {
+        if (self.compat() == CompatMode::V2 || self.unit.discipline == SyntaxDiscipline::PureWaveV2)
+            && ty.contains_str()
+        {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::TypeError,
                 line,
-                format!("legacy `str` type ({ty}) is forbidden in --pure-wave; use `bytes`"),
+                format!("legacy `str` type ({ty}) is forbidden in Dec v2; use `bytes`"),
             ));
         }
         Ok(ty)
@@ -1823,10 +1914,32 @@ impl<'a> Checker<'a> {
                 .contains_key(&(base.to_string(), path[0].clone()))
             {
                 (base.to_string(), path[0].clone(), path[1].clone())
-            } else if let Some(ImportedSymbol::ModuleItem { module, item }) =
-                self.imports_for(mod_key).get(&path[0])
+            } else if let Some(imp) = self.imports_for(mod_key).get(&path[0]) {
+                match imp {
+                    ImportedSymbol::ModuleItem { module, item } => {
+                        (module.clone(), item.clone(), path[1].clone())
+                    }
+                    ImportedSymbol::Builtin(canon)
+                        if self.compat() == CompatMode::V2
+                            && builtin_enum_variants(canon).is_some() =>
+                    {
+                        (BUILTIN_MOD.to_string(), canon.clone(), path[1].clone())
+                    }
+                    _ => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("unknown enum {}", path[0]),
+                        ));
+                    }
+                }
+            } else if self.compat() == CompatMode::V2
+                && !self
+                    .struct_names
+                    .contains(&(base.to_string(), path[0].clone()))
+                && builtin_enum_variants(&path[0]).is_some()
             {
-                (module.clone(), item.clone(), path[1].clone())
+                (BUILTIN_MOD.to_string(), path[0].clone(), path[1].clone())
             } else {
                 return Err(Diagnostic::at_line(
                     DiagnosticCode::TypeError,
@@ -1838,7 +1951,21 @@ impl<'a> Checker<'a> {
             if let Some(ImportedSymbol::ModuleNamespace(m)) =
                 self.imports_for(mod_key).get(&path[0])
             {
-                (m.clone(), path[1].clone(), path[2].clone())
+                if let Some(ns_tail) = m.strip_prefix("aod::") {
+                    if self.compat() == CompatMode::V2
+                        && builtin_ns_exports_enum(ns_tail, &path[1])
+                    {
+                        (BUILTIN_MOD.to_string(), path[1].clone(), path[2].clone())
+                    } else {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("enum {} not exported by {m}", path[1]),
+                        ));
+                    }
+                } else {
+                    (m.clone(), path[1].clone(), path[2].clone())
+                }
             } else {
                 return Err(Diagnostic::at_line(
                     DiagnosticCode::TypeError,
@@ -1846,6 +1973,12 @@ impl<'a> Checker<'a> {
                     format!("unknown module namespace {}", path[0]),
                 ));
             }
+        } else if path.len() == 4
+            && self.compat() == CompatMode::V2
+            && path[0] == "aod"
+            && builtin_ns_exports_enum(&path[1], &path[2])
+        {
+            (BUILTIN_MOD.to_string(), path[2].clone(), path[3].clone())
         } else {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::TypeError,
@@ -3081,8 +3214,8 @@ impl<'a> Checker<'a> {
                 ))
             }
             ExprKind::Path(segs) => {
-                // 1. Check unit enum variant `Enum::Variant` or `mod::Enum::Variant`
-                if segs.len() == 2 || segs.len() == 3 {
+                // 1. Check unit enum variant `Enum::Variant`, `mod::Enum::Variant`, or `aod::<ns>::Enum::Variant`
+                if matches!(segs.len(), 2..=4) {
                     if let Ok((edef, payload_tys)) =
                         self.resolve_enum_variant(&ctx.module_key, segs, expr.line)
                     {
@@ -3486,7 +3619,7 @@ impl<'a> Checker<'a> {
                         }
                     }
                     UnaryOp::Boundary => match &inner {
-                        Type::Box3 | Type::SimResult => Ok(Type::Str),
+                        Type::Box3 | Type::SimResult => Ok(Type::Bytes),
                         Type::Window | Type::Range => Ok(Type::Tuple(vec![Type::Int, Type::Int])),
                         other => Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
@@ -4109,9 +4242,9 @@ impl<'a> Checker<'a> {
             }
         }
 
-        // Check enum payload constructor `Enum::Variant(args...)` or `mod::Enum::Variant(args...)`
+        // Check enum payload constructor `Enum::Variant(args...)`, `mod::Enum::Variant(args...)`, or `aod::<ns>::Enum::Variant(args...)`
         if let ExprKind::Path(ref segs) = callee.kind {
-            if segs.len() == 2 || segs.len() == 3 {
+            if matches!(segs.len(), 2..=4) {
                 if let Ok((edef, payload_tys)) =
                     self.resolve_enum_variant(&ctx.module_key, segs, line)
                 {
@@ -4493,8 +4626,7 @@ impl<'a> Checker<'a> {
                             ));
                         }
                         match evaluated_args[0].1.unwrap_read_only() {
-                            Type::Str
-                            | Type::Bytes
+                            Type::Bytes
                             | Type::List(_)
                             | Type::Array(_, _)
                             | Type::Map(_, _) => return Ok(Type::Int),
@@ -5370,6 +5502,8 @@ impl<'a> Checker<'a> {
             .into_iter()
             .filter(|s| {
                 (self.compat() == CompatMode::V2 || s.v1_allowed)
+                    && (self.compat() == CompatMode::V1
+                        || (!s.params.iter().any(Type::contains_str) && !s.ret.contains_str()))
                     && s.params.len() == arg_tys.len()
                     && arg_tys
                         .iter()
@@ -5397,14 +5531,14 @@ impl<'a> Checker<'a> {
                 format!("builtin {canon} requires quarantine Q_ext context"),
             ));
         }
-        if self.unit.discipline == SyntaxDiscipline::PureWaveV2
+        if (self.compat() == CompatMode::V2 || self.unit.discipline == SyntaxDiscipline::PureWaveV2)
             && (arg_tys.iter().any(Type::contains_str) || sig.ret.contains_str())
         {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::TypeError,
                 line,
                 format!(
-                    "legacy `str` builtin signature on {canon} is forbidden in --strict-wave; use `bytes` overloads"
+                    "legacy `str` builtin signature on {canon} is forbidden in Dec v2; use `bytes` overloads"
                 ),
             ));
         }
@@ -6841,14 +6975,18 @@ fn find_var_scope_index(scopes: &[BTreeMap<String, VarBinding>], name: &str) -> 
 
 fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecResult<Type> {
     match (base, field) {
-        (Type::SimResult, "model_status")
-        | (Type::SimResult, "chamber_name")
-        | (Type::SimResult, "final_state_hash") => Ok(Type::Str),
+        (Type::SimResult, "model_status") | (Type::ChamberView, "model_status") => Ok(Type::Enum {
+            module: BUILTIN_MOD.to_string(),
+            name: "ModelStatus".to_string(),
+        }),
         (
             Type::SimResult,
-            "model_status_bytes"
+            "chamber_name"
             | "chamber_name_bytes"
+            | "final_state_hash"
             | "final_state_hash_bytes"
+            | "final_state_sha256"
+            | "model_status_bytes"
             | "boundary_bytes",
         ) => Ok(Type::Bytes),
         (Type::Box3, "boundary_bytes") => Ok(Type::Bytes),
@@ -6862,8 +7000,9 @@ fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecResul
         | (Type::SimResult, "total_shedding_events") => Ok(Type::Int),
         (Type::SimResult, "final_snapshot") => Ok(Type::ReadOnly(Box::new(Type::ChamberView))),
 
-        (Type::ChamberView, "model_status") | (Type::ChamberView, "chamber_name") => Ok(Type::Str),
-        (Type::ChamberView, "model_status_bytes" | "chamber_name_bytes") => Ok(Type::Bytes),
+        (Type::ChamberView, "chamber_name" | "model_status_bytes" | "chamber_name_bytes") => {
+            Ok(Type::Bytes)
+        }
         (Type::ChamberView, "tick")
         | (Type::ChamberView, "carrier_count")
         | (Type::ChamberView, "boundary_crossings")
@@ -6874,17 +7013,20 @@ fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecResul
             Ok(Type::ReadOnly(Box::new(Type::List(Box::new(Type::Int)))))
         }
 
-        (Type::RecipientOutcome, "stage") => Ok(Type::Str),
+        (Type::RecipientOutcome, "stage") => Ok(Type::Enum {
+            module: BUILTIN_MOD.to_string(),
+            name: "RecipientStage".to_string(),
+        }),
         (Type::RecipientOutcome, "stage_bytes") => Ok(Type::Bytes),
         (Type::RecipientOutcome, "closure_phase_delta")
         | (Type::RecipientOutcome, "reclosure_bip_delta") => Ok(Type::Int),
         (Type::RecipientOutcome, "blocks_later_seating") => Ok(Type::Bool),
 
         (Type::CadenceAssociation, "is_cadence_ratio") => Ok(Type::Bool),
-        (Type::CadenceAssociation, "wavelet_id") | (Type::CadenceAssociation, "reference_id") => {
-            Ok(Type::Str)
-        }
-        (Type::CadenceAssociation, "wavelet_id_bytes" | "reference_id_bytes") => Ok(Type::Bytes),
+        (
+            Type::CadenceAssociation,
+            "wavelet_id" | "wavelet_id_bytes" | "reference_id" | "reference_id_bytes",
+        ) => Ok(Type::Bytes),
 
         (Type::Support, "is_yro") | (Type::Support, "is_closure_certificate") => Ok(Type::Bool),
         (Type::Addr8, "is_first_anchor") => Ok(Type::Bool),

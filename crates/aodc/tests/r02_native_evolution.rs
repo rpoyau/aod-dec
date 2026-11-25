@@ -624,39 +624,56 @@ fn ac03_ac11_ac12_ac13_cli_strict_wave_flags_audit_json_and_register_fold() {
             .success());
     }
 
-    // 3. Combining `--compat v1 --strict-wave` OR `--compat v2 --strict-wave` fails with exit 2 (`P0-5`, `AC-10`)!
-    for sub in ["check", "run", "build", "emit-ir", "fmt", "audit", "audit-dec", "test"] {
-        for mode in ["v1", "v2"] {
-            let out = Command::new(aodc_bin())
-                .args([sub, "--compat", mode, "--strict-wave"])
-                .arg(&ex01)
-                .output()
-                .unwrap();
-            assert_eq!(
-                out.status.code(),
-                Some(2),
-                "{sub} --compat {mode} --strict-wave must exit 2, got {:?}: {}",
-                out.status.code(),
-                String::from_utf8_lossy(&out.stderr)
-            );
-        }
+    // 3. Combining `--compat v1 --strict-wave` fails with exit 2, while `--compat v2 --strict-wave` is accepted idempotently (`AC-04`)!
+    for sub in ["check", "run", "fmt", "audit", "audit-dec", "test"] {
+        let out_v1 = Command::new(aodc_bin())
+            .args([sub, "--compat", "v1", "--strict-wave"])
+            .arg(&ex01)
+            .output()
+            .unwrap();
+        assert_eq!(
+            out_v1.status.code(),
+            Some(2),
+            "{sub} --compat v1 --strict-wave must exit 2, got {:?}: {}",
+            out_v1.status.code(),
+            String::from_utf8_lossy(&out_v1.stderr)
+        );
+        let out_v2 = Command::new(aodc_bin())
+            .args([sub, "--compat", "v2", "--strict-wave"])
+            .arg(&ex01)
+            .output()
+            .unwrap();
+        assert!(
+            out_v2.status.success(),
+            "{sub} --compat v2 --strict-wave must exit 0, got {:?}: {}",
+            out_v2.status.code(),
+            String::from_utf8_lossy(&out_v2.stderr)
+        );
+    }
+    for sub in ["build", "emit-ir"] {
+        let out_v1 = Command::new(aodc_bin())
+            .args([sub, "--compat", "v1", "--strict-wave"])
+            .arg(&ex01)
+            .output()
+            .unwrap();
+        assert_eq!(out_v1.status.code(), Some(2));
     }
 
-    // 4. Transitional default (`--compat v2` without `--strict-wave`) still accepts `Dec`, `mut`, `while`, `str` (`AC-12`)
+    // 4. Default `CompatMode::V2` (without `--strict-wave`) unconditionally rejects `Dec`, `mut`, `while`, `str` (`AC-02`)!
     let legacy_v2 = "Dec main() -> int:\n    mut i = 0\n    let s: str = \"ok\"\n    while i < 2:\n        i = i + 1\n    assert s == \"ok\"\n    return i\n";
-    assert!(check_source(legacy_v2, CompatMode::V2).is_ok());
+    assert!(check_source(legacy_v2, CompatMode::V2).is_err());
 
-    // 5. `aodc audit --json --strict-wave` on banned construct emits valid `aod.dec.audit.v1` JSON (`status: "FAIL"`) and exits 1 (`P0-5`)!
+    // 5. `aodc audit --json` (both bare and `--strict-wave`) on banned construct emits valid `aod.dec.audit.v1` JSON (`status: "FAIL"`) and exits 1!
     let legacy_path = tmp.join("legacy_for_audit.dec");
     fs::write(&legacy_path, legacy_v2).unwrap();
     let aud_fail = Command::new(aodc_bin())
-        .args(["audit", "--json", "--strict-wave"])
+        .args(["audit", "--json"])
         .arg(&legacy_path)
         .output()
         .unwrap();
     assert_eq!(aud_fail.status.code(), Some(1));
     let parsed_json = parse_strict_json(&String::from_utf8_lossy(&aud_fail.stdout))
-        .expect("audit --json --strict-wave must emit valid JSON on stdout even on failure");
+        .expect("audit --json must emit valid JSON on stdout even on failure");
     assert_eq!(
         parsed_json.get("schema").and_then(JsonValue::as_str),
         Some("aod.dec.audit.v1")
@@ -722,7 +739,7 @@ fn p1_1_fmt_roundtrip_idempotence_0h_0d_transitional_v1_and_symlink_guards() {
     let root = repo_root();
     let tmp = temp_dir("p1_1_fmt");
 
-    // (a) `0_H` and `0_D` expressions under `--strict-wave`: round-trip, idempotent, and `check` passes
+    // (a) `0_H` and `0_D` expressions under `PureWaveV2`: round-trip, idempotent, and `check` passes
     let hinge_dwell_src = r#"
 use aod::core:
     t1
@@ -751,42 +768,27 @@ dec main:
     check_source_with_options(&f1_hd, CompatMode::V2, &strict_opts())
         .expect("formatted 0_H/0_D source must typecheck under --strict-wave");
 
-    // (b) TransitionalV2 `Dec f(x, y) -> out:` multi-arm headers & quoted `chamber` `engine = "sandbox-v2"`
-    let trans_src = r#"
-chamber HyphenEngineBox:
-    space = box([0..16, 0..16, 0..16])
-    walls = open
-    engine = "sandbox-v2"
-
-Dec combine(x, y) -> out:
-    (x: int, y: int) where x > y -> int out:
-        out = x - y
-    (x: int, y: int) -> int out:
-        out = x + y
-
-dec typed_hdr(a: int) -> int:
-    (a: int) -> int:
-        return a * 2
-
-Dec main() -> int:
-    assert combine(10, 3) == 7
-    assert combine(2, 5) == 7
-    assert typed_hdr(4) == 8
-    return 0
-"#;
-    let f1_tr = format_source_with_discipline(
-        trans_src,
-        CompatMode::V2,
-        SyntaxDiscipline::TransitionalV2,
-    )
-    .expect("TransitionalV2 fmt failed");
-    assert!(f1_tr.contains("engine = \"sandbox-v2\""), "{f1_tr}");
-    assert!(f1_tr.contains("Dec combine(x, y) -> out:"), "{f1_tr}");
-    let f2_tr =
-        format_source_with_discipline(&f1_tr, CompatMode::V2, SyntaxDiscipline::TransitionalV2)
-            .unwrap();
-    assert_eq!(f1_tr, f2_tr, "TransitionalV2 fmt must be idempotent");
-    check_source(&f1_tr, CompatMode::V2).expect("formatted TransitionalV2 source must typecheck");
+    // (b) Explicit `(CompatMode::V2, SyntaxDiscipline::LegacyV1)` and `(CompatMode::V1, SyntaxDiscipline::PureWaveV2)` rejected with ParseError (`[P0-3]`)!
+    assert_eq!(
+        format_source_with_discipline(
+            hinge_dwell_src,
+            CompatMode::V2,
+            SyntaxDiscipline::LegacyV1,
+        )
+        .unwrap_err()
+        .code,
+        DiagnosticCode::ParseError
+    );
+    assert_eq!(
+        format_source_with_discipline(
+            "Dec main() -> out:\n    () -> int out:\n        out = 0\n",
+            CompatMode::V1,
+            SyntaxDiscipline::PureWaveV2,
+        )
+        .unwrap_err()
+        .code,
+        DiagnosticCode::ParseError
+    );
 
     // (c) All 10 `tests/fixtures/v1_examples/*.dec` under `--compat v1`: round-trip, idempotent, and `check`
     let v1_dir = root.join("tests/fixtures/v1_examples");
@@ -801,13 +803,13 @@ Dec main() -> int:
         let f1 = format_source_with_discipline(
             &raw,
             CompatMode::V1,
-            SyntaxDiscipline::TransitionalV2,
+            SyntaxDiscipline::LegacyV1,
         )
         .unwrap_or_else(|e| panic!("v1 fmt failed on {}: {e}", p.display()));
         let f2 = format_source_with_discipline(
             &f1,
             CompatMode::V1,
-            SyntaxDiscipline::TransitionalV2,
+            SyntaxDiscipline::LegacyV1,
         )
         .unwrap_or_else(|e| panic!("v1 second fmt failed on {}: {e}", p.display()));
         assert_eq!(f1, f2, "v1 fmt idempotence failed on {}", p.display());

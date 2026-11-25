@@ -15,15 +15,16 @@
 | **PR 8** | **Phase B (`S4` Convergence with `rpoyau/aod` PR `#53`):** Bind `S4@e013401`, exact 90-tick `cycle_shedding_trace` (Rust + pure `.dec` fixture `10`), `aodc eval-op` & `aod.s4.rust.report.v1` report mode with pre-resolution `--report` safety guard | ✅ Complete | ✅ Approved (Rev 2) | ✅ Complete | ✅ PASS (14/14) | ✅ PASS (0 P0/P1/P2) | `8dc236c` |
 | **PR 9** | **Phase C (Practical Apparatus Ergonomics, Native Manual Data & HW Learner v2):** `stdlib/aod/apparatus.dec` (3:3:6 opposing templates, concentric sensors, native JSON/CSV trace export), `aodc manual-data` zero-Python figure data regeneration, HW Learner v2 (SoA/SIMD/parallel observers) | ✅ Complete | ✅ Approved (Rev 2) | ✅ Complete (R02) | ✅ PASS (15/15 R02) | ✅ PASS (0 P0/P1/P2) | `1e5f224` |
 | **PR 10** | **Phase D1 (HW Register Primitives, `bytes`, §5.17 Live-Walk Audit & FRG Double-Slit Probe):** `Null`/`u8`/`b64`/`t9`/`bytes`/`array[T, N]`/OR-based `superpose_cancel`/eager `select`, `FIRST_PRINCIPLES_DERIVATION.md`, `aodc audit-dec` (6 §5.17 hooks), 2-thread shared-cache-line FRG probe | ✅ Complete | ✅ Approved (R02) | ✅ Complete | ✅ PASS (14/14) | ✅ PASS (0 P0/P1) | `d12daab` |
-| **PR 11** | **Phase D2 (Pure Indented `dec` Signature-Matrix Frontend & AFC Scope Operators):** Lowercase `dec <name>:` + indented `(a: T) [where pred] -> Ret:` rows, positional `Struct(...)`, `map[(k, v)]`, indented `use`, engine-driven `evolve`/`scan`/`fold_seq`/`map_seq`/`sum`/`dot`, `PureWaveV2` | ✅ Complete | ✅ Approved (R02) | ✅ Complete (R02) | ✅ PASS (15/15 R02) | ✅ PASS (R02) | Committed |
-| **PR 12** | **Phase D3 (Full Stdlib/Manual/First-Principles Migration & Hard `PureWaveV2` Ban):** Port 7 `aod-dec-dev/dec/` modules, rewrite all `stdlib/aod/*.dec`, `manual_examples/`, & Typst manual to pure wave syntax + `bytes`/status `enum`s, flip hard ban on `{ }`/`if`/`for`/`while`/`mut`/`str` in Dec v2 | 🔄 In Progress | ⏳ Queued | ⏳ Queued | ⏳ Queued | ⏳ Queued | — |
+| **PR 11** | **Phase D2 (Pure Indented `dec` Signature-Matrix Frontend & AFC Scope Operators):** Lowercase `dec <name>:` + indented `(a: T) [where pred] -> Ret:` rows, positional `Struct(...)`, `map[(k, v)]`, indented `use`, engine-driven `evolve`/`scan`/`fold_seq`/`map_seq`/`sum`/`dot`, `PureWaveV2` | ✅ Complete | ✅ Approved (R02) | ✅ Complete (R02) | ✅ PASS (15/15 R02) | ✅ PASS (R02) | `5f51f20` |
+| **PR 12** | **Phase D3 (Full Stdlib/Manual/First-Principles Migration & Hard `PureWaveV2` Ban):** Port 7 `aod-dec-dev/dec/` modules, rewrite all `stdlib/aod/*.dec`, `manual_examples/`, & Typst manual to pure wave syntax + `bytes`/status `enum`s, flip hard ban on `{ }`/`if`/`for`/`while`/`mut`/`str` in Dec v2 | ✅ Complete | ✅ Approved (R02) | ✅ Complete (R02) | ✅ PASS (15/15) | ✅ PASS (0 P0/P1/P2) | `HEAD` |
 
 ## Active Log
-- **Phases A–C (`d74651f..1e5f224`) + Reference Archive (`b0e4cc6`) + Phase D1 (`d12daab`) green on `v2/zero-python-evolution`**.
-- **First-Principles Wave-Language Purification (`D1` → `D2` → `D3`):**
+- **Phases A–C (`d74651f..1e5f224`) + Reference Archive (`b0e4cc6`) + Phase D1 (`d12daab`) + Phase D2 (`5f51f20`) + Phase D3 (`HEAD`) green on `v2/zero-python-evolution`**.
+- **First-Principles Wave-Language Purification (`D1` → `D2` → `D3` — COMPLETE):**
   - **Phase D1 (`PR 10`, `d12daab`) Complete:** 14/14 ACs PASS (`111/111` debug+release), Final Code Review PASS (`0 P0/P1`).
-  - **Phase D2 (`PR 11`) Complete:** Planner (`5a3f65573a4a98b8bfb13ccf8e7c9c30`) → Plan Review `APPROVE R02` (`113c87b54635e2b65d31b85f5ab4f1eb`) → Implementer `R02` (`e518ad7bf61b02b31ecc047c049fad53`) → Validator **15/15 PASS `R02`** (`996259e5c7b1e51dd40cf9c1cc36fb7c`, `125/125` debug+release) → Final Code Review **PASS `R02`** (`0 P0/P1/P2`).
-  - Launching Phase D3 (`PR 12`) Planner.
+  - **Phase D2 (`PR 11`, `5f51f20`) Complete:** 15/15 ACs PASS (`125/125` debug+release), Final Code Review `R02` PASS (`0 P0/P1/P2`).
+  - **Phase D3 (`PR 12`, `HEAD`) Complete:** 15/15 ACs PASS (`132/132` debug+release, `34/34` `audit-dec` `6/6` hooks, `13/13` strict `aod-lint`), Final Code Review PASS (`0 P0/P1/P2`).
+
 
 
 

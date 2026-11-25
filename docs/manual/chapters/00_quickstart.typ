@@ -49,12 +49,13 @@ across Exact VM, AOT `-O2`, and ORC LLJIT `-O2` during `aodc manual-verify`:
 ```dec
 use aod::core::ratio
 
-Dec main() -> int:
-    let big = 9223372036854775807 + 1
-    let r = ratio(6, 8) + 1/4r
-    emit big
-    emit r
-    return 0
+dec main:
+    () -> int:
+        let big = 9223372036854775807 + 1
+        let r = ratio(6, 8) + 1/4r
+        emit big
+        emit r
+        return 0
 ```
 
 ```dec-expect

@@ -13,6 +13,10 @@ use crate::ast::{
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, SyntaxDiscipline};
 use crate::parser::parse_program_with_discipline;
 
+pub fn format_source(source: &str, compat: CompatMode) -> DecResult<String> {
+    format_source_with_discipline(source, compat, SyntaxDiscipline::for_compat(compat))
+}
+
 pub fn format_source_with_discipline(
     source: &str,
     compat: CompatMode,
@@ -21,7 +25,13 @@ pub fn format_source_with_discipline(
     if compat == CompatMode::V1 && discipline == SyntaxDiscipline::PureWaveV2 {
         return Err(Diagnostic::new(
             DiagnosticCode::ParseError,
-            "--strict-wave cannot be combined with --compat v1",
+            "--strict-wave / PureWaveV2 cannot be combined with --compat v1",
+        ));
+    }
+    if compat == CompatMode::V2 && discipline == SyntaxDiscipline::LegacyV1 {
+        return Err(Diagnostic::new(
+            DiagnosticCode::ParseError,
+            "LegacyV1 cannot be combined with CompatMode::V2; Dec v2 is unconditionally PureWaveV2",
         ));
     }
     let prog = parse_program_with_discipline(source, compat, discipline)?;
@@ -32,7 +42,7 @@ pub fn format_source_with_discipline(
 }
 
 pub fn format_program(prog: &Program) -> String {
-    format_program_with_mode(prog, CompatMode::V2, SyntaxDiscipline::TransitionalV2)
+    format_program_with_mode(prog, CompatMode::V2, SyntaxDiscipline::PureWaveV2)
 }
 
 pub fn format_program_with_mode(

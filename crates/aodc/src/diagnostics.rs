@@ -6,25 +6,32 @@ pub enum CompatMode {
     V2,
 }
 
-/// Phase D2 syntax discipline selector (`TransitionalV2` default vs opt-in `--strict-wave` `PureWaveV2`).
+/// Syntax discipline selector (`CompatMode::V1 -> LegacyV1`, `CompatMode::V2 -> PureWaveV2`).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub enum SyntaxDiscipline {
+    LegacyV1,
     #[default]
-    TransitionalV2,
     PureWaveV2,
 }
 
 impl SyntaxDiscipline {
+    pub fn for_compat(compat: CompatMode) -> Self {
+        match compat {
+            CompatMode::V1 => Self::LegacyV1,
+            CompatMode::V2 => Self::PureWaveV2,
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::TransitionalV2 => "transitional_v2",
+            Self::LegacyV1 => "legacy_v1",
             Self::PureWaveV2 => "pure_wave_v2",
         }
     }
 
     pub fn from_str_tag(s: &str) -> Option<Self> {
         match s {
-            "transitional_v2" => Some(Self::TransitionalV2),
+            "legacy_v1" => Some(Self::LegacyV1),
             "pure_wave_v2" => Some(Self::PureWaveV2),
             _ => None,
         }

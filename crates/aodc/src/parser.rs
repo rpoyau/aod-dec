@@ -14,7 +14,11 @@ use crate::lexer::{tokenize_with_discipline, Token, TokenKind};
 pub const MAX_SOURCE_BYTES: usize = 1_000_000;
 
 pub fn parse_source(source: &str, compat: CompatMode) -> DecResult<Program> {
-    parse_source_with_discipline(source, compat, SyntaxDiscipline::TransitionalV2)
+    parse_source_with_discipline(source, compat, SyntaxDiscipline::for_compat(compat))
+}
+
+pub fn parse_program(source: &str, compat: CompatMode) -> DecResult<Program> {
+    parse_source_with_discipline(source, compat, SyntaxDiscipline::for_compat(compat))
 }
 
 pub fn parse_program_with_discipline(
@@ -39,7 +43,13 @@ pub fn parse_source_with_discipline(
     if compat == CompatMode::V1 && discipline == SyntaxDiscipline::PureWaveV2 {
         return Err(Diagnostic::new(
             DiagnosticCode::ParseError,
-            "--pure-wave cannot be combined with --compat v1",
+            "--strict-wave / PureWaveV2 cannot be combined with --compat v1",
+        ));
+    }
+    if compat == CompatMode::V2 && discipline == SyntaxDiscipline::LegacyV1 {
+        return Err(Diagnostic::new(
+            DiagnosticCode::ParseError,
+            "LegacyV1 cannot be combined with CompatMode::V2; Dec v2 is unconditionally PureWaveV2",
         ));
     }
     let tokens = tokenize_with_discipline(source, compat, discipline)?;
@@ -599,7 +609,16 @@ impl Parser {
                 )),
             }
         } else {
-            Ok(TypeExpr::Named(name))
+            let mut full_name = name;
+            if self.compat == CompatMode::V2 {
+                while self.check(&TokenKind::ColonColon) {
+                    self.advance();
+                    let seg = self.expect_ident("qualified type segment")?;
+                    full_name.push_str("::");
+                    full_name.push_str(&seg);
+                }
+            }
+            Ok(TypeExpr::Named(full_name))
         }
     }
 
@@ -1099,7 +1118,7 @@ impl Parser {
             ));
         }
 
-        // 4. Legacy TransitionalV2 `TypeExpr` followed by binding name or pattern
+        // 4. LegacyV1 `TypeExpr` followed by binding name or pattern
         let ty = self.parse_type_expr()?;
         if let TokenKind::Ident(ref s) = self.peek().kind {
             if s != "_" && self.peek_n(1).kind != TokenKind::ColonColon {
@@ -1225,6 +1244,13 @@ impl Parser {
                     }
                 }
                 self.expect(&TokenKind::RParen, "')' in tuple pattern")?;
+                if pats.is_empty() && self.discipline == SyntaxDiscipline::PureWaveV2 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        "unit pattern `()` is forbidden in pure-wave Dec v2; use `null` (`Null`)",
+                    ));
+                }
                 Ok(Pattern::Tuple(pats))
             }
             TokenKind::Ident(first) => {
@@ -3062,6 +3088,13 @@ impl Parser {
             TokenKind::LParen => {
                 self.advance();
                 if self.check(&TokenKind::RParen) {
+                    if self.discipline == SyntaxDiscipline::PureWaveV2 {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::ParseError,
+                            line,
+                            "unit value `()` is forbidden in pure-wave Dec v2; use `null` (`Null`)",
+                        ));
+                    }
                     self.advance();
                     return Ok(Expr {
                         kind: ExprKind::Tuple(Vec::new()),

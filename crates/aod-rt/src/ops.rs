@@ -21,7 +21,10 @@ use crate::sim::{
     AxisDir, BlindMotifSpectrum, BoxRegion, CarrierState, ChamberState, DeclarativeObserver,
     ProbeKind, ReferenceClock, SensorCurrentSummary, SimRunResult, WallPolicy,
 };
-use crate::value::{recipient_stage_name, RtEnumValue, RtMapKey, RtStructValue, RtValue};
+use crate::value::{
+    model_status_variant_and_tag, recipient_stage_name, recipient_stage_variant_and_tag,
+    RtEnumValue, RtMapKey, RtStructValue, RtValue,
+};
 
 /// Pending simulation configuration built incrementally before `aod_rt_sim_run`.
 #[derive(Clone, Debug)]
@@ -528,17 +531,27 @@ impl RtState {
                 .get(f)
                 .cloned()
                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name)),
-            (RtValue::SimResult(s), "model_status") => Ok(RtValue::Str(s.model_status)),
+            (RtValue::SimResult(s), "model_status") => {
+                let (variant, tag) = model_status_variant_and_tag(&s.model_status);
+                Ok(RtValue::Enum(Box::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "ModelStatus".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
+            }
             (RtValue::SimResult(s), "model_status_bytes") => {
                 Ok(RtValue::Bytes(s.model_status.into_bytes()))
             }
-            (RtValue::SimResult(s), "chamber_name") => Ok(RtValue::Str(s.chamber_name)),
-            (RtValue::SimResult(s), "chamber_name_bytes") => {
+            (RtValue::SimResult(s), "chamber_name" | "chamber_name_bytes") => {
                 Ok(RtValue::Bytes(s.chamber_name.into_bytes()))
             }
-            (RtValue::SimResult(s), "final_state_hash") => Ok(RtValue::Str(s.final_state_hash)),
-            (RtValue::SimResult(s), "final_state_hash_bytes") => {
+            (RtValue::SimResult(s), "final_state_hash" | "final_state_hash_bytes") => {
                 Ok(RtValue::Bytes(s.final_state_hash.into_bytes()))
+            }
+            (RtValue::SimResult(s), "final_state_sha256") => {
+                Ok(RtValue::Bytes(decode_hex_32(&s.final_state_hash)?))
             }
             (RtValue::SimResult(s), "boundary_bytes") => Ok(RtValue::Bytes(
                 s.final_snapshot.space.boundary_descriptor().into_bytes(),
@@ -572,12 +585,20 @@ impl RtState {
                 Ok(RtValue::ChamberView(Box::new(s.final_snapshot)))
             }
 
-            (RtValue::ChamberView(snap), "model_status") => Ok(RtValue::Str(snap.model_status)),
+            (RtValue::ChamberView(snap), "model_status") => {
+                let (variant, tag) = model_status_variant_and_tag(&snap.model_status);
+                Ok(RtValue::Enum(Box::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "ModelStatus".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
+            }
             (RtValue::ChamberView(snap), "model_status_bytes") => {
                 Ok(RtValue::Bytes(snap.model_status.into_bytes()))
             }
-            (RtValue::ChamberView(snap), "chamber_name") => Ok(RtValue::Str(snap.chamber_name)),
-            (RtValue::ChamberView(snap), "chamber_name_bytes") => {
+            (RtValue::ChamberView(snap), "chamber_name" | "chamber_name_bytes") => {
                 Ok(RtValue::Bytes(snap.chamber_name.into_bytes()))
             }
             (RtValue::ChamberView(snap), "tick") => Ok(RtValue::Int(BigInt::from_u64(snap.tick))),
@@ -604,7 +625,14 @@ impl RtState {
             )),
 
             (RtValue::RecipientOutcome(o), "stage") => {
-                Ok(RtValue::Str(recipient_stage_name(o.stage).to_string()))
+                let (variant, tag) = recipient_stage_variant_and_tag(o.stage);
+                Ok(RtValue::Enum(Box::new(RtEnumValue {
+                    module: "<builtin>".to_string(),
+                    name: "RecipientStage".to_string(),
+                    variant: variant.to_string(),
+                    tag,
+                    payloads: Vec::new(),
+                })))
             }
             (RtValue::RecipientOutcome(o), "stage_bytes") => Ok(RtValue::Bytes(
                 recipient_stage_name(o.stage).as_bytes().to_vec(),
@@ -622,12 +650,10 @@ impl RtState {
             (RtValue::CadenceAssociation(a), "is_cadence_ratio") => {
                 Ok(RtValue::Bool(a.is_cadence_ratio))
             }
-            (RtValue::CadenceAssociation(a), "wavelet_id") => Ok(RtValue::Str(a.wavelet_id)),
-            (RtValue::CadenceAssociation(a), "wavelet_id_bytes") => {
+            (RtValue::CadenceAssociation(a), "wavelet_id" | "wavelet_id_bytes") => {
                 Ok(RtValue::Bytes(a.wavelet_id.into_bytes()))
             }
-            (RtValue::CadenceAssociation(a), "reference_id") => Ok(RtValue::Str(a.reference_id)),
-            (RtValue::CadenceAssociation(a), "reference_id_bytes") => {
+            (RtValue::CadenceAssociation(a), "reference_id" | "reference_id_bytes") => {
                 Ok(RtValue::Bytes(a.reference_id.into_bytes()))
             }
 
@@ -650,8 +676,10 @@ impl RtState {
     pub fn op_boundary_of(&mut self, h: u64) -> Result<u64, String> {
         let val = self.arena.get(h)?.clone();
         let out = match val {
-            RtValue::Box3(b) => RtValue::Str(b.boundary_descriptor()),
-            RtValue::SimResult(s) => RtValue::Str(s.final_snapshot.space.boundary_descriptor()),
+            RtValue::Box3(b) => RtValue::Bytes(b.boundary_descriptor().into_bytes()),
+            RtValue::SimResult(s) => {
+                RtValue::Bytes(s.final_snapshot.space.boundary_descriptor().into_bytes())
+            }
             RtValue::Window(u, v) | RtValue::Range(u, v) => RtValue::Tuple(vec![
                 RtValue::Int(BigInt::from_i64(u)),
                 RtValue::Int(BigInt::from_i64(v)),
@@ -1164,6 +1192,31 @@ fn builder_idx(handle: u64, len: usize) -> Result<usize, String> {
         return Err(format!("invalid simulation builder handle {handle}"));
     }
     Ok((handle - 1) as usize)
+}
+
+pub fn decode_hex_32(hex: &str) -> Result<Vec<u8>, String> {
+    let raw = hex.as_bytes();
+    if raw.len() != 64 {
+        return Err(format!(
+            "expected 64-byte hex SHA-256 digest, got {} bytes",
+            raw.len()
+        ));
+    }
+    let hex_val = |b: u8| -> Result<u8, String> {
+        match b {
+            b'0'..=b'9' => Ok(b - b'0'),
+            b'a'..=b'f' => Ok(b - b'a' + 10),
+            b'A'..=b'F' => Ok(b - b'A' + 10),
+            _ => Err("invalid hex digit in SHA-256 digest".to_string()),
+        }
+    };
+    let mut out = Vec::with_capacity(32);
+    for chunk in raw.chunks_exact(2) {
+        let hi = hex_val(chunk[0])?;
+        let lo = hex_val(chunk[1])?;
+        out.push((hi << 4) | lo);
+    }
+    Ok(out)
 }
 
 pub fn exact_t1(v: &BigInt) -> Result<i8, String> {
