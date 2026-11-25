@@ -69,14 +69,14 @@ impl RtMapKey {
             RtValue::T1(t) => Ok(RtMapKey::T1(*t)),
             RtValue::B8(b) => Ok(RtMapKey::B8(*b)),
             RtValue::B64(b) => Ok(RtMapKey::B64(*b)),
-            RtValue::Bytes(bs) => Ok(RtMapKey::Bytes(bs.clone())),
+            RtValue::Bytes(bs) => Ok(RtMapKey::Bytes((**bs).clone())),
             RtValue::Q4(q) => Ok(RtMapKey::Q4(*q)),
             RtValue::Ratio(r) => Ok(RtMapKey::Ratio(r.clone())),
             RtValue::Addr8(a) => Ok(RtMapKey::Addr8(a.clone())),
             RtValue::Support(s) => Ok(RtMapKey::Support(s.clone())),
             RtValue::Array(elems) => {
                 let mut ak = Vec::with_capacity(elems.len());
-                for e in elems {
+                for e in elems.iter() {
                     ak.push(Self::from_value(e)?);
                 }
                 Ok(RtMapKey::Array(ak))
@@ -114,19 +114,21 @@ impl RtMapKey {
             RtMapKey::T1(t) => RtValue::T1(*t),
             RtMapKey::B8(b) => RtValue::B8(*b),
             RtMapKey::B64(b) => RtValue::B64(*b),
-            RtMapKey::Bytes(bs) => RtValue::Bytes(bs.clone()),
+            RtMapKey::Bytes(bs) => RtValue::Bytes(std::sync::Arc::new(bs.clone())),
             RtMapKey::Q4(q) => RtValue::Q4(*q),
             RtMapKey::Ratio(r) => RtValue::Ratio(r.clone()),
             RtMapKey::Addr8(a) => RtValue::Addr8(a.clone()),
             RtMapKey::Support(s) => RtValue::Support(s.clone()),
-            RtMapKey::Array(elems) => RtValue::Array(elems.iter().map(RtMapKey::to_value).collect()),
+            RtMapKey::Array(elems) => {
+                RtValue::Array(std::sync::Arc::new(elems.iter().map(RtMapKey::to_value).collect()))
+            }
             RtMapKey::Enum {
                 module,
                 name,
                 variant,
                 tag,
                 payloads,
-            } => RtValue::Enum(Box::new(RtEnumValue {
+            } => RtValue::Enum(std::sync::Arc::new(RtEnumValue {
                 module: module.clone(),
                 name: name.clone(),
                 variant: variant.clone(),
@@ -165,7 +167,7 @@ pub enum RtValue {
     T1(T1),
     B8(B8),
     B64(B64),
-    Bytes(Vec<u8>),
+    Bytes(std::sync::Arc<Vec<u8>>),
     Q4(Q4),
     Ratio(Ratio),
     Addr8(Addr8),
@@ -180,10 +182,10 @@ pub enum RtValue {
     CadenceAssociation(Box<SingleContactStageAssociation>),
     ChamberView(Box<ChamberSnapshot>),
     SimResult(Box<SimRunResult>),
-    Struct(Box<RtStructValue>),
-    Enum(Box<RtEnumValue>),
-    Array(Vec<RtValue>),
-    List(Vec<RtValue>),
+    Struct(std::sync::Arc<RtStructValue>),
+    Enum(std::sync::Arc<RtEnumValue>),
+    Array(std::sync::Arc<Vec<RtValue>>),
+    List(std::sync::Arc<Vec<RtValue>>),
     Map(Box<BTreeMap<RtMapKey, RtValue>>),
     Tuple(Vec<RtValue>),
     QExtRatio(QExtRatio),

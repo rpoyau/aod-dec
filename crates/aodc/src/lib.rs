@@ -742,6 +742,15 @@ pub fn bootstrap_verify(
     sample_prog: Option<&Path>,
     options: &LoadOptions,
 ) -> DecResult<BootstrapVerifyReport> {
+    bootstrap_verify_with_stage2_out(self_host_src, sample_prog, None, options)
+}
+
+pub fn bootstrap_verify_with_stage2_out(
+    self_host_src: Option<&Path>,
+    sample_prog: Option<&Path>,
+    emit_stage2: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<BootstrapVerifyReport> {
     let resolved_src = match self_host_src {
         Some(p) => p.to_path_buf(),
         None => discover_default_s2_root().join("self_host/aodc_self.dec"),
@@ -858,6 +867,20 @@ pub fn bootstrap_verify(
                 stage3_bytes_raw.len()
             ),
         ));
+    }
+
+    if let Some(out_p) = emit_stage2 {
+        std::fs::write(out_p, &stage2_bytes_raw).map_err(|e| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                format!("failed writing emitted stage2 binary {}: {e}", out_p.display()),
+            )
+        })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(out_p, std::fs::Permissions::from_mode(0o755));
+        }
     }
 
     // 5. Behavioral parity gate: compile & run a clean-break `.dec` program via `stage2`

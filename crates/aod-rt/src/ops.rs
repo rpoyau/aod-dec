@@ -252,17 +252,17 @@ impl RtState {
                 if i < 0 || (i as usize) >= items.len() {
                     return Err(format!("array index {i} out of bounds"));
                 }
-                let mut cloned = items.clone();
+                let mut cloned = (**items).clone();
                 cloned[i as usize] = new_val;
-                self.arena.insert(RtValue::Array(cloned))
+                self.arena.insert(RtValue::Array(std::sync::Arc::new(cloned)))
             }
             RtValue::List(items) => {
                 if i < 0 || (i as usize) >= items.len() {
                     return Err(format!("list index {i} out of bounds"));
                 }
-                let mut cloned = items.clone();
+                let mut cloned = (**items).clone();
                 cloned[i as usize] = new_val;
-                self.arena.insert(RtValue::List(cloned))
+                self.arena.insert(RtValue::List(std::sync::Arc::new(cloned)))
             }
             other => Err(format!("expected array or list handle, got {}", other.render())),
         }
@@ -283,7 +283,7 @@ impl RtState {
             ));
         }
         let sliced = bs[s as usize..e as usize].to_vec();
-        self.arena.insert(RtValue::Bytes(sliced))
+        self.arena.insert(RtValue::Bytes(std::sync::Arc::new(sliced)))
     }
 
     pub fn op_bytes_concat(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
@@ -292,13 +292,14 @@ impl RtState {
         let mut out = Vec::with_capacity(a.len() + b.len());
         out.extend_from_slice(a);
         out.extend_from_slice(b);
-        self.arena.insert(RtValue::Bytes(out))
+        self.arena.insert(RtValue::Bytes(std::sync::Arc::new(out)))
     }
 
     pub fn op_bytes_sha256(&mut self, b_h: u64) -> Result<u64, String> {
         let bs = self.get_bytes(b_h)?;
         let digest = Sha256::digest(bs);
-        self.arena.insert(RtValue::Bytes(digest.to_vec()))
+        self.arena
+            .insert(RtValue::Bytes(std::sync::Arc::new(digest.to_vec())))
     }
 
     pub fn op_bytes_hex(&mut self, b_h: u64) -> Result<u64, String> {
@@ -309,7 +310,7 @@ impl RtState {
             out.push(HEX[(byte >> 4) as usize]);
             out.push(HEX[(byte & 0x0F) as usize]);
         }
-        self.arena.insert(RtValue::Bytes(out))
+        self.arena.insert(RtValue::Bytes(std::sync::Arc::new(out)))
     }
 
     pub fn op_sys_cli_args(&mut self) -> Result<u64, String> {
@@ -317,9 +318,9 @@ impl RtState {
             .cli_args
             .iter()
             .cloned()
-            .map(RtValue::Bytes)
+            .map(|b| RtValue::Bytes(std::sync::Arc::new(b)))
             .collect();
-        self.arena.insert(RtValue::List(items))
+        self.arena.insert(RtValue::List(std::sync::Arc::new(items)))
     }
 
     pub fn op_sys_read_file_bytes(&mut self, path_h: u64) -> Result<u64, String> {
@@ -343,7 +344,7 @@ impl RtState {
                 "file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
             ));
         }
-        self.arena.insert(RtValue::Bytes(data))
+        self.arena.insert(RtValue::Bytes(std::sync::Arc::new(data)))
     }
 
     pub fn op_sys_write_executable_elf(&mut self, path_h: u64, img_h: u64) -> Result<BigInt, String> {
@@ -423,7 +424,7 @@ impl RtState {
             // Struct-field array projection (`bins.t0` across `[Struct; N]` or `[Struct]`):
             (RtValue::Array(items), f) => {
                 let mut projected = Vec::with_capacity(items.len());
-                for item in items {
+                for item in items.iter() {
                     match item {
                         RtValue::Struct(sv) => {
                             let fv = sv
@@ -441,11 +442,11 @@ impl RtState {
                         }
                     }
                 }
-                Ok(RtValue::Array(projected))
+                Ok(RtValue::Array(std::sync::Arc::new(projected)))
             }
             (RtValue::List(items), f) => {
                 let mut projected = Vec::with_capacity(items.len());
-                for item in items {
+                for item in items.iter() {
                     match item {
                         RtValue::Struct(sv) => {
                             let fv = sv
@@ -463,7 +464,7 @@ impl RtState {
                         }
                     }
                 }
-                Ok(RtValue::List(projected))
+                Ok(RtValue::List(std::sync::Arc::new(projected)))
             }
             (RtValue::SimResult(s), "model_status") => Ok(RtValue::Str(s.model_status)),
             (RtValue::SimResult(s), "chamber_name") => Ok(RtValue::Str(s.chamber_name)),
@@ -512,12 +513,12 @@ impl RtState {
             (RtValue::ChamberView(snap), "clock_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(snap.clocks.len() as u64)))
             }
-            (RtValue::ChamberView(snap), "carriers") => Ok(RtValue::List(
+            (RtValue::ChamberView(snap), "carriers") => Ok(RtValue::List(std::sync::Arc::new(
                 snap.carriers
                     .iter()
                     .map(|c| RtValue::Int(BigInt::from_u64(c.id)))
                     .collect(),
-            )),
+            ))),
 
             (RtValue::RecipientOutcome(o), "stage") => {
                 Ok(RtValue::Str(recipient_stage_name(o.stage).to_string()))
@@ -561,11 +562,11 @@ impl RtState {
             ]),
             RtValue::Array(xs) => {
                 let diff = finite_diff_values(&xs)?;
-                RtValue::Array(diff)
+                RtValue::Array(std::sync::Arc::new(diff))
             }
             RtValue::List(xs) => {
                 let diff = finite_diff_values(&xs)?;
-                RtValue::List(diff)
+                RtValue::List(std::sync::Arc::new(diff))
             }
             other => return Err(format!("boundary_of unsupported on {}", other.render())),
         };
@@ -594,7 +595,7 @@ impl RtState {
         let cuts = match self.arena.get(cuts_h)? {
             RtValue::List(items) | RtValue::Array(items) => {
                 let mut v = Vec::with_capacity(items.len());
-                for it in items {
+                for it in items.iter() {
                     match it {
                         RtValue::Int(n) => {
                             v.push(n.to_i64().ok_or_else(|| "cut out of i64 range".to_string())?)
@@ -609,7 +610,7 @@ impl RtState {
         let wins = match self.arena.get(wins_h)? {
             RtValue::List(items) | RtValue::Array(items) => {
                 let mut v = Vec::with_capacity(items.len());
-                for it in items {
+                for it in items.iter() {
                     match it {
                         RtValue::Window(a, b) => v.push((*a, *b)),
                         other => return Err(format!("expected window, got {}", other.render())),
@@ -984,7 +985,7 @@ impl RtState {
             let fval = self.arena.get(vh)?.clone();
             fields.insert(fname, fval);
         }
-        self.arena.insert(RtValue::Struct(Box::new(RtStructValue {
+        self.arena.insert(RtValue::Struct(std::sync::Arc::new(RtStructValue {
             module,
             name,
             fields,
@@ -1006,7 +1007,7 @@ impl RtState {
         for &ph in payload_handles {
             payloads.push(self.arena.get(ph)?.clone());
         }
-        self.arena.insert(RtValue::Enum(Box::new(RtEnumValue {
+        self.arena.insert(RtValue::Enum(std::sync::Arc::new(RtEnumValue {
             module,
             name,
             variant,

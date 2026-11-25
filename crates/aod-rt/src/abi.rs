@@ -1145,7 +1145,7 @@ pub unsafe extern "C" fn aod_rt_bytes_new(
     unsafe {
         guard_ret(ctx, 0, |_, s| {
             let bs = read_raw_slice(ptr, len)?.to_vec();
-            s.arena.insert(RtValue::Bytes(bs))
+            s.arena.insert(RtValue::Bytes(std::sync::Arc::new(bs)))
         })
     }
 }
@@ -1154,13 +1154,13 @@ pub unsafe extern "C" fn aod_rt_bytes_new(
 pub unsafe extern "C" fn aod_rt_bytes_from_seq(ctx: *mut AodRtContext, seq_h: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            let bs: Vec<u8> = match s.arena.get(seq_h)? {
+            let bs: std::sync::Arc<Vec<u8>> = match s.arena.get(seq_h)? {
                 RtValue::Bytes(b) => b.clone(),
-                RtValue::Str(st) => st.as_bytes().to_vec(),
-                RtValue::Addr8(a) => a.render().into_bytes(),
+                RtValue::Str(st) => std::sync::Arc::new(st.as_bytes().to_vec()),
+                RtValue::Addr8(a) => std::sync::Arc::new(a.render().into_bytes()),
                 RtValue::Array(items) | RtValue::List(items) => {
                     let mut out = Vec::with_capacity(items.len());
-                    for it in items {
+                    for it in items.iter() {
                         match it {
                             RtValue::B8(b) => out.push(b.0),
                             other => {
@@ -1171,7 +1171,7 @@ pub unsafe extern "C" fn aod_rt_bytes_from_seq(ctx: *mut AodRtContext, seq_h: u6
                             }
                         }
                     }
-                    out
+                    std::sync::Arc::new(out)
                 }
                 other => return Err(format!("bytes(...) unsupported on {}", other.render())),
             };
@@ -1184,7 +1184,8 @@ pub unsafe extern "C" fn aod_rt_bytes_from_seq(ctx: *mut AodRtContext, seq_h: u6
 pub unsafe extern "C" fn aod_rt_bytes_from_b64(ctx: *mut AodRtContext, v: u64) -> u64 {
     unsafe {
         guard_ret(ctx, 0, |_, s| {
-            s.arena.insert(RtValue::Bytes(v.to_le_bytes().to_vec()))
+            s.arena
+                .insert(RtValue::Bytes(std::sync::Arc::new(v.to_le_bytes().to_vec())))
         })
     }
 }
@@ -1291,7 +1292,7 @@ pub unsafe extern "C" fn aod_rt_le_bytes_from_int(
                 }
                 _ => return Err(format!("invalid le_bytes kind {kind}")),
             };
-            s.arena.insert(RtValue::Bytes(out))
+            s.arena.insert(RtValue::Bytes(std::sync::Arc::new(out)))
         })
     }
 }
@@ -1302,7 +1303,7 @@ pub unsafe extern "C" fn aod_rt_bytes_push(ctx: *mut AodRtContext, b_h: u64, byt
         guard_ret(ctx, 0, |_, s| {
             let mut out = s.get_bytes(b_h)?.to_vec();
             out.push(byte);
-            s.arena.insert(RtValue::Bytes(out))
+            s.arena.insert(RtValue::Bytes(std::sync::Arc::new(out)))
         })
     }
 }
@@ -1334,7 +1335,7 @@ pub unsafe extern "C" fn aod_rt_sys_write_executable_elf(
 fn rt_values_equal(a: &RtValue, b: &RtValue) -> bool {
     match (a, b) {
         (RtValue::Array(xs) | RtValue::List(xs), RtValue::Array(ys) | RtValue::List(ys)) => {
-            xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| rt_values_equal(x, y))
+            xs.len() == ys.len() && xs.iter().zip(ys.iter()).all(|(x, y)| rt_values_equal(x, y))
         }
         (RtValue::Tuple(xs), RtValue::Tuple(ys)) => {
             xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| rt_values_equal(x, y))
@@ -1804,7 +1805,7 @@ pub unsafe extern "C" fn aod_rt_range_to_list(ctx: *mut AodRtContext, r_h: u64) 
                 other => return Err(format!("expected range handle, got {}", other.render())),
             };
             if b <= a {
-                return s.arena.insert(RtValue::List(Vec::new()));
+                return s.arena.insert(RtValue::List(std::sync::Arc::new(Vec::new())));
             }
             let len = (b as i128 - a as i128) as u64;
             if (c.fuel as u64) < len {
@@ -1816,7 +1817,7 @@ pub unsafe extern "C" fn aod_rt_range_to_list(ctx: *mut AodRtContext, r_h: u64) 
             for cur in a..b {
                 items.push(RtValue::Int(BigInt::from_i64(cur)));
             }
-            s.arena.insert(RtValue::List(items))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
         })
     }
 }
@@ -2270,7 +2271,7 @@ pub unsafe extern "C" fn aod_rt_array_new(
             for &h in handles {
                 items.push(s.arena.get(h)?.clone());
             }
-            s.arena.insert(RtValue::Array(items))
+            s.arena.insert(RtValue::Array(std::sync::Arc::new(items)))
         })
     }
 }
@@ -2288,7 +2289,7 @@ pub unsafe extern "C" fn aod_rt_list_new(
             for &h in handles {
                 items.push(s.arena.get(h)?.clone());
             }
-            s.arena.insert(RtValue::List(items))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
         })
     }
 }
@@ -2378,9 +2379,9 @@ pub unsafe extern "C" fn aod_rt_seq_sieve(
                 ));
             }
             let mut out = Vec::new();
-            for (m, v) in mask_items.into_iter().zip(val_items) {
+            for (m, v) in mask_items.iter().zip(val_items.iter()) {
                 match m {
-                    RtValue::Bool(true) => out.push(v),
+                    RtValue::Bool(true) => out.push(v.clone()),
                     RtValue::Bool(false) => {}
                     other => {
                         return Err(format!(
@@ -2390,7 +2391,7 @@ pub unsafe extern "C" fn aod_rt_seq_sieve(
                     }
                 }
             }
-            s.arena.insert(RtValue::List(out))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
         })
     }
 }
@@ -2450,11 +2451,11 @@ pub unsafe extern "C" fn aod_rt_seq_push(ctx: *mut AodRtContext, seq_h: u64, ele
         guard_ret(ctx, 0, |_, s| {
             let elem = s.arena.get(elem_h)?.clone();
             let mut out = match s.arena.get(seq_h)? {
-                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                RtValue::Array(items) | RtValue::List(items) => (**items).clone(),
                 other => return Err(format!("push expects sequence, got {}", other.render())),
             };
             out.push(elem);
-            s.arena.insert(RtValue::List(out))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
         })
     }
 }
@@ -2472,9 +2473,9 @@ pub unsafe extern "C" fn aod_rt_seq_concat(ctx: *mut AodRtContext, a_h: u64, b_h
                 other => return Err(format!("concat expects sequence, got {}", other.render())),
             };
             let mut out = Vec::with_capacity(a.len() + b.len());
-            out.extend(a);
-            out.extend(b);
-            s.arena.insert(RtValue::List(out))
+            out.extend(a.iter().cloned());
+            out.extend(b.iter().cloned());
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
         })
     }
 }
@@ -2508,7 +2509,7 @@ pub unsafe extern "C" fn aod_rt_seq_slice(
                 }
                 other => return Err(format!("slice expects sequence, got {}", other.render())),
             };
-            s.arena.insert(RtValue::List(sliced))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(sliced)))
         })
     }
 }
@@ -2546,7 +2547,7 @@ pub unsafe extern "C" fn aod_rt_range_seq(ctx: *mut AodRtContext, a: u64, b: u64
                 .to_i64()
                 .ok_or_else(|| "range_seq end out of i64 range".to_string())?;
             if bv <= av {
-                return s.arena.insert(RtValue::List(Vec::new()));
+                return s.arena.insert(RtValue::List(std::sync::Arc::new(Vec::new())));
             }
             let len = (bv as i128 - av as i128) as u64;
             if len > 1_000_000 {
@@ -2563,7 +2564,7 @@ pub unsafe extern "C" fn aod_rt_range_seq(ctx: *mut AodRtContext, a: u64, b: u64
             for cur in av..bv {
                 items.push(RtValue::Int(BigInt::from_i64(cur)));
             }
-            s.arena.insert(RtValue::List(items))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
         })
     }
 }
@@ -2613,9 +2614,9 @@ pub unsafe extern "C" fn aod_rt_seq_buf_finish(
                 std::mem::take(&mut s.seq_bufs[idx])
             };
             if is_array != 0 {
-                s.arena.insert(RtValue::Array(items))
+                s.arena.insert(RtValue::Array(std::sync::Arc::new(items)))
             } else {
-                s.arena.insert(RtValue::List(items))
+                s.arena.insert(RtValue::List(std::sync::Arc::new(items)))
             }
         })
     }
@@ -2723,7 +2724,7 @@ pub unsafe extern "C" fn aod_rt_map_keys_list(ctx: *mut AodRtContext, map_h: u64
                 RtValue::Map(m) => m.keys().map(RtMapKey::to_value).collect(),
                 other => return Err(format!("expected map handle, got {}", other.render())),
             };
-            s.arena.insert(RtValue::List(keys))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(keys)))
         })
     }
 }
@@ -2739,7 +2740,7 @@ pub unsafe extern "C" fn aod_rt_map_entries_list(ctx: *mut AodRtContext, map_h: 
                     .collect(),
                 other => return Err(format!("expected map handle, got {}", other.render())),
             };
-            s.arena.insert(RtValue::List(entries))
+            s.arena.insert(RtValue::List(std::sync::Arc::new(entries)))
         })
     }
 }

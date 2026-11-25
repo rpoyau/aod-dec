@@ -6,7 +6,10 @@
 use aod::core::walk
 
 dec step_int(acc: int) -> int:
-    (acc * 3 + 7) % 999983
+    let next = (acc * 3 + 7) % 999983
+    let w1 = int(b64(next))
+    let w2 = int(b64(w1 + 1))
+    int(b64(w2 - 1))
 
 dec step_ratio(r: ratio) -> ratio:
     r + 3/8r
@@ -19,4 +22,4 @@ dec run_unboxed_kernel(n: int) -> int:
     0
 
 dec main() -> int:
-    run_unboxed_kernel(1800)
+    run_unboxed_kernel(2800)

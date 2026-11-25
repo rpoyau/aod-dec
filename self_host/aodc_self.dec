@@ -1,0 +1,3641 @@
+# Alpha-Omega Dynamics (AOD) Clean-Break Self-Hosting Compiler (aodc_self.dec)
+# Compiles clean-break Dec source directly to standalone static libc-free Linux x86-64 ELF64.
+# Fixed-point contract: Stage0 -> stage1 -> stage2 -> stage3 with SHA256(stage2) == SHA256(stage3).
+
+use aod::sys:
+    cli_args, read_file_bytes, write_executable_elf
+
+# ============================================================================
+# Section 1: Token, Type, & ELF64 Virtual Address Constants
+# ============================================================================
+
+const TK_EOF: int = 0
+const TK_NEWLINE: int = 1
+const TK_INDENT: int = 2
+const TK_DEDENT: int = 3
+const TK_IDENT: int = 4
+const TK_INT: int = 5
+const TK_OCTAL: int = 6
+const TK_TRIT: int = 7
+const TK_STR: int = 8
+const TK_BOOL: int = 9
+
+const TK_STRUCT: int = 10
+const TK_CONST: int = 11
+const TK_DEC: int = 12
+const TK_USE: int = 13
+const TK_LET: int = 14
+const TK_ASSERT: int = 15
+const TK_EMIT: int = 16
+const TK_WHERE: int = 17
+const TK_AND: int = 18
+const TK_OR: int = 19
+const TK_NOT: int = 20
+
+const TK_LPAREN: int = 30
+const TK_RPAREN: int = 31
+const TK_LBRACKET: int = 32
+const TK_RBRACKET: int = 33
+const TK_COMMA: int = 34
+const TK_COLON: int = 35
+const TK_DOT: int = 36
+const TK_ARROW: int = 37
+const TK_ASSIGN: int = 38
+const TK_PIPE_GT: int = 39
+const TK_SUM_ADV: int = 40
+
+const TK_PLUS: int = 50
+const TK_MINUS: int = 51
+const TK_STAR: int = 52
+const TK_FLOORDIV: int = 53
+const TK_PERCENT: int = 54
+const TK_SHL: int = 55
+const TK_SHR: int = 56
+const TK_AMP: int = 57
+const TK_CARET: int = 58
+const TK_BAR: int = 59
+const TK_TILDE: int = 60
+const TK_EQ: int = 61
+const TK_NE: int = 62
+const TK_LT: int = 63
+const TK_LE: int = 64
+const TK_GT: int = 65
+const TK_GE: int = 66
+const TK_CMP: int = 67
+const TK_DCOLON: int = 68
+
+const TY_UNIT: int = 0
+const TY_INT: int = 1
+const TY_BOOL: int = 2
+const TY_T1: int = 3
+const TY_B8: int = 4
+const TY_B64: int = 5
+const TY_BYTES: int = 6
+const TY_STR: int = 7
+const TY_ADDR8: int = 8
+const TY_STRUCT_BASE: int = 100
+const TY_FN_BASE: int = 1000
+const TY_LIST_BASE: int = 10000
+
+const ELF_BASE_VADDR: int = 0x00400000
+const ELF_ENTRY_VADDR: int = 0x00400078
+const RT_TABLE_VADDR: int = 0x00400F00
+const FN_TABLE_VADDR: int = 0x00401000
+
+const RT_ALLOC: int = 0
+const RT_CLI_ARGS: int = 1
+const RT_READ_FILE: int = 2
+const RT_WRITE_ELF: int = 3
+const RT_DIV_FLOOR: int = 4
+const RT_REM_FLOOR: int = 5
+const RT_BYTES_EQ: int = 6
+const RT_PUSH_BYTE: int = 7
+const RT_CONCAT_BYTES: int = 8
+const RT_SLICE_BYTES: int = 9
+const RT_LE_BYTES: int = 10
+const RT_BYTES_FROM_LIST: int = 11
+const RT_SEQ_GET: int = 12
+const RT_BYTES_GET: int = 13
+const RT_SEQ_PUSH: int = 14
+const RT_SEQ_CONCAT: int = 15
+const RT_SEQ_SLICE: int = 16
+const RT_SEQ_SET_AT: int = 17
+const RT_RANGE_SEQ: int = 18
+const RT_SUM_SEQ: int = 19
+const RT_WALK: int = 20
+const RT_SETTLE: int = 21
+const RT_FOLD: int = 22
+const RT_EACH: int = 23
+const RT_EMIT_INT: int = 24
+const RT_EMIT_STR: int = 25
+const RT_EMIT_BOOL: int = 26
+const RT_EMIT_T1: int = 27
+const RT_ASSERT_FAIL: int = 28
+const RT_PACK_TRIT32: int = 29
+const RT_UNPACK_TRIT32: int = 30
+
+# ============================================================================
+# Section 2: Compiler Data Structures
+# ============================================================================
+
+struct TopBlock:
+    kind: int
+    start: int
+    end_pos: int
+
+struct Tok:
+    kind: int
+    val: int
+    text: bytes
+
+struct LexState:
+    src: bytes
+    pos: int
+    limit: int
+    at_bol: int
+    paren_depth: int
+    indents: [int]
+    toks: [Tok]
+
+struct StructDef:
+    name: bytes
+    field_names: [bytes]
+    field_tys: [int]
+
+struct ConstDef:
+    name: bytes
+    val: int
+    str_val: bytes
+    ty: int
+
+struct FnSig:
+    name: bytes
+    param_tys: [int]
+    ret_ty: int
+    blk_start: int
+    blk_end: int
+
+struct SymTab:
+    structs: [StructDef]
+    consts: [ConstDef]
+    fns: [FnSig]
+
+struct LocalVar:
+    name: bytes
+    slot: int
+    ty: int
+
+struct CgEnv:
+    sym: SymTab
+    toks: [Tok]
+    locals: [LocalVar]
+    next_slot: int
+    ret_ty: int
+
+struct ExprOut:
+    pos: int
+    ty: int
+    max_slot: int
+    code: bytes
+
+struct StmtOut:
+    pos: int
+    env: CgEnv
+    is_tail: int
+    code: bytes
+
+struct ArmOut:
+    pos: int
+    max_slot: int
+    code: bytes
+
+# ============================================================================
+# Section 3: Balanced Byte & Sequence Combinators
+# ============================================================================
+
+dec b1(a: int) -> bytes:
+    bytes([b8(a)])
+
+dec b2(a: int, b: int) -> bytes:
+    bytes([b8(a), b8(b)])
+
+dec b3(a: int, b: int, c: int) -> bytes:
+    bytes([b8(a), b8(b), b8(c)])
+
+dec b4(a: int, b: int, c: int, d: int) -> bytes:
+    bytes([b8(a), b8(b), b8(c), b8(d)])
+
+dec b5(a: int, b: int, c: int, d: int, e: int) -> bytes:
+    bytes([b8(a), b8(b), b8(c), b8(d), b8(e)])
+
+dec cb2(a: bytes, b: bytes) -> bytes:
+    concat_bytes(a, b)
+
+dec cb3(a: bytes, b: bytes, c: bytes) -> bytes:
+    concat_bytes(concat_bytes(a, b), c)
+
+dec cb4(a: bytes, b: bytes, c: bytes, d: bytes) -> bytes:
+    concat_bytes(concat_bytes(a, b), concat_bytes(c, d))
+
+dec cb5(a: bytes, b: bytes, c: bytes, d: bytes, e: bytes) -> bytes:
+    concat_bytes(cb3(a, b, c), concat_bytes(d, e))
+
+dec merge_pairs_step(chunks: [bytes], idx: int, n: int, acc: [bytes]) -> [bytes]:
+    select(
+        idx >= n,
+        acc,
+        select(
+            idx + 1 < n,
+            merge_pairs_step(chunks, idx + 2, n, push(acc, concat_bytes(chunks[idx], chunks[idx + 1]))),
+            push(acc, chunks[idx]),
+        ),
+    )
+
+dec join_bytes(chunks: [bytes]) -> bytes:
+    let n = len(chunks)
+    select(
+        n == 0,
+        bytes(""),
+        select(
+            n == 1,
+            chunks[0],
+            join_bytes(merge_pairs_step(chunks, 0, n, [])),
+        ),
+    )
+
+dec dup_bytes(x: bytes) -> bytes:
+    cb2(x, x)
+
+dec make_nops(n: int) -> bytes:
+    select(
+        n <= 0,
+        bytes(""),
+        select(
+            n == 1,
+            b1(0x90),
+            select(
+                (n % 2) == 0,
+                dup_bytes(make_nops(n // 2)),
+                cb2(b1(0x90), make_nops(n - 1)),
+            ),
+        ),
+    )
+
+# ============================================================================
+# Section 4: x86-64 Instruction Encoders
+# ============================================================================
+
+dec jz_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x84), i32_le_bytes(len(body)), body)
+
+dec jnz_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x85), i32_le_bytes(len(body)), body)
+
+dec jb_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x82), i32_le_bytes(len(body)), body)
+
+dec jae_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x83), i32_le_bytes(len(body)), body)
+
+dec ja_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x87), i32_le_bytes(len(body)), body)
+
+dec jbe_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x86), i32_le_bytes(len(body)), body)
+
+dec jl_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x8C), i32_le_bytes(len(body)), body)
+
+dec jge_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x8D), i32_le_bytes(len(body)), body)
+
+dec jle_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x8E), i32_le_bytes(len(body)), body)
+
+dec jns_over(body: bytes) -> bytes:
+    cb3(b2(0x0F, 0x89), i32_le_bytes(len(body)), body)
+
+dec jmp_over(body: bytes) -> bytes:
+    cb3(b1(0xE9), i32_le_bytes(len(body)), body)
+
+dec jmp_rel(dist: int) -> bytes:
+    cb2(b1(0xE9), i32_le_bytes(dist))
+
+dec if_nz_else(then_code: bytes, else_code: bytes) -> bytes:
+    let then_and_jmp = cb2(then_code, jmp_rel(len(else_code)))
+    cb2(jz_over(then_and_jmp), else_code)
+
+dec if_eq_else(then_code: bytes, else_code: bytes) -> bytes:
+    let then_and_jmp = cb2(then_code, jmp_rel(len(else_code)))
+    cb2(jnz_over(then_and_jmp), else_code)
+
+dec jmp_back(body_len: int) -> bytes:
+    cb2(b1(0xE9), i32_le_bytes(0 - (body_len + 5)))
+
+dec call_rt(slot: int) -> bytes:
+    cb3(b1(0xB8), u32_le_bytes(RT_TABLE_VADDR + slot * 8), b2(0xFF, 0x10))
+
+dec call_fn(fn_idx: int) -> bytes:
+    cb3(b1(0xB8), u32_le_bytes(FN_TABLE_VADDR + fn_idx * 8), b2(0xFF, 0x10))
+
+dec load_fn_ptr_rax(fn_idx: int) -> bytes:
+    cb3(b1(0xB8), u32_le_bytes(FN_TABLE_VADDR + fn_idx * 8), b3(0x48, 0x8B, 0x00))
+
+dec mov_rax_imm64(v: int) -> bytes:
+    cb2(b2(0x48, 0xB8), i64_le_bytes(v))
+
+dec mov_rcx_imm64(v: int) -> bytes:
+    cb2(b2(0x48, 0xB9), i64_le_bytes(v))
+
+dec load_slot_rax(slot: int) -> bytes:
+    cb2(b3(0x48, 0x8B, 0x85), i32_le_bytes(0 - 8 * (slot + 1)))
+
+dec store_slot_rax(slot: int) -> bytes:
+    cb2(b3(0x48, 0x89, 0x85), i32_le_bytes(0 - 8 * (slot + 1)))
+
+dec store_arg_reg(idx: int) -> bytes:
+    let disp = i32_le_bytes(0 - 8 * (idx + 1))
+    select(
+        idx == 0,
+        cb2(b3(0x48, 0x89, 0xBD), disp),
+        select(
+            idx == 1,
+            cb2(b3(0x48, 0x89, 0xB5), disp),
+            select(
+                idx == 2,
+                cb2(b3(0x48, 0x89, 0x95), disp),
+                select(
+                    idx == 3,
+                    cb2(b3(0x48, 0x89, 0x8D), disp),
+                    select(
+                        idx == 4,
+                        cb2(b3(0x4C, 0x89, 0x85), disp),
+                        cb2(b3(0x4C, 0x89, 0x8D), disp),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec pop_arg_reg(idx: int) -> bytes:
+    select(
+        idx == 0,
+        b1(0x5F),
+        select(
+            idx == 1,
+            b1(0x5E),
+            select(
+                idx == 2,
+                b1(0x5A),
+                select(
+                    idx == 3,
+                    b1(0x59),
+                    select(idx == 4, b2(0x41, 0x58), b2(0x41, 0x59)),
+                ),
+            ),
+        ),
+    )
+
+dec emit_inline_bytes_lit(payload: bytes) -> bytes:
+    let n = len(payload)
+    cb4(
+        bytes([b8(0x48), b8(0x8D), b8(0x05), b8(5), b8(0), b8(0), b8(0)]),
+        cb2(b1(0xE9), i32_le_bytes(8 + n)),
+        i64_le_bytes(n),
+        payload,
+    )
+
+# ============================================================================
+# Section 5: Libc-Free Linux x86-64 Runtime Helpers & ELF64 Image Builder
+# ============================================================================
+
+dec build_rt_assert_fail() -> bytes:
+    let msg = bytes("aodc: AssertionFailed\n")
+    cb5(
+        bytes([b8(0x48), b8(0x8D), b8(0x35), b8(5), b8(0), b8(0), b8(0)]),
+        jmp_over(msg),
+        cb3(b5(0xBF, 2, 0, 0, 0), b5(0xBA, 22, 0, 0, 0), b5(0xB8, 1, 0, 0, 0)),
+        b2(0x0F, 0x05),
+        cb3(b5(0xBF, 1, 0, 0, 0), b5(0xB8, 60, 0, 0, 0), b2(0x0F, 0x05)),
+    )
+
+dec build_rt_alloc() -> bytes:
+    let fast_ret = cb3(b3(0x4C, 0x89, 0xF8), b3(0x49, 0x01, 0xFF), b1(0xC3))
+    let save_regs = bytes([b8(0x57), b8(0x56), b8(0x52), b8(0x51), b8(0x41), b8(0x50), b8(0x41), b8(0x51)])
+    let rest_regs = bytes([b8(0x41), b8(0x59), b8(0x41), b8(0x58), b8(0x59), b8(0x5A), b8(0x5E), b8(0x5F)])
+    let mmap_call = join_bytes([
+        save_regs,
+        b3(0x48, 0x89, 0xFE),
+        bytes([b8(0x48), b8(0x81), b8(0xC6), b8(0x00), b8(0x00), b8(0x00), b8(0x10)]),
+        b2(0x31, 0xFF),
+        b5(0xBA, 3, 0, 0, 0),
+        bytes([b8(0x41), b8(0xBA), b8(0x22), b8(0), b8(0), b8(0)]),
+        bytes([b8(0x49), b8(0xC7), b8(0xC0), b8(0xFF), b8(0xFF), b8(0xFF), b8(0xFF)]),
+        b3(0x45, 0x31, 0xC9),
+        b5(0xB8, 9, 0, 0, 0),
+        b2(0x0F, 0x05),
+        bytes([b8(0x48), b8(0x3D), b8(0x01), b8(0xF0), b8(0xFF), b8(0xFF)]),
+        jb_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x49, 0x89, 0xC7),
+        bytes([b8(0x4C), b8(0x8D), b8(0x34), b8(0x30)]),
+        rest_regs,
+        fast_ret,
+    ])
+    join_bytes([
+        b4(0x48, 0x83, 0xC7, 0x07),
+        b4(0x48, 0x83, 0xE7, 0xF8),
+        b3(0x48, 0x85, 0xFF),
+        jnz_over(b4(0x48, 0x83, 0xC7, 0x08)),
+        b4(0x49, 0x8D, 0x04, 0x3F),
+        b3(0x4C, 0x39, 0xF0),
+        ja_over(fast_ret),
+        mmap_call,
+    ])
+
+dec build_rt_cli_args() -> bytes:
+    b4(0x4C, 0x89, 0xE8, 0xC3)
+
+dec build_cstr_from_rdi() -> bytes:
+    # rdi = bytes_ptr -> rax = nul-terminated char* (clobbers rcx, rdx, rsi, rdi)
+    join_bytes([
+        b3(0x48, 0x8B, 0x0F),
+        b3(0x48, 0x85, 0xC9),
+        jnz_over(call_rt(RT_ASSERT_FAIL)),
+        b1(0x57),
+        b4(0x48, 0x8D, 0x79, 0x09),
+        call_rt(RT_ALLOC),
+        b1(0x5E),
+        b3(0x48, 0x8B, 0x0E),
+        b4(0x48, 0x83, 0xC6, 0x08),
+        b3(0x48, 0x89, 0xC2),
+        b3(0x48, 0x89, 0xC7),
+        b2(0xF3, 0xA4),
+        b3(0xC6, 0x07, 0x00),
+        b3(0x48, 0x89, 0xD0),
+    ])
+
+dec build_rt_read_file() -> bytes:
+    let read_call = join_bytes([
+        b3(0x48, 0x89, 0xDF),
+        b3(0x4C, 0x89, 0xFE),
+        b5(0xBA, 0x00, 0x00, 0x01, 0x00),
+        b2(0x31, 0xC0),
+        b2(0x0F, 0x05),
+        b3(0x48, 0x85, 0xC0),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x85, 0xC0),
+    ])
+    let adv = b3(0x49, 0x01, 0xC7)
+    let loop_tail = jz_over(cb2(adv, jmp_back(len(read_call) + 6 + len(adv))))
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        build_cstr_from_rdi(),
+        b3(0x48, 0x89, 0xC7),
+        b2(0x31, 0xF6),
+        b2(0x31, 0xD2),
+        b5(0xB8, 2, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b3(0x48, 0x85, 0xC0),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x89, 0xC3),
+        b5(0xBF, 0x10, 0x00, 0x40, 0x00),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0xC5),
+        b4(0x4C, 0x8D, 0x7D, 0x08),
+        read_call,
+        loop_tail,
+        b3(0x48, 0x89, 0xDF),
+        b5(0xB8, 3, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b3(0x4C, 0x89, 0xF8),
+        b4(0x48, 0x8D, 0x4D, 0x08),
+        b3(0x48, 0x29, 0xC8),
+        b4(0x48, 0x89, 0x45, 0x00),
+        b4(0x49, 0x83, 0xC7, 0x07),
+        b4(0x49, 0x83, 0xE7, 0xF8),
+        b3(0x48, 0x89, 0xE8),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_write_elf() -> bytes:
+    let wr_step = join_bytes([
+        b3(0x48, 0x89, 0xDF),
+        b3(0x48, 0x89, 0xEE),
+        b3(0x4C, 0x89, 0xE2),
+        b5(0xB8, 1, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b3(0x48, 0x85, 0xC0),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x01, 0xC5),
+        b3(0x49, 0x29, 0xC4),
+    ])
+    let wr_hdr = b3(0x4D, 0x85, 0xE4)
+    let wr_loop = cb2(wr_hdr, jz_over(cb2(wr_step, jmp_back(len(wr_hdr) + 6 + len(wr_step)))))
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x49, 0x89, 0xF4),
+        b5(0x49, 0x83, 0x3C, 0x24, 0x40),
+        jae_over(call_rt(RT_ASSERT_FAIL)),
+        bytes([b8(0x41), b8(0x81), b8(0x7C), b8(0x24), b8(0x08), b8(0x7F), b8(0x45), b8(0x4C), b8(0x46)]),
+        jz_over(call_rt(RT_ASSERT_FAIL)),
+        build_cstr_from_rdi(),
+        b3(0x48, 0x89, 0xC7),
+        b5(0xBE, 0x41, 0x02, 0x00, 0x00),
+        b5(0xBA, 0xED, 0x01, 0x00, 0x00),
+        b5(0xB8, 2, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b3(0x48, 0x85, 0xC0),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x89, 0xC3),
+        b5(0x49, 0x8D, 0x6C, 0x24, 0x08),
+        b4(0x4D, 0x8B, 0x24, 0x24),
+        b2(0x41, 0x54),
+        wr_loop,
+        b3(0x48, 0x89, 0xDF),
+        b5(0xBE, 0xED, 0x01, 0x00, 0x00),
+        b5(0xB8, 91, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b3(0x48, 0x89, 0xDF),
+        b5(0xB8, 3, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b1(0x58),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_div_rem_floor(is_rem: int) -> bytes:
+    let adj = cb2(b3(0x48, 0xFF, 0xC8), b3(0x48, 0x01, 0xF2))
+    let chk_opp = cb3(b3(0x48, 0x89, 0xD1), b3(0x48, 0x31, 0xF1), jns_over(adj))
+    let tail = select(is_rem == 1, b4(0x48, 0x89, 0xD0, 0xC3), b1(0xC3))
+    join_bytes([
+        b3(0x48, 0x85, 0xF6),
+        jnz_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x89, 0xF8),
+        b2(0x48, 0x99),
+        b3(0x48, 0xF7, 0xFE),
+        b3(0x48, 0x85, 0xD2),
+        jz_over(chk_opp),
+        tail,
+    ])
+
+dec build_rt_bytes_eq() -> bytes:
+    let ret0 = cb2(b2(0x31, 0xC0), b1(0xC3))
+    let ret1 = cb2(b5(0xB8, 1, 0, 0, 0), b1(0xC3))
+    join_bytes([
+        b3(0x48, 0x8B, 0x0F),
+        b3(0x48, 0x3B, 0x0E),
+        jz_over(ret0),
+        b3(0x48, 0x85, 0xC9),
+        jnz_over(ret1),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        b4(0x48, 0x83, 0xC6, 0x08),
+        b2(0xF3, 0xA6),
+        b3(0x0F, 0x94, 0xC0),
+        b3(0x0F, 0xB6, 0xC0),
+        b1(0xC3),
+    ])
+
+dec build_rt_push_byte() -> bytes:
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b4(0x49, 0x8B, 0x2C, 0x24),
+        b4(0x48, 0x8D, 0x7D, 0x09),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x4D, 0x01),
+        b3(0x48, 0x89, 0x0A),
+        b3(0x48, 0x89, 0xE9),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b2(0xF3, 0xA4),
+        b2(0x88, 0x1F),
+        b3(0x48, 0x89, 0xD0),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_concat_bytes() -> bytes:
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b4(0x49, 0x8B, 0x2C, 0x24),
+        b3(0x48, 0x03, 0x2B),
+        b4(0x48, 0x8D, 0x7D, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0x28),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b4(0x49, 0x8B, 0x0C, 0x24),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b2(0xF3, 0xA4),
+        b3(0x48, 0x8B, 0x0B),
+        b4(0x48, 0x8D, 0x73, 0x08),
+        b2(0xF3, 0xA4),
+        b3(0x48, 0x89, 0xD0),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_slice_bytes() -> bytes:
+    # rdi = b, rsi = start, rdx = end
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x85, 0xF6),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x39, 0xD6),
+        jle_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x3B, 0x17),
+        jbe_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b3(0x48, 0x89, 0xD5),
+        b3(0x48, 0x29, 0xDD),
+        b4(0x48, 0x8D, 0x7D, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0x28),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b3(0x48, 0x01, 0xDE),
+        b3(0x48, 0x89, 0xE9),
+        b2(0xF3, 0xA4),
+        b3(0x48, 0x89, 0xD0),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_le_bytes() -> bytes:
+    # rdi = val, rsi = width (2, 4, or 8)
+    join_bytes([
+        b2(0x57, 0x56),
+        b4(0x48, 0x8D, 0x7E, 0x08),
+        call_rt(RT_ALLOC),
+        b2(0x5E, 0x5F),
+        b3(0x48, 0x89, 0x30),
+        b4(0x48, 0x89, 0x78, 0x08),
+        b1(0xC3),
+    ])
+
+dec build_rt_bytes_from_list() -> bytes:
+    # rdi = list_of_b8
+    let step = join_bytes([
+        b3(0x48, 0x89, 0xD9),
+        b4(0x48, 0xC1, 0xE1, 0x03),
+        b3(0x48, 0x01, 0xE9),
+        b4(0x48, 0x8B, 0x49, 0x08),
+        b3(0x48, 0x89, 0xC2),
+        b3(0x48, 0x01, 0xDA),
+        b3(0x88, 0x4A, 0x08),
+        b3(0x48, 0xFF, 0xC3),
+    ])
+    let hdr = b4(0x48, 0x3B, 0x5D, 0x00)
+    let lp = cb2(hdr, jae_over(cb2(step, jmp_back(len(hdr) + 6 + len(step)))))
+    join_bytes([
+        b3(0x55, 0x53, 0x48),
+        b2(0x89, 0xFD),
+        b4(0x48, 0x8B, 0x7D, 0x00),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b4(0x48, 0x8B, 0x4D, 0x00),
+        b3(0x48, 0x89, 0x08),
+        b2(0x31, 0xDB),
+        lp,
+        b3(0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_seq_get() -> bytes:
+    join_bytes([
+        b3(0x48, 0x3B, 0x37),
+        jb_over(call_rt(RT_ASSERT_FAIL)),
+        b4(0x48, 0xC1, 0xE6, 0x03),
+        b3(0x48, 0x01, 0xF7),
+        b4(0x48, 0x8B, 0x47, 0x08),
+        b1(0xC3),
+    ])
+
+dec build_rt_bytes_get() -> bytes:
+    join_bytes([
+        b3(0x48, 0x3B, 0x37),
+        jb_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x01, 0xF7),
+        b5(0x0F, 0xB6, 0x47, 0x08, 0xC3),
+    ])
+
+dec build_rt_seq_push() -> bytes:
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b4(0x49, 0x8B, 0x2C, 0x24),
+        b4(0x48, 0x8D, 0x45, 0x01),
+        b3(0x48, 0x89, 0xC7),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x4D, 0x01),
+        b3(0x48, 0x89, 0x0A),
+        b3(0x48, 0x89, 0xE9),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b3(0xF3, 0x48, 0xA5),
+        b3(0x48, 0x89, 0x1F),
+        b3(0x48, 0x89, 0xD0),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_seq_concat() -> bytes:
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b4(0x49, 0x8B, 0x2C, 0x24),
+        b3(0x48, 0x03, 0x2B),
+        b3(0x48, 0x89, 0xEF),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0x28),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b4(0x49, 0x8B, 0x0C, 0x24),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b3(0xF3, 0x48, 0xA5),
+        b3(0x48, 0x8B, 0x0B),
+        b4(0x48, 0x8D, 0x73, 0x08),
+        b3(0xF3, 0x48, 0xA5),
+        b3(0x48, 0x89, 0xD0),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_seq_slice() -> bytes:
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x85, 0xF6),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x39, 0xD6),
+        jle_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x48, 0x3B, 0x17),
+        jbe_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b3(0x48, 0x89, 0xD5),
+        b3(0x48, 0x29, 0xDD),
+        b3(0x48, 0x89, 0xEF),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0x28),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b4(0x48, 0xC1, 0xE3, 0x03),
+        b3(0x48, 0x01, 0xDE),
+        b3(0x48, 0x89, 0xE9),
+        b3(0xF3, 0x48, 0xA5),
+        b3(0x48, 0x89, 0xD0),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_seq_set_at() -> bytes:
+    # rdi = seq, rsi = idx, rdx = val
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x3B, 0x37),
+        jb_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF3),
+        b3(0x48, 0x89, 0xD5),
+        b4(0x49, 0x8B, 0x3C, 0x24),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x49, 0x8B, 0x0C, 0x24),
+        b3(0x48, 0x89, 0x0A),
+        b5(0x49, 0x8D, 0x74, 0x24, 0x08),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b3(0xF3, 0x48, 0xA5),
+        b4(0x48, 0xC1, 0xE3, 0x03),
+        b3(0x48, 0x89, 0xD0),
+        b3(0x48, 0x01, 0xDA),
+        b4(0x48, 0x89, 0x6A, 0x08),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_range_seq() -> bytes:
+    # rdi = start, rsi = end
+    let empty_clamp = b2(0x31, 0xED)
+    let step = join_bytes([
+        b3(0x48, 0x89, 0xC2),
+        b3(0x48, 0x89, 0xDF),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b3(0x48, 0x01, 0xFA),
+        b4(0x49, 0x8D, 0x0C, 0x1C),
+        b4(0x48, 0x89, 0x4A, 0x08),
+        b3(0x48, 0xFF, 0xC3),
+    ])
+    let hdr = b3(0x48, 0x39, 0xEB)
+    let lp = cb2(hdr, jae_over(cb2(step, jmp_back(len(hdr) + 6 + len(step)))))
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x49, 0x89, 0xFC),
+        b3(0x48, 0x89, 0xF5),
+        b3(0x4C, 0x29, 0xE5),
+        jge_over(empty_clamp),
+        b3(0x48, 0x89, 0xEF),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x48, 0x89, 0x28),
+        b2(0x31, 0xDB),
+        lp,
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_sum_seq() -> bytes:
+    let step = join_bytes([
+        b3(0x48, 0x89, 0xCA),
+        b4(0x48, 0xC1, 0xE2, 0x03),
+        b3(0x48, 0x01, 0xFA),
+        b4(0x48, 0x03, 0x42, 0x08),
+        b3(0x48, 0xFF, 0xC1),
+    ])
+    let hdr = b3(0x48, 0x3B, 0x0F)
+    let lp = cb2(hdr, jae_over(cb2(step, jmp_back(len(hdr) + 6 + len(step)))))
+    cb4(b2(0x31, 0xC0), b2(0x31, 0xC9), lp, b1(0xC3))
+
+dec build_rt_walk() -> bytes:
+    let step = cb3(b3(0x48, 0x89, 0xC7), b3(0x41, 0xFF, 0xD4), b3(0x48, 0xFF, 0xCB))
+    let hdr = b3(0x48, 0x85, 0xDB)
+    let lp = cb2(hdr, jz_over(cb2(step, jmp_back(len(hdr) + 6 + len(step)))))
+    join_bytes([
+        b3(0x48, 0x85, 0xF6),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x89, 0xF8),
+        b3(0x48, 0x89, 0xF3),
+        b3(0x49, 0x89, 0xD4),
+        lp,
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_settle() -> bytes:
+    let chk_fuel = cb2(b3(0x48, 0x85, 0xDB), jnz_over(call_rt(RT_ASSERT_FAIL)))
+    let call_step = join_bytes([
+        b3(0x48, 0x89, 0xC5),
+        b3(0x48, 0x89, 0xC7),
+        b3(0x41, 0xFF, 0xD4),
+        b3(0x48, 0xFF, 0xCB),
+        b3(0x48, 0x39, 0xE8),
+    ])
+    let pre_len = len(chk_fuel) + len(call_step)
+    let lp = cb3(chk_fuel, call_step, jz_over(jmp_back(pre_len + 6)))
+    join_bytes([
+        b3(0x48, 0x85, 0xF6),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x89, 0xF8),
+        b3(0x48, 0x89, 0xF3),
+        b3(0x49, 0x89, 0xD4),
+        lp,
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_fold() -> bytes:
+    let step = join_bytes([
+        b3(0x48, 0x89, 0xC7),
+        b3(0x48, 0x89, 0xDA),
+        b4(0x48, 0xC1, 0xE2, 0x03),
+        b3(0x48, 0x01, 0xEA),
+        b4(0x48, 0x8B, 0x72, 0x08),
+        b3(0x41, 0xFF, 0xD4),
+        b3(0x48, 0xFF, 0xC3),
+    ])
+    let hdr = b4(0x48, 0x3B, 0x5D, 0x00)
+    let lp = cb2(hdr, jae_over(cb2(step, jmp_back(len(hdr) + 6 + len(step)))))
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x89, 0xFD),
+        b3(0x48, 0x89, 0xF0),
+        b3(0x49, 0x89, 0xD4),
+        b2(0x31, 0xDB),
+        lp,
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_each() -> bytes:
+    let step = join_bytes([
+        b3(0x48, 0x89, 0xD8),
+        b4(0x48, 0xC1, 0xE0, 0x03),
+        b3(0x48, 0x01, 0xE8),
+        b4(0x48, 0x8B, 0x78, 0x08),
+        b3(0x41, 0xFF, 0xD4),
+        b4(0x48, 0x8B, 0x0C, 0x24),
+        b3(0x48, 0x89, 0xDA),
+        b4(0x48, 0xC1, 0xE2, 0x03),
+        b3(0x48, 0x01, 0xD1),
+        b4(0x48, 0x89, 0x41, 0x08),
+        b3(0x48, 0xFF, 0xC3),
+    ])
+    let hdr = b4(0x48, 0x3B, 0x5D, 0x00)
+    let lp = cb2(hdr, jae_over(cb2(step, jmp_back(len(hdr) + 6 + len(step)))))
+    join_bytes([
+        b4(0x55, 0x53, 0x41, 0x54),
+        b3(0x48, 0x89, 0xFD),
+        b3(0x49, 0x89, 0xF4),
+        b4(0x48, 0x8B, 0x7D, 0x00),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b1(0x50),
+        b4(0x48, 0x8B, 0x4D, 0x00),
+        b3(0x48, 0x89, 0x08),
+        b2(0x31, 0xDB),
+        lp,
+        b1(0x58),
+        b5(0x41, 0x5C, 0x5B, 0x5D, 0xC3),
+    ])
+
+dec build_rt_emit_int() -> bytes:
+    let neg_adj = cb2(b4(0x41, 0xB0, 0x01, 0x48), b2(0xF7, 0xD8))
+    let dig_step = join_bytes([
+        b2(0x31, 0xD2),
+        b3(0x49, 0xF7, 0xF1),
+        b3(0x80, 0xC2, 0x30),
+        b3(0x48, 0xFF, 0xC9),
+        b2(0x88, 0x11),
+        b3(0x48, 0x85, 0xC0),
+    ])
+    let dig_loop = cb2(dig_step, jz_over(jmp_back(len(dig_step) + 6)))
+    let put_minus = cb2(b3(0x48, 0xFF, 0xC9), b3(0xC6, 0x01, 0x2D))
+    join_bytes([
+        b4(0x48, 0x83, 0xEC, 0x28),
+        bytes([b8(0xC6), b8(0x44), b8(0x24), b8(0x1F), b8(0x0A)]),
+        bytes([b8(0x48), b8(0x8D), b8(0x4C), b8(0x24), b8(0x1F)]),
+        b3(0x48, 0x89, 0xF8),
+        b3(0x45, 0x31, 0xC0),
+        b3(0x48, 0x85, 0xC0),
+        jns_over(neg_adj),
+        bytes([b8(0x41), b8(0xB9), b8(10), b8(0), b8(0), b8(0)]),
+        dig_loop,
+        b3(0x45, 0x84, 0xC0),
+        jz_over(put_minus),
+        bytes([b8(0x48), b8(0x8D), b8(0x54), b8(0x24), b8(0x20)]),
+        b3(0x48, 0x29, 0xCA),
+        b3(0x48, 0x89, 0xCE),
+        b5(0xBF, 1, 0, 0, 0),
+        b5(0xB8, 1, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b4(0x48, 0x83, 0xC4, 0x28),
+        b1(0xC3),
+    ])
+
+dec build_rt_emit_str() -> bytes:
+    let nl = emit_inline_bytes_lit(bytes("\n"))
+    let wr_str = join_bytes([
+        b3(0x48, 0x8B, 0x17),
+        b4(0x48, 0x8D, 0x77, 0x08),
+        b5(0xBF, 1, 0, 0, 0),
+        b5(0xB8, 1, 0, 0, 0),
+        b2(0x0F, 0x05),
+    ])
+    join_bytes([
+        b4(0x48, 0x83, 0x3F, 0x00),
+        jz_over(wr_str),
+        nl,
+        b4(0x48, 0x8D, 0x70, 0x08),
+        b5(0xBF, 1, 0, 0, 0),
+        b5(0xBA, 1, 0, 0, 0),
+        b5(0xB8, 1, 0, 0, 0),
+        b2(0x0F, 0x05),
+        b1(0xC3),
+    ])
+
+dec build_rt_emit_bool() -> bytes:
+    let t_lit = cb3(emit_inline_bytes_lit(bytes("true")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR))
+    let f_lit = cb3(emit_inline_bytes_lit(bytes("false")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR))
+    join_bytes([
+        b3(0x48, 0x85, 0xFF),
+        jz_over(cb2(t_lit, b1(0xC3))),
+        f_lit,
+        b1(0xC3),
+    ])
+
+dec build_rt_emit_t1() -> bytes:
+    let n_lit = cb4(emit_inline_bytes_lit(bytes("t1(-1)")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR), b1(0xC3))
+    let z_lit = cb4(emit_inline_bytes_lit(bytes("t1(0)")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR), b1(0xC3))
+    let p_lit = cb4(emit_inline_bytes_lit(bytes("t1(1)")), b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_STR), b1(0xC3))
+    join_bytes([
+        b4(0x48, 0x83, 0xFF, 0xFF),
+        jnz_over(n_lit),
+        b3(0x48, 0x85, 0xFF),
+        jnz_over(z_lit),
+        p_lit,
+    ])
+
+dec build_rt_pack_trit32() -> bytes:
+    # Bias u = x + 926510094425920 in [0..=1853020188851840]; extract 32 base-3 digits -> 2-bit lanes
+    let lane_neg = b4(0x41, 0xB2, 0x02, 0x90)
+    let lane_pos = b4(0x41, 0xB2, 0x01, 0x90)
+    let step = join_bytes([
+        b2(0x31, 0xD2),
+        b3(0x49, 0xF7, 0xF1),
+        b3(0x45, 0x31, 0xD2),
+        b3(0x48, 0x85, 0xD2),
+        jnz_over(lane_neg),
+        b4(0x48, 0x83, 0xFA, 0x02),
+        jnz_over(lane_pos),
+        b3(0x49, 0xD3, 0xE2),
+        b3(0x4D, 0x09, 0xD0),
+        b3(0x80, 0xC1, 0x02),
+        b3(0x80, 0xF9, 0x40),
+    ])
+    let lp = cb2(step, jae_over(jmp_back(len(step) + 6)))
+    join_bytes([
+        mov_rax_imm64(926510094425920),
+        b3(0x48, 0x01, 0xF8),
+        b3(0x48, 0x85, 0xC0),
+        jns_over(call_rt(RT_ASSERT_FAIL)),
+        cb2(b2(0x48, 0xBA), i64_le_bytes(1853020188851840)),
+        b3(0x48, 0x39, 0xD0),
+        jbe_over(call_rt(RT_ASSERT_FAIL)),
+        bytes([b8(0x41), b8(0xB9), b8(3), b8(0), b8(0), b8(0)]),
+        b3(0x45, 0x31, 0xC0),
+        b2(0x31, 0xC9),
+        lp,
+        b3(0x4C, 0x89, 0xC0),
+        b1(0xC3),
+    ])
+
+dec build_rt_unpack_trit32() -> bytes:
+    let is_pos = b3(0x48, 0xFF, 0xC0)
+    let is_neg = b3(0x48, 0xFF, 0xC8)
+    let step = join_bytes([
+        b4(0x48, 0x6B, 0xC0, 0x03),
+        b3(0x48, 0x89, 0xFA),
+        b3(0x48, 0xD3, 0xEA),
+        b3(0x83, 0xE2, 0x03),
+        b3(0x83, 0xFA, 0x03),
+        jnz_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x83, 0xFA, 0x01),
+        jnz_over(is_pos),
+        b3(0x83, 0xFA, 0x02),
+        jnz_over(is_neg),
+        b3(0x80, 0xE9, 0x02),
+    ])
+    let lp = cb2(step, jl_over(jmp_back(len(step) + 6)))
+    cb4(b2(0x31, 0xC0), b2(0xB1, 0x3E), lp, b1(0xC3))
+
+dec build_start_code(main_idx: int, main_prints_int: int) -> bytes:
+    # _start: Q4 H1 check, 256 MiB mmap bump arena in r15..r14, cli_args list in r13, call main, exit(0)
+    let strlen_step = b3(0x48, 0xFF, 0xC1)
+    let strlen_hdr = bytes([b8(0x80), b8(0x3C), b8(0x0E), b8(0x00)])
+    let strlen_lp = cb2(strlen_hdr, jz_over(cb2(strlen_step, jmp_back(len(strlen_hdr) + 6 + len(strlen_step)))))
+    let push_arg = join_bytes([
+        b2(0x31, 0xC9),
+        strlen_lp,
+        b1(0x56),
+        b4(0x48, 0x8D, 0x79, 0x08),
+        call_rt(RT_ALLOC),
+        b1(0x5E),
+        b2(0x31, 0xC9),
+        strlen_lp,
+        b3(0x48, 0x89, 0x08),
+        b3(0x48, 0x89, 0xC2),
+        b4(0x48, 0x8D, 0x7A, 0x08),
+        b2(0xF3, 0xA4),
+        b4(0x49, 0x8B, 0x4D, 0x00),
+        b4(0x48, 0xC1, 0xE1, 0x03),
+        b3(0x4C, 0x01, 0xE9),
+        b4(0x48, 0x89, 0x51, 0x08),
+        b4(0x49, 0xFF, 0x45, 0x00),
+        b3(0x48, 0xFF, 0xC5),
+    ])
+    # Clean non-nested check: is_flag = (idx > 0 && s[0] == '-' && s[1] == '-' && s[2] != 0)
+    let test_flag = join_bytes([
+        b2(0x31, 0xC0),
+        b3(0x48, 0x85, 0xED),
+        jz_over(join_bytes([
+            b3(0x80, 0x3E, 0x2D),
+            jnz_over(join_bytes([
+                b4(0x80, 0x7E, 0x01, 0x2D),
+                jnz_over(join_bytes([
+                    b4(0x80, 0x7E, 0x02, 0x00),
+                    jz_over(b5(0xB8, 1, 0, 0, 0)),
+                ])),
+            ])),
+        ])),
+        b3(0x48, 0x85, 0xC0),
+        if_nz_else(b4(0x48, 0x83, 0xC5, 0x02), push_arg),
+    ])
+    let arg_body = join_bytes([
+        b3(0x48, 0x89, 0xE8),
+        b4(0x48, 0xC1, 0xE0, 0x03),
+        b3(0x48, 0x01, 0xD8),
+        b4(0x48, 0x8B, 0x70, 0x08),
+        test_flag,
+    ])
+    let arg_hdr = b3(0x4C, 0x39, 0xE5)
+    let arg_lp = cb2(arg_hdr, jae_over(cb2(arg_body, jmp_back(len(arg_hdr) + 6 + len(arg_body)))))
+    let print_tail = select(
+        main_prints_int == 1,
+        cb2(b3(0x48, 0x89, 0xC7), call_rt(RT_EMIT_INT)),
+        bytes(""),
+    )
+    join_bytes([
+        b3(0x48, 0x89, 0xE3),
+        b4(0x48, 0x83, 0xE4, 0xF0),
+        # Hardware Q4 Hamming-1 check (0 ^ 1 -> popcnt == 1)
+        b5(0xBF, 0, 0, 0, 0),
+        b5(0xBE, 1, 0, 0, 0),
+        b2(0x31, 0xF7),
+        b4(0xF3, 0x0F, 0xB8, 0xC7),
+        # Initial 256 MiB sys_mmap bump arena -> r15..r14
+        b2(0x31, 0xFF),
+        b5(0xBE, 0x00, 0x00, 0x00, 0x10),
+        b5(0xBA, 3, 0, 0, 0),
+        bytes([b8(0x41), b8(0xBA), b8(0x22), b8(0), b8(0), b8(0)]),
+        bytes([b8(0x49), b8(0xC7), b8(0xC0), b8(0xFF), b8(0xFF), b8(0xFF), b8(0xFF)]),
+        b3(0x45, 0x31, 0xC9),
+        b5(0xB8, 9, 0, 0, 0),
+        b2(0x0F, 0x05),
+        bytes([b8(0x48), b8(0x3D), b8(0x01), b8(0xF0), b8(0xFF), b8(0xFF)]),
+        jb_over(call_rt(RT_ASSERT_FAIL)),
+        b3(0x49, 0x89, 0xC7),
+        bytes([b8(0x4C), b8(0x8D), b8(0xB0), b8(0x00), b8(0x00), b8(0x00), b8(0x10)]),
+        # Build cli_args in r13 from [rbx]
+        b3(0x4C, 0x8B, 0x23),
+        b3(0x4C, 0x89, 0xE7),
+        b4(0x48, 0xC1, 0xE7, 0x03),
+        b4(0x48, 0x83, 0xC7, 0x08),
+        call_rt(RT_ALLOC),
+        b3(0x49, 0x89, 0xC5),
+        b5(0x49, 0xC7, 0x45, 0x00, 0x00),
+        b3(0x00, 0x00, 0x00),
+        b2(0x31, 0xED),
+        arg_lp,
+        # Invoke Dec main()
+        call_fn(main_idx),
+        print_tail,
+        b2(0x31, 0xFF),
+        b5(0xB8, 60, 0, 0, 0),
+        b2(0x0F, 0x05),
+    ])
+
+struct RtLayoutAcc:
+    cur_vaddr: int
+    ptrs: [bytes]
+    blobs: [bytes]
+
+dec add_rt_fn(acc: RtLayoutAcc, code: bytes) -> RtLayoutAcc:
+    RtLayoutAcc(
+        acc.cur_vaddr + len(code),
+        push(acc.ptrs, i64_le_bytes(acc.cur_vaddr)),
+        push(acc.blobs, code),
+    )
+
+dec build_rt_section(main_idx: int, main_prints_int: int) -> bytes:
+    let st_code = build_start_code(main_idx, main_prints_int)
+    let helpers: [bytes] = [
+        build_rt_alloc(),
+        build_rt_cli_args(),
+        build_rt_read_file(),
+        build_rt_write_elf(),
+        build_rt_div_rem_floor(0),
+        build_rt_div_rem_floor(1),
+        build_rt_bytes_eq(),
+        build_rt_push_byte(),
+        build_rt_concat_bytes(),
+        build_rt_slice_bytes(),
+        build_rt_le_bytes(),
+        build_rt_bytes_from_list(),
+        build_rt_seq_get(),
+        build_rt_bytes_get(),
+        build_rt_seq_push(),
+        build_rt_seq_concat(),
+        build_rt_seq_slice(),
+        build_rt_seq_set_at(),
+        build_rt_range_seq(),
+        build_rt_sum_seq(),
+        build_rt_walk(),
+        build_rt_settle(),
+        build_rt_fold(),
+        build_rt_each(),
+        build_rt_emit_int(),
+        build_rt_emit_str(),
+        build_rt_emit_bool(),
+        build_rt_emit_t1(),
+        build_rt_assert_fail(),
+        build_rt_pack_trit32(),
+        build_rt_unpack_trit32(),
+        b1(0xC3),
+    ]
+    let init_acc = RtLayoutAcc(ELF_ENTRY_VADDR + len(st_code), [], [st_code])
+    let fin_acc = fold(helpers, init_acc, add_rt_fn)
+    let code_blob = join_bytes(fin_acc.blobs)
+    let pad_len = (RT_TABLE_VADDR - ELF_ENTRY_VADDR) - len(code_blob)
+    assert pad_len >= 0
+    let tbl_blob = join_bytes(fin_acc.ptrs)
+    assert len(tbl_blob) == 256
+    cb3(code_blob, make_nops(pad_len), tbl_blob)
+
+dec build_elf64_headers(total_len: int) -> bytes:
+    let ehdr = join_bytes([
+        bytes([b8(0x7F), b8(0x45), b8(0x4C), b8(0x46), b8(2), b8(1), b8(1), b8(0)]),
+        i64_le_bytes(0),
+        u16_le_bytes(2),
+        u16_le_bytes(62),
+        u32_le_bytes(1),
+        i64_le_bytes(ELF_ENTRY_VADDR),
+        i64_le_bytes(64),
+        i64_le_bytes(0),
+        u32_le_bytes(0),
+        u16_le_bytes(64),
+        u16_le_bytes(56),
+        u16_le_bytes(1),
+        u16_le_bytes(0),
+        u16_le_bytes(0),
+        u16_le_bytes(0),
+    ])
+    let phdr = join_bytes([
+        u32_le_bytes(1),
+        u32_le_bytes(5),
+        i64_le_bytes(0),
+        i64_le_bytes(ELF_BASE_VADDR),
+        i64_le_bytes(ELF_BASE_VADDR),
+        i64_le_bytes(total_len),
+        i64_le_bytes(total_len),
+        i64_le_bytes(4096),
+    ])
+    cb2(ehdr, phdr)
+
+# ============================================================================
+# Section 6: Character Predicates, Top-Level 00_8 Spine Scanner, & Block Lexer
+# ============================================================================
+
+dec is_alpha(c: int) -> bool:
+    (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 95
+
+dec is_digit(c: int) -> bool:
+    c >= 48 and c <= 57
+
+dec is_alnum(c: int) -> bool:
+    is_alpha(c) or is_digit(c)
+
+dec is_hex_char(c: int) -> bool:
+    is_digit(c) or (c >= 65 and c <= 70) or (c >= 97 and c <= 102)
+
+dec hex_val(c: int) -> int:
+    select(
+        c >= 48 and c <= 57,
+        c - 48,
+        select(c >= 65 and c <= 70, c - 55, c - 87),
+    )
+
+dec find_nl_chunk(src: bytes, pos: int, limit: int, fuel: int) -> int:
+    select(
+        pos >= limit or fuel <= 0,
+        pos,
+        select(int(src[pos]) == 10, pos, find_nl_chunk(src, pos + 1, limit, fuel - 1)),
+    )
+
+dec find_nl(src: bytes, pos: int, limit: int) -> int:
+    let p1 = find_nl_chunk(src, pos, limit, 128)
+    select(p1 >= limit or int(src[p1]) == 10, p1, find_nl(src, p1, limit))
+
+dec skip_spaces_chunk(src: bytes, pos: int, limit: int, fuel: int) -> int:
+    select(
+        pos >= limit or fuel <= 0,
+        pos,
+        select(
+            int(src[pos]) == 32 or int(src[pos]) == 9 or int(src[pos]) == 13,
+            skip_spaces_chunk(src, pos + 1, limit, fuel - 1),
+            pos,
+        ),
+    )
+
+dec skip_spaces(src: bytes, pos: int, limit: int) -> int:
+    let p1 = skip_spaces_chunk(src, pos, limit, 128)
+    select(
+        p1 < limit and (int(src[p1]) == 32 or int(src[p1]) == 9 or int(src[p1]) == 13),
+        skip_spaces(src, p1, limit),
+        p1,
+    )
+
+dec has_prefix_at(src: bytes, pos: int, limit: int, pat: bytes) -> bool:
+    let plen = len(pat)
+    select(pos + plen > limit, false, slice_bytes(src, pos, pos + plen) == pat)
+
+dec top_line_kind(src: bytes, pos: int, limit: int) -> int:
+    select(
+        has_prefix_at(src, pos, limit, bytes("dec ")),
+        TK_DEC,
+        select(
+            has_prefix_at(src, pos, limit, bytes("struct ")),
+            TK_STRUCT,
+            select(
+                has_prefix_at(src, pos, limit, bytes("const ")),
+                TK_CONST,
+                select(has_prefix_at(src, pos, limit, bytes("use ")), TK_USE, 0),
+            ),
+        ),
+    )
+
+struct TopScanState:
+    src: bytes
+    pos: int
+    limit: int
+    cur_kind: int
+    cur_start: int
+    octal_anchor: int
+    dwell_burned: int
+    blocks: [TopBlock]
+
+dec scan_top_line(st: TopScanState) -> TopScanState:
+    select(
+        st.pos >= st.limit,
+        st,
+        scan_top_line_nonempty(st),
+    )
+
+dec scan_top_line_nonempty(st: TopScanState) -> TopScanState:
+    let nl = find_nl(st.src, st.pos, st.limit)
+    let next_p = select(nl < st.limit, nl + 1, st.limit)
+    let sp = skip_spaces(st.src, st.pos, nl)
+    let lead = sp - st.pos
+    let dwell_add = select(lead > 1, lead - 1, 0)
+    let is_blank_or_comment = sp >= nl or int(st.src[sp]) == 35
+    select(
+        is_blank_or_comment,
+        TopScanState(
+            st.src,
+            next_p,
+            st.limit,
+            st.cur_kind,
+            st.cur_start,
+            st.octal_anchor,
+            st.dwell_burned + dwell_add + 1,
+            st.blocks,
+        ),
+        select(
+            lead == 0,
+            scan_top_col0(st, next_p, dwell_add),
+            TopScanState(
+                st.src,
+                next_p,
+                st.limit,
+                st.cur_kind,
+                st.cur_start,
+                st.octal_anchor,
+                st.dwell_burned + dwell_add,
+                st.blocks,
+            ),
+        ),
+    )
+
+dec scan_top_col0(st: TopScanState, next_p: int, dwell_add: int) -> TopScanState:
+    let k = top_line_kind(st.src, st.pos, st.limit)
+    assert k != 0
+    let prev_blocks = select(
+        st.cur_kind == 0,
+        st.blocks,
+        push(st.blocks, TopBlock(st.cur_kind, st.cur_start, st.pos)),
+    )
+    let next_anchor = select(k == TK_DEC, st.octal_anchor + 1, st.octal_anchor)
+    TopScanState(
+        st.src,
+        next_p,
+        st.limit,
+        k,
+        st.pos,
+        next_anchor,
+        st.dwell_burned + dwell_add,
+        prev_blocks,
+    )
+
+dec scan_top_batch(st: TopScanState, rem: int) -> TopScanState:
+    select(rem <= 0 or st.pos >= st.limit, st, scan_top_batch(scan_top_line(st), rem - 1))
+
+dec scan_top_all(st: TopScanState) -> TopScanState:
+    select(st.pos >= st.limit, st, scan_top_all(scan_top_batch(st, 64)))
+
+dec split_and_audit_source(src: bytes) -> [TopBlock]:
+    # §5.17 Spine & 00_8 Anchor Audit: start at explicit 00_8 octal anchor
+    let anchor0 = 00_8
+    assert anchor0 != 0_8
+    let n = len(src)
+    let empty_blks: [TopBlock] = []
+    let init = TopScanState(src, 0, n, 0, 0, 0, 0, empty_blks)
+    let fin = scan_top_all(init)
+    let all_blks = select(
+        fin.cur_kind == 0,
+        fin.blocks,
+        push(fin.blocks, TopBlock(fin.cur_kind, fin.cur_start, n)),
+    )
+    assert fin.octal_anchor >= 1
+    assert fin.dwell_burned >= 0
+    all_blks
+
+# --- Indentation-Aware Per-Block Lexer ---
+
+dec scan_ident_end(src: bytes, pos: int, limit: int) -> int:
+    select(
+        pos < limit and is_alnum(int(src[pos])),
+        scan_ident_end(src, pos + 1, limit),
+        pos,
+    )
+
+struct NumScan:
+    end_pos: int
+    kind: int
+    val: int
+
+dec scan_hex_digits(src: bytes, pos: int, limit: int, acc: int) -> NumScan:
+    select(
+        pos >= limit,
+        NumScan(pos, TK_INT, acc),
+        select(
+            int(src[pos]) == 95,
+            scan_hex_digits(src, pos + 1, limit, acc),
+            select(
+                is_hex_char(int(src[pos])),
+                scan_hex_digits(src, pos + 1, limit, acc * 16 + hex_val(int(src[pos]))),
+                NumScan(pos, TK_INT, acc),
+            ),
+        ),
+    )
+
+dec scan_bin_digits(src: bytes, pos: int, limit: int, acc: int) -> NumScan:
+    select(
+        pos >= limit,
+        NumScan(pos, TK_INT, acc),
+        select(
+            int(src[pos]) == 95,
+            scan_bin_digits(src, pos + 1, limit, acc),
+            select(
+                int(src[pos]) == 48 or int(src[pos]) == 49,
+                scan_bin_digits(src, pos + 1, limit, acc * 2 + (int(src[pos]) - 48)),
+                NumScan(pos, TK_INT, acc),
+            ),
+        ),
+    )
+
+dec scan_oct_digits(src: bytes, pos: int, limit: int, acc: int, digits: int) -> NumScan:
+    select(
+        pos >= limit,
+        NumScan(pos, TK_OCTAL, (digits * 1099511627776) + acc),
+        select(
+            is_digit(int(src[pos])),
+            scan_oct_digit_one(src, pos, limit, acc, digits),
+            NumScan(pos, TK_OCTAL, (digits * 1099511627776) + acc),
+        ),
+    )
+
+dec scan_oct_digit_one(src: bytes, pos: int, limit: int, acc: int, digits: int) -> NumScan:
+    let d = int(src[pos]) - 48
+    assert d < 8
+    scan_oct_digits(src, pos + 1, limit, acc * 8 + d, digits + 1)
+
+dec parse_octal_from_dec(src: bytes, start: int, end_digits: int, acc: int, digits: int) -> int:
+    select(
+        start >= end_digits,
+        (digits * 1099511627776) + acc,
+        select(
+            int(src[start]) == 95,
+            parse_octal_from_dec(src, start + 1, end_digits, acc, digits),
+            parse_octal_one_char(src, start, end_digits, acc, digits),
+        ),
+    )
+
+dec parse_octal_one_char(src: bytes, start: int, end_digits: int, acc: int, digits: int) -> int:
+    let d = int(src[start]) - 48
+    assert d >= 0 and d < 8
+    parse_octal_from_dec(src, start + 1, end_digits, acc * 8 + d, digits + 1)
+
+dec scan_dec_digits(src: bytes, orig_start: int, pos: int, limit: int, acc: int) -> NumScan:
+    select(
+        pos >= limit,
+        NumScan(pos, TK_INT, acc),
+        select(
+            is_digit(int(src[pos])),
+            scan_dec_digits(src, orig_start, pos + 1, limit, acc * 10 + (int(src[pos]) - 48)),
+            select(
+                int(src[pos]) == 95 and pos + 1 < limit and int(src[pos + 1]) == 56,
+                NumScan(pos + 2, TK_OCTAL, parse_octal_from_dec(src, orig_start, pos, 0, 0)),
+                select(
+                    int(src[pos]) == 95,
+                    scan_dec_digits(src, orig_start, pos + 1, limit, acc),
+                    select(
+                        int(src[pos]) == 116,
+                        finish_trit_lit(pos + 1, acc),
+                        NumScan(pos, TK_INT, acc),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec finish_trit_lit(end_p: int, acc: int) -> NumScan:
+    assert acc == 0 or acc == 1
+    NumScan(end_p, TK_TRIT, acc)
+
+dec scan_number(src: bytes, pos: int, limit: int) -> NumScan:
+    let c0 = int(src[pos])
+    let c1 = select(pos + 1 < limit, int(src[pos + 1]), 0)
+    select(
+        c0 == 48 and (c1 == 120 or c1 == 88),
+        scan_hex_digits(src, pos + 2, limit, 0),
+        select(
+            c0 == 48 and (c1 == 98 or c1 == 66),
+            scan_bin_digits(src, pos + 2, limit, 0),
+            select(
+                c0 == 48 and (c1 == 111 or c1 == 79),
+                scan_oct_digits(src, pos + 2, limit, 0, 0),
+                scan_dec_digits(src, pos, pos, limit, 0),
+            ),
+        ),
+    )
+
+struct StrScan:
+    end_pos: int
+    payload: bytes
+
+dec scan_str_chars(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
+    assert pos < limit
+    let c = int(src[pos])
+    select(
+        c == 34,
+        StrScan(pos + 1, bytes(acc)),
+        select(
+            c == 92,
+            scan_str_escape(src, pos + 1, limit, acc),
+            scan_str_chars(src, pos + 1, limit, push(acc, b8(c))),
+        ),
+    )
+
+dec scan_str_escape(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
+    assert pos < limit
+    let e = int(src[pos])
+    select(
+        e == 110,
+        scan_str_chars(src, pos + 1, limit, push(acc, b8(10))),
+        select(
+            e == 114,
+            scan_str_chars(src, pos + 1, limit, push(acc, b8(13))),
+            select(
+                e == 116,
+                scan_str_chars(src, pos + 1, limit, push(acc, b8(9))),
+                select(
+                    e == 92,
+                    scan_str_chars(src, pos + 1, limit, push(acc, b8(92))),
+                    select(
+                        e == 34,
+                        scan_str_chars(src, pos + 1, limit, push(acc, b8(34))),
+                        select(
+                            e == 48,
+                            scan_str_chars(src, pos + 1, limit, push(acc, b8(0))),
+                            scan_str_hex_escape(src, pos, limit, acc),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec scan_str_hex_escape(src: bytes, pos: int, limit: int, acc: [b8]) -> StrScan:
+    assert int(src[pos]) == 120 and pos + 2 < limit
+    let hi = hex_val(int(src[pos + 1]))
+    let lo = hex_val(int(src[pos + 2]))
+    scan_str_chars(src, pos + 3, limit, push(acc, b8(hi * 16 + lo)))
+
+dec classify_word(w: bytes) -> Tok:
+    let wl = len(w)
+    let e = bytes("")
+    select(
+        wl < 2 or wl > 6,
+        Tok(TK_IDENT, 0, w),
+        select(
+            wl == 2,
+            select(w == bytes("or"), Tok(TK_OR, 0, e), Tok(TK_IDENT, 0, w)),
+            select(
+                wl == 3,
+                classify_word_len3(w, e),
+                classify_word_len456(w, wl, e),
+            ),
+        ),
+    )
+
+dec classify_word_len3(w: bytes, e: bytes) -> Tok:
+    select(
+        w == bytes("let"),
+        Tok(TK_LET, 0, e),
+        select(
+            w == bytes("dec"),
+            Tok(TK_DEC, 0, e),
+            select(
+                w == bytes("and"),
+                Tok(TK_AND, 0, e),
+                select(
+                    w == bytes("not"),
+                    Tok(TK_NOT, 0, e),
+                    select(w == bytes("use"), Tok(TK_USE, 0, e), Tok(TK_IDENT, 0, w)),
+                ),
+            ),
+        ),
+    )
+
+dec classify_word_len456(w: bytes, wl: int, e: bytes) -> Tok:
+    select(
+        wl == 4,
+        select(
+            w == bytes("true"),
+            Tok(TK_BOOL, 1, e),
+            select(w == bytes("emit"), Tok(TK_EMIT, 0, e), Tok(TK_IDENT, 0, w)),
+        ),
+        select(
+            wl == 5,
+            select(
+                w == bytes("false"),
+                Tok(TK_BOOL, 0, e),
+                select(
+                    w == bytes("const"),
+                    Tok(TK_CONST, 0, e),
+                    select(w == bytes("where"), Tok(TK_WHERE, 0, e), Tok(TK_IDENT, 0, w)),
+                ),
+            ),
+            select(
+                w == bytes("assert"),
+                Tok(TK_ASSERT, 0, e),
+                select(w == bytes("struct"), Tok(TK_STRUCT, 0, e), Tok(TK_IDENT, 0, w)),
+            ),
+        ),
+    )
+
+struct DedentOut:
+    indents: [int]
+    toks: [Tok]
+
+dec pop_dedents(indents: [int], col: int, toks: [Tok]) -> DedentOut:
+    let n = len(indents)
+    let top = indents[n - 1]
+    select(
+        top > col,
+        pop_dedents(slice(indents, 0, n - 1), col, push(toks, Tok(TK_DEDENT, 0, bytes("")))),
+        finish_dedent_check(indents, col, toks),
+    )
+
+dec finish_dedent_check(indents: [int], col: int, toks: [Tok]) -> DedentOut:
+    assert indents[len(indents) - 1] == col
+    DedentOut(indents, toks)
+
+dec push_nl_if_needed(toks: [Tok]) -> [Tok]:
+    let n = len(toks)
+    select(
+        n == 0,
+        toks,
+        select(
+            toks[n - 1].kind == TK_NEWLINE or toks[n - 1].kind == TK_INDENT or toks[n - 1].kind == TK_DEDENT,
+            toks,
+            push(toks, Tok(TK_NEWLINE, 0, bytes(""))),
+        ),
+    )
+
+dec lex_bol(st: LexState) -> LexState:
+    let p1 = skip_spaces(st.src, st.pos, st.limit)
+    select(
+        p1 >= st.limit,
+        LexState(st.src, st.limit, st.limit, 1, st.paren_depth, st.indents, st.toks),
+        lex_bol_char(st, p1, int(st.src[p1])),
+    )
+
+dec lex_bol_char(st: LexState, p1: int, c: int) -> LexState:
+    select(
+        c == 10,
+        LexState(st.src, p1 + 1, st.limit, 1, st.paren_depth, st.indents, st.toks),
+        select(
+            c == 35,
+            LexState(st.src, find_nl(st.src, p1, st.limit), st.limit, 1, st.paren_depth, st.indents, st.toks),
+            lex_bol_indent(st, p1, p1 - st.pos),
+        ),
+    )
+
+dec lex_bol_indent(st: LexState, p1: int, col: int) -> LexState:
+    let top = st.indents[len(st.indents) - 1]
+    select(
+        col == top,
+        LexState(st.src, p1, st.limit, 0, st.paren_depth, st.indents, st.toks),
+        select(
+            col > top,
+            LexState(
+                st.src,
+                p1,
+                st.limit,
+                0,
+                st.paren_depth,
+                push(st.indents, col),
+                push(st.toks, Tok(TK_INDENT, 0, bytes(""))),
+            ),
+            lex_bol_dedent(st, p1, col),
+        ),
+    )
+
+dec lex_bol_dedent(st: LexState, p1: int, col: int) -> LexState:
+    let dd = pop_dedents(st.indents, col, push_nl_if_needed(st.toks))
+    LexState(st.src, p1, st.limit, 0, st.paren_depth, dd.indents, dd.toks)
+
+dec lex_inline(st: LexState) -> LexState:
+    let p = skip_spaces(st.src, st.pos, st.limit)
+    select(
+        p >= st.limit,
+        LexState(st.src, st.limit, st.limit, st.at_bol, st.paren_depth, st.indents, st.toks),
+        lex_inline_at(st, p),
+    )
+
+dec lex_inline_at(st: LexState, p: int) -> LexState:
+    let c = int(st.src[p])
+    select(
+        c == 35,
+        LexState(st.src, find_nl(st.src, p, st.limit), st.limit, st.at_bol, st.paren_depth, st.indents, st.toks),
+        select(
+            c == 10,
+            select(
+                st.paren_depth > 0,
+                LexState(st.src, p + 1, st.limit, 0, st.paren_depth, st.indents, st.toks),
+                LexState(st.src, p + 1, st.limit, 1, 0, st.indents, push_nl_if_needed(st.toks)),
+            ),
+            select(
+                is_alpha(c),
+                lex_ident_tok(st, p),
+                select(
+                    is_digit(c),
+                    lex_num_tok(st, p),
+                    select(
+                        c == 34,
+                        lex_str_tok(st, p),
+                        lex_punct_tok(st, p, c),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec lex_ident_tok(st: LexState, p: int) -> LexState:
+    let ep = scan_ident_end(st.src, p + 1, st.limit)
+    let w = slice_bytes(st.src, p, ep)
+    LexState(st.src, ep, st.limit, 0, st.paren_depth, st.indents, push(st.toks, classify_word(w)))
+
+dec lex_num_tok(st: LexState, p: int) -> LexState:
+    let ns = scan_number(st.src, p, st.limit)
+    LexState(
+        st.src,
+        ns.end_pos,
+        st.limit,
+        0,
+        st.paren_depth,
+        st.indents,
+        push(st.toks, Tok(ns.kind, ns.val, bytes(""))),
+    )
+
+dec lex_str_tok(st: LexState, p: int) -> LexState:
+    let empty_b8: [b8] = []
+    let ss = scan_str_chars(st.src, p + 1, st.limit, empty_b8)
+    LexState(
+        st.src,
+        ss.end_pos,
+        st.limit,
+        0,
+        st.paren_depth,
+        st.indents,
+        push(st.toks, Tok(TK_STR, 0, ss.payload)),
+    )
+
+dec push_punct(st: LexState, next_p: int, dp: int, kind: int) -> LexState:
+    LexState(
+        st.src,
+        next_p,
+        st.limit,
+        0,
+        st.paren_depth + dp,
+        st.indents,
+        push(st.toks, Tok(kind, 0, bytes(""))),
+    )
+
+dec lex_punct_tok(st: LexState, p: int, c0: int) -> LexState:
+    let c1 = select(p + 1 < st.limit, int(st.src[p + 1]), 0)
+    let c2 = select(p + 2 < st.limit, int(st.src[p + 2]), 0)
+    select(
+        c0 == 60 and c1 == 61 and c2 == 62,
+        push_punct(st, p + 3, 0, TK_CMP),
+        select(
+            c0 == 45 and c1 == 62,
+            push_punct(st, p + 2, 0, TK_ARROW),
+            select(
+                c0 == 124 and c1 == 62,
+                push_punct(st, p + 2, 0, TK_PIPE_GT),
+                select(
+                    c0 == 43 and c1 == 47,
+                    push_punct(st, p + 2, 0, TK_SUM_ADV),
+                    select(
+                        c0 == 47 and c1 == 47,
+                        push_punct(st, p + 2, 0, TK_FLOORDIV),
+                        select(
+                            c0 == 60 and c1 == 60,
+                            push_punct(st, p + 2, 0, TK_SHL),
+                            select(
+                                c0 == 62 and c1 == 62,
+                                push_punct(st, p + 2, 0, TK_SHR),
+                                lex_punct_tok2(st, p, c0, c1),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec lex_punct_tok2(st: LexState, p: int, c0: int, c1: int) -> LexState:
+    select(
+        c0 == 61 and c1 == 61,
+        push_punct(st, p + 2, 0, TK_EQ),
+        select(
+            c0 == 33 and c1 == 61,
+            push_punct(st, p + 2, 0, TK_NE),
+            select(
+                c0 == 60 and c1 == 61,
+                push_punct(st, p + 2, 0, TK_LE),
+                select(
+                    c0 == 62 and c1 == 61,
+                    push_punct(st, p + 2, 0, TK_GE),
+                    select(
+                        c0 == 58 and c1 == 58,
+                        push_punct(st, p + 2, 0, TK_DCOLON),
+                        lex_punct_single(st, p, c0),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec lex_punct_single(st: LexState, p: int, c0: int) -> LexState:
+    select(
+        c0 == 40,
+        push_punct(st, p + 1, 1, TK_LPAREN),
+        select(
+            c0 == 41,
+            push_punct(st, p + 1, -1, TK_RPAREN),
+            select(
+                c0 == 91,
+                push_punct(st, p + 1, 1, TK_LBRACKET),
+                select(
+                    c0 == 93,
+                    push_punct(st, p + 1, -1, TK_RBRACKET),
+                    select(
+                        c0 == 44,
+                        push_punct(st, p + 1, 0, TK_COMMA),
+                        select(
+                            c0 == 58,
+                            push_punct(st, p + 1, 0, TK_COLON),
+                            select(
+                                c0 == 46,
+                                push_punct(st, p + 1, 0, TK_DOT),
+                                lex_punct_single2(st, p, c0),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec lex_punct_single2(st: LexState, p: int, c0: int) -> LexState:
+    select(
+        c0 == 61,
+        push_punct(st, p + 1, 0, TK_ASSIGN),
+        select(
+            c0 == 43,
+            push_punct(st, p + 1, 0, TK_PLUS),
+            select(
+                c0 == 45,
+                push_punct(st, p + 1, 0, TK_MINUS),
+                select(
+                    c0 == 42,
+                    push_punct(st, p + 1, 0, TK_STAR),
+                    select(
+                        c0 == 37,
+                        push_punct(st, p + 1, 0, TK_PERCENT),
+                        select(
+                            c0 == 38,
+                            push_punct(st, p + 1, 0, TK_AMP),
+                            select(
+                                c0 == 94,
+                                push_punct(st, p + 1, 0, TK_CARET),
+                                select(
+                                    c0 == 124,
+                                    push_punct(st, p + 1, 0, TK_BAR),
+                                    lex_punct_tilde(st, p, c0),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec lex_punct_tilde(st: LexState, p: int, c0: int) -> LexState:
+    select(
+        c0 == 60,
+        push_punct(st, p + 1, 0, TK_LT),
+        select(
+            c0 == 62,
+            push_punct(st, p + 1, 0, TK_GT),
+            lex_punct_only_tilde(st, p, c0),
+        ),
+    )
+
+dec lex_punct_only_tilde(st: LexState, p: int, c0: int) -> LexState:
+    assert c0 == 126
+    push_punct(st, p + 1, 0, TK_TILDE)
+
+dec lex_one(st: LexState) -> LexState:
+    select(
+        st.pos >= st.limit,
+        st,
+        select(st.at_bol == 1 and st.paren_depth == 0, lex_bol(st), lex_inline(st)),
+    )
+
+dec lex_batch(st: LexState, rem: int) -> LexState:
+    select(rem <= 0 or st.pos >= st.limit, st, lex_batch(lex_one(st), rem - 1))
+
+dec lex_all(st: LexState) -> LexState:
+    select(st.pos >= st.limit, st, lex_all(lex_batch(st, 64)))
+
+dec lex_slice(src: bytes, start: int, limit: int) -> [Tok]:
+    let empty_toks: [Tok] = []
+    let init = LexState(src, start, limit, 1, 0, [0], empty_toks)
+    let fin = lex_all(init)
+    assert fin.pos >= fin.limit and fin.paren_depth == 0
+    let t1_list = push_nl_if_needed(fin.toks)
+    let dd = pop_dedents(fin.indents, 0, t1_list)
+    push(dd.toks, Tok(TK_EOF, 0, bytes("")))
+
+# ============================================================================
+# Section 7: Type & Symbol Table Resolution (Pass 1)
+# ============================================================================
+
+dec find_struct_idx_loop(structs: [StructDef], name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(structs[idx].name == name, idx, find_struct_idx_loop(structs, name, idx + 1, n)),
+    )
+
+dec find_struct_idx(structs: [StructDef], name: bytes) -> int:
+    find_struct_idx_loop(structs, name, 0, len(structs))
+
+dec find_field_idx_loop(fnames: [bytes], name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(fnames[idx] == name, idx, find_field_idx_loop(fnames, name, idx + 1, n)),
+    )
+
+dec find_const_idx_loop(consts: [ConstDef], name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(consts[idx].name == name, idx, find_const_idx_loop(consts, name, idx + 1, n)),
+    )
+
+dec find_fn_idx_loop(fns: [FnSig], name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(fns[idx].name == name, idx, find_fn_idx_loop(fns, name, idx + 1, n)),
+    )
+
+dec find_local_idx_loop(locals: [LocalVar], name: bytes, idx: int) -> int:
+    select(
+        idx < 0,
+        -1,
+        select(locals[idx].name == name, idx, find_local_idx_loop(locals, name, idx - 1)),
+    )
+
+struct TypeParse:
+    pos: int
+    ty: int
+
+dec parse_type_toks(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
+    let tk = toks[pos]
+    select(
+        tk.kind == TK_LBRACKET,
+        parse_list_type(toks, pos + 1, structs),
+        select(
+            tk.kind == TK_LPAREN and toks[pos + 1].kind == TK_RPAREN,
+            TypeParse(pos + 2, TY_UNIT),
+            parse_named_type(toks, pos, structs),
+        ),
+    )
+
+dec parse_list_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
+    let inner = parse_type_toks(toks, pos, structs)
+    assert toks[inner.pos].kind == TK_RBRACKET
+    TypeParse(inner.pos + 1, TY_LIST_BASE + inner.ty)
+
+dec parse_named_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
+    let tk = toks[pos]
+    assert tk.kind == TK_IDENT
+    let w = tk.text
+    let ty = select(
+        w == bytes("int"),
+        TY_INT,
+        select(
+            w == bytes("bool"),
+            TY_BOOL,
+            select(
+                w == bytes("t1"),
+                TY_T1,
+                select(
+                    w == bytes("b8"),
+                    TY_B8,
+                    select(
+                        w == bytes("b64"),
+                        TY_B64,
+                        select(
+                            w == bytes("bytes"),
+                            TY_BYTES,
+                            select(
+                                w == bytes("str"),
+                                TY_STR,
+                                select(
+                                    w == bytes("addr8"),
+                                    TY_ADDR8,
+                                    resolve_struct_type(structs, w),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    TypeParse(pos + 1, ty)
+
+dec resolve_struct_type(structs: [StructDef], w: bytes) -> int:
+    let sidx = find_struct_idx(structs, w)
+    assert sidx >= 0
+    TY_STRUCT_BASE + sidx
+
+dec skip_newlines(toks: [Tok], pos: int) -> int:
+    select(toks[pos].kind == TK_NEWLINE, skip_newlines(toks, pos + 1), pos)
+
+dec collect_struct_stub(acc: [StructDef], src_and_blk: TopBlock, src: bytes) -> [StructDef]:
+    let hdr_end = find_nl(src, src_and_blk.start, src_and_blk.end_pos)
+    let toks = lex_slice(src, src_and_blk.start, hdr_end)
+    assert toks[0].kind == TK_STRUCT and toks[1].kind == TK_IDENT
+    let empty_names: [bytes] = []
+    let empty_tys: [int] = []
+    push(acc, StructDef(toks[1].text, empty_names, empty_tys))
+
+struct StubScanCtx:
+    src: bytes
+    structs: [StructDef]
+
+dec add_struct_stub_step(ctx: StubScanCtx, blk: TopBlock) -> StubScanCtx:
+    select(
+        blk.kind == TK_STRUCT,
+        StubScanCtx(ctx.src, collect_struct_stub(ctx.structs, blk, ctx.src)),
+        ctx,
+    )
+
+struct FieldAcc:
+    pos: int
+    fnames: [bytes]
+    ftys: [int]
+
+dec parse_struct_fields_loop(toks: [Tok], structs: [StructDef], acc: FieldAcc) -> FieldAcc:
+    let p = skip_newlines(toks, acc.pos)
+    select(
+        toks[p].kind == TK_DEDENT or toks[p].kind == TK_EOF,
+        FieldAcc(p, acc.fnames, acc.ftys),
+        parse_struct_field_one(toks, structs, FieldAcc(p, acc.fnames, acc.ftys)),
+    )
+
+dec parse_struct_field_one(toks: [Tok], structs: [StructDef], acc: FieldAcc) -> FieldAcc:
+    let p = acc.pos
+    assert toks[p].kind == TK_IDENT and toks[p + 1].kind == TK_COLON
+    let tp = parse_type_toks(toks, p + 2, structs)
+    parse_struct_fields_loop(
+        toks,
+        structs,
+        FieldAcc(tp.pos, push(acc.fnames, toks[p].text), push(acc.ftys, tp.ty)),
+    )
+
+struct ParamTysOut:
+    pos: int
+    tys: [int]
+
+dec skip_to_colon(toks: [Tok], pos: int) -> int:
+    assert toks[pos].kind != TK_EOF and toks[pos].kind != TK_RPAREN
+    select(toks[pos].kind == TK_COLON, pos, skip_to_colon(toks, pos + 1))
+
+dec parse_sig_params(toks: [Tok], pos: int, structs: [StructDef], acc: [int]) -> ParamTysOut:
+    select(
+        toks[pos].kind == TK_RPAREN,
+        ParamTysOut(pos + 1, acc),
+        parse_sig_param_one(toks, pos, structs, acc),
+    )
+
+dec parse_sig_param_one(toks: [Tok], pos: int, structs: [StructDef], acc: [int]) -> ParamTysOut:
+    let cpos = skip_to_colon(toks, pos)
+    let tp = parse_type_toks(toks, cpos + 1, structs)
+    let next_acc = push(acc, tp.ty)
+    select(
+        toks[tp.pos].kind == TK_COMMA,
+        parse_sig_params(toks, tp.pos + 1, structs, next_acc),
+         finish_sig_params(toks, tp.pos, next_acc),
+    )
+
+dec finish_sig_params(toks: [Tok], pos: int, acc: [int]) -> ParamTysOut:
+    assert toks[pos].kind == TK_RPAREN
+    ParamTysOut(pos + 1, acc)
+
+dec skip_where_to_arrow_or_colon(toks: [Tok], pos: int) -> int:
+    let k = toks[pos].kind
+    assert k != TK_EOF
+    select(k == TK_ARROW or k == TK_COLON, pos, skip_where_to_arrow_or_colon(toks, pos + 1))
+
+dec parse_fn_sig_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> FnSig:
+    let toks = lex_slice(src, blk.start, blk.end_pos)
+    assert toks[0].kind == TK_DEC and toks[1].kind == TK_IDENT
+    let fname = toks[1].text
+    let empty_tys: [int] = []
+    select(
+        toks[2].kind == TK_LPAREN,
+        parse_single_arm_sig(toks, fname, blk, structs, empty_tys),
+        parse_multi_arm_sig(toks, fname, blk, structs, empty_tys),
+    )
+
+dec parse_single_arm_sig(toks: [Tok], fname: bytes, blk: TopBlock, structs: [StructDef], empty_tys: [int]) -> FnSig:
+    let pm = parse_sig_params(toks, 3, structs, empty_tys)
+    let p_after = skip_where_to_arrow_or_colon(toks, pm.pos)
+    let ret_ty = select(
+        toks[p_after].kind == TK_ARROW,
+        parse_type_toks(toks, p_after + 1, structs).ty,
+        TY_UNIT,
+    )
+    FnSig(fname, pm.tys, ret_ty, blk.start, blk.end_pos)
+
+dec parse_multi_arm_sig(toks: [Tok], fname: bytes, blk: TopBlock, structs: [StructDef], empty_tys: [int]) -> FnSig:
+    assert toks[2].kind == TK_COLON
+    let p0 = skip_newlines(toks, 3)
+    assert toks[p0].kind == TK_INDENT
+    let p1 = skip_newlines(toks, p0 + 1)
+    assert toks[p1].kind == TK_LPAREN
+    let pm = parse_sig_params(toks, p1 + 1, structs, empty_tys)
+    let p_arrow = skip_where_to_arrow_or_colon(toks, pm.pos)
+    let ret_ty = select(
+        toks[p_arrow].kind == TK_ARROW,
+        parse_type_toks(toks, p_arrow + 1, structs).ty,
+        TY_UNIT,
+    )
+    FnSig(fname, pm.tys, ret_ty, blk.start, blk.end_pos)
+
+dec parse_const_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> ConstDef:
+    let toks = lex_slice(src, blk.start, blk.end_pos)
+    assert toks[0].kind == TK_CONST and toks[1].kind == TK_IDENT
+    let cname = toks[1].text
+    let eq_pos = select(
+        toks[2].kind == TK_COLON,
+        parse_type_toks(toks, 3, structs).pos,
+        2,
+    )
+    assert toks[eq_pos].kind == TK_ASSIGN
+    let vpos = eq_pos + 1
+    let k = toks[vpos].kind
+    select(
+        k == TK_MINUS and toks[vpos + 1].kind == TK_INT,
+        ConstDef(cname, 0 - toks[vpos + 1].val, bytes(""), TY_INT),
+        select(
+            k == TK_MINUS and toks[vpos + 1].kind == TK_TRIT,
+            ConstDef(cname, 0 - toks[vpos + 1].val, bytes(""), TY_T1),
+            select(
+                k == TK_PLUS and toks[vpos + 1].kind == TK_TRIT,
+                ConstDef(cname, toks[vpos + 1].val, bytes(""), TY_T1),
+                select(
+                    k == TK_TRIT,
+                    ConstDef(cname, toks[vpos].val, bytes(""), TY_T1),
+                    select(
+                        k == TK_OCTAL,
+                        ConstDef(cname, toks[vpos].val, bytes(""), TY_ADDR8),
+                        select(
+                            k == TK_BOOL,
+                            ConstDef(cname, toks[vpos].val, bytes(""), TY_BOOL),
+                            select(
+                                k == TK_STR,
+                                ConstDef(cname, 0, toks[vpos].text, TY_STR),
+                                finish_int_const(cname, toks[vpos]),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec finish_int_const(cname: bytes, tk: Tok) -> ConstDef:
+    assert tk.kind == TK_INT
+    ConstDef(cname, tk.val, bytes(""), TY_INT)
+
+struct SymBuildState:
+    src: bytes
+    struct_cursor: int
+    structs: [StructDef]
+    consts: [ConstDef]
+    fns: [FnSig]
+
+dec sym_build_step(st: SymBuildState, blk: TopBlock) -> SymBuildState:
+    select(
+        blk.kind == TK_STRUCT,
+        sym_fill_struct(st, blk),
+        select(
+            blk.kind == TK_CONST,
+            SymBuildState(
+                st.src,
+                st.struct_cursor,
+                st.structs,
+                push(st.consts, parse_const_block(st.src, blk, st.structs)),
+                st.fns,
+            ),
+            select(
+                blk.kind == TK_DEC,
+                SymBuildState(
+                    st.src,
+                    st.struct_cursor,
+                    st.structs,
+                    st.consts,
+                    push(st.fns, parse_fn_sig_block(st.src, blk, st.structs)),
+                ),
+                st,
+            ),
+        ),
+    )
+
+dec sym_fill_struct(st: SymBuildState, blk: TopBlock) -> SymBuildState:
+    let toks = lex_slice(st.src, blk.start, blk.end_pos)
+    let p0 = skip_newlines(toks, 3)
+    assert toks[2].kind == TK_COLON and toks[p0].kind == TK_INDENT
+    let empty_names: [bytes] = []
+    let empty_tys: [int] = []
+    let fa = parse_struct_fields_loop(toks, st.structs, FieldAcc(p0 + 1, empty_names, empty_tys))
+    let sdef = StructDef(toks[1].text, fa.fnames, fa.ftys)
+    SymBuildState(
+        st.src,
+        st.struct_cursor + 1,
+        set_at(st.structs, st.struct_cursor, sdef),
+        st.consts,
+        st.fns,
+    )
+
+dec build_symtab(src: bytes, blocks: [TopBlock]) -> SymTab:
+    let empty_structs: [StructDef] = []
+    let empty_consts: [ConstDef] = []
+    let empty_fns: [FnSig] = []
+    let stubs = fold(blocks, StubScanCtx(src, empty_structs), add_struct_stub_step).structs
+    let built = fold(blocks, SymBuildState(src, 0, stubs, empty_consts, empty_fns), sym_build_step)
+    SymTab(built.structs, built.consts, built.fns)
+# ============================================================================
+# Section 8: Recursive-Descent x86-64 Code Generator & Self-Hosting Driver
+# ============================================================================
+
+dec max_int(a: int, b: int) -> int:
+    select(a >= b, a, b)
+
+dec resolve_list_ty(a: int, b: int) -> int:
+    select(
+        a > TY_LIST_BASE,
+        a,
+        select(b > TY_LIST_BASE, b, select(a != 0, a, b)),
+    )
+
+dec find_fn_idx(fns: [FnSig], name: bytes) -> int:
+    find_fn_idx_loop(fns, name, 0, len(fns))
+
+dec call_rt1(a0: bytes, slot: int) -> bytes:
+    cb3(a0, b3(0x48, 0x89, 0xC7), call_rt(slot))
+
+dec call_rt2(a0: bytes, a1: bytes, slot: int) -> bytes:
+    join_bytes([a0, b1(0x50), a1, b3(0x48, 0x89, 0xC6), b1(0x5F), call_rt(slot)])
+
+dec call_rt3(a0: bytes, a1: bytes, a2: bytes, slot: int) -> bytes:
+    join_bytes([
+        a0,
+        b1(0x50),
+        a1,
+        b1(0x50),
+        a2,
+        b3(0x48, 0x89, 0xC2),
+        b1(0x5E),
+        b1(0x5F),
+        call_rt(slot),
+    ])
+
+dec expect_close_paren(toks: [Tok], pos: int) -> int:
+    let p1 = select(toks[pos].kind == TK_COMMA, pos + 1, pos)
+    assert toks[p1].kind == TK_RPAREN
+    p1 + 1
+
+dec skip_qual_prefix(toks: [Tok], pos: int) -> int:
+    select(
+        toks[pos + 1].kind == TK_DCOLON and toks[pos + 2].kind == TK_IDENT,
+        skip_qual_prefix(toks, pos + 2),
+        pos,
+    )
+
+# --- Expression Precedence Hierarchy ---
+
+dec emit_expr(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_or(env, pos, hint_ty)
+    emit_pipe_loop(env, lhs)
+
+dec emit_pipe_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    select(
+        env.toks[cur.pos].kind == TK_PIPE_GT,
+        emit_pipe_step(env, cur),
+        cur,
+    )
+
+dec emit_pipe_step(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let tk = env.toks[cur.pos + 1]
+    select(
+        tk.kind == TK_SUM_ADV,
+        emit_pipe_loop(
+            env,
+            ExprOut(cur.pos + 2, TY_INT, cur.max_slot, call_rt1(cur.code, RT_SUM_SEQ)),
+        ),
+        emit_pipe_fn_step(env, cur, tk),
+    )
+
+dec emit_pipe_fn_step(env: CgEnv, cur: ExprOut, tk: Tok) -> ExprOut:
+    assert tk.kind == TK_IDENT
+    let fidx = find_fn_idx(env.sym.fns, tk.text)
+    assert fidx >= 0 and len(env.sym.fns[fidx].param_tys) == 1
+    let step_code = cb3(cur.code, b3(0x48, 0x89, 0xC7), call_fn(fidx))
+    emit_pipe_loop(
+        env,
+        ExprOut(cur.pos + 2, env.sym.fns[fidx].ret_ty, cur.max_slot, step_code),
+    )
+
+dec emit_or(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_and(env, pos, hint_ty)
+    emit_or_loop(env, lhs)
+
+dec emit_or_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    select(
+        env.toks[cur.pos].kind == TK_OR,
+        emit_or_step(env, cur),
+        cur,
+    )
+
+dec emit_or_step(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let rhs = emit_and(env, cur.pos + 1, TY_BOOL)
+    let rhs_norm = cb3(
+        rhs.code,
+        b3(0x48, 0x85, 0xC0),
+        cb2(b3(0x0F, 0x95, 0xC0), b3(0x0F, 0xB6, 0xC0)),
+    )
+    let code = cb3(
+        cur.code,
+        b3(0x48, 0x85, 0xC0),
+        if_nz_else(b5(0xB8, 1, 0, 0, 0), rhs_norm),
+    )
+    emit_or_loop(env, ExprOut(rhs.pos, TY_BOOL, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_and(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_cmp(env, pos, hint_ty)
+    emit_and_loop(env, lhs)
+
+dec emit_and_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    select(
+        env.toks[cur.pos].kind == TK_AND,
+        emit_and_step(env, cur),
+        cur,
+    )
+
+dec emit_and_step(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let rhs = emit_cmp(env, cur.pos + 1, TY_BOOL)
+    let rhs_norm = cb3(
+        rhs.code,
+        b3(0x48, 0x85, 0xC0),
+        cb2(b3(0x0F, 0x95, 0xC0), b3(0x0F, 0xB6, 0xC0)),
+    )
+    let code = cb3(
+        cur.code,
+        b3(0x48, 0x85, 0xC0),
+        if_nz_else(rhs_norm, b2(0x31, 0xC0)),
+    )
+    emit_and_loop(env, ExprOut(rhs.pos, TY_BOOL, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec is_cmp_tok(k: int) -> bool:
+    k >= TK_EQ and k <= TK_CMP
+
+dec emit_cmp(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_bitor(env, pos, hint_ty)
+    let op = env.toks[lhs.pos].kind
+    select(is_cmp_tok(op), emit_cmp_rhs(env, lhs, op), lhs)
+
+dec emit_cmp_rhs(env: CgEnv, lhs: ExprOut, op: int) -> ExprOut:
+    let rhs = emit_bitor(env, lhs.pos + 1, lhs.ty)
+    let ms = max_int(lhs.max_slot, rhs.max_slot)
+    select(
+        lhs.ty == TY_BYTES or lhs.ty == TY_STR,
+        emit_cmp_bytes(lhs, rhs, op, ms),
+        emit_cmp_scalar(lhs, rhs, op, ms),
+    )
+
+dec emit_cmp_bytes(lhs: ExprOut, rhs: ExprOut, op: int, ms: int) -> ExprOut:
+    let eq_code = call_rt2(lhs.code, rhs.code, RT_BYTES_EQ)
+    let code = select(op == TK_NE, cb2(eq_code, b4(0x48, 0x83, 0xF0, 0x01)), eq_code)
+    ExprOut(rhs.pos, TY_BOOL, ms, code)
+
+dec emit_cmp_scalar(lhs: ExprOut, rhs: ExprOut, op: int, ms: int) -> ExprOut:
+    let eval_both = cb4(lhs.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58))
+    let tail = cmp_scalar_tail(lhs.ty, op)
+    let res_ty = select(op == TK_CMP, TY_T1, TY_BOOL)
+    ExprOut(rhs.pos, res_ty, ms, cb3(eval_both, b3(0x48, 0x39, 0xC8), tail))
+
+dec cmp_scalar_tail(lhs_ty: int, op: int) -> bytes:
+    let is_u = lhs_ty == TY_B64 or lhs_ty == TY_B8
+    select(
+        op == TK_CMP,
+        join_bytes([
+            b3(0x0F, 0x9F, 0xC0),
+            b3(0x0F, 0x9C, 0xC2),
+            b3(0x0F, 0xB6, 0xC0),
+            b3(0x0F, 0xB6, 0xD2),
+            b3(0x48, 0x29, 0xD0),
+        ]),
+        cb2(cmp_setcc(is_u, op), b3(0x0F, 0xB6, 0xC0)),
+    )
+
+dec cmp_setcc(is_u: bool, op: int) -> bytes:
+    select(
+        op == TK_EQ,
+        b3(0x0F, 0x94, 0xC0),
+        select(
+            op == TK_NE,
+            b3(0x0F, 0x95, 0xC0),
+            select(
+                op == TK_LT,
+                select(is_u, b3(0x0F, 0x92, 0xC0), b3(0x0F, 0x9C, 0xC0)),
+                select(
+                    op == TK_LE,
+                    select(is_u, b3(0x0F, 0x96, 0xC0), b3(0x0F, 0x9E, 0xC0)),
+                    select(
+                        op == TK_GT,
+                        select(is_u, b3(0x0F, 0x97, 0xC0), b3(0x0F, 0x9F, 0xC0)),
+                        select(is_u, b3(0x0F, 0x93, 0xC0), b3(0x0F, 0x9D, 0xC0)),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec emit_bitor(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_bitxor(env, pos, hint_ty)
+    emit_bitor_loop(env, lhs)
+
+dec emit_bitor_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    select(
+        env.toks[cur.pos].kind == TK_BAR,
+        emit_bitor_step(env, cur),
+        cur,
+    )
+
+dec emit_bitor_step(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let rhs = emit_bitxor(env, cur.pos + 1, cur.ty)
+    let code = cb5(cur.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58), b3(0x48, 0x09, 0xC8))
+    emit_bitor_loop(env, ExprOut(rhs.pos, cur.ty, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_bitxor(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_bitand(env, pos, hint_ty)
+    emit_bitxor_loop(env, lhs)
+
+dec emit_bitxor_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    select(
+        env.toks[cur.pos].kind == TK_CARET,
+        emit_bitxor_step(env, cur),
+        cur,
+    )
+
+dec emit_bitxor_step(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let rhs = emit_bitand(env, cur.pos + 1, cur.ty)
+    let code = cb5(cur.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58), b3(0x48, 0x31, 0xC8))
+    emit_bitxor_loop(env, ExprOut(rhs.pos, cur.ty, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_bitand(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_shift(env, pos, hint_ty)
+    emit_bitand_loop(env, lhs)
+
+dec emit_bitand_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    select(
+        env.toks[cur.pos].kind == TK_AMP,
+        emit_bitand_step(env, cur),
+        cur,
+    )
+
+dec emit_bitand_step(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let rhs = emit_shift(env, cur.pos + 1, cur.ty)
+    let code = cb5(cur.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58), b3(0x48, 0x21, 0xC8))
+    emit_bitand_loop(env, ExprOut(rhs.pos, cur.ty, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_shift(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_add(env, pos, hint_ty)
+    emit_shift_loop(env, lhs)
+
+dec emit_shift_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let k = env.toks[cur.pos].kind
+    select(
+        k == TK_SHL or k == TK_SHR,
+        emit_shift_step(env, cur, k),
+        cur,
+    )
+
+dec emit_shift_step(env: CgEnv, cur: ExprOut, k: int) -> ExprOut:
+    let rhs = emit_add(env, cur.pos + 1, TY_INT)
+    let sh_op = select(
+        k == TK_SHL,
+        b3(0x48, 0xD3, 0xE0),
+        select(cur.ty == TY_B64 or cur.ty == TY_B8, b3(0x48, 0xD3, 0xE8), b3(0x48, 0xD3, 0xF8)),
+    )
+    let code = cb5(cur.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58), sh_op)
+    emit_shift_loop(env, ExprOut(rhs.pos, cur.ty, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_add(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_mul(env, pos, hint_ty)
+    emit_add_loop(env, lhs)
+
+dec emit_add_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let k = env.toks[cur.pos].kind
+    select(
+        k == TK_PLUS or k == TK_MINUS,
+        emit_add_step(env, cur, k),
+        cur,
+    )
+
+dec emit_add_step(env: CgEnv, cur: ExprOut, k: int) -> ExprOut:
+    let rhs = emit_mul(env, cur.pos + 1, cur.ty)
+    let op_bytes = select(k == TK_PLUS, b3(0x48, 0x01, 0xC8), b3(0x48, 0x29, 0xC8))
+    let code = cb5(cur.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58), op_bytes)
+    emit_add_loop(env, ExprOut(rhs.pos, cur.ty, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_mul(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let lhs = emit_unary(env, pos, hint_ty)
+    emit_mul_loop(env, lhs)
+
+dec emit_mul_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let k = env.toks[cur.pos].kind
+    select(
+        k == TK_STAR or k == TK_FLOORDIV or k == TK_PERCENT,
+        emit_mul_step(env, cur, k),
+        cur,
+    )
+
+dec emit_mul_step(env: CgEnv, cur: ExprOut, k: int) -> ExprOut:
+    let rhs = emit_unary(env, cur.pos + 1, cur.ty)
+    let code = select(
+        k == TK_STAR,
+        cb5(cur.code, b1(0x50), rhs.code, b4(0x48, 0x89, 0xC1, 0x58), b4(0x48, 0x0F, 0xAF, 0xC1)),
+        select(
+            k == TK_FLOORDIV,
+            call_rt2(cur.code, rhs.code, RT_DIV_FLOOR),
+            call_rt2(cur.code, rhs.code, RT_REM_FLOOR),
+        ),
+    )
+    emit_mul_loop(env, ExprOut(rhs.pos, cur.ty, max_int(cur.max_slot, rhs.max_slot), code))
+
+dec emit_unary(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let k = env.toks[pos].kind
+    select(
+        k == TK_MINUS,
+        emit_unary_neg(env, pos + 1, hint_ty),
+        select(
+            k == TK_PLUS,
+            emit_unary(env, pos + 1, hint_ty),
+            select(
+                k == TK_NOT,
+                emit_unary_not(env, pos + 1),
+                select(
+                    k == TK_TILDE,
+                    emit_unary_bitnot(env, pos + 1, hint_ty),
+                    emit_postfix(env, pos, hint_ty),
+                ),
+            ),
+        ),
+    )
+
+dec emit_unary_neg(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let sub = emit_unary(env, pos, hint_ty)
+    ExprOut(sub.pos, sub.ty, sub.max_slot, cb2(sub.code, b3(0x48, 0xF7, 0xD8)))
+
+dec emit_unary_not(env: CgEnv, pos: int) -> ExprOut:
+    let sub = emit_unary(env, pos, TY_BOOL)
+    ExprOut(sub.pos, TY_BOOL, sub.max_slot, cb2(sub.code, b4(0x48, 0x83, 0xF0, 0x01)))
+
+dec emit_unary_bitnot(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let sub = emit_unary(env, pos, hint_ty)
+    let mask = select(sub.ty == TY_B8, b5(0x25, 0xFF, 0x00, 0x00, 0x00), bytes(""))
+    ExprOut(sub.pos, sub.ty, sub.max_slot, cb3(sub.code, b3(0x48, 0xF7, 0xD0), mask))
+
+# --- Postfix & Primary Expressions ---
+
+dec emit_postfix(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let prim = emit_primary(env, pos, hint_ty)
+    emit_postfix_loop(env, prim)
+
+dec emit_postfix_loop(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let k = env.toks[cur.pos].kind
+    select(
+        k == TK_DOT,
+        emit_postfix_loop(env, emit_field_proj(env, cur)),
+        select(
+            k == TK_LBRACKET,
+            emit_postfix_loop(env, emit_index_op(env, cur)),
+            cur,
+        ),
+    )
+
+dec emit_field_proj(env: CgEnv, cur: ExprOut) -> ExprOut:
+    assert env.toks[cur.pos + 1].kind == TK_IDENT
+    let fname = env.toks[cur.pos + 1].text
+    assert cur.ty >= TY_STRUCT_BASE and cur.ty < TY_FN_BASE
+    let sdef = env.sym.structs[cur.ty - TY_STRUCT_BASE]
+    let fidx = find_field_idx_loop(sdef.field_names, fname, 0, len(sdef.field_names))
+    assert fidx >= 0
+    let load_f = cb2(b3(0x48, 0x8B, 0x80), i32_le_bytes(fidx * 8))
+    ExprOut(cur.pos + 2, sdef.field_tys[fidx], cur.max_slot, cb2(cur.code, load_f))
+
+dec emit_index_op(env: CgEnv, cur: ExprOut) -> ExprOut:
+    let idx_out = emit_expr(env, cur.pos + 1, TY_INT)
+    assert env.toks[idx_out.pos].kind == TK_RBRACKET
+    let ms = max_int(cur.max_slot, idx_out.max_slot)
+    select(
+        cur.ty == TY_BYTES or cur.ty == TY_STR,
+        ExprOut(idx_out.pos + 1, TY_B8, ms, call_rt2(cur.code, idx_out.code, RT_BYTES_GET)),
+        finish_seq_index_op(cur, idx_out, ms),
+    )
+
+dec finish_seq_index_op(cur: ExprOut, idx_out: ExprOut, ms: int) -> ExprOut:
+    assert cur.ty >= TY_LIST_BASE
+    ExprOut(
+        idx_out.pos + 1,
+        cur.ty - TY_LIST_BASE,
+        ms,
+        call_rt2(cur.code, idx_out.code, RT_SEQ_GET),
+    )
+
+dec emit_primary(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let tk = env.toks[pos]
+    let k = tk.kind
+    select(
+        k == TK_INT,
+        ExprOut(pos + 1, TY_INT, env.next_slot, mov_rax_imm64(tk.val)),
+        select(
+            k == TK_OCTAL,
+            ExprOut(pos + 1, TY_ADDR8, env.next_slot, mov_rax_imm64(tk.val)),
+            select(
+                k == TK_TRIT,
+                ExprOut(pos + 1, TY_T1, env.next_slot, mov_rax_imm64(tk.val)),
+                select(
+                    k == TK_BOOL,
+                    ExprOut(pos + 1, TY_BOOL, env.next_slot, mov_rax_imm64(tk.val)),
+                    select(
+                        k == TK_STR,
+                        ExprOut(pos + 1, TY_STR, env.next_slot, emit_inline_bytes_lit(tk.text)),
+                        select(
+                            k == TK_LPAREN,
+                            emit_paren_expr(env, pos + 1, hint_ty),
+                            select(
+                                k == TK_LBRACKET,
+                                emit_list_lit(env, pos + 1, hint_ty),
+                                emit_ident_primary(env, pos, hint_ty),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec emit_paren_expr(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        env.toks[pos].kind == TK_RPAREN,
+        ExprOut(pos + 1, TY_UNIT, env.next_slot, b2(0x31, 0xC0)),
+        finish_paren_expr(env, pos, hint_ty),
+    )
+
+dec finish_paren_expr(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let inner = emit_expr(env, pos, hint_ty)
+    assert env.toks[inner.pos].kind == TK_RPAREN
+    ExprOut(inner.pos + 1, inner.ty, inner.max_slot, inner.code)
+
+struct ListElemAcc:
+    pos: int
+    elem_ty: int
+    count: int
+    max_slot: int
+    chunks: [bytes]
+
+dec emit_list_lit(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        env.toks[pos].kind == TK_RBRACKET,
+        ExprOut(
+            pos + 1,
+            select(hint_ty >= TY_LIST_BASE, hint_ty, TY_LIST_BASE),
+            env.next_slot,
+            cb3(
+                b5(0xBF, 8, 0, 0, 0),
+                call_rt(RT_ALLOC),
+                bytes([b8(0x48), b8(0xC7), b8(0x00), b8(0), b8(0), b8(0), b8(0)]),
+            ),
+        ),
+        emit_nonempty_list_lit(env, pos, hint_ty),
+    )
+
+dec emit_nonempty_list_lit(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let elem_hint = select(hint_ty > TY_LIST_BASE, hint_ty - TY_LIST_BASE, 0)
+    let empty_chunks: [bytes] = []
+    let acc = emit_list_elems(env, elem_hint, ListElemAcc(pos, elem_hint, 0, env.next_slot, empty_chunks))
+    let hdr = join_bytes([
+        cb2(b1(0xBF), i32_le_bytes(8 + acc.count * 8)),
+        call_rt(RT_ALLOC),
+        mov_rcx_imm64(acc.count),
+        b3(0x48, 0x89, 0x08),
+        b1(0x50),
+    ])
+    let all_code = cb3(hdr, join_bytes(acc.chunks), b1(0x58))
+    ExprOut(acc.pos, TY_LIST_BASE + acc.elem_ty, acc.max_slot, all_code)
+
+dec emit_list_elems(env: CgEnv, elem_hint: int, acc: ListElemAcc) -> ListElemAcc:
+    let el = emit_expr(env, acc.pos, elem_hint)
+    let st_el = cb3(
+        el.code,
+        b4(0x48, 0x8B, 0x0C, 0x24),
+        cb2(b3(0x48, 0x89, 0x81), i32_le_bytes(8 + acc.count * 8)),
+    )
+    let next_ty = select(acc.elem_ty != 0, acc.elem_ty, el.ty)
+    let next_acc = ListElemAcc(
+        el.pos,
+        next_ty,
+        acc.count + 1,
+        max_int(acc.max_slot, el.max_slot),
+        push(acc.chunks, st_el),
+    )
+    let nxt_k = env.toks[el.pos].kind
+    select(
+        nxt_k == TK_COMMA,
+        select(
+            env.toks[el.pos + 1].kind == TK_RBRACKET,
+            ListElemAcc(el.pos + 2, next_acc.elem_ty, next_acc.count, next_acc.max_slot, next_acc.chunks),
+            emit_list_elems(env, next_ty, ListElemAcc(el.pos + 1, next_acc.elem_ty, next_acc.count, next_acc.max_slot, next_acc.chunks)),
+        ),
+        finish_list_elems(env.toks, next_acc),
+    )
+
+dec finish_list_elems(toks: [Tok], acc: ListElemAcc) -> ListElemAcc:
+    assert toks[acc.pos].kind == TK_RBRACKET
+    ListElemAcc(acc.pos + 1, acc.elem_ty, acc.count, acc.max_slot, acc.chunks)
+
+dec emit_ident_primary(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    assert env.toks[pos].kind == TK_IDENT
+    let id_pos = skip_qual_prefix(env.toks, pos)
+    let w = env.toks[id_pos].text
+    let after_id = id_pos + 1
+    select(
+        env.toks[after_id].kind == TK_LPAREN,
+        emit_ident_call(env, w, after_id + 1, hint_ty),
+        emit_bare_ident(env, w, after_id),
+    )
+
+dec emit_bare_ident(env: CgEnv, w: bytes, end_pos: int) -> ExprOut:
+    let lidx = find_local_idx_loop(env.locals, w, len(env.locals) - 1)
+    select(
+        lidx >= 0,
+        ExprOut(end_pos, env.locals[lidx].ty, env.next_slot, load_slot_rax(env.locals[lidx].slot)),
+        emit_const_or_fn_ref(env, w, end_pos),
+    )
+
+dec emit_const_or_fn_ref(env: CgEnv, w: bytes, end_pos: int) -> ExprOut:
+    let cidx = find_const_idx_loop(env.sym.consts, w, 0, len(env.sym.consts))
+    select(
+        cidx >= 0,
+        emit_const_val(env.sym.consts[cidx], end_pos, env.next_slot),
+        emit_bare_fn_ref(env.sym.fns, w, end_pos, env.next_slot),
+    )
+
+dec emit_const_val(cdef: ConstDef, end_pos: int, next_slot: int) -> ExprOut:
+    select(
+        cdef.ty == TY_STR,
+        ExprOut(end_pos, TY_STR, next_slot, emit_inline_bytes_lit(cdef.str_val)),
+        ExprOut(end_pos, cdef.ty, next_slot, mov_rax_imm64(cdef.val)),
+    )
+
+dec emit_bare_fn_ref(fns: [FnSig], w: bytes, end_pos: int, next_slot: int) -> ExprOut:
+    let fidx = find_fn_idx(fns, w)
+    assert fidx >= 0
+    ExprOut(end_pos, TY_FN_BASE + fidx, next_slot, load_fn_ptr_rax(fidx))
+
+# --- Builtin, Struct Constructor, & User Function Calls ---
+
+dec emit_ident_call(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    let wl = len(w)
+    select(
+        wl == 2,
+        emit_builtin_len2(env, w, pos, hint_ty),
+        select(
+            wl == 3,
+            emit_builtin_len3(env, w, pos, hint_ty),
+            select(
+                wl == 4,
+                emit_builtin_len4(env, w, pos, hint_ty),
+                select(
+                    wl == 5,
+                    emit_builtin_len5(env, w, pos, hint_ty),
+                    select(
+                        wl == 6,
+                        emit_builtin_len6(env, w, pos, hint_ty),
+                        emit_builtin_long(env, w, pos, hint_ty),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec emit_builtin_len2(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        w == bytes("b8"),
+        emit_b8_conv(env, pos),
+        select(
+            w == bytes("t1"),
+            emit_t1_conv(env, pos),
+            emit_struct_or_fn_call(env, w, pos),
+        ),
+    )
+
+dec emit_b8_conv(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let chk = cb2(
+        bytes([b8(0x48), b8(0x3D), b8(0xFF), b8(0), b8(0), b8(0)]),
+        jbe_over(call_rt(RT_ASSERT_FAIL)),
+    )
+    ExprOut(ep, TY_B8, a0.max_slot, cb2(a0.code, chk))
+
+dec emit_t1_conv(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let chk = cb3(
+        b4(0x48, 0x8D, 0x48, 0x01),
+        b4(0x48, 0x83, 0xF9, 0x02),
+        jbe_over(call_rt(RT_ASSERT_FAIL)),
+    )
+    ExprOut(ep, TY_T1, a0.max_slot, cb2(a0.code, chk))
+
+dec emit_builtin_len3(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        w == bytes("len"),
+        emit_len_call(env, pos),
+        select(
+            w == bytes("int"),
+            emit_int_conv(env, pos),
+            select(
+                w == bytes("b64"),
+                emit_b64_conv(env, pos),
+                select(
+                    w == bytes("mux"),
+                    emit_mux_call(env, pos, hint_ty),
+                    emit_builtin_len3b(env, w, pos),
+                ),
+            ),
+        ),
+    )
+
+dec emit_builtin_len3b(env: CgEnv, w: bytes, pos: int) -> ExprOut:
+    select(
+        w == bytes("sgn"),
+        emit_sgn_call(env, pos),
+        select(
+            w == bytes("abs"),
+            emit_abs_call(env, pos),
+            select(
+                w == bytes("min"),
+                emit_minmax_call(env, pos, 1),
+                select(
+                    w == bytes("max"),
+                    emit_minmax_call(env, pos, 0),
+                    emit_struct_or_fn_call(env, w, pos),
+                ),
+            ),
+        ),
+    )
+
+dec emit_len_call(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, 0)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    ExprOut(ep, TY_INT, a0.max_slot, cb2(a0.code, b3(0x48, 0x8B, 0x00)))
+
+dec emit_int_conv(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let code = select(a0.ty == TY_B64, call_rt1(a0.code, RT_UNPACK_TRIT32), a0.code)
+    ExprOut(ep, TY_INT, a0.max_slot, code)
+
+dec emit_b64_conv(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let code = select(a0.ty == TY_INT, call_rt1(a0.code, RT_PACK_TRIT32), a0.code)
+    ExprOut(ep, TY_B64, a0.max_slot, code)
+
+dec emit_sgn_call(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let tail = join_bytes([
+        b3(0x48, 0x85, 0xC0),
+        b3(0x0F, 0x9F, 0xC0),
+        b3(0x0F, 0x9C, 0xC2),
+        b3(0x0F, 0xB6, 0xC0),
+        b3(0x0F, 0xB6, 0xD2),
+        b3(0x48, 0x29, 0xD0),
+    ])
+    ExprOut(ep, TY_T1, a0.max_slot, cb2(a0.code, tail))
+
+dec emit_abs_call(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let tail = cb2(b3(0x48, 0x85, 0xC0), jns_over(b3(0x48, 0xF7, 0xD8)))
+    ExprOut(ep, TY_INT, a0.max_slot, cb2(a0.code, tail))
+
+dec emit_minmax_call(env: CgEnv, pos: int, is_min: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    assert env.toks[a0.pos].kind == TK_COMMA
+    let a1 = emit_expr(env, a0.pos + 1, TY_INT)
+    let ep = expect_close_paren(env.toks, a1.pos)
+    let cmov = select(is_min == 1, b4(0x48, 0x0F, 0x4F, 0xC1), b4(0x48, 0x0F, 0x4C, 0xC1))
+    let code = join_bytes([
+        a0.code,
+        b1(0x50),
+        a1.code,
+        b4(0x48, 0x89, 0xC1, 0x58),
+        b3(0x48, 0x39, 0xC8),
+        cmov,
+    ])
+    ExprOut(ep, TY_INT, max_int(a0.max_slot, a1.max_slot), code)
+
+dec emit_mux_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let r_out = emit_expr(env, pos, TY_T1)
+    assert env.toks[r_out.pos].kind == TK_COMMA
+    let n_out = emit_expr(env, r_out.pos + 1, hint_ty)
+    assert env.toks[n_out.pos].kind == TK_COMMA
+    let h2 = resolve_list_ty(hint_ty, n_out.ty)
+    let z_out = emit_expr(env, n_out.pos + 1, h2)
+    assert env.toks[z_out.pos].kind == TK_COMMA
+    let h3 = resolve_list_ty(h2, z_out.ty)
+    let p_out = emit_expr(env, z_out.pos + 1, h3)
+    let ep = expect_close_paren(env.toks, p_out.pos)
+    let pos_chk = cb3(b4(0x48, 0x83, 0xF8, 0x01), jz_over(call_rt(RT_ASSERT_FAIL)), p_out.code)
+    let z_or_p = cb2(b3(0x48, 0x85, 0xC0), if_eq_else(z_out.code, pos_chk))
+    let code = cb3(r_out.code, b4(0x48, 0x83, 0xF8, 0xFF), if_eq_else(n_out.code, z_or_p))
+    let ms = max_int(max_int(r_out.max_slot, n_out.max_slot), max_int(z_out.max_slot, p_out.max_slot))
+    ExprOut(ep, resolve_list_ty(h3, p_out.ty), ms, code)
+
+dec emit_builtin_len4(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        w == bytes("push"),
+        emit_push_call(env, pos, hint_ty),
+        select(
+            w == bytes("gate"),
+            emit_gate_call(env, pos),
+            select(
+                w == bytes("walk"),
+                emit_walk_settle_call(env, pos, RT_WALK),
+                select(
+                    w == bytes("fold"),
+                    emit_fold_call(env, pos, hint_ty),
+                    select(
+                        w == bytes("each"),
+                        emit_each_call(env, pos),
+                        emit_struct_or_fn_call(env, w, pos),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec emit_push_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let xs = emit_expr(env, pos, hint_ty)
+    assert env.toks[xs.pos].kind == TK_COMMA
+    let elem_h = select(xs.ty > TY_LIST_BASE, xs.ty - TY_LIST_BASE, 0)
+    let el = emit_expr(env, xs.pos + 1, elem_h)
+    let ep = expect_close_paren(env.toks, el.pos)
+    let res_ty = select(xs.ty > TY_LIST_BASE, xs.ty, TY_LIST_BASE + el.ty)
+    ExprOut(ep, res_ty, max_int(xs.max_slot, el.max_slot), call_rt2(xs.code, el.code, RT_SEQ_PUSH))
+
+dec emit_gate_call(env: CgEnv, pos: int) -> ExprOut:
+    let c_out = emit_expr(env, pos, TY_BOOL)
+    assert env.toks[c_out.pos].kind == TK_COMMA
+    let v_out = emit_expr(env, c_out.pos + 1, TY_INT)
+    let ep = expect_close_paren(env.toks, v_out.pos)
+    let code = cb3(c_out.code, b3(0x48, 0x85, 0xC0), if_nz_else(v_out.code, b2(0x31, 0xC0)))
+    ExprOut(ep, v_out.ty, max_int(c_out.max_slot, v_out.max_slot), code)
+
+dec emit_walk_settle_call(env: CgEnv, pos: int, rt_slot: int) -> ExprOut:
+    let init_e = emit_expr(env, pos, 0)
+    assert env.toks[init_e.pos].kind == TK_COMMA
+    let steps_e = emit_expr(env, init_e.pos + 1, TY_INT)
+    assert env.toks[steps_e.pos].kind == TK_COMMA
+    let fn_e = emit_expr(env, steps_e.pos + 1, 0)
+    let ep = expect_close_paren(env.toks, fn_e.pos)
+    let ms = max_int(max_int(init_e.max_slot, steps_e.max_slot), fn_e.max_slot)
+    ExprOut(ep, init_e.ty, ms, call_rt3(init_e.code, steps_e.code, fn_e.code, rt_slot))
+
+dec emit_fold_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let xs_e = emit_expr(env, pos, 0)
+    assert env.toks[xs_e.pos].kind == TK_COMMA
+    let init_e = emit_expr(env, xs_e.pos + 1, hint_ty)
+    assert env.toks[init_e.pos].kind == TK_COMMA
+    let fn_e = emit_expr(env, init_e.pos + 1, 0)
+    let ep = expect_close_paren(env.toks, fn_e.pos)
+    let ms = max_int(max_int(xs_e.max_slot, init_e.max_slot), fn_e.max_slot)
+    ExprOut(ep, init_e.ty, ms, call_rt3(xs_e.code, init_e.code, fn_e.code, RT_FOLD))
+
+dec emit_each_call(env: CgEnv, pos: int) -> ExprOut:
+    let xs_e = emit_expr(env, pos, 0)
+    assert env.toks[xs_e.pos].kind == TK_COMMA
+    let fn_e = emit_expr(env, xs_e.pos + 1, 0)
+    let ep = expect_close_paren(env.toks, fn_e.pos)
+    assert fn_e.ty >= TY_FN_BASE and fn_e.ty < TY_LIST_BASE
+    let out_elem = env.sym.fns[fn_e.ty - TY_FN_BASE].ret_ty
+    ExprOut(ep, TY_LIST_BASE + out_elem, max_int(xs_e.max_slot, fn_e.max_slot), call_rt2(xs_e.code, fn_e.code, RT_EACH))
+
+dec emit_builtin_len5(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        w == bytes("bytes"),
+        emit_bytes_conv(env, pos),
+        select(
+            w == bytes("slice"),
+            emit_slice_seq_call(env, pos, hint_ty),
+            emit_struct_or_fn_call(env, w, pos),
+        ),
+    )
+
+dec emit_bytes_conv(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_LIST_BASE + TY_B8)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let code = select(
+        a0.ty == TY_STR or a0.ty == TY_BYTES,
+        a0.code,
+        call_rt1(a0.code, RT_BYTES_FROM_LIST),
+    )
+    ExprOut(ep, TY_BYTES, a0.max_slot, code)
+
+dec emit_slice_seq_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let xs_e = emit_expr(env, pos, hint_ty)
+    assert env.toks[xs_e.pos].kind == TK_COMMA
+    let s_e = emit_expr(env, xs_e.pos + 1, TY_INT)
+    assert env.toks[s_e.pos].kind == TK_COMMA
+    let e_e = emit_expr(env, s_e.pos + 1, TY_INT)
+    let ep = expect_close_paren(env.toks, e_e.pos)
+    let ms = max_int(max_int(xs_e.max_slot, s_e.max_slot), e_e.max_slot)
+    ExprOut(ep, xs_e.ty, ms, call_rt3(xs_e.code, s_e.code, e_e.code, RT_SEQ_SLICE))
+
+dec emit_builtin_len6(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        w == bytes("select"),
+        emit_select_call(env, pos, hint_ty),
+        select(
+            w == bytes("concat"),
+            emit_concat_seq_call(env, pos, hint_ty),
+            select(
+                w == bytes("set_at"),
+                emit_set_at_call(env, pos, hint_ty),
+                select(
+                    w == bytes("settle"),
+                    emit_walk_settle_call(env, pos, RT_SETTLE),
+                    emit_struct_or_fn_call(env, w, pos),
+                ),
+            ),
+        ),
+    )
+
+dec emit_select_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let c_out = emit_expr(env, pos, TY_BOOL)
+    assert env.toks[c_out.pos].kind == TK_COMMA
+    let t_out = emit_expr(env, c_out.pos + 1, hint_ty)
+    assert env.toks[t_out.pos].kind == TK_COMMA
+    let h2 = resolve_list_ty(hint_ty, t_out.ty)
+    let f_out = emit_expr(env, t_out.pos + 1, h2)
+    let ep = expect_close_paren(env.toks, f_out.pos)
+    let code = cb3(c_out.code, b3(0x48, 0x85, 0xC0), if_nz_else(t_out.code, f_out.code))
+    let ms = max_int(max_int(c_out.max_slot, t_out.max_slot), f_out.max_slot)
+    ExprOut(ep, resolve_list_ty(t_out.ty, f_out.ty), ms, code)
+
+dec emit_concat_seq_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let a_out = emit_expr(env, pos, hint_ty)
+    assert env.toks[a_out.pos].kind == TK_COMMA
+    let h2 = resolve_list_ty(hint_ty, a_out.ty)
+    let b_out = emit_expr(env, a_out.pos + 1, h2)
+    let ep = expect_close_paren(env.toks, b_out.pos)
+    let res_ty = resolve_list_ty(a_out.ty, b_out.ty)
+    ExprOut(ep, res_ty, max_int(a_out.max_slot, b_out.max_slot), call_rt2(a_out.code, b_out.code, RT_SEQ_CONCAT))
+
+dec emit_set_at_call(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
+    let xs_e = emit_expr(env, pos, hint_ty)
+    assert env.toks[xs_e.pos].kind == TK_COMMA
+    let i_e = emit_expr(env, xs_e.pos + 1, TY_INT)
+    assert env.toks[i_e.pos].kind == TK_COMMA
+    let elem_h = select(xs_e.ty > TY_LIST_BASE, xs_e.ty - TY_LIST_BASE, 0)
+    let v_e = emit_expr(env, i_e.pos + 1, elem_h)
+    let ep = expect_close_paren(env.toks, v_e.pos)
+    let ms = max_int(max_int(xs_e.max_slot, i_e.max_slot), v_e.max_slot)
+    ExprOut(ep, xs_e.ty, ms, call_rt3(xs_e.code, i_e.code, v_e.code, RT_SEQ_SET_AT))
+
+dec emit_builtin_long(env: CgEnv, w: bytes, pos: int, hint_ty: int) -> ExprOut:
+    select(
+        w == bytes("concat_bytes"),
+        emit_two_bytes_rt(env, pos, RT_CONCAT_BYTES, TY_BYTES),
+        select(
+            w == bytes("slice_bytes"),
+            emit_slice_bytes_call(env, pos),
+            select(
+                w == bytes("push_byte"),
+                emit_two_bytes_rt(env, pos, RT_PUSH_BYTE, TY_BYTES),
+                select(
+                    w == bytes("i32_le_bytes") or w == bytes("u32_le_bytes"),
+                    emit_le_call(env, pos, 4),
+                    select(
+                        w == bytes("i64_le_bytes") or w == bytes("b64_le_bytes"),
+                        emit_le_call(env, pos, 8),
+                        select(
+                            w == bytes("u16_le_bytes"),
+                            emit_le_call(env, pos, 2),
+                            emit_builtin_long2(env, w, pos),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec emit_builtin_long2(env: CgEnv, w: bytes, pos: int) -> ExprOut:
+    select(
+        w == bytes("cli_args"),
+        emit_cli_args_call(env, pos),
+        select(
+            w == bytes("read_file_bytes"),
+            emit_read_file_call(env, pos),
+            select(
+                w == bytes("write_executable_elf"),
+                emit_two_bytes_rt(env, pos, RT_WRITE_ELF, TY_INT),
+                select(
+                    w == bytes("range_seq"),
+                    emit_two_bytes_rt(env, pos, RT_RANGE_SEQ, TY_LIST_BASE + TY_INT),
+                    select(
+                        w == bytes("str_bytes"),
+                        emit_str_bytes_call(env, pos),
+                        select(
+                            w == bytes("b64_bits"),
+                            emit_b64_bits_call(env, pos),
+                            select(
+                                w == bytes("u64_int"),
+                                emit_u64_int_call(env, pos),
+                                emit_struct_or_fn_call(env, w, pos),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+dec emit_two_bytes_rt(env: CgEnv, pos: int, rt_slot: int, ret_ty: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, 0)
+    assert env.toks[a0.pos].kind == TK_COMMA
+    let a1 = emit_expr(env, a0.pos + 1, 0)
+    let ep = expect_close_paren(env.toks, a1.pos)
+    ExprOut(ep, ret_ty, max_int(a0.max_slot, a1.max_slot), call_rt2(a0.code, a1.code, rt_slot))
+
+dec emit_slice_bytes_call(env: CgEnv, pos: int) -> ExprOut:
+    let b_e = emit_expr(env, pos, TY_BYTES)
+    assert env.toks[b_e.pos].kind == TK_COMMA
+    let s_e = emit_expr(env, b_e.pos + 1, TY_INT)
+    assert env.toks[s_e.pos].kind == TK_COMMA
+    let e_e = emit_expr(env, s_e.pos + 1, TY_INT)
+    let ep = expect_close_paren(env.toks, e_e.pos)
+    let ms = max_int(max_int(b_e.max_slot, s_e.max_slot), e_e.max_slot)
+    ExprOut(ep, TY_BYTES, ms, call_rt3(b_e.code, s_e.code, e_e.code, RT_SLICE_BYTES))
+
+dec emit_le_call(env: CgEnv, pos: int, width: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let code = cb4(a0.code, b3(0x48, 0x89, 0xC7), b5(0xBE, width, 0, 0, 0), call_rt(RT_LE_BYTES))
+    ExprOut(ep, TY_BYTES, a0.max_slot, code)
+
+dec emit_cli_args_call(env: CgEnv, pos: int) -> ExprOut:
+    let ep = expect_close_paren(env.toks, pos)
+    ExprOut(ep, TY_LIST_BASE + TY_BYTES, env.next_slot, call_rt(RT_CLI_ARGS))
+
+dec emit_read_file_call(env: CgEnv, pos: int) -> ExprOut:
+    let p_e = emit_expr(env, pos, TY_BYTES)
+    let ep = expect_close_paren(env.toks, p_e.pos)
+    ExprOut(ep, TY_BYTES, p_e.max_slot, call_rt1(p_e.code, RT_READ_FILE))
+
+dec emit_str_bytes_call(env: CgEnv, pos: int) -> ExprOut:
+    let b_e = emit_expr(env, pos, TY_BYTES)
+    let ep = expect_close_paren(env.toks, b_e.pos)
+    ExprOut(ep, TY_STR, b_e.max_slot, b_e.code)
+
+dec emit_b64_bits_call(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_INT)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    ExprOut(ep, TY_B64, a0.max_slot, a0.code)
+
+dec emit_u64_int_call(env: CgEnv, pos: int) -> ExprOut:
+    let a0 = emit_expr(env, pos, TY_B64)
+    let ep = expect_close_paren(env.toks, a0.pos)
+    let chk = cb2(b3(0x48, 0x85, 0xC0), jns_over(call_rt(RT_ASSERT_FAIL)))
+    ExprOut(ep, TY_INT, a0.max_slot, cb2(a0.code, chk))
+
+dec emit_struct_or_fn_call(env: CgEnv, w: bytes, pos: int) -> ExprOut:
+    let sidx = find_struct_idx(env.sym.structs, w)
+    select(
+        sidx >= 0,
+        emit_struct_ctor(env, sidx, pos),
+        emit_user_fn_by_name(env, w, pos),
+    )
+
+struct ArgEvalAcc:
+    pos: int
+    idx: int
+    max_slot: int
+    chunks: [bytes]
+
+dec emit_struct_ctor(env: CgEnv, sidx: int, pos: int) -> ExprOut:
+    let ftys = env.sym.structs[sidx].field_tys
+    let k = len(ftys)
+    let alloc_hdr = cb3(
+        cb2(b1(0xBF), i32_le_bytes(max_int(8, k * 8))),
+        call_rt(RT_ALLOC),
+        b1(0x50),
+    )
+    select(
+        k == 0,
+        ExprOut(expect_close_paren(env.toks, pos), TY_STRUCT_BASE + sidx, env.next_slot, cb2(alloc_hdr, b1(0x58))),
+        finish_struct_ctor(env, sidx, pos, ftys, alloc_hdr),
+    )
+
+dec finish_struct_ctor(env: CgEnv, sidx: int, pos: int, ftys: [int], alloc_hdr: bytes) -> ExprOut:
+    let empty_chunks: [bytes] = []
+    let acc = emit_struct_fields_eval(env, ftys, ArgEvalAcc(pos, 0, env.next_slot, empty_chunks))
+    assert acc.idx == len(ftys)
+    let code = cb3(alloc_hdr, join_bytes(acc.chunks), b1(0x58))
+    ExprOut(acc.pos, TY_STRUCT_BASE + sidx, acc.max_slot, code)
+
+dec emit_struct_fields_eval(env: CgEnv, ftys: [int], acc: ArgEvalAcc) -> ArgEvalAcc:
+    let el = emit_expr(env, acc.pos, ftys[acc.idx])
+    let st_f = cb3(
+        el.code,
+        b4(0x48, 0x8B, 0x0C, 0x24),
+        cb2(b3(0x48, 0x89, 0x81), i32_le_bytes(acc.idx * 8)),
+    )
+    let next_acc = ArgEvalAcc(
+        el.pos,
+        acc.idx + 1,
+        max_int(acc.max_slot, el.max_slot),
+        push(acc.chunks, st_f),
+    )
+    select(
+        next_acc.idx < len(ftys),
+        advance_comma_struct_eval(env, ftys, next_acc),
+        ArgEvalAcc(expect_close_paren(env.toks, el.pos), next_acc.idx, next_acc.max_slot, next_acc.chunks),
+    )
+
+dec advance_comma_struct_eval(env: CgEnv, ftys: [int], acc: ArgEvalAcc) -> ArgEvalAcc:
+    assert env.toks[acc.pos].kind == TK_COMMA
+    emit_struct_fields_eval(env, ftys, ArgEvalAcc(acc.pos + 1, acc.idx, acc.max_slot, acc.chunks))
+
+dec emit_user_fn_by_name(env: CgEnv, w: bytes, pos: int) -> ExprOut:
+    let fidx = find_fn_idx(env.sym.fns, w)
+    assert fidx >= 0
+    let sig = env.sym.fns[fidx]
+    let arity = len(sig.param_tys)
+    assert arity <= 6
+    select(
+        arity == 0,
+        ExprOut(expect_close_paren(env.toks, pos), sig.ret_ty, env.next_slot, call_fn(fidx)),
+        finish_user_fn_call(env, fidx, sig, pos),
+    )
+
+dec finish_user_fn_call(env: CgEnv, fidx: int, sig: FnSig, pos: int) -> ExprOut:
+    let empty_chunks: [bytes] = []
+    let acc = emit_fn_args_eval(env, sig.param_tys, ArgEvalAcc(pos, 0, env.next_slot, empty_chunks))
+    assert acc.idx == len(sig.param_tys)
+    let pops = emit_pop_args_rev(acc.idx - 1)
+    let code = cb3(join_bytes(acc.chunks), pops, call_fn(fidx))
+    ExprOut(acc.pos, sig.ret_ty, acc.max_slot, code)
+
+dec emit_fn_args_eval(env: CgEnv, ptys: [int], acc: ArgEvalAcc) -> ArgEvalAcc:
+    let el = emit_expr(env, acc.pos, ptys[acc.idx])
+    let push_el = cb2(el.code, b1(0x50))
+    let next_acc = ArgEvalAcc(
+        el.pos,
+        acc.idx + 1,
+        max_int(acc.max_slot, el.max_slot),
+        push(acc.chunks, push_el),
+    )
+    select(
+        next_acc.idx < len(ptys),
+        advance_comma_fn_eval(env, ptys, next_acc),
+        ArgEvalAcc(expect_close_paren(env.toks, el.pos), next_acc.idx, next_acc.max_slot, next_acc.chunks),
+    )
+
+dec advance_comma_fn_eval(env: CgEnv, ptys: [int], acc: ArgEvalAcc) -> ArgEvalAcc:
+    assert env.toks[acc.pos].kind == TK_COMMA
+    emit_fn_args_eval(env, ptys, ArgEvalAcc(acc.pos + 1, acc.idx, acc.max_slot, acc.chunks))
+
+dec emit_pop_args_rev(idx: int) -> bytes:
+    select(
+        idx < 0,
+        bytes(""),
+        cb2(pop_arg_reg(idx), emit_pop_args_rev(idx - 1)),
+    )
+
+# --- Statements, Signature-Matrix Arms, & Function Lowering ---
+
+dec compile_stmt(env: CgEnv, pos: int) -> StmtOut:
+    let k = env.toks[pos].kind
+    select(
+        k == TK_LET,
+        compile_let_stmt(env, pos + 1),
+        select(
+            k == TK_ASSERT,
+            compile_assert_stmt(env, pos + 1),
+            select(
+                k == TK_EMIT,
+                compile_emit_stmt(env, pos + 1),
+                compile_expr_stmt(env, pos),
+            ),
+        ),
+    )
+
+dec compile_let_stmt(env: CgEnv, pos: int) -> StmtOut:
+    assert env.toks[pos].kind == TK_IDENT
+    let vname = env.toks[pos].text
+    let has_ann = env.toks[pos + 1].kind == TK_COLON
+    let ann = select(
+        has_ann,
+        parse_type_toks(env.toks, pos + 2, env.sym.structs),
+        TypeParse(pos + 1, 0),
+    )
+    assert env.toks[ann.pos].kind == TK_ASSIGN
+    let rhs = emit_expr(env, ann.pos + 1, ann.ty)
+    let vty = select(ann.ty != 0, ann.ty, rhs.ty)
+    let slot = env.next_slot
+    let new_next = max_int(slot + 1, rhs.max_slot)
+    let new_locals = select(
+        vname == bytes("_"),
+        env.locals,
+        push(env.locals, LocalVar(vname, slot, vty)),
+    )
+    let new_env = CgEnv(env.sym, env.toks, new_locals, new_next, env.ret_ty)
+    StmtOut(rhs.pos, new_env, 0, cb2(rhs.code, store_slot_rax(slot)))
+
+dec compile_assert_stmt(env: CgEnv, pos: int) -> StmtOut:
+    let cond = emit_expr(env, pos, TY_BOOL)
+    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, cond.max_slot), env.ret_ty)
+    let chk = cb3(cond.code, b3(0x48, 0x85, 0xC0), jnz_over(call_rt(RT_ASSERT_FAIL)))
+    StmtOut(cond.pos, new_env, 0, chk)
+
+dec compile_emit_stmt(env: CgEnv, pos: int) -> StmtOut:
+    let val = emit_expr(env, pos, 0)
+    let rt_slot = select(
+        val.ty == TY_STR or val.ty == TY_BYTES,
+        RT_EMIT_STR,
+        select(
+            val.ty == TY_BOOL,
+            RT_EMIT_BOOL,
+            select(val.ty == TY_T1, RT_EMIT_T1, RT_EMIT_INT),
+        ),
+    )
+    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, val.max_slot), env.ret_ty)
+    StmtOut(val.pos, new_env, 0, call_rt1(val.code, rt_slot))
+
+dec compile_expr_stmt(env: CgEnv, pos: int) -> StmtOut:
+    let val = emit_expr(env, pos, env.ret_ty)
+    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, val.max_slot), env.ret_ty)
+    StmtOut(val.pos, new_env, 1, val.code)
+
+struct BlockOut:
+    pos: int
+    max_slot: int
+    code: bytes
+
+dec compile_stmts_loop(env: CgEnv, pos: int, chunks: [bytes]) -> BlockOut:
+    let p = skip_newlines(env.toks, pos)
+    let k = env.toks[p].kind
+    select(
+        k == TK_DEDENT,
+        BlockOut(p + 1, env.next_slot, cb2(join_bytes(chunks), b5(0x48, 0x89, 0xEC, 0x5D, 0xC3))),
+        select(
+            k == TK_EOF,
+            BlockOut(p, env.next_slot, cb2(join_bytes(chunks), b5(0x48, 0x89, 0xEC, 0x5D, 0xC3))),
+            compile_stmts_next(env, p, chunks),
+        ),
+    )
+
+dec compile_stmts_next(env: CgEnv, p: int, chunks: [bytes]) -> BlockOut:
+    let st = compile_stmt(env, p)
+    compile_stmts_loop(st.env, st.pos, push(chunks, st.code))
+
+struct ArmParamAcc:
+    pos: int
+    idx: int
+    locals: [LocalVar]
+    conds: [bytes]
+
+struct PatLitOut:
+    pos: int
+    val: int
+
+dec parse_pat_lit_val(toks: [Tok], pos: int) -> PatLitOut:
+    let k = toks[pos].kind
+    select(
+        k == TK_MINUS and (toks[pos + 1].kind == TK_INT or toks[pos + 1].kind == TK_TRIT),
+        PatLitOut(pos + 2, 0 - toks[pos + 1].val),
+        select(
+            k == TK_PLUS and (toks[pos + 1].kind == TK_INT or toks[pos + 1].kind == TK_TRIT),
+            PatLitOut(pos + 2, toks[pos + 1].val),
+            PatLitOut(pos + 1, toks[pos].val),
+        ),
+    )
+
+dec parse_arm_params(toks: [Tok], structs: [StructDef], acc: ArmParamAcc) -> ArmParamAcc:
+    select(
+        toks[acc.pos].kind == TK_RPAREN,
+        ArmParamAcc(acc.pos + 1, acc.idx, acc.locals, acc.conds),
+        parse_arm_param_one(toks, structs, acc),
+    )
+
+dec parse_arm_param_one(toks: [Tok], structs: [StructDef], acc: ArmParamAcc) -> ArmParamAcc:
+    let p = acc.pos
+    let is_bind = toks[p].kind == TK_IDENT
+    let pat_lit = select(is_bind, PatLitOut(p + 1, 0), parse_pat_lit_val(toks, p))
+    assert toks[pat_lit.pos].kind == TK_COLON
+    let tp = parse_type_toks(toks, pat_lit.pos + 1, structs)
+    let next_locals = select(
+        is_bind and toks[p].text != bytes("_"),
+        push(acc.locals, LocalVar(toks[p].text, acc.idx, tp.ty)),
+        acc.locals,
+    )
+    let pat_chk = cb3(
+        load_slot_rax(acc.idx),
+        mov_rcx_imm64(pat_lit.val),
+        cb3(b3(0x48, 0x39, 0xC8), b3(0x0F, 0x94, 0xC0), b3(0x0F, 0xB6, 0xC0)),
+    )
+    let next_conds = select(is_bind, acc.conds, push(acc.conds, pat_chk))
+    let next_acc = ArmParamAcc(tp.pos, acc.idx + 1, next_locals, next_conds)
+    select(
+        toks[tp.pos].kind == TK_COMMA,
+        parse_arm_params(toks, structs, ArmParamAcc(tp.pos + 1, next_acc.idx, next_acc.locals, next_acc.conds)),
+        finish_arm_params(toks, next_acc),
+    )
+
+dec finish_arm_params(toks: [Tok], acc: ArmParamAcc) -> ArmParamAcc:
+    assert toks[acc.pos].kind == TK_RPAREN
+    ArmParamAcc(acc.pos + 1, acc.idx, acc.locals, acc.conds)
+
+dec wrap_arm_conds(conds: [bytes], idx: int, body: bytes) -> bytes:
+    select(
+        idx < 0,
+        body,
+        wrap_arm_conds(conds, idx - 1, cb3(conds[idx], b3(0x48, 0x85, 0xC0), jz_over(body))),
+    )
+
+dec compile_arm_at(sym: SymTab, toks: [Tok], sig: FnSig, lparen_pos: int) -> ArmOut:
+    assert toks[lparen_pos].kind == TK_LPAREN
+    let empty_locals: [LocalVar] = []
+    let empty_conds: [bytes] = []
+    let pa = parse_arm_params(toks, sym.structs, ArmParamAcc(lparen_pos + 1, 0, empty_locals, empty_conds))
+    let arity = len(sig.param_tys)
+    assert pa.idx == arity
+    let base_env = CgEnv(sym, toks, pa.locals, arity, sig.ret_ty)
+    let has_where = toks[pa.pos].kind == TK_WHERE
+    let w_out = select(
+        has_where,
+        emit_expr(base_env, pa.pos + 1, TY_BOOL),
+        ExprOut(pa.pos, TY_BOOL, arity, bytes("")),
+    )
+    let all_conds = select(has_where, push(pa.conds, w_out.code), pa.conds)
+    let p_ret = select(
+        toks[w_out.pos].kind == TK_ARROW,
+        parse_type_toks(toks, w_out.pos + 1, sym.structs).pos,
+        w_out.pos,
+    )
+    assert toks[p_ret].kind == TK_COLON
+    let p_ind = skip_newlines(toks, p_ret + 1)
+    assert toks[p_ind].kind == TK_INDENT
+    let body_env = CgEnv(sym, toks, pa.locals, max_int(arity, w_out.max_slot), sig.ret_ty)
+    let empty_stmts: [bytes] = []
+    let blk_out = compile_stmts_loop(body_env, p_ind + 1, empty_stmts)
+    let wrapped = wrap_arm_conds(all_conds, len(all_conds) - 1, blk_out.code)
+    ArmOut(blk_out.pos, blk_out.max_slot, wrapped)
+
+struct MultiArmAcc:
+    pos: int
+    max_slot: int
+    chunks: [bytes]
+
+dec compile_multi_arms_loop(sym: SymTab, toks: [Tok], sig: FnSig, acc: MultiArmAcc) -> MultiArmAcc:
+    let p = skip_newlines(toks, acc.pos)
+    let k = toks[p].kind
+    select(
+        k == TK_DEDENT or k == TK_EOF,
+        MultiArmAcc(p, acc.max_slot, push(acc.chunks, call_rt(RT_ASSERT_FAIL))),
+        compile_multi_arm_step(sym, toks, sig, p, acc),
+    )
+
+dec compile_multi_arm_step(sym: SymTab, toks: [Tok], sig: FnSig, p: int, acc: MultiArmAcc) -> MultiArmAcc:
+    let arm = compile_arm_at(sym, toks, sig, p)
+    compile_multi_arms_loop(
+        sym,
+        toks,
+        sig,
+        MultiArmAcc(arm.pos, max_int(acc.max_slot, arm.max_slot), push(acc.chunks, arm.code)),
+    )
+
+dec emit_store_args_pro(idx: int, arity: int, chunks: [bytes]) -> bytes:
+    select(
+        idx >= arity,
+        join_bytes(chunks),
+        emit_store_args_pro(idx + 1, arity, push(chunks, store_arg_reg(idx))),
+    )
+
+dec build_fn_prologue(arity: int, max_slot: int) -> bytes:
+    let aligned_slots = ((max_slot + 1) // 2) * 2
+    let frame_bytes = aligned_slots * 8
+    let sub_rsp = select(
+        frame_bytes > 0,
+        cb2(b3(0x48, 0x81, 0xEC), i32_le_bytes(frame_bytes)),
+        bytes(""),
+    )
+    let empty_c: [bytes] = []
+    let save_args = emit_store_args_pro(0, arity, empty_c)
+    cb3(b4(0x55, 0x48, 0x89, 0xE5), sub_rsp, save_args)
+
+dec compile_dec_fn(src: bytes, sym: SymTab, sig: FnSig) -> bytes:
+    let toks = lex_slice(src, sig.blk_start, sig.blk_end)
+    assert toks[0].kind == TK_DEC and toks[1].kind == TK_IDENT
+    let arity = len(sig.param_tys)
+    select(
+        toks[2].kind == TK_LPAREN,
+        compile_single_arm_fn(sym, toks, sig, arity),
+        compile_multi_arm_fn(sym, toks, sig, arity),
+    )
+
+dec compile_single_arm_fn(sym: SymTab, toks: [Tok], sig: FnSig, arity: int) -> bytes:
+    let arm = compile_arm_at(sym, toks, sig, 2)
+    cb2(build_fn_prologue(arity, arm.max_slot), arm.code)
+
+dec compile_multi_arm_fn(sym: SymTab, toks: [Tok], sig: FnSig, arity: int) -> bytes:
+    assert toks[2].kind == TK_COLON
+    let p0 = skip_newlines(toks, 3)
+    assert toks[p0].kind == TK_INDENT
+    let empty_arms: [bytes] = []
+    let ma = compile_multi_arms_loop(sym, toks, sig, MultiArmAcc(p0 + 1, arity, empty_arms))
+    cb2(build_fn_prologue(arity, ma.max_slot), join_bytes(ma.chunks))
+
+# --- Whole-Program Linker & ELF64 Emission Driver ---
+
+struct FnTableLayoutAcc:
+    src: bytes
+    sym: SymTab
+    cur_vaddr: int
+    ptrs: [bytes]
+    blobs: [bytes]
+
+dec compile_and_place_fn(acc: FnTableLayoutAcc, sig: FnSig) -> FnTableLayoutAcc:
+    let code = compile_dec_fn(acc.src, acc.sym, sig)
+    FnTableLayoutAcc(
+        acc.src,
+        acc.sym,
+        acc.cur_vaddr + len(code),
+        push(acc.ptrs, i64_le_bytes(acc.cur_vaddr)),
+        push(acc.blobs, code),
+    )
+
+dec compile_program(src: bytes) -> bytes:
+    let blocks = split_and_audit_source(src)
+    let sym = build_symtab(src, blocks)
+    let num_fns = len(sym.fns)
+    assert num_fns >= 1
+    let main_idx = find_fn_idx(sym.fns, bytes("main"))
+    assert main_idx >= 0
+    let main_prints_int = select(sym.fns[main_idx].ret_ty == TY_INT, 1, 0)
+    let rt_sec = build_rt_section(main_idx, main_prints_int)
+    let code_start_vaddr = FN_TABLE_VADDR + (num_fns * 8)
+    let empty_b: [bytes] = []
+    let fn_init = FnTableLayoutAcc(src, sym, code_start_vaddr, empty_b, empty_b)
+    let fn_fin = fold(sym.fns, fn_init, compile_and_place_fn)
+    let fn_tbl_blob = join_bytes(fn_fin.ptrs)
+    let fn_code_blob = join_bytes(fn_fin.blobs)
+    let body_len = len(rt_sec) + len(fn_tbl_blob) + len(fn_code_blob)
+    let total_len = 120 + body_len
+    let hdrs = build_elf64_headers(total_len)
+    cb4(hdrs, rt_sec, fn_tbl_blob, fn_code_blob)
+
+dec main():
+    let args = cli_args()
+    assert len(args) >= 3
+    let src = read_file_bytes(args[1])
+    let img = compile_program(src)
+    let written = write_executable_elf(args[2], img)
+    assert written >= 64

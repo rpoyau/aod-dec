@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use aod_core::json::{parse_strict_json, JsonValue};
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
-    audit_pdf_file, bench_file_with_options, bootstrap_verify, build_aot_file_with_options,
+    audit_pdf_file, bench_file_with_options, build_aot_file_with_options,
     check_file_with_options, collect_guarded_roots, compile_file_to_ir_with_options,
     emit_llvm_file_with_options, eval_operation, exec_ir_file_with_budget_capturing, format_x100,
     jit_file_with_profile_and_parallel_captured, learn_file_with_options,
@@ -249,7 +249,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--stdlib <dir>] <source.dec>\n  aodc run [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--stdlib <dir>] <source.dec>\n  aodc run [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc test [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -554,6 +554,7 @@ fn main() -> ExitCode {
         "bootstrap-verify" => {
             let mut source_path: Option<PathBuf> = None;
             let mut sample_path: Option<PathBuf> = None;
+            let mut emit_stage2_path: Option<PathBuf> = None;
             let mut stdlib_dir: Option<PathBuf> = None;
             let mut json_mode = false;
             let mut idx = 0usize;
@@ -577,6 +578,16 @@ fn main() -> ExitCode {
                         }
                         None => {
                             parse_err = Some("missing file path after --sample".to_string());
+                            break;
+                        }
+                    },
+                    "--emit-stage2" => match sub_args.get(idx + 1) {
+                        Some(v) => {
+                            emit_stage2_path = Some(PathBuf::from(v));
+                            idx += 2;
+                        }
+                        None => {
+                            parse_err = Some("missing file path after --emit-stage2".to_string());
                             break;
                         }
                     },
@@ -606,9 +617,10 @@ fn main() -> ExitCode {
             if let Some(e) = parse_err {
                 Err(CliErr::usage(e))
             } else {
-                match bootstrap_verify(
+                match aodc::bootstrap_verify_with_stage2_out(
                     source_path.as_deref(),
                     sample_path.as_deref(),
+                    emit_stage2_path.as_deref(),
                     &LoadOptions { stdlib_dir },
                 ) {
                     Ok(rep) => {

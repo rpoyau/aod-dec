@@ -1,17 +1,17 @@
-name: AOD-DEC v2 CI
+name: AOD-DEC Clean-Break & Self-Host CI
 
 on:
   push:
-    branches: ["main", "v2/native-reference-engine", "v2/zero-python-evolution"]
+    branches: ["main", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
   pull_request:
-    branches: ["main", "v2/native-reference-engine", "v2/zero-python-evolution"]
+    branches: ["main", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
 
 permissions:
   contents: read
 
 jobs:
   rust-native-and-manual-verify:
-    name: Rust Native Engine, Manual Fixtures, and 6-Pass Manual Verify
+    name: Rust Native Engine, Self-Host Fixed Point, and 6-Pass Manual Verify
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -45,11 +45,16 @@ jobs:
             exit 1
           fi
 
-      - name: Run Dec v1, v2 smoke, and Manual fixture suites
+      - name: Run Clean-Break v3, v2 smoke, and Manual fixture suites
         run: |
-          ./target/release/aodc test --compat v1 tests/fixtures/v1_examples
+          ./target/release/aodc test tests/fixtures/v3_examples
           ./target/release/aodc test tests/fixtures/v2_smoke
           ./target/release/aodc test manual_examples
+
+      - name: Verify 4-stage self-hosting fixed point (SHA256(stage2) == SHA256(stage3))
+        run: |
+          ./target/release/aodc bootstrap-verify
+          ./target/release/aodc bootstrap-verify --json
 
       - name: Run live hardware discovery & JIT micro-probes
         run: ./target/release/aodc probe-hw
