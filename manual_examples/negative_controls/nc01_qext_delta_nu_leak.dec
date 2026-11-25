@@ -1,7 +1,8 @@
-# Negative Control nc01 — Cross-module Q_ext constant leakage into native Dec main() MUST fail!
+# Negative Control nc01 — Cross-module Q_ext constant leakage into native dec main MUST fail!
 use stdlib::aod::metrology::SiMetrology
 
-Dec main() -> int:
-    let leaked = SiMetrology::DELTA_NU_CS
-    emit leaked
-    return 0
+dec main:
+    () -> int:
+        let leaked = SiMetrology::DELTA_NU_CS
+        emit leaked
+        return 0

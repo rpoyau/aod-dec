@@ -164,7 +164,7 @@ fn cli_test_subcommand_handles_test_fns_directories_unit_return_and_failures() {
         .output()
         .unwrap();
     assert!(v2_test.status.success());
-    assert!(String::from_utf8_lossy(&v2_test.stdout).contains("4 passed; 0 failed; 4 total"));
+    assert!(String::from_utf8_lossy(&v2_test.stdout).contains("5 passed; 0 failed; 5 total"));
 
     // 3. Single file with multiple zero-arg `Dec test_*()` functions + unit `main()` omission
     let dir = temp_dir("unit_and_tests");

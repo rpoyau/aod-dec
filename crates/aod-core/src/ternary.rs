@@ -40,6 +40,16 @@ impl T1 {
         Self(-self.0)
     }
 
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline]
+    pub fn signum(self) -> Self {
+        self
+    }
+
     pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
         Self::new(self.0 + rhs.0)
     }
@@ -107,6 +117,21 @@ impl T9 {
         Self(-self.0)
     }
 
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline]
+    pub fn signum(self) -> T1 {
+        match self.0.signum() {
+            -1 => T1::NEG,
+            0 => T1::ZERO,
+            1 => T1::POS,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
         Self::new((self.0 as i64) + (rhs.0 as i64))
     }
@@ -146,6 +171,58 @@ impl T9 {
             r += b;
         }
         Self::new(r)
+    }
+
+    /// Checked non-negative exponentiation (`0 <= exp <= 65_536`, `P0-3`).
+    pub fn checked_pow(self, mut exp: u32) -> CoreResult<Self> {
+        if exp > BigInt::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "t9 pow exponent {exp} exceeds safety limit {}",
+                BigInt::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self(1));
+        }
+        match self.0 {
+            0 => return Ok(Self(0)),
+            1 => return Ok(Self(1)),
+            -1 => return Ok(if exp.is_multiple_of(2) { Self(1) } else { Self(-1) }),
+            _ => {}
+        }
+        let mut acc = Self(1);
+        let mut base = self;
+        loop {
+            if exp & 1 == 1 {
+                acc = acc.checked_mul(base)?;
+            }
+            exp >>= 1;
+            if exp == 0 {
+                break;
+            }
+            base = base.checked_mul(base)?;
+        }
+        Ok(acc)
+    }
+
+    pub fn gcd(self, other: Self) -> Self {
+        let mut a = self.0.unsigned_abs() as u32;
+        let mut b = other.0.unsigned_abs() as u32;
+        while b != 0 {
+            let r = a % b;
+            a = b;
+            b = r;
+        }
+        Self(a as i16)
+    }
+
+    pub fn checked_lcm(self, other: Self) -> CoreResult<Self> {
+        if self.0 == 0 || other.0 == 0 {
+            return Ok(Self(0));
+        }
+        let g = self.gcd(other).0 as i64;
+        let prod = ((self.0.abs() as i64) / g) * (other.0.abs() as i64);
+        Self::new(prod)
     }
 
     /// Pack 9 balanced trits into an 18-bit word (`00 = 0`, `01 = +1`, `10 = -1`; `11` unused).
@@ -246,6 +323,21 @@ impl T32 {
         Self::new(-self.0)
     }
 
+    #[inline]
+    pub fn abs(self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[inline]
+    pub fn signum(self) -> T1 {
+        match self.0.signum() {
+            -1 => T1::NEG,
+            0 => T1::ZERO,
+            1 => T1::POS,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn checked_add(self, rhs: Self) -> CoreResult<Self> {
         let sum = self
             .0
@@ -293,6 +385,62 @@ impl T32 {
             r += rhs.0;
         }
         Self::new(r)
+    }
+
+    /// Checked non-negative exponentiation (`0 <= exp <= 65_536`, `P0-3`).
+    pub fn checked_pow(self, mut exp: u32) -> CoreResult<Self> {
+        if exp > BigInt::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "t32 pow exponent {exp} exceeds safety limit {}",
+                BigInt::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self(1));
+        }
+        match self.0 {
+            0 => return Ok(Self(0)),
+            1 => return Ok(Self(1)),
+            -1 => return Ok(if exp.is_multiple_of(2) { Self(1) } else { Self(-1) }),
+            _ => {}
+        }
+        let mut acc = Self(1);
+        let mut base = self;
+        loop {
+            if exp & 1 == 1 {
+                acc = acc.checked_mul(base)?;
+            }
+            exp >>= 1;
+            if exp == 0 {
+                break;
+            }
+            base = base.checked_mul(base)?;
+        }
+        Ok(acc)
+    }
+
+    pub fn gcd(self, other: Self) -> Self {
+        let mut a = self.0.unsigned_abs();
+        let mut b = other.0.unsigned_abs();
+        while b != 0 {
+            let r = a % b;
+            a = b;
+            b = r;
+        }
+        Self(a as i128)
+    }
+
+    pub fn checked_lcm(self, other: Self) -> CoreResult<Self> {
+        if self.0 == 0 || other.0 == 0 {
+            return Ok(Self(0));
+        }
+        let g = self.gcd(other).0.unsigned_abs();
+        let q = self.0.unsigned_abs() / g;
+        let prod = q
+            .checked_mul(other.0.unsigned_abs())
+            .and_then(|v| i128::try_from(v).ok())
+            .ok_or_else(|| CoreError::Overflow("t32 lcm overflow".to_string()))?;
+        Self::new(prod)
     }
 
     /// Pack 32 balanced trits into a 64-bit word (`00 = 0`, `01 = +1`, `10 = -1`; `11` unused).

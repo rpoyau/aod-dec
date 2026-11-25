@@ -174,6 +174,7 @@ pub enum RtValue {
     QExtRatio(QExtRatio),
     QExtBool(bool),
     QExtStr(String),
+    QExtBytes(Vec<u8>),
 }
 
 impl RtValue {
@@ -256,6 +257,7 @@ impl RtValue {
             RtValue::QExtRatio(q) => q.render_quarantined(),
             RtValue::QExtBool(b) => format!("Q_ext({})", if *b { "true" } else { "false" }),
             RtValue::QExtStr(s) => format!("Q_ext({s})"),
+            RtValue::QExtBytes(bs) => format!("Q_ext({})", render_bytes_literal(bs)),
         }
     }
 }

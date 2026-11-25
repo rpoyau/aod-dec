@@ -41,6 +41,7 @@ pub struct SimBuilder {
 pub struct RtState {
     pub arena: RtArena,
     pub sim_builders: Vec<SimBuilder>,
+    pub seq_builders: Vec<Vec<RtValue>>,
     pub emits: Vec<String>,
     pub error: Option<String>,
     pub capture_stdout: bool,
@@ -51,6 +52,7 @@ impl RtState {
         Self {
             arena: RtArena::new(max_arena_entries),
             sim_builders: Vec::new(),
+            seq_builders: Vec::new(),
             emits: Vec::new(),
             error: None,
             capture_stdout,
@@ -128,6 +130,23 @@ impl RtState {
         match self.arena.get(handle)? {
             RtValue::Bytes(bs) => Ok(bs.as_slice()),
             other => Err(format!("expected bytes handle, got {}", other.render())),
+        }
+    }
+
+    pub fn get_bytes_utf8(&self, handle: u64, ctx_name: &str) -> Result<String, String> {
+        let bs = self.get_bytes(handle)?;
+        std::str::from_utf8(bs)
+            .map(str::to_string)
+            .map_err(|_| format!("{ctx_name}: byte sequence is not valid UTF-8"))
+    }
+
+    pub fn get_seq_slice(&self, handle: u64) -> Result<&[RtValue], String> {
+        match self.arena.get(handle)? {
+            RtValue::List(xs) | RtValue::Array(xs) => Ok(xs.as_slice()),
+            other => Err(format!(
+                "expected list or array handle, got {}",
+                other.render()
+            )),
         }
     }
 
@@ -212,6 +231,77 @@ impl RtState {
         }
         cloned[i as usize] = new_val;
         self.arena.insert(RtValue::List(cloned))
+    }
+
+    pub fn op_list_push_cow(&mut self, list_h: u64, val_h: u64) -> Result<u64, String> {
+        let new_val = self.arena.get(val_h)?.clone();
+        let mut cloned = match self.arena.get(list_h)? {
+            RtValue::List(items) => items.clone(),
+            other => return Err(format!("expected list handle, got {}", other.render())),
+        };
+        cloned.push(new_val);
+        self.arena.insert(RtValue::List(cloned))
+    }
+
+    pub fn op_list_concat(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let a = self.get_seq_slice(a_h)?;
+        let b = self.get_seq_slice(b_h)?;
+        let mut out = Vec::with_capacity(a.len() + b.len());
+        out.extend_from_slice(a);
+        out.extend_from_slice(b);
+        self.arena.insert(RtValue::List(out))
+    }
+
+    pub fn op_list_slice(
+        &mut self,
+        seq_h: u64,
+        start: &BigInt,
+        end: &BigInt,
+    ) -> Result<u64, String> {
+        let s = start
+            .to_i64()
+            .ok_or_else(|| format!("slice_seq start {start} out of bounds"))?;
+        let e = end
+            .to_i64()
+            .ok_or_else(|| format!("slice_seq end {end} out of bounds"))?;
+        let xs = self.get_seq_slice(seq_h)?;
+        if s < 0 || e < s || (e as usize) > xs.len() {
+            return Err(format!(
+                "slice_seq({s}, {e}) out of bounds for length {}",
+                xs.len()
+            ));
+        }
+        let sliced = xs[(s as usize)..(e as usize)].to_vec();
+        self.arena.insert(RtValue::List(sliced))
+    }
+
+    pub fn get_any_seq_values(&self, handle: u64) -> Result<Vec<RtValue>, String> {
+        match self.arena.get(handle)? {
+            RtValue::List(xs) | RtValue::Array(xs) => Ok(xs.clone()),
+            RtValue::Bytes(bs) => Ok(bs.iter().map(|&b| RtValue::U8(b)).collect()),
+            other => Err(format!(
+                "expected list, array, or bytes handle, got {}",
+                other.render()
+            )),
+        }
+    }
+
+    pub fn op_zip_seq(&mut self, a_h: u64, b_h: u64) -> Result<u64, String> {
+        let xs = self.get_any_seq_values(a_h)?;
+        let ys = self.get_any_seq_values(b_h)?;
+        if xs.len() != ys.len() {
+            return Err(format!(
+                "zip_seq(a, b) sequence length mismatch: {} != {}",
+                xs.len(),
+                ys.len()
+            ));
+        }
+        let zipped: Vec<RtValue> = xs
+            .into_iter()
+            .zip(ys)
+            .map(|(a, b)| RtValue::Tuple(vec![a, b]))
+            .collect();
+        self.arena.insert(RtValue::List(zipped))
     }
 
     pub fn op_array_new(&mut self, handles: &[u64]) -> Result<u64, String> {
@@ -389,6 +479,33 @@ impl RtState {
         }
     }
 
+    pub fn op_map_remove(&mut self, map_h: u64, key_h: u64) -> Result<u64, String> {
+        let kv = self.arena.get(key_h)?;
+        let mk = RtMapKey::from_value(kv)?;
+        let mut cloned = match self.arena.get(map_h)? {
+            RtValue::Map(m) => (**m).clone(),
+            other => return Err(format!("expected map handle, got {}", other.render())),
+        };
+        cloned.remove(&mk);
+        self.arena.insert(RtValue::Map(Box::new(cloned)))
+    }
+
+    pub fn op_map_get_or(&mut self, map_h: u64, key_h: u64, default_h: u64) -> Result<u64, String> {
+        let kv = self.arena.get(key_h)?;
+        let mk = RtMapKey::from_value(kv)?;
+        let found = match self.arena.get(map_h)? {
+            RtValue::Map(m) => m.get(&mk).cloned(),
+            other => return Err(format!("expected map handle, got {}", other.render())),
+        };
+        match found {
+            Some(v) => self.arena.insert(v),
+            None => {
+                let dv = self.arena.get(default_h)?.clone();
+                self.arena.insert(dv)
+            }
+        }
+    }
+
     /// Deep-copy / copy-on-write struct field update returning a NEW arena handle (`P0-3`).
     pub fn op_struct_set(&mut self, s_h: u64, field: &str, val_h: u64) -> Result<u64, String> {
         let new_val = self.arena.get(val_h)?.clone();
@@ -412,8 +529,23 @@ impl RtState {
                 .cloned()
                 .ok_or_else(|| format!("no field .{f} on struct {}", sv.name)),
             (RtValue::SimResult(s), "model_status") => Ok(RtValue::Str(s.model_status)),
+            (RtValue::SimResult(s), "model_status_bytes") => {
+                Ok(RtValue::Bytes(s.model_status.into_bytes()))
+            }
             (RtValue::SimResult(s), "chamber_name") => Ok(RtValue::Str(s.chamber_name)),
+            (RtValue::SimResult(s), "chamber_name_bytes") => {
+                Ok(RtValue::Bytes(s.chamber_name.into_bytes()))
+            }
             (RtValue::SimResult(s), "final_state_hash") => Ok(RtValue::Str(s.final_state_hash)),
+            (RtValue::SimResult(s), "final_state_hash_bytes") => {
+                Ok(RtValue::Bytes(s.final_state_hash.into_bytes()))
+            }
+            (RtValue::SimResult(s), "boundary_bytes") => Ok(RtValue::Bytes(
+                s.final_snapshot.space.boundary_descriptor().into_bytes(),
+            )),
+            (RtValue::Box3(b), "boundary_bytes") => {
+                Ok(RtValue::Bytes(b.boundary_descriptor().into_bytes()))
+            }
             (RtValue::SimResult(s), "ticks") => Ok(RtValue::Int(BigInt::from_u64(s.ticks))),
             (RtValue::SimResult(s), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.carrier_count as u64)))
@@ -441,7 +573,13 @@ impl RtState {
             }
 
             (RtValue::ChamberView(snap), "model_status") => Ok(RtValue::Str(snap.model_status)),
+            (RtValue::ChamberView(snap), "model_status_bytes") => {
+                Ok(RtValue::Bytes(snap.model_status.into_bytes()))
+            }
             (RtValue::ChamberView(snap), "chamber_name") => Ok(RtValue::Str(snap.chamber_name)),
+            (RtValue::ChamberView(snap), "chamber_name_bytes") => {
+                Ok(RtValue::Bytes(snap.chamber_name.into_bytes()))
+            }
             (RtValue::ChamberView(snap), "tick") => Ok(RtValue::Int(BigInt::from_u64(snap.tick))),
             (RtValue::ChamberView(snap), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(snap.carriers.len() as u64)))
@@ -468,6 +606,9 @@ impl RtState {
             (RtValue::RecipientOutcome(o), "stage") => {
                 Ok(RtValue::Str(recipient_stage_name(o.stage).to_string()))
             }
+            (RtValue::RecipientOutcome(o), "stage_bytes") => Ok(RtValue::Bytes(
+                recipient_stage_name(o.stage).as_bytes().to_vec(),
+            )),
             (RtValue::RecipientOutcome(o), "closure_phase_delta") => {
                 Ok(RtValue::Int(BigInt::from_u64(o.closure_phase_delta as u64)))
             }
@@ -482,7 +623,13 @@ impl RtState {
                 Ok(RtValue::Bool(a.is_cadence_ratio))
             }
             (RtValue::CadenceAssociation(a), "wavelet_id") => Ok(RtValue::Str(a.wavelet_id)),
+            (RtValue::CadenceAssociation(a), "wavelet_id_bytes") => {
+                Ok(RtValue::Bytes(a.wavelet_id.into_bytes()))
+            }
             (RtValue::CadenceAssociation(a), "reference_id") => Ok(RtValue::Str(a.reference_id)),
+            (RtValue::CadenceAssociation(a), "reference_id_bytes") => {
+                Ok(RtValue::Bytes(a.reference_id.into_bytes()))
+            }
 
             (RtValue::Support(s), "is_yro") => Ok(RtValue::Bool(s.is_yro())),
             (RtValue::Support(s), "is_closure_certificate") => {
@@ -491,7 +638,11 @@ impl RtState {
             (RtValue::Addr8(a), "is_first_anchor") => Ok(RtValue::Bool(a.is_first_anchor())),
             (RtValue::Window(u, _), "start") => Ok(RtValue::Int(BigInt::from_i64(u))),
             (RtValue::Window(_, v), "end") => Ok(RtValue::Int(BigInt::from_i64(v))),
-            (RtValue::Window(u, v), "len") => Ok(RtValue::Int(BigInt::from_i64(v - u))),
+            (RtValue::Window(u, v), "len") => {
+                Ok(RtValue::Int(BigInt::from_i128((v as i128) - (u as i128))))
+            }
+            (RtValue::Ratio(r), "num") => Ok(RtValue::Int(r.num().clone())),
+            (RtValue::Ratio(r), "den") => Ok(RtValue::Int(r.den().clone())),
             (other, f) => Err(format!("no field .{f} on {}", other.render())),
         }
     }
@@ -529,6 +680,28 @@ impl RtState {
     ) -> Result<BigInt, String> {
         let lin = self.get_str(lin_h)?;
         let scope = self.get_str(scope_h)?;
+        self.window_dedup_count_strs(lin, scope, cuts_h, wins_h)
+    }
+
+    pub fn op_window_dedup_count_bytes(
+        &self,
+        lin_h: u64,
+        scope_h: u64,
+        cuts_h: u64,
+        wins_h: u64,
+    ) -> Result<BigInt, String> {
+        let lin = self.get_bytes_utf8(lin_h, "window_dedup_count(bytes, ...)")?;
+        let scope = self.get_bytes_utf8(scope_h, "window_dedup_count(bytes, ...)")?;
+        self.window_dedup_count_strs(&lin, &scope, cuts_h, wins_h)
+    }
+
+    fn window_dedup_count_strs(
+        &self,
+        lin: &str,
+        scope: &str,
+        cuts_h: u64,
+        wins_h: u64,
+    ) -> Result<BigInt, String> {
         let cuts = match self.arena.get(cuts_h)? {
             RtValue::List(items) => {
                 let mut v = Vec::with_capacity(items.len());
@@ -871,6 +1044,23 @@ impl RtState {
         native_cadence_ratio(id_a, q_a, id_r, q_r, coupled, bc).map_err(|e| e.to_string())
     }
 
+    pub fn op_native_cadence_ratio_bytes(
+        &self,
+        id_a_h: u64,
+        q_a: &BigInt,
+        id_r_h: u64,
+        q_r: &BigInt,
+        coupled: bool,
+        contacts: &BigInt,
+    ) -> Result<Ratio, String> {
+        let id_a = self.get_bytes_utf8(id_a_h, "native_cadence_ratio(bytes, ...)")?;
+        let id_r = self.get_bytes_utf8(id_r_h, "native_cadence_ratio(bytes, ...)")?;
+        let bc = contacts
+            .to_u64()
+            .ok_or_else(|| "invalid bound_contacts".to_string())? as usize;
+        native_cadence_ratio(&id_a, q_a, &id_r, q_r, coupled, bc).map_err(|e| e.to_string())
+    }
+
     pub fn op_single_contact_assoc(
         &mut self,
         wid_h: u64,
@@ -882,6 +1072,27 @@ impl RtState {
         let wid = self.get_str(wid_h)?.to_string();
         let pid = self.get_str(pid_h)?.to_string();
         let rid = self.get_str(rid_h)?.to_string();
+        let win = self.get_window(win_h)?;
+        let bc = contacts
+            .to_u64()
+            .ok_or_else(|| "invalid bound_contacts".to_string())? as usize;
+        let assoc = SingleContactStageAssociation::new(wid, pid, rid, win, bc)
+            .map_err(|e| e.to_string())?;
+        self.arena
+            .insert(RtValue::CadenceAssociation(Box::new(assoc)))
+    }
+
+    pub fn op_single_contact_assoc_bytes(
+        &mut self,
+        wid_h: u64,
+        pid_h: u64,
+        rid_h: u64,
+        win_h: u64,
+        contacts: &BigInt,
+    ) -> Result<u64, String> {
+        let wid = self.get_bytes_utf8(wid_h, "single_contact_association(bytes, ...)")?;
+        let pid = self.get_bytes_utf8(pid_h, "single_contact_association(bytes, ...)")?;
+        let rid = self.get_bytes_utf8(rid_h, "single_contact_association(bytes, ...)")?;
         let win = self.get_window(win_h)?;
         let bc = contacts
             .to_u64()

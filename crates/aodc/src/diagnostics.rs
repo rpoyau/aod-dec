@@ -6,6 +6,31 @@ pub enum CompatMode {
     V2,
 }
 
+/// Phase D2 syntax discipline selector (`TransitionalV2` default vs opt-in `--strict-wave` `PureWaveV2`).
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
+pub enum SyntaxDiscipline {
+    #[default]
+    TransitionalV2,
+    PureWaveV2,
+}
+
+impl SyntaxDiscipline {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::TransitionalV2 => "transitional_v2",
+            Self::PureWaveV2 => "pure_wave_v2",
+        }
+    }
+
+    pub fn from_str_tag(s: &str) -> Option<Self> {
+        match s {
+            "transitional_v2" => Some(Self::TransitionalV2),
+            "pure_wave_v2" => Some(Self::PureWaveV2),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum DiagnosticCode {
     LexError,

@@ -9,8 +9,8 @@ use crate::ast::{
     Program, Stmt, StmtKind, TypeExpr,
 };
 use crate::checker::{check_unit, CheckedUnit};
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
-use crate::modules::{load_hermetic, BundledModule};
+use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, SyntaxDiscipline};
+use crate::modules::{load_hermetic_with_discipline, BundledModule};
 
 pub const IR_FORMAT: &str = "aod.dec.ir";
 pub const MAX_IR_BYTES: usize = 8_000_000;
@@ -119,6 +119,12 @@ pub fn encode_ir_json(checked: &CheckedUnit) -> JsonValue {
         }
         CompatMode::V2 => {
             root.insert("version".to_string(), JsonValue::from_i64(2));
+            if checked.unit.discipline == SyntaxDiscipline::PureWaveV2 {
+                root.insert(
+                    "syntax_discipline".to_string(),
+                    JsonValue::from_str_val("pure_wave_v2"),
+                );
+            }
             let mut mods_map = BTreeMap::new();
             for (k, m) in &checked.unit.bundled_modules {
                 let mut mobj = BTreeMap::new();
@@ -161,6 +167,7 @@ struct AstSummaryCounts {
     array_lit_count: i64,
     array_type_specs: Vec<String>,
     single_arm_arrows: Vec<JsonValue>,
+    pure_dec_families: Vec<String>,
 }
 
 fn format_type_expr(te: &TypeExpr) -> String {
@@ -275,6 +282,17 @@ impl AstSummaryCounts {
     fn visit_stmt(&mut self, stmt: &Stmt) {
         match &stmt.kind {
             StmtKind::Let { ty, value, .. } | StmtKind::Mut { ty, value, .. } => {
+                if let Some(te) = ty {
+                    self.visit_type_expr(te);
+                }
+                self.visit_expr(value);
+            }
+            StmtKind::LetTuple { elems, ty, value } => {
+                for el in elems {
+                    if let Some(ref te) = el.ty {
+                        self.visit_type_expr(te);
+                    }
+                }
                 if let Some(te) = ty {
                     self.visit_type_expr(te);
                 }
@@ -406,8 +424,14 @@ impl AstSummaryCounts {
                         match probe {
                             ProbeDecl::Declarative { region, .. } => self.visit_expr(region),
                             ProbeDecl::Procedural {
-                                return_type, body, ..
+                                param_ty,
+                                return_type,
+                                body,
+                                ..
                             } => {
+                                if let Some(pte) = param_ty {
+                                    self.visit_type_expr(pte);
+                                }
                                 self.visit_type_expr(return_type);
                                 for s in body {
                                     self.visit_stmt(s);
@@ -460,11 +484,16 @@ impl AstSummaryCounts {
                 }
             }
             DecFnKind::MultiArm {
+                has_header_params,
                 header_typed_params,
                 header_return_type,
                 arms,
                 ..
             } => {
+                if !has_header_params {
+                    self.pure_dec_families
+                        .push(format!("{mod_key}::{}", fd.name));
+                }
                 if let Some(htp) = header_typed_params {
                     for p in htp {
                         self.visit_type_expr(&p.ty);
@@ -512,6 +541,17 @@ fn encode_v2_ast_summary(
         "null_lit_count".to_string(),
         JsonValue::from_i64(acc.null_lit_count),
     );
+    if !acc.pure_dec_families.is_empty() {
+        m.insert(
+            "pure_dec_families".to_string(),
+            JsonValue::Array(
+                acc.pure_dec_families
+                    .into_iter()
+                    .map(JsonValue::from_str_val)
+                    .collect(),
+            ),
+        );
+    }
     m.insert(
         "single_arms".to_string(),
         JsonValue::Array(acc.single_arm_arrows),
@@ -655,9 +695,44 @@ pub fn loads_ir(text: &str) -> DecResult<CheckedUnit> {
         }
     }
 
-    // Strict hermetic rebuild with ZERO ambient filesystem access!
-    let loaded = load_hermetic(source, &bundled, compat)?;
-    let rebuilt = check_unit(loaded, true)?;
+    let discipline = match compat {
+        CompatMode::V1 => {
+            if obj.contains_key("syntax_discipline") {
+                return Err(Diagnostic::new(
+                    DiagnosticCode::IrVerificationError,
+                    "syntax_discipline is not supported in DecIR v1",
+                ));
+            }
+            SyntaxDiscipline::TransitionalV2
+        }
+        CompatMode::V2 => match obj.get("syntax_discipline") {
+            None => SyntaxDiscipline::TransitionalV2,
+            Some(v) => match v.as_str() {
+                Some("pure_wave_v2") => SyntaxDiscipline::PureWaveV2,
+                _ => {
+                    return Err(Diagnostic::new(
+                        DiagnosticCode::IrVerificationError,
+                        "unsupported DecIR v2 syntax_discipline (expected \"pure_wave_v2\")",
+                    ));
+                }
+            },
+        },
+    };
+
+    // Strict hermetic rebuild with ZERO ambient filesystem access (`P0-5`: enforces `discipline`)!
+    let loaded =
+        load_hermetic_with_discipline(source, &bundled, compat, discipline).map_err(|e| {
+            Diagnostic::new(
+                DiagnosticCode::IrVerificationError,
+                format!("IR hermetic load failed: {e}"),
+            )
+        })?;
+    let rebuilt = check_unit(loaded, true).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::IrVerificationError,
+            format!("IR hermetic check failed: {e}"),
+        )
+    })?;
 
     // Canonical JSON equality prevents bool/int tampering, extra fields, or modified metadata.
     let expected_canonical = dumps_ir(&rebuilt);

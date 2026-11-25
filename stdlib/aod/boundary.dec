@@ -3,8 +3,12 @@
 # Reference binding: rpoyau/aod@98ddfa0 (03_short_window_rcd_shedding_fixtures.tex,
 #                                        04_boundary_current_applications.tex)
 
-use aod::core::{ratio, support_pi, support_rd, support_pressure, support_overhang}
-use stdlib::aod::ledger::{clip_min, boundary_audit}
+use aod::core:
+    t1, ratio, select, evolve
+    support_pi, support_rd, support_pressure, support_overhang
+
+use stdlib::aod::ledger:
+    clip_min, boundary_audit
 
 struct Delta3:
     sign: t1
@@ -40,117 +44,98 @@ struct ShortWindowRow:
     delta_close: int
     x_shedding: int
 
-Dec delta3_of(pred: int, obs: int) -> Delta3:
-    let d = pred - obs
-    if d > 0:
-        return Delta3 { sign: +1t, mag: d }
-    elif d < 0:
-        return Delta3 { sign: -1t, mag: -d }
-    return Delta3 { sign: 0t, mag: 0 }
+dec delta3_of:
+    (pred: int, obs: int) where pred > obs -> Delta3:
+        return Delta3(1t, pred - obs)
+    (pred: int, obs: int) where pred < obs -> Delta3:
+        return Delta3(t1(-1), obs - pred)
+    (_: int, _: int) -> Delta3:
+        return Delta3(0t, 0)
 
-Dec double_slit_bin_at(k: int, s: int, cx: int, ob: int) -> DoubleSlitBin:
-    let t0 = s + s
-    let tx = t0 + cx
-    let d = tx - ob
-    let d3 = delta3_of(tx, ob)
-    return DoubleSlitBin {
-        k: k,
-        s: s,
-        t0: t0,
-        cx: cx,
-        tx: tx,
-        obs: ob,
-        delta: d,
-        sign: d3.sign,
-        mag: d3.mag
-    }
+dec double_slit_bin_at:
+    (k: int, s: int, cx: int, ob: int) -> DoubleSlitBin:
+        let t0 = s + s
+        let tx = t0 + cx
+        let d = tx - ob
+        let d3 = delta3_of(tx, ob)
+        return DoubleSlitBin(k, s, t0, cx, tx, ob, d, d3.sign, d3.mag)
 
 # Canonical 11-bin Dimonhexon double-slit cross-return bins (Manual Table 1, single source of truth)
-Dec double_slit_bins() -> [DoubleSlitBin]:
-    let s_bins = [4, 9, 16, 25, 31, 35, 31, 25, 16, 9, 4]
-    let cx_bins = [0, -8, -12, 8, 18, 26, 18, 8, -12, -8, 0]
-    let obs_bins = [8, 11, 19, 59, 79, 95, 80, 58, 21, 10, 8]
-    return [
-        double_slit_bin_at(-5, s_bins[0], cx_bins[0], obs_bins[0]),
-        double_slit_bin_at(-4, s_bins[1], cx_bins[1], obs_bins[1]),
-        double_slit_bin_at(-3, s_bins[2], cx_bins[2], obs_bins[2]),
-        double_slit_bin_at(-2, s_bins[3], cx_bins[3], obs_bins[3]),
-        double_slit_bin_at(-1, s_bins[4], cx_bins[4], obs_bins[4]),
-        double_slit_bin_at(0, s_bins[5], cx_bins[5], obs_bins[5]),
-        double_slit_bin_at(1, s_bins[6], cx_bins[6], obs_bins[6]),
-        double_slit_bin_at(2, s_bins[7], cx_bins[7], obs_bins[7]),
-        double_slit_bin_at(3, s_bins[8], cx_bins[8], obs_bins[8]),
-        double_slit_bin_at(4, s_bins[9], cx_bins[9], obs_bins[9]),
-        double_slit_bin_at(5, s_bins[10], cx_bins[10], obs_bins[10])
-    ]
+dec double_slit_bins:
+    () -> [DoubleSlitBin]:
+        let s_bins = [4, 9, 16, 25, 31, 35, 31, 25, 16, 9, 4]
+        let cx_bins = [0, -8, -12, 8, 18, 26, 18, 8, -12, -8, 0]
+        let obs_bins = [8, 11, 19, 59, 79, 95, 80, 58, 21, 10, 8]
+        return [
+            double_slit_bin_at(-5, s_bins[0], cx_bins[0], obs_bins[0]),
+            double_slit_bin_at(-4, s_bins[1], cx_bins[1], obs_bins[1]),
+            double_slit_bin_at(-3, s_bins[2], cx_bins[2], obs_bins[2]),
+            double_slit_bin_at(-2, s_bins[3], cx_bins[3], obs_bins[3]),
+            double_slit_bin_at(-1, s_bins[4], cx_bins[4], obs_bins[4]),
+            double_slit_bin_at(0, s_bins[5], cx_bins[5], obs_bins[5]),
+            double_slit_bin_at(1, s_bins[6], cx_bins[6], obs_bins[6]),
+            double_slit_bin_at(2, s_bins[7], cx_bins[7], obs_bins[7]),
+            double_slit_bin_at(3, s_bins[8], cx_bins[8], obs_bins[8]),
+            double_slit_bin_at(4, s_bins[9], cx_bins[9], obs_bins[9]),
+            double_slit_bin_at(5, s_bins[10], cx_bins[10], obs_bins[10])
+        ]
+
+dec accum_slit_bin:
+    (acc: DoubleSlitSummary, i: int, bins: [DoubleSlitBin]) -> DoubleSlitSummary:
+        let b = bins[i]
+        let c_sign = select(i == 5, b.sign, acc.center_sign)
+        let c_mag = select(i == 5, b.mag, acc.center_mag)
+        return DoubleSlitSummary(
+            acc.sum_t0 + b.t0,
+            acc.sum_cx + b.cx,
+            acc.sum_tx + b.tx,
+            acc.sum_obs + b.obs,
+            acc.sum_delta + b.delta,
+            acc.sum_mag + b.mag,
+            c_sign,
+            c_mag
+        )
 
 # Canonical 11-bin Dimonhexon double-slit cross-return summary (derived from double_slit_bins)
-Dec double_slit_eval() -> DoubleSlitSummary:
-    let bins = double_slit_bins()
-    mut sum_t0 = 0
-    mut sum_cx = 0
-    mut sum_tx = 0
-    mut sum_obs = 0
-    mut sum_delta = 0
-    mut sum_mag = 0
-    mut center_sign = 0t
-    mut center_mag = 0
-    for i in 0..11:
-        let b = bins[i]
-        sum_t0 = sum_t0 + b.t0
-        sum_cx = sum_cx + b.cx
-        sum_tx = sum_tx + b.tx
-        sum_obs = sum_obs + b.obs
-        sum_delta = sum_delta + b.delta
-        sum_mag = sum_mag + b.mag
-        if i == 5:
-            center_sign = b.sign
-            center_mag = b.mag
-    return DoubleSlitSummary {
-        sum_t0: sum_t0,
-        sum_cx: sum_cx,
-        sum_tx: sum_tx,
-        sum_obs: sum_obs,
-        sum_delta: sum_delta,
-        sum_mag: sum_mag,
-        center_sign: center_sign,
-        center_mag: center_mag
-    }
+dec double_slit_eval:
+    () -> DoubleSlitSummary:
+        let bins = double_slit_bins()
+        let zero = DoubleSlitSummary(0, 0, 0, 0, 0, 0, 0t, 0)
+        return evolve(zero, 0..11, accum_slit_bin, bins)
 
-Dec eval_short_window(sf: support, c3: int, h_mu: int, win_len: int, c_close: int) -> ShortWindowRow:
-    let pi_v = support_pi(sf)
-    let rd_v = support_rd(sf, h_mu)
-    let rho_c = clip_min(rd_v, win_len)
-    let p_d = support_pressure(sf, c3, h_mu, win_len)
-    let q_d = support_overhang(sf, c3, h_mu, win_len)
-    let aud = boundary_audit(p_d, c_close)
-    return ShortWindowRow {
-        pi_val: pi_v,
-        rd_val: rd_v,
-        rho_clipped: rho_c,
-        pressure: p_d,
-        overhang: q_d,
-        delta_close: aud.delta_close,
-        x_shedding: aud.x_shedding
-    }
+dec eval_short_window:
+    (sf: support, c3: int, h_mu: int, win_len: int, c_close: int) -> ShortWindowRow:
+        let pi_v = support_pi(sf)
+        let rd_v = support_rd(sf, h_mu)
+        let rho_c = clip_min(rd_v, win_len)
+        let p_d = support_pressure(sf, c3, h_mu, win_len)
+        let q_d = support_overhang(sf, c3, h_mu, win_len)
+        let aud = boundary_audit(p_d, c_close)
+        return ShortWindowRow(pi_v, rd_v, rho_c, p_d, q_d, aud.delta_close, aud.x_shedding)
 
 # Moving boundary signed flux: Phi_mov = Phi_cross - Phi_sweep + Phi_shedding
-Dec moving_boundary_flux(cross: int, sweep: int, shedding: int) -> int:
-    return cross - sweep + shedding
+dec moving_boundary_flux:
+    (cross: int, sweep: int, shedding: int) -> int:
+        return cross - sweep + shedding
 
-Dec scoped_channel_flux(c3: int, rho: int, win_len: int, att: ratio) -> ratio:
-    let rho_c = clip_min(rho, win_len)
-    return ratio(c3 * rho_c, 1) * att
+dec scoped_channel_flux:
+    (c3: int, rho: int, win_len: int, att: ratio) -> ratio:
+        let rho_c = clip_min(rho, win_len)
+        return ratio(c3 * rho_c, 1) * att
 
-Dec stokes_cancellation(forward_flux: ratio, reverse_flux: ratio) -> ratio:
-    return forward_flux + reverse_flux
+dec stokes_cancellation:
+    (forward_flux: ratio, reverse_flux: ratio) -> ratio:
+        return forward_flux + reverse_flux
 
-Dec proton_support() -> support:
-    return 3:3:6
+dec proton_support:
+    () -> support:
+        return 3:3:6
 
-Dec electron_support() -> support:
-    return 1:2:6
+dec electron_support:
+    () -> support:
+        return 1:2:6
 
 # Purely native 3:3:7_yro odd-length support (zero external mass map!)
-Dec saddle_337_support() -> support:
-    return 3:3:7_yro
+dec saddle_337_support:
+    () -> support:
+        return 3:3:7_yro

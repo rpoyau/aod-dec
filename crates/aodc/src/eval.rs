@@ -195,6 +195,7 @@ pub enum Value {
     QExtRatio(QExtRatio),
     QExtBool(bool),
     QExtStr(String),
+    QExtBytes(Vec<u8>),
 }
 
 impl Value {
@@ -249,6 +250,7 @@ impl Value {
             Value::QExtRatio(_) => Type::QExt(Box::new(Type::Ratio)),
             Value::QExtBool(_) => Type::QExt(Box::new(Type::Bool)),
             Value::QExtStr(_) => Type::QExt(Box::new(Type::Str)),
+            Value::QExtBytes(_) => Type::QExt(Box::new(Type::Bytes)),
         }
     }
 
@@ -331,6 +333,7 @@ impl Value {
             Value::QExtRatio(q) => q.render_quarantined(),
             Value::QExtBool(b) => format!("Q_ext({})", if *b { "true" } else { "false" }),
             Value::QExtStr(s) => format!("Q_ext({s})"),
+            Value::QExtBytes(bs) => format!("Q_ext({})", render_bytes_literal(bs)),
         }
     }
 }
@@ -731,10 +734,15 @@ impl<'a> Evaluator<'a> {
             }
             Pattern::NullLit => matches!(val, Value::Null),
             Pattern::IntLit(n) => matches!(val, Value::Int(v) if v == n),
+            Pattern::U8Lit(b) => matches!(val, Value::U8(v) if v == b),
+            Pattern::B64Lit(w) => matches!(val, Value::B64(v) if v == w),
             Pattern::BoolLit(b) => matches!(val, Value::Bool(v) if v == b),
             Pattern::StrLit(s) => matches!(val, Value::Str(v) if v == s),
             Pattern::BytesLit(bs) => matches!(val, Value::Bytes(v) if v == bs),
             Pattern::TritLit(t) => matches!(val, Value::T1(v) if v == t),
+            Pattern::T9Lit(t) => matches!(val, Value::T9(v) if v == t),
+            Pattern::T32Lit(t) => matches!(val, Value::T32(v) if v == t),
+            Pattern::Q4Lit(q) => matches!(val, Value::Q4(v) if v == q),
             Pattern::RatioLit(r) => matches!(val, Value::Ratio(v) if v == r),
             Pattern::Addr8Lit(a) => matches!(val, Value::Addr8(v) if v == a),
             Pattern::SupportLit(s) => matches!(val, Value::Support(v) if v == s),
@@ -810,19 +818,58 @@ impl<'a> Evaluator<'a> {
         };
 
         let res = match &decl.kind {
-            DecFnKind::MultiArm { arms, .. } => {
+            DecFnKind::MultiArm {
+                header_typed_params,
+                arms,
+                ..
+            } => {
                 let pos_vals: Vec<Value> = args.into_iter().map(|(_, v)| v).collect();
+                let arity = pos_vals.len();
+                let mut slot_hints: Vec<Option<Type>> = vec![None; arity];
+                if let Some(htp) = header_typed_params.as_ref().filter(|ht| ht.len() == arity) {
+                    for (i, p) in htp.iter().enumerate() {
+                        slot_hints[i] = Some(Type::resolve_with(
+                            &p.ty,
+                            self.program.checked.unit.compat,
+                            decl.line,
+                            &|n| self.lookup_user_type(mod_key, n),
+                        )?);
+                    }
+                }
+                for arm in arms.iter().filter(|a| a.params.len() == arity) {
+                    for (i, p) in arm.params.iter().enumerate() {
+                        if slot_hints[i].is_some() {
+                            continue;
+                        }
+                        let inferred = match p {
+                            DecArmParam::TypedVar { ty, .. }
+                            | DecArmParam::TypedPattern { ty, .. } => Some(Type::resolve_with(
+                                ty,
+                                self.program.checked.unit.compat,
+                                arm.line,
+                                &|n| self.lookup_user_type(mod_key, n),
+                            )?),
+                            DecArmParam::Pattern(pat) => self.infer_eval_pattern_type(mod_key, pat),
+                        };
+                        if let Some(t) = inferred {
+                            if t != Type::Unknown {
+                                slot_hints[i] = Some(t);
+                            }
+                        }
+                    }
+                }
+
                 let mut matched_arm = None;
                 let mut matched_scope = BTreeMap::new();
 
                 // Deterministic top-to-bottom type + pattern + guard dispatch!
                 for arm in arms {
-                    if arm.params.len() != pos_vals.len() {
+                    if arm.params.len() != arity {
                         continue;
                     }
                     let mut scope = BTreeMap::new();
                     let mut all_match = true;
-                    for (param, val) in arm.params.iter().zip(&pos_vals) {
+                    for (idx, (param, val)) in arm.params.iter().zip(&pos_vals).enumerate() {
                         match param {
                             DecArmParam::TypedVar { ty, name } => {
                                 let expected = Type::resolve_with(
@@ -852,7 +899,13 @@ impl<'a> Evaluator<'a> {
                                 }
                             }
                             DecArmParam::Pattern(pattern) => {
-                                if !self.match_pattern(mod_key, pattern, val, &mut scope) {
+                                let expected = self
+                                    .infer_eval_pattern_type(mod_key, pattern)
+                                    .or_else(|| slot_hints[idx].clone())
+                                    .unwrap_or(Type::Int);
+                                if !runtime_val_matches_type(val, &expected)
+                                    || !self.match_pattern(mod_key, pattern, val, &mut scope)
+                                {
                                     all_match = false;
                                     break;
                                 }
@@ -957,6 +1010,29 @@ impl<'a> Evaluator<'a> {
                 | StmtKind::TypedLocal { name, value, .. } => {
                     let v = self.eval_expr(value, mod_key, scopes)?;
                     scopes.last_mut().unwrap().insert(name.clone(), v);
+                }
+                StmtKind::LetTuple { elems, value, .. } => {
+                    let v = self.eval_expr(value, mod_key, scopes)?;
+                    let Value::Tuple(items) = v else {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::RuntimeError,
+                            stmt.line,
+                            "expected tuple value in let (...) destructuring",
+                        ));
+                    };
+                    if items.len() != elems.len() {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::RuntimeError,
+                            stmt.line,
+                            "tuple destructuring arity mismatch",
+                        ));
+                    }
+                    let cur = scopes.last_mut().unwrap();
+                    for (el, item) in elems.iter().zip(items) {
+                        if el.name != "_" {
+                            cur.insert(el.name.clone(), item);
+                        }
+                    }
                 }
                 StmtKind::Assign { target, value } => {
                     let v = self.eval_expr(value, mod_key, scopes)?;
@@ -1524,6 +1600,681 @@ impl<'a> Evaluator<'a> {
         }
     }
 
+    fn infer_eval_pattern_type(&self, mod_key: &str, pat: &Pattern) -> Option<Type> {
+        match pat {
+            Pattern::Wildcard | Pattern::Binding(_) => None,
+            Pattern::NullLit => Some(Type::Null),
+            Pattern::IntLit(_) => Some(Type::Int),
+            Pattern::U8Lit(_) => Some(Type::U8),
+            Pattern::B64Lit(_) => Some(Type::B64),
+            Pattern::BoolLit(_) => Some(Type::Bool),
+            Pattern::StrLit(_) => Some(Type::Str),
+            Pattern::BytesLit(_) => Some(Type::Bytes),
+            Pattern::TritLit(_) => Some(Type::T1),
+            Pattern::T9Lit(_) => Some(Type::T9),
+            Pattern::T32Lit(_) => Some(Type::T32),
+            Pattern::Q4Lit(_) => Some(Type::Q4),
+            Pattern::RatioLit(_) => Some(Type::Ratio),
+            Pattern::Addr8Lit(_) => Some(Type::Addr8),
+            Pattern::SupportLit(_) => Some(Type::Support),
+            Pattern::EnumVariant { path, .. } => {
+                let (emod, ename, _) = self.resolve_enum_variant_decl(mod_key, path)?;
+                Some(Type::Enum {
+                    module: emod,
+                    name: ename,
+                })
+            }
+            Pattern::Tuple(elems) => {
+                let mut ts = Vec::with_capacity(elems.len());
+                for e in elems {
+                    ts.push(self.infer_eval_pattern_type(mod_key, e)?);
+                }
+                Some(Type::Tuple(ts))
+            }
+        }
+    }
+
+    fn peek_eval_builtin_canon(&self, callee: &Expr, mod_key: &str) -> Option<String> {
+        let base_mod = self.base_module_of(mod_key).to_string();
+        match &callee.kind {
+            ExprKind::Ident(name) => {
+                if self
+                    .program
+                    .functions
+                    .contains_key(&(mod_key.to_string(), name.clone()))
+                    || self.program.functions.contains_key(&(base_mod, name.clone()))
+                {
+                    return None;
+                }
+                if let Some(sym) = self.imports_for(mod_key).get(name) {
+                    return match sym {
+                        ImportedSymbol::Builtin(c) => Some(c.clone()),
+                        _ => None,
+                    };
+                }
+                Some(name.clone())
+            }
+            ExprKind::Path(segs) if segs.len() == 3 && segs[0] == "aod" => {
+                let ns = &segs[0..2];
+                if builtin_namespace_items(ns).is_some() {
+                    Some(canonical_builtin_name(ns, &segs[2]))
+                } else {
+                    None
+                }
+            }
+            ExprKind::Path(segs) if segs.len() == 2 => {
+                if let Some(ImportedSymbol::ModuleNamespace(target_mod)) =
+                    self.imports_for(mod_key).get(&segs[0])
+                {
+                    if let Some(rest) = target_mod.strip_prefix("aod::") {
+                        let ns_vec = vec!["aod".to_string(), rest.to_string()];
+                        return Some(canonical_builtin_name(&ns_vec, &segs[1]));
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_eval_ho_target(
+        &self,
+        mod_key: &str,
+        fn_expr: &Expr,
+        line: usize,
+    ) -> DecResult<EvalHoTarget> {
+        let base_mod = self.base_module_of(mod_key).to_string();
+        match &fn_expr.kind {
+            ExprKind::Ident(name) => {
+                if self
+                    .program
+                    .functions
+                    .contains_key(&(mod_key.to_string(), name.clone()))
+                {
+                    return Ok(EvalHoTarget::UserFn(mod_key.to_string(), name.clone()));
+                }
+                if base_mod != mod_key
+                    && self
+                        .program
+                        .functions
+                        .contains_key(&(base_mod.clone(), name.clone()))
+                {
+                    return Ok(EvalHoTarget::UserFn(base_mod, name.clone()));
+                }
+                if let Some(sym) = self.imports_for(mod_key).get(name).cloned() {
+                    match sym {
+                        ImportedSymbol::ModuleItem { module, item } => {
+                            return Ok(EvalHoTarget::UserFn(module, item));
+                        }
+                        ImportedSymbol::Builtin(canon) => {
+                            return Ok(EvalHoTarget::Builtin(canon));
+                        }
+                        ImportedSymbol::ModuleNamespace(_) => {}
+                    }
+                }
+                for (m, qm) in &self.program.qext_modules {
+                    if m == &base_mod {
+                        let sub = format!("{m}::{qm}");
+                        if self.program.functions.contains_key(&(sub.clone(), name.clone())) {
+                            return Ok(EvalHoTarget::UserFn(sub, name.clone()));
+                        }
+                    }
+                }
+                Ok(EvalHoTarget::Builtin(name.clone()))
+            }
+            ExprKind::Path(segs) if segs.len() == 3 && segs[0] == "aod" => {
+                let ns = &segs[0..2];
+                Ok(EvalHoTarget::Builtin(canonical_builtin_name(ns, &segs[2])))
+            }
+            ExprKind::Path(segs) if segs.len() == 2 => {
+                if let Some(qsub) = self.resolve_qext_submodule(mod_key, &segs[0]) {
+                    if self
+                        .program
+                        .functions
+                        .contains_key(&(qsub.clone(), segs[1].clone()))
+                    {
+                        return Ok(EvalHoTarget::UserFn(qsub, segs[1].clone()));
+                    }
+                }
+                if let Some(ImportedSymbol::ModuleNamespace(target_mod)) =
+                    self.imports_for(mod_key).get(&segs[0]).cloned()
+                {
+                    if let Some(rest) = target_mod.strip_prefix("aod::") {
+                        let ns_vec = vec!["aod".to_string(), rest.to_string()];
+                        return Ok(EvalHoTarget::Builtin(canonical_builtin_name(
+                            &ns_vec, &segs[1],
+                        )));
+                    }
+                    return Ok(EvalHoTarget::UserFn(target_mod, segs[1].clone()));
+                }
+                Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("undefined higher-order callback path {}", segs.join("::")),
+                ))
+            }
+            ExprKind::Path(segs) if segs.len() == 3 => {
+                if let Some(qsub) = self.resolve_qext_submodule_3seg(mod_key, &segs[0], &segs[1]) {
+                    if self
+                        .program
+                        .functions
+                        .contains_key(&(qsub.clone(), segs[2].clone()))
+                    {
+                        return Ok(EvalHoTarget::UserFn(qsub, segs[2].clone()));
+                    }
+                }
+                Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("undefined higher-order callback path {}", segs.join("::")),
+                ))
+            }
+            _ => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "invalid higher-order callback reference",
+            )),
+        }
+    }
+
+    fn call_eval_ho(
+        &mut self,
+        target: &EvalHoTarget,
+        mut pos_args: Vec<Value>,
+        env_opt: Option<&Value>,
+        line: usize,
+    ) -> DecResult<Value> {
+        if let Some(ev) = env_opt {
+            pos_args.push(ev.clone());
+        }
+        match target {
+            EvalHoTarget::UserFn(fmod, fname) => {
+                let named: Vec<(Option<String>, Value)> =
+                    pos_args.into_iter().map(|v| (None, v)).collect();
+                self.call_user_fn(fmod, fname, named, line)
+            }
+            EvalHoTarget::Builtin(canon) => eval_builtin(canon, pos_args, line),
+        }
+    }
+
+    fn eval_seq_values(val: Value, op: &str, line: usize) -> DecResult<Vec<Value>> {
+        match val {
+            Value::List(xs) | Value::Array(xs) => Ok(xs),
+            Value::Bytes(bs) => Ok(bs.into_iter().map(Value::U8).collect()),
+            other => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("{op} expects [T], array[T, N], or bytes, got {}", other.type_of()),
+            )),
+        }
+    }
+
+    fn eval_higher_order_scope_op(
+        &mut self,
+        op: &str,
+        args: &[CallArg],
+        mod_key: &str,
+        scopes: &[BTreeMap<String, Value>],
+        line: usize,
+    ) -> DecResult<Value> {
+        match op {
+            "evolve" => {
+                let mut state = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let dom_val = self.eval_expr(&args[1].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[2].value, line)?;
+                let env_val = if args.len() == 4 {
+                    Some(self.eval_expr(&args[3].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                match dom_val {
+                    Value::Range(a, b) => {
+                        let mut k = a;
+                        while k < b {
+                            self.tick()?;
+                            state = self.call_eval_ho(
+                                &target,
+                                vec![state, Value::Int(BigInt::from_i64(k))],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            k += 1;
+                        }
+                    }
+                    Value::Window(u, v) => {
+                        let mut prev = u;
+                        while prev < v {
+                            self.tick()?;
+                            let k = prev + 1;
+                            state = self.call_eval_ho(
+                                &target,
+                                vec![state, Value::Int(BigInt::from_i64(k))],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            prev = k;
+                        }
+                    }
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::RuntimeError,
+                            line,
+                            format!("evolve domain must be range or window, got {}", other.type_of()),
+                        ));
+                    }
+                }
+                Ok(state)
+            }
+            "scan" => {
+                let mut state = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let src_val = self.eval_expr(&args[1].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[2].value, line)?;
+                let env_val = if args.len() == 4 {
+                    Some(self.eval_expr(&args[3].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                match src_val {
+                    Value::Range(a, b) => {
+                        let cap = if b > a {
+                            ((b as i128 - a as i128).min(65_536)) as usize
+                        } else {
+                            0
+                        };
+                        let mut out = Vec::with_capacity(cap);
+                        let mut k = a;
+                        while k < b {
+                            self.tick()?;
+                            state = self.call_eval_ho(
+                                &target,
+                                vec![state, Value::Int(BigInt::from_i64(k))],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            out.push(state.clone());
+                            k += 1;
+                        }
+                        Ok(Value::List(out))
+                    }
+                    Value::Window(u, v) => {
+                        let cap = if v > u {
+                            ((v as i128 - u as i128).min(65_536)) as usize
+                        } else {
+                            0
+                        };
+                        let mut out = Vec::with_capacity(cap);
+                        let mut prev = u;
+                        while prev < v {
+                            self.tick()?;
+                            let k = prev + 1;
+                            state = self.call_eval_ho(
+                                &target,
+                                vec![state, Value::Int(BigInt::from_i64(k))],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            out.push(state.clone());
+                            prev = k;
+                        }
+                        Ok(Value::List(out))
+                    }
+                    other => {
+                        let items = Self::eval_seq_values(other, "scan", line)?;
+                        let mut out = Vec::with_capacity(items.len().min(65_536));
+                        for x in items {
+                            self.tick()?;
+                            state = self.call_eval_ho(
+                                &target,
+                                vec![state, x],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            out.push(state.clone());
+                        }
+                        Ok(Value::List(out))
+                    }
+                }
+            }
+            "fold_seq" => {
+                let mut state = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let seq_val = self.eval_expr(&args[1].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[2].value, line)?;
+                let env_val = if args.len() == 4 {
+                    Some(self.eval_expr(&args[3].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                let items = Self::eval_seq_values(seq_val, "fold_seq", line)?;
+                for x in items {
+                    self.tick()?;
+                    state = self.call_eval_ho(&target, vec![state, x], env_val.as_ref(), line)?;
+                }
+                Ok(state)
+            }
+            "map_seq" => {
+                let seq_val = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[1].value, line)?;
+                let env_val = if args.len() == 3 {
+                    Some(self.eval_expr(&args[2].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                let items = Self::eval_seq_values(seq_val, "map_seq", line)?;
+                let mut out = Vec::with_capacity(items.len().min(65_536));
+                for x in items {
+                    self.tick()?;
+                    let y = self.call_eval_ho(&target, vec![x], env_val.as_ref(), line)?;
+                    out.push(y);
+                }
+                Ok(Value::List(out))
+            }
+            "filter_seq" => {
+                let seq_val = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[1].value, line)?;
+                let env_val = if args.len() == 3 {
+                    Some(self.eval_expr(&args[2].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                let items = Self::eval_seq_values(seq_val, "filter_seq", line)?;
+                let mut out = Vec::new();
+                for x in items {
+                    self.tick()?;
+                    let keep = self.call_eval_ho(&target, vec![x.clone()], env_val.as_ref(), line)?;
+                    if matches!(keep, Value::Bool(true)) {
+                        out.push(x);
+                    }
+                }
+                Ok(Value::List(out))
+            }
+            "tabulate" => {
+                let dom_val = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[1].value, line)?;
+                let env_val = if args.len() == 3 {
+                    Some(self.eval_expr(&args[2].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                match dom_val {
+                    Value::Range(a, b) => {
+                        let cap = if b > a {
+                            ((b as i128 - a as i128).min(65_536)) as usize
+                        } else {
+                            0
+                        };
+                        let mut out = Vec::with_capacity(cap);
+                        let mut k = a;
+                        while k < b {
+                            self.tick()?;
+                            let y = self.call_eval_ho(
+                                &target,
+                                vec![Value::Int(BigInt::from_i64(k))],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            out.push(y);
+                            k += 1;
+                        }
+                        Ok(Value::List(out))
+                    }
+                    Value::Window(u, v) => {
+                        let cap = if v > u {
+                            ((v as i128 - u as i128).min(65_536)) as usize
+                        } else {
+                            0
+                        };
+                        let mut out = Vec::with_capacity(cap);
+                        let mut prev = u;
+                        while prev < v {
+                            self.tick()?;
+                            let k = prev + 1;
+                            let y = self.call_eval_ho(
+                                &target,
+                                vec![Value::Int(BigInt::from_i64(k))],
+                                env_val.as_ref(),
+                                line,
+                            )?;
+                            out.push(y);
+                            prev = k;
+                        }
+                        Ok(Value::List(out))
+                    }
+                    other => Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("tabulate domain must be range or window, got {}", other.type_of()),
+                    )),
+                }
+            }
+            "zip_seq" => {
+                let a_val = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let b_val = self.eval_expr(&args[1].value, mod_key, scopes)?;
+                let xs = Self::eval_seq_values(a_val, "zip_seq", line)?;
+                let ys = Self::eval_seq_values(b_val, "zip_seq", line)?;
+                if xs.len() != ys.len() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!(
+                            "zip_seq(a, b) sequence length mismatch: {} != {}",
+                            xs.len(),
+                            ys.len()
+                        ),
+                    ));
+                }
+                let out: Vec<Value> = xs
+                    .into_iter()
+                    .zip(ys)
+                    .map(|(a, b)| Value::Tuple(vec![a, b]))
+                    .collect();
+                Ok(Value::List(out))
+            }
+            "count" => {
+                let seq_val = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[1].value, line)?;
+                let env_val = if args.len() == 3 {
+                    Some(self.eval_expr(&args[2].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                let items = Self::eval_seq_values(seq_val, "count", line)?;
+                let mut n = 0u64;
+                for x in items {
+                    self.tick()?;
+                    if matches!(
+                        self.call_eval_ho(&target, vec![x], env_val.as_ref(), line)?,
+                        Value::Bool(true)
+                    ) {
+                        n += 1;
+                    }
+                }
+                Ok(Value::Int(BigInt::from_u64(n)))
+            }
+            "any" | "all" => {
+                let is_any = op == "any";
+                let is_qext_bool = self
+                    .program
+                    .checked
+                    .poly_call_types
+                    .get(&(mod_key.to_string(), line, format!("{op}:{args:?}")))
+                    == Some(&Type::QExt(Box::new(Type::Bool)));
+                let seq_val = self.eval_expr(&args[0].value, mod_key, scopes)?;
+                let target = self.resolve_eval_ho_target(mod_key, &args[1].value, line)?;
+                let env_val = if args.len() == 3 {
+                    Some(self.eval_expr(&args[2].value, mod_key, scopes)?)
+                } else {
+                    None
+                };
+                let items = Self::eval_seq_values(seq_val, op, line)?;
+                for x in items {
+                    self.tick()?;
+                    let pv = self.call_eval_ho(&target, vec![x], env_val.as_ref(), line)?;
+                    let b = match pv {
+                        Value::Bool(b) | Value::QExtBool(b) => b,
+                        _ => false,
+                    };
+                    if is_any && b {
+                        return Ok(if is_qext_bool {
+                            Value::QExtBool(true)
+                        } else {
+                            Value::Bool(true)
+                        });
+                    }
+                    if !is_any && !b {
+                        return Ok(if is_qext_bool {
+                            Value::QExtBool(false)
+                        } else {
+                            Value::Bool(false)
+                        });
+                    }
+                }
+                let default_b = !is_any;
+                Ok(if is_qext_bool {
+                    Value::QExtBool(default_b)
+                } else {
+                    Value::Bool(default_b)
+                })
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn eval_sum_or_dot(
+        &self,
+        op: &str,
+        raw_args: &[CallArg],
+        vals: Vec<Value>,
+        mod_key: &str,
+        line: usize,
+    ) -> DecResult<Value> {
+        let inferred_ty = self
+            .program
+            .checked
+            .poly_call_types
+            .get(&(mod_key.to_string(), line, format!("{op}:{raw_args:?}")))
+            .cloned();
+        let zero_for = |ty_opt: Option<Type>, sample: Option<&Value>| -> Value {
+            match sample.map(Value::type_of).or(ty_opt) {
+                Some(Type::U8) => Value::U8(0),
+                Some(Type::T1) => Value::T1(T1::ZERO),
+                Some(Type::T9) => Value::T9(T9::new(0).expect("0 in t9")),
+                Some(Type::T32) => Value::T32(T32::new(0).expect("0 in t32")),
+                Some(Type::Ratio) => Value::Ratio(Ratio::zero()),
+                Some(t) if t == Type::QExt(Box::new(Type::Ratio)) => {
+                    Value::QExtRatio(QExtRatio::from_native_frozen(Ratio::zero()))
+                }
+                _ => Value::Int(BigInt::zero()),
+            }
+        };
+        let err = |e: aod_core::error::CoreError| {
+            Diagnostic::at_line(DiagnosticCode::RuntimeError, line, e.to_string())
+        };
+        match op {
+            "sum" => {
+                let items = Self::eval_seq_values(
+                    vals.into_iter().next().unwrap(),
+                    "sum",
+                    line,
+                )?;
+                let mut acc = zero_for(inferred_ty, items.first());
+                for item in items {
+                    acc = match (acc, item) {
+                        (Value::Int(a), Value::Int(b)) => Value::Int(&a + &b),
+                        (Value::U8(a), Value::U8(b)) => Value::U8(a.checked_add(b).ok_or_else(|| {
+                            Diagnostic::at_line(
+                                DiagnosticCode::RuntimeError,
+                                line,
+                                "sum(u8): u8 addition overflow",
+                            )
+                        })?),
+                        (Value::T1(a), Value::T1(b)) => {
+                            Value::T1(T1::new(a.value() + b.value()).map_err(err)?)
+                        }
+                        (Value::T9(a), Value::T9(b)) => Value::T9(a.checked_add(b).map_err(err)?),
+                        (Value::T32(a), Value::T32(b)) => Value::T32(a.checked_add(b).map_err(err)?),
+                        (Value::Ratio(a), Value::Ratio(b)) => Value::Ratio(&a + &b),
+                        (Value::QExtRatio(a), Value::QExtRatio(b)) => {
+                            Value::QExtRatio(a.checked_add(&b))
+                        }
+                        _ => {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::RuntimeError,
+                                line,
+                                "sum element type mismatch",
+                            ));
+                        }
+                    };
+                }
+                Ok(acc)
+            }
+            "dot" => {
+                let mut it = vals.into_iter();
+                let xs = Self::eval_seq_values(it.next().unwrap(), "dot", line)?;
+                let ys = Self::eval_seq_values(it.next().unwrap(), "dot", line)?;
+                if xs.len() != ys.len() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!(
+                            "dot(a, b) sequence length mismatch: {} != {}",
+                            xs.len(),
+                            ys.len()
+                        ),
+                    ));
+                }
+                let mut acc = zero_for(inferred_ty, xs.first().or_else(|| ys.first()));
+                for (x, y) in xs.into_iter().zip(ys.into_iter()) {
+                    acc = match (acc, x, y) {
+                        (Value::Int(s), Value::Int(a), Value::Int(b)) => Value::Int(&s + &(&a * &b)),
+                        (Value::U8(s), Value::U8(a), Value::U8(b)) => {
+                            let p = a.checked_mul(b).ok_or_else(|| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::RuntimeError,
+                                    line,
+                                    "dot(u8): u8 multiplication overflow",
+                                )
+                            })?;
+                            Value::U8(s.checked_add(p).ok_or_else(|| {
+                                Diagnostic::at_line(
+                                    DiagnosticCode::RuntimeError,
+                                    line,
+                                    "dot(u8): u8 addition overflow",
+                                )
+                            })?)
+                        }
+                        (Value::T1(s), Value::T1(a), Value::T1(b)) => {
+                            let p = a.value() * b.value();
+                            Value::T1(T1::new(s.value() + p).map_err(err)?)
+                        }
+                        (Value::T9(s), Value::T9(a), Value::T9(b)) => {
+                            let p = a.checked_mul(b).map_err(err)?;
+                            Value::T9(s.checked_add(p).map_err(err)?)
+                        }
+                        (Value::T32(s), Value::T32(a), Value::T32(b)) => {
+                            let p = a.checked_mul(b).map_err(err)?;
+                            Value::T32(s.checked_add(p).map_err(err)?)
+                        }
+                        (Value::Ratio(s), Value::Ratio(a), Value::Ratio(b)) => {
+                            Value::Ratio(&s + &(&a * &b))
+                        }
+                        (Value::QExtRatio(s), Value::QExtRatio(a), Value::QExtRatio(b)) => {
+                            Value::QExtRatio(s.checked_add(&a.checked_mul(&b)))
+                        }
+                        _ => {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::RuntimeError,
+                                line,
+                                "dot element type mismatch",
+                            ));
+                        }
+                    };
+                }
+                Ok(acc)
+            }
+            _ => unreachable!(),
+        }
+    }
+
     fn eval_call(
         &mut self,
         callee: &Expr,
@@ -1532,9 +2283,23 @@ impl<'a> Evaluator<'a> {
         scopes: &[BTreeMap<String, Value>],
         line: usize,
     ) -> DecResult<Value> {
+        if let Some(
+            op @ ("evolve" | "scan" | "fold_seq" | "map_seq" | "filter_seq" | "tabulate"
+            | "zip_seq" | "count" | "any" | "all"),
+        ) = self.peek_eval_builtin_canon(callee, mod_key).as_deref()
+        {
+            return self.eval_higher_order_scope_op(op, args, mod_key, scopes, line);
+        }
+
         let mut vals = Vec::with_capacity(args.len());
         for a in args {
             vals.push((a.name.clone(), self.eval_expr(&a.value, mod_key, scopes)?));
+        }
+
+        if let Some(op @ ("sum" | "dot")) = self.peek_eval_builtin_canon(callee, mod_key).as_deref()
+        {
+            let pos: Vec<Value> = vals.into_iter().map(|(_, v)| v).collect();
+            return self.eval_sum_or_dot(op, args, pos, mod_key, line);
         }
 
         // Enum payload constructor `Enum::Variant(args...)`
@@ -1550,33 +2315,44 @@ impl<'a> Evaluator<'a> {
             }
         }
 
-        // Struct constructor call `Foo(1, 2)` or `Foo(x: 1, y: 2)`
+        // Struct constructor call `Foo(1, 2)` or `Foo(x: 1, y: 2)` (falling through to `dec Foo:` if recorded in `poly_call_types`!)
         let struct_path_opt: Option<Vec<String>> = match &callee.kind {
             ExprKind::Ident(n) => Some(vec![n.clone()]),
             ExprKind::Path(segs) => Some(segs.clone()),
             _ => None,
         };
-        if let Some(ref sp) = struct_path_opt {
-            if let Some((smod, sdecl)) = self.resolve_struct_decl(mod_key, sp) {
-                let mut fields = BTreeMap::new();
-                let mut pos_idx = 0usize;
-                for (n_opt, v) in vals {
-                    match n_opt {
-                        None => {
-                            let fname = sdecl.fields[pos_idx].0.clone();
-                            fields.insert(fname, v);
-                            pos_idx += 1;
-                        }
-                        Some(n) => {
-                            fields.insert(n, v);
+        let is_struct_overload = self
+            .program
+            .checked
+            .poly_call_types
+            .contains_key(&(
+                mod_key.to_string(),
+                line,
+                format!("struct_ov:{callee:?}:{args:?}"),
+            ));
+        if !is_struct_overload {
+            if let Some(ref sp) = struct_path_opt {
+                if let Some((smod, sdecl)) = self.resolve_struct_decl(mod_key, sp) {
+                    let mut fields = BTreeMap::new();
+                    let mut pos_idx = 0usize;
+                    for (n_opt, v) in vals {
+                        match n_opt {
+                            None => {
+                                let fname = sdecl.fields[pos_idx].0.clone();
+                                fields.insert(fname, v);
+                                pos_idx += 1;
+                            }
+                            Some(n) => {
+                                fields.insert(n, v);
+                            }
                         }
                     }
+                    return Ok(Value::Struct(Box::new(StructValue {
+                        module: smod,
+                        name: sdecl.name,
+                        fields,
+                    })));
                 }
-                return Ok(Value::Struct(Box::new(StructValue {
-                    module: smod,
-                    name: sdecl.name,
-                    fields,
-                })));
             }
         }
 
@@ -2124,6 +2900,7 @@ fn eval_binary(op: BinaryOp, left: Value, right: Value, line: usize) -> DecResul
             (Value::QExtRatio(a), Value::QExtRatio(b)) => Ok(Value::QExtBool(a == b)),
             (Value::QExtBool(a), Value::QExtBool(b)) => Ok(Value::QExtBool(a == b)),
             (Value::QExtStr(a), Value::QExtStr(b)) => Ok(Value::QExtBool(a == b)),
+            (Value::QExtBytes(a), Value::QExtBytes(b)) => Ok(Value::QExtBool(a == b)),
             _ => Ok(Value::Bool(left == right)),
         };
     }
@@ -2132,6 +2909,7 @@ fn eval_binary(op: BinaryOp, left: Value, right: Value, line: usize) -> DecResul
             (Value::QExtRatio(a), Value::QExtRatio(b)) => Ok(Value::QExtBool(a != b)),
             (Value::QExtBool(a), Value::QExtBool(b)) => Ok(Value::QExtBool(a != b)),
             (Value::QExtStr(a), Value::QExtStr(b)) => Ok(Value::QExtBool(a != b)),
+            (Value::QExtBytes(a), Value::QExtBytes(b)) => Ok(Value::QExtBool(a != b)),
             _ => Ok(Value::Bool(left != right)),
         };
     }
@@ -2498,8 +3276,23 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
     }
     match (base, field) {
         (Value::SimResult(s), "model_status") => Ok(Value::Str(s.model_status)),
+        (Value::SimResult(s), "model_status_bytes") => {
+            Ok(Value::Bytes(s.model_status.into_bytes()))
+        }
         (Value::SimResult(s), "chamber_name") => Ok(Value::Str(s.chamber_name)),
+        (Value::SimResult(s), "chamber_name_bytes") => {
+            Ok(Value::Bytes(s.chamber_name.into_bytes()))
+        }
         (Value::SimResult(s), "final_state_hash") => Ok(Value::Str(s.final_state_hash)),
+        (Value::SimResult(s), "final_state_hash_bytes") => {
+            Ok(Value::Bytes(s.final_state_hash.into_bytes()))
+        }
+        (Value::SimResult(s), "boundary_bytes") => Ok(Value::Bytes(
+            s.final_snapshot.space.boundary_descriptor().into_bytes(),
+        )),
+        (Value::Box3(b), "boundary_bytes") => {
+            Ok(Value::Bytes(b.boundary_descriptor().into_bytes()))
+        }
         (Value::SimResult(s), "ticks") => Ok(Value::Int(BigInt::from_u64(s.ticks))),
         (Value::SimResult(s), "carrier_count") => {
             Ok(Value::Int(BigInt::from_u64(s.carrier_count as u64)))
@@ -2527,7 +3320,13 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
         }
 
         (Value::ChamberView(snap), "model_status") => Ok(Value::Str(snap.model_status)),
+        (Value::ChamberView(snap), "model_status_bytes") => {
+            Ok(Value::Bytes(snap.model_status.into_bytes()))
+        }
         (Value::ChamberView(snap), "chamber_name") => Ok(Value::Str(snap.chamber_name)),
+        (Value::ChamberView(snap), "chamber_name_bytes") => {
+            Ok(Value::Bytes(snap.chamber_name.into_bytes()))
+        }
         (Value::ChamberView(snap), "tick") => Ok(Value::Int(BigInt::from_u64(snap.tick))),
         (Value::ChamberView(snap), "carrier_count") => {
             Ok(Value::Int(BigInt::from_u64(snap.carriers.len() as u64)))
@@ -2552,19 +3351,10 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
         )),
 
         (Value::RecipientOutcome(o), "stage") => Ok(Value::Str(
-            match o.stage {
-                RecipientOutcomeStage::Emitted => "emitted",
-                RecipientOutcomeStage::Delivered => "delivered",
-                RecipientOutcomeStage::Accepted => "accepted",
-                RecipientOutcomeStage::UnacceptedPass => "unaccepted_pass",
-                RecipientOutcomeStage::Seated => "seated",
-                RecipientOutcomeStage::PendingUnseated => "pending_unseated",
-                RecipientOutcomeStage::ClosedOrigin => "closed_origin",
-                RecipientOutcomeStage::Reclosed => "reclosed",
-                RecipientOutcomeStage::ReclosedReplay => "reclosed_replay",
-                RecipientOutcomeStage::ReclosedOutOfWindow => "reclosed_out_of_window",
-            }
-            .to_string(),
+            eval_recipient_stage_name(o.stage).to_string(),
+        )),
+        (Value::RecipientOutcome(o), "stage_bytes") => Ok(Value::Bytes(
+            eval_recipient_stage_name(o.stage).as_bytes().to_vec(),
         )),
         (Value::RecipientOutcome(o), "closure_phase_delta") => {
             Ok(Value::Int(BigInt::from_u64(o.closure_phase_delta as u64)))
@@ -2578,7 +3368,13 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
 
         (Value::CadenceAssociation(a), "is_cadence_ratio") => Ok(Value::Bool(a.is_cadence_ratio)),
         (Value::CadenceAssociation(a), "wavelet_id") => Ok(Value::Str(a.wavelet_id)),
+        (Value::CadenceAssociation(a), "wavelet_id_bytes") => {
+            Ok(Value::Bytes(a.wavelet_id.into_bytes()))
+        }
         (Value::CadenceAssociation(a), "reference_id") => Ok(Value::Str(a.reference_id)),
+        (Value::CadenceAssociation(a), "reference_id_bytes") => {
+            Ok(Value::Bytes(a.reference_id.into_bytes()))
+        }
 
         (Value::Support(s), "is_yro") => Ok(Value::Bool(s.is_yro())),
         (Value::Support(s), "is_closure_certificate") => {
@@ -2587,13 +3383,37 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
         (Value::Addr8(a), "is_first_anchor") => Ok(Value::Bool(a.is_first_anchor())),
         (Value::Window(u, _), "start") => Ok(Value::Int(BigInt::from_i64(u))),
         (Value::Window(_, v), "end") => Ok(Value::Int(BigInt::from_i64(v))),
-        (Value::Window(u, v), "len") => Ok(Value::Int(BigInt::from_i64(v - u))),
+        (Value::Window(u, v), "len") => {
+            Ok(Value::Int(BigInt::from_i128((v as i128) - (u as i128))))
+        }
+        (Value::Ratio(r), "num") => Ok(Value::Int(r.num().clone())),
+        (Value::Ratio(r), "den") => Ok(Value::Int(r.den().clone())),
 
         _ => Err(Diagnostic::at_line(
             DiagnosticCode::RuntimeError,
             line,
             format!("unsupported field .{field}"),
         )),
+    }
+}
+
+enum EvalHoTarget {
+    UserFn(String, String),
+    Builtin(String),
+}
+
+fn eval_recipient_stage_name(stage: RecipientOutcomeStage) -> &'static str {
+    match stage {
+        RecipientOutcomeStage::Emitted => "emitted",
+        RecipientOutcomeStage::Delivered => "delivered",
+        RecipientOutcomeStage::Accepted => "accepted",
+        RecipientOutcomeStage::UnacceptedPass => "unaccepted_pass",
+        RecipientOutcomeStage::Seated => "seated",
+        RecipientOutcomeStage::PendingUnseated => "pending_unseated",
+        RecipientOutcomeStage::ClosedOrigin => "closed_origin",
+        RecipientOutcomeStage::Reclosed => "reclosed",
+        RecipientOutcomeStage::ReclosedReplay => "reclosed_replay",
+        RecipientOutcomeStage::ReclosedOutOfWindow => "reclosed_out_of_window",
     }
 }
 
@@ -2812,6 +3632,13 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
                 .map(|t| Value::Trace(Box::new(t)))
                 .map_err(err)
         }
+        ("trace", [Value::Bytes(sc_b), Value::Bytes(lin_b), Value::Q4(st)]) => {
+            let sc = bytes_to_utf8(sc_b, "trace(bytes, bytes, q4)", line)?;
+            let lin = bytes_to_utf8(lin_b, "trace(bytes, bytes, q4)", line)?;
+            Trace::new(sc, lin, *st)
+                .map(|t| Value::Trace(Box::new(t)))
+                .map_err(err)
+        }
         ("step", [Value::Trace(t), Value::Q4(q), Value::T1(o)]) => {
             t.step(*q, *o).map(|t| Value::Trace(Box::new(t))).map_err(err)
         }
@@ -2832,6 +3659,13 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
                 .map(|f| Value::Fusion(Box::new(f)))
                 .map_err(err)
         }
+        ("fold", [Value::Trace(a), Value::Trace(b), Value::Bytes(sc_b), Value::Bytes(lin_b)]) => {
+            let sc = bytes_to_utf8(sc_b, "fold(..., bytes, bytes)", line)?;
+            let lin = bytes_to_utf8(lin_b, "fold(..., bytes, bytes)", line)?;
+            Fusion::fold(a, b, sc, lin)
+                .map(|f| Value::Fusion(Box::new(f)))
+                .map_err(err)
+        }
         ("outer", [Value::Fusion(f), Value::Q4(st)]) => {
             f.outer(*st).map(|t| Value::Trace(Box::new(t))).map_err(err)
         }
@@ -2840,6 +3674,12 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
         }
         ("coupling", [Value::Trace(a), Value::Trace(b), Value::Str(w)]) => {
             Coupling::new(a, b, w.clone())
+                .map(|c| Value::Coupling(Box::new(c)))
+                .map_err(err)
+        }
+        ("coupling", [Value::Trace(a), Value::Trace(b), Value::Bytes(wb)]) => {
+            let w = bytes_to_utf8(wb, "coupling(..., bytes)", line)?;
+            Coupling::new(a, b, w)
                 .map(|c| Value::Coupling(Box::new(c)))
                 .map_err(err)
         }
@@ -2863,7 +3703,15 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
 
         // v2 builtins
         ("addr8", [Value::Str(s)]) => Addr8::parse(s).map(Value::Addr8).map_err(err),
+        ("addr8", [Value::Bytes(bs)]) => {
+            let s = bytes_to_utf8(bs, "addr8(bytes)", line)?;
+            Addr8::parse(&s).map(Value::Addr8).map_err(err)
+        }
         ("support", [Value::Str(s)]) => SupportForm::parse(s).map(Value::Support).map_err(err),
+        ("support", [Value::Bytes(bs)]) => {
+            let s = bytes_to_utf8(bs, "support(bytes)", line)?;
+            SupportForm::parse(&s).map(Value::Support).map_err(err)
+        }
         ("support", [Value::Int(p), Value::Int(q), Value::Int(len), Value::Bool(yro)]) => {
             SupportForm::new(p.clone(), q.clone(), len.clone(), *yro)
                 .map(Value::Support)
@@ -3058,9 +3906,235 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             .map_err(err)
         }
 
+        // Pure persistent container helpers (`P0-2`, `AC-05`)
+        ("map_put", [Value::Map(m), key_val, val]) => {
+            let k = MapKey::from_value(key_val, line)?;
+            let mut cloned = (**m).clone();
+            cloned.insert(k, val.clone());
+            Ok(Value::Map(Box::new(cloned)))
+        }
+        ("map_remove", [Value::Map(m), key_val]) => {
+            let k = MapKey::from_value(key_val, line)?;
+            let mut cloned = (**m).clone();
+            cloned.remove(&k);
+            Ok(Value::Map(Box::new(cloned)))
+        }
+        ("map_get_or", [Value::Map(m), key_val, default_val]) => {
+            let k = MapKey::from_value(key_val, line)?;
+            Ok(m.get(&k).cloned().unwrap_or_else(|| default_val.clone()))
+        }
+        ("map_keys", [Value::Map(m)]) => {
+            Ok(Value::List(m.keys().map(MapKey::to_value).collect()))
+        }
+        ("map_entries", [Value::Map(m)]) => Ok(Value::List(
+            m.iter()
+                .map(|(k, v)| Value::Tuple(vec![k.to_value(), v.clone()]))
+                .collect(),
+        )),
+        ("list_set", [Value::List(xs), Value::Int(idx), val]) => {
+            let i = extract_i64(Value::Int(idx.clone()), line)?;
+            if i < 0 || (i as usize) >= xs.len() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("list index {i} out of bounds"),
+                ));
+            }
+            let mut cloned = xs.clone();
+            cloned[i as usize] = val.clone();
+            Ok(Value::List(cloned))
+        }
+        ("list_push", [Value::List(xs), val]) => {
+            let mut cloned = xs.clone();
+            cloned.push(val.clone());
+            Ok(Value::List(cloned))
+        }
+        (
+            "concat_seq",
+            [Value::List(a) | Value::Array(a), Value::List(b) | Value::Array(b)],
+        ) => {
+            let mut out = Vec::with_capacity(a.len() + b.len());
+            out.extend_from_slice(a);
+            out.extend_from_slice(b);
+            Ok(Value::List(out))
+        }
+        ("slice_seq", [Value::List(xs) | Value::Array(xs), Value::Int(start), Value::Int(end)]) => {
+            let s = extract_i64(Value::Int(start.clone()), line)?;
+            let e = extract_i64(Value::Int(end.clone()), line)?;
+            if s < 0 || e < s || (e as usize) > xs.len() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!(
+                        "slice_seq({s}, {e}) out of bounds for length {}",
+                        xs.len()
+                    ),
+                ));
+            }
+            Ok(Value::List(xs[(s as usize)..(e as usize)].to_vec()))
+        }
+
+        // M3 wavelet bytes overloads (`P0-4`, `AC-03`)
+        (
+            "window_dedup_count",
+            [
+                Value::Bytes(lin_b),
+                Value::Bytes(scope_b),
+                Value::List(cut_vals),
+                Value::List(win_vals),
+            ],
+        ) => {
+            let lin = bytes_to_utf8(lin_b, "window_dedup_count(bytes, ...)", line)?;
+            let scope = bytes_to_utf8(scope_b, "window_dedup_count(bytes, ...)", line)?;
+            eval_builtin(
+                "window_dedup_count",
+                vec![
+                    Value::Str(lin),
+                    Value::Str(scope),
+                    Value::List(cut_vals.clone()),
+                    Value::List(win_vals.clone()),
+                ],
+                line,
+            )
+        }
+        (
+            "native_cadence_ratio",
+            [
+                Value::Bytes(ida_b),
+                Value::Int(q_a),
+                Value::Bytes(idr_b),
+                Value::Int(q_r),
+                Value::Bool(coupled),
+                Value::Int(contacts),
+            ],
+        ) => {
+            let ida = bytes_to_utf8(ida_b, "native_cadence_ratio(bytes, ...)", line)?;
+            let idr = bytes_to_utf8(idr_b, "native_cadence_ratio(bytes, ...)", line)?;
+            eval_builtin(
+                "native_cadence_ratio",
+                vec![
+                    Value::Str(ida),
+                    Value::Int(q_a.clone()),
+                    Value::Str(idr),
+                    Value::Int(q_r.clone()),
+                    Value::Bool(*coupled),
+                    Value::Int(contacts.clone()),
+                ],
+                line,
+            )
+        }
+        (
+            "single_contact_association",
+            [
+                Value::Bytes(wid_b),
+                Value::Bytes(pid_b),
+                Value::Bytes(rid_b),
+                Value::Window(u, v),
+                Value::Int(contacts),
+            ],
+        ) => {
+            let wid = bytes_to_utf8(wid_b, "single_contact_association(bytes, ...)", line)?;
+            let pid = bytes_to_utf8(pid_b, "single_contact_association(bytes, ...)", line)?;
+            let rid = bytes_to_utf8(rid_b, "single_contact_association(bytes, ...)", line)?;
+            eval_builtin(
+                "single_contact_association",
+                vec![
+                    Value::Str(wid),
+                    Value::Str(pid),
+                    Value::Str(rid),
+                    Value::Window(*u, *v),
+                    Value::Int(contacts.clone()),
+                ],
+                line,
+            )
+        }
+
+        // Phase D2 exact scalar & rational intrinsics
+        ("num", [Value::Ratio(r)]) => Ok(Value::Int(r.num().clone())),
+        ("den", [Value::Ratio(r)]) => Ok(Value::Int(r.den().clone())),
+        ("abs", [Value::Int(n)]) => Ok(Value::Int(n.abs())),
+        ("abs", [Value::T1(v)]) => Ok(Value::T1(v.abs())),
+        ("abs", [Value::T9(v)]) => Ok(Value::T9(v.abs())),
+        ("abs", [Value::T32(v)]) => Ok(Value::T32(v.abs())),
+        ("abs", [Value::Ratio(r)]) => Ok(Value::Ratio(r.abs())),
+        ("abs", [Value::QExtRatio(q)]) => Ok(Value::QExtRatio(q.abs())),
+        ("signum", [Value::Int(n)]) => Ok(Value::T1(
+            T1::new(n.signum()).expect("BigInt::signum in {-1,0,1}"),
+        )),
+        ("signum", [Value::T1(v)]) => Ok(Value::T1(v.signum())),
+        ("signum", [Value::T9(v)]) => Ok(Value::T1(v.signum())),
+        ("signum", [Value::T32(v)]) => Ok(Value::T1(v.signum())),
+        ("signum", [Value::Ratio(r)]) => Ok(Value::T1(r.signum())),
+        ("min", [a, b]) => {
+            if cmp_values_ord(a, b, line)?.is_le() {
+                Ok(a.clone())
+            } else {
+                Ok(b.clone())
+            }
+        }
+        ("max", [a, b]) => {
+            if cmp_values_ord(a, b, line)?.is_ge() {
+                Ok(a.clone())
+            } else {
+                Ok(b.clone())
+            }
+        }
+        ("clamp", [x, lo, hi]) => {
+            if cmp_values_ord(lo, hi, line)?.is_gt() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!(
+                        "clamp(x, lo, hi) requires lo <= hi, got {} > {}",
+                        lo.render(),
+                        hi.render()
+                    ),
+                ));
+            }
+            if cmp_values_ord(x, lo, line)?.is_lt() {
+                Ok(lo.clone())
+            } else if cmp_values_ord(x, hi, line)?.is_gt() {
+                Ok(hi.clone())
+            } else {
+                Ok(x.clone())
+            }
+        }
+        ("gcd", [Value::Int(a), Value::Int(b)]) => Ok(Value::Int(a.gcd(b))),
+        ("gcd", [Value::T9(a), Value::T9(b)]) => Ok(Value::T9(a.gcd(*b))),
+        ("gcd", [Value::T32(a), Value::T32(b)]) => Ok(Value::T32(a.gcd(*b))),
+        ("lcm", [Value::Int(a), Value::Int(b)]) => Ok(Value::Int(a.lcm(b))),
+        ("lcm", [Value::T9(a), Value::T9(b)]) => a.checked_lcm(*b).map(Value::T9).map_err(err),
+        ("lcm", [Value::T32(a), Value::T32(b)]) => a.checked_lcm(*b).map(Value::T32).map_err(err),
+        ("pow", [Value::Int(base), Value::Int(exp)]) => {
+            base.checked_pow_bigint(exp).map(Value::Int).map_err(err)
+        }
+        ("pow", [Value::T9(base), Value::Int(exp)]) => {
+            let e = checked_eval_pow_exp(exp, "t9", line)?;
+            base.checked_pow(e).map(Value::T9).map_err(err)
+        }
+        ("pow", [Value::T9(base), Value::T9(exp)]) => {
+            let e = checked_eval_pow_exp(&BigInt::from_i64(exp.value() as i64), "t9", line)?;
+            base.checked_pow(e).map(Value::T9).map_err(err)
+        }
+        ("pow", [Value::T32(base), Value::Int(exp)]) => {
+            let e = checked_eval_pow_exp(exp, "t32", line)?;
+            base.checked_pow(e).map(Value::T32).map_err(err)
+        }
+        ("pow", [Value::T32(base), Value::T32(exp)]) => {
+            let e = checked_eval_pow_exp(&BigInt::from_i128(exp.value()), "t32", line)?;
+            base.checked_pow(e).map(Value::T32).map_err(err)
+        }
+        ("pow", [Value::Ratio(base), Value::Int(exp)]) => {
+            base.checked_pow_bigint(exp).map(Value::Ratio).map_err(err)
+        }
+
         // Quarantined aod::qext builtins
         ("aod::qext::ext_decimal", [Value::Str(s)]) => {
             parse_decimal_exact(s).map(Value::QExtRatio).map_err(err)
+        }
+        ("aod::qext::ext_decimal", [Value::Bytes(bs)]) => {
+            let s = bytes_to_utf8(bs, "ext_decimal(bytes)", line)?;
+            parse_decimal_exact(&s).map(Value::QExtRatio).map_err(err)
         }
         ("aod::qext::qext_from_ratio", [Value::Ratio(r)]) => {
             Ok(Value::QExtRatio(QExtRatio::from_native_frozen(r.clone())))
@@ -3079,43 +4153,24 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
         }
         ("aod::qext::qext_render", [Value::QExtRatio(q)]) => Ok(Value::QExtStr(q.render_exact())),
         ("aod::qext::qext_round_half_even", [Value::QExtRatio(q), Value::Int(d)]) => {
-            let max_d = aod_core::s2_kernel::MAX_ROUNDING_DECIMALS;
-            let dec_i = d.to_i64().ok_or_else(|| {
-                Diagnostic::at_line(
-                    DiagnosticCode::RuntimeError,
-                    line,
-                    format!("qext decimals {d} out of bounds (expected 0..={max_d})"),
-                )
-            })?;
-            if dec_i < 0 || (dec_i as usize) > max_d {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::RuntimeError,
-                    line,
-                    format!("qext decimals {dec_i} out of bounds (expected 0..={max_d})"),
-                ));
-            }
-            q.round_half_even(dec_i as usize)
-                .map(Value::QExtRatio)
-                .map_err(err)
+            let dec = checked_eval_qext_decimals(d, line)?;
+            q.round_half_even(dec).map(Value::QExtRatio).map_err(err)
         }
         ("aod::qext::qext_format_fixed", [Value::QExtRatio(q), Value::Int(d)]) => {
-            let max_d = aod_core::s2_kernel::MAX_ROUNDING_DECIMALS;
-            let dec_i = d.to_i64().ok_or_else(|| {
-                Diagnostic::at_line(
-                    DiagnosticCode::RuntimeError,
-                    line,
-                    format!("qext decimals {d} out of bounds (expected 0..={max_d})"),
-                )
-            })?;
-            if dec_i < 0 || (dec_i as usize) > max_d {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::RuntimeError,
-                    line,
-                    format!("qext decimals {dec_i} out of bounds (expected 0..={max_d})"),
-                ));
-            }
-            q.format_fixed(dec_i as usize)
-                .map(Value::QExtStr)
+            let dec = checked_eval_qext_decimals(d, line)?;
+            q.format_fixed(dec).map(Value::QExtStr).map_err(err)
+        }
+        (
+            "aod::qext::qext_to_bytes_exact" | "aod::qext::qext_render_bytes",
+            [Value::QExtRatio(q)],
+        ) => Ok(Value::QExtBytes(q.render_exact().into_bytes())),
+        (
+            "aod::qext::qext_format_bytes_fixed" | "aod::qext::qext_format_fixed_bytes",
+            [Value::QExtRatio(q), Value::Int(d)],
+        ) => {
+            let dec = checked_eval_qext_decimals(d, line)?;
+            q.format_fixed(dec)
+                .map(|s| Value::QExtBytes(s.into_bytes()))
                 .map_err(err)
         }
 
@@ -3123,6 +4178,89 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             DiagnosticCode::RuntimeError,
             line,
             format!("unlisted builtin call {name}"),
+        )),
+    }
+}
+
+fn checked_eval_pow_exp(exp: &BigInt, label: &str, line: usize) -> DecResult<u32> {
+    if exp.is_negative() {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::RuntimeError,
+            line,
+            format!("pow({label}, exp) requires non-negative exponent, got {exp}"),
+        ));
+    }
+    let e = exp
+        .to_u64()
+        .and_then(|v| u32::try_from(v).ok())
+        .ok_or_else(|| {
+            Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!(
+                    "pow({label}, exp) exponent {exp} exceeds safety limit {}",
+                    BigInt::MAX_POW_EXP
+                ),
+            )
+        })?;
+    if e > BigInt::MAX_POW_EXP {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::RuntimeError,
+            line,
+            format!(
+                "pow({label}, exp) exponent {e} exceeds safety limit {}",
+                BigInt::MAX_POW_EXP
+            ),
+        ));
+    }
+    Ok(e)
+}
+
+fn bytes_to_utf8(bs: &[u8], ctx_name: &str, line: usize) -> DecResult<String> {
+    std::str::from_utf8(bs)
+        .map(str::to_string)
+        .map_err(|_| {
+            Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("{ctx_name}: byte sequence is not valid UTF-8"),
+            )
+        })
+}
+
+fn checked_eval_qext_decimals(d: &BigInt, line: usize) -> DecResult<usize> {
+    let max_d = aod_core::s2_kernel::MAX_ROUNDING_DECIMALS;
+    let dec_i = d.to_i64().ok_or_else(|| {
+        Diagnostic::at_line(
+            DiagnosticCode::RuntimeError,
+            line,
+            format!("qext decimals {d} out of bounds (expected 0..={max_d})"),
+        )
+    })?;
+    if dec_i < 0 || (dec_i as usize) > max_d {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::RuntimeError,
+            line,
+            format!("qext decimals {dec_i} out of bounds (expected 0..={max_d})"),
+        ));
+    }
+    Ok(dec_i as usize)
+}
+
+fn cmp_values_ord(a: &Value, b: &Value, line: usize) -> DecResult<std::cmp::Ordering> {
+    match (a, b) {
+        (Value::Int(x), Value::Int(y)) => Ok(x.cmp(y)),
+        (Value::U8(x), Value::U8(y)) => Ok(x.cmp(y)),
+        (Value::B64(x), Value::B64(y)) => Ok(x.cmp(y)),
+        (Value::T1(x), Value::T1(y)) => Ok(x.cmp(y)),
+        (Value::T9(x), Value::T9(y)) => Ok(x.cmp(y)),
+        (Value::T32(x), Value::T32(y)) => Ok(x.cmp(y)),
+        (Value::Ratio(x), Value::Ratio(y)) => Ok(x.cmp(y)),
+        (Value::QExtRatio(x), Value::QExtRatio(y)) => Ok(x.cmp(y)),
+        _ => Err(Diagnostic::at_line(
+            DiagnosticCode::RuntimeError,
+            line,
+            "incomparable values in min/max/clamp",
         )),
     }
 }

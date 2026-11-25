@@ -4,6 +4,7 @@ use std::ops::{Add, Mul, Neg, Sub};
 
 use crate::bigint::BigInt;
 use crate::error::{CoreError, CoreResult};
+use crate::ternary::T1;
 
 /// Native exact rational number in canonical lowest terms (`den > 0`, `gcd(|num|, den) == 1`).
 ///
@@ -99,6 +100,10 @@ impl Ratio {
         }
     }
 
+    pub fn signum(&self) -> T1 {
+        T1::new(self.num.signum()).expect("BigInt::signum returns -1, 0, or 1")
+    }
+
     pub fn recip(&self) -> CoreResult<Self> {
         Self::new(self.den.clone(), self.num.clone())
     }
@@ -108,6 +113,47 @@ impl Ratio {
             return Err(CoreError::ZeroDivision);
         }
         Self::new(&self.num * &rhs.den, &self.den * &rhs.num)
+    }
+
+    /// Checked non-negative rational exponentiation (`0 <= exp <= 65_536`, `1_048_576`-bit
+    /// ceiling on numerator and denominator, `pow(r, 0) == 1/1`, `P0-3`).
+    pub fn checked_pow(&self, exp: u32) -> CoreResult<Self> {
+        if exp > BigInt::MAX_POW_EXP {
+            return Err(CoreError::Overflow(format!(
+                "ratio pow exponent {exp} exceeds safety limit {}",
+                BigInt::MAX_POW_EXP
+            )));
+        }
+        if exp == 0 {
+            return Ok(Self::one());
+        }
+        if self.is_zero() {
+            return Ok(Self::zero());
+        }
+        // `self` is already in canonical lowest terms (`den > 0`, `gcd(|num|, den) == 1`),
+        // so `gcd(|num|^exp, den^exp) == 1` by unique prime factorization!
+        let num = self.num.checked_pow(exp)?;
+        let den = self.den.checked_pow(exp)?;
+        Ok(Self { num, den })
+    }
+
+    /// Checked rational exponentiation from a `BigInt` exponent (`0 <= exp <= 65_536`, `P0-3`).
+    pub fn checked_pow_bigint(&self, exp: &BigInt) -> CoreResult<Self> {
+        if exp.is_negative() {
+            return Err(CoreError::DomainError(format!(
+                "pow(ratio, exp) requires non-negative exponent, got {exp}"
+            )));
+        }
+        let e = exp
+            .to_u64()
+            .and_then(|v| u32::try_from(v).ok())
+            .ok_or_else(|| {
+                CoreError::Overflow(format!(
+                    "ratio pow exponent {exp} exceeds safety limit {}",
+                    BigInt::MAX_POW_EXP
+                ))
+            })?;
+        self.checked_pow(e)
     }
 
     /// Exact conversion to `BigInt`, rejecting any non-unit denominator.

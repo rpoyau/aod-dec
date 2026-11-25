@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::ast::TypeExpr;
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, SyntaxDiscipline};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Effect {
@@ -84,6 +84,20 @@ impl Type {
         }
     }
 
+    /// True if `str` appears anywhere inside this type (`PureWaveV2` string ban).
+    pub fn contains_str(&self) -> bool {
+        match self {
+            Type::Str => true,
+            Type::List(inner)
+            | Type::Array(inner, _)
+            | Type::ReadOnly(inner)
+            | Type::QExt(inner) => inner.contains_str(),
+            Type::Map(k, v) => k.contains_str() || v.contains_str(),
+            Type::Tuple(elems) => elems.iter().any(Type::contains_str),
+            _ => false,
+        }
+    }
+
     /// Deterministic orderable key types supported in `map[K, V]`.
     pub fn is_map_key(&self) -> bool {
         match self {
@@ -139,6 +153,27 @@ impl Type {
             Type::ReadOnly(_) => self,
             other => Type::ReadOnly(Box::new(other)),
         }
+    }
+
+    pub fn resolve_with_discipline<F>(
+        expr: &TypeExpr,
+        compat: CompatMode,
+        discipline: SyntaxDiscipline,
+        line: usize,
+        lookup_user_type: &F,
+    ) -> DecResult<Type>
+    where
+        F: Fn(&str) -> Option<Type>,
+    {
+        let ty = Self::resolve_with(expr, compat, line, lookup_user_type)?;
+        if discipline == SyntaxDiscipline::PureWaveV2 && ty.contains_str() {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::TypeError,
+                line,
+                format!("UTF-8 `str` type is forbidden in --strict-wave (got {ty}); use `bytes`"),
+            ));
+        }
+        Ok(ty)
     }
 
     pub fn resolve_with<F>(
@@ -475,13 +510,21 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             false,
         )],
 
-        // --- v1 & v2 witness primitives ---
-        "trace" => vec![s(
-            vec![Type::Str, Type::Str, Type::Q4],
-            Type::Trace,
-            PureNative,
-            true,
-        )],
+        // --- v1 & v2 witness primitives (including Phase D2 `bytes` overloads) ---
+        "trace" => vec![
+            s(
+                vec![Type::Str, Type::Str, Type::Q4],
+                Type::Trace,
+                PureNative,
+                true,
+            ),
+            s(
+                vec![Type::Bytes, Type::Bytes, Type::Q4],
+                Type::Trace,
+                PureNative,
+                false,
+            ),
+        ],
         "step" => vec![s(
             vec![Type::Trace, Type::Q4, Type::T1],
             Type::Trace,
@@ -494,12 +537,20 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
         "phases" => vec![s(vec![Type::Trace], Type::Int, PureNative, true)],
         "beats" => vec![s(vec![Type::Trace], Type::Int, PureNative, true)],
         "rate" => vec![s(vec![Type::Trace], Type::Ratio, PureNative, true)],
-        "fold" => vec![s(
-            vec![Type::Trace, Type::Trace, Type::Str, Type::Str],
-            Type::Fusion,
-            PureNative,
-            true,
-        )],
+        "fold" => vec![
+            s(
+                vec![Type::Trace, Type::Trace, Type::Str, Type::Str],
+                Type::Fusion,
+                PureNative,
+                true,
+            ),
+            s(
+                vec![Type::Trace, Type::Trace, Type::Bytes, Type::Bytes],
+                Type::Fusion,
+                PureNative,
+                false,
+            ),
+        ],
         "outer" => vec![s(
             vec![Type::Fusion, Type::Q4],
             Type::Trace,
@@ -512,12 +563,20 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             PureNative,
             true,
         )],
-        "coupling" => vec![s(
-            vec![Type::Trace, Type::Trace, Type::Str],
-            Type::Coupling,
-            PureNative,
-            true,
-        )],
+        "coupling" => vec![
+            s(
+                vec![Type::Trace, Type::Trace, Type::Str],
+                Type::Coupling,
+                PureNative,
+                true,
+            ),
+            s(
+                vec![Type::Trace, Type::Trace, Type::Bytes],
+                Type::Coupling,
+                PureNative,
+                false,
+            ),
+        ],
         "contact" => vec![s(
             vec![Type::Coupling, Type::Int, Type::Int],
             Type::Coupling,
@@ -535,9 +594,13 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
         )],
 
         // --- v2 exact AOD / support / ledger / M3 wavelet helpers ---
-        "addr8" => vec![s(vec![Type::Str], Type::Addr8, PureNative, false)],
+        "addr8" => vec![
+            s(vec![Type::Str], Type::Addr8, PureNative, false),
+            s(vec![Type::Bytes], Type::Addr8, PureNative, false),
+        ],
         "support" => vec![
             s(vec![Type::Str], Type::Support, PureNative, false),
+            s(vec![Type::Bytes], Type::Support, PureNative, false),
             s(
                 vec![Type::Int, Type::Int, Type::Int, Type::Bool],
                 Type::Support,
@@ -593,36 +656,78 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             s(vec![Type::SimResult], Type::Str, PureNative, false),
         ],
         "len" => vec![s(vec![Type::Str], Type::Int, PureNative, false)],
-        "window_dedup_count" => vec![s(
-            vec![
-                Type::Str,
-                Type::Str,
-                Type::List(Box::new(Type::Int)),
-                Type::List(Box::new(Type::Window)),
-            ],
-            Type::Int,
-            PureNative,
-            false,
-        )],
-        "native_cadence_ratio" => vec![s(
-            vec![
-                Type::Str,
+        "window_dedup_count" => vec![
+            s(
+                vec![
+                    Type::Str,
+                    Type::Str,
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Window)),
+                ],
                 Type::Int,
-                Type::Str,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![
+                    Type::Bytes,
+                    Type::Bytes,
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::Window)),
+                ],
                 Type::Int,
-                Type::Bool,
-                Type::Int,
-            ],
-            Type::Ratio,
-            PureNative,
-            false,
-        )],
-        "single_contact_association" => vec![s(
-            vec![Type::Str, Type::Str, Type::Str, Type::Window, Type::Int],
-            Type::CadenceAssociation,
-            PureNative,
-            false,
-        )],
+                PureNative,
+                false,
+            ),
+        ],
+        "native_cadence_ratio" => vec![
+            s(
+                vec![
+                    Type::Str,
+                    Type::Int,
+                    Type::Str,
+                    Type::Int,
+                    Type::Bool,
+                    Type::Int,
+                ],
+                Type::Ratio,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![
+                    Type::Bytes,
+                    Type::Int,
+                    Type::Bytes,
+                    Type::Int,
+                    Type::Bool,
+                    Type::Int,
+                ],
+                Type::Ratio,
+                PureNative,
+                false,
+            ),
+        ],
+        "single_contact_association" => vec![
+            s(
+                vec![Type::Str, Type::Str, Type::Str, Type::Window, Type::Int],
+                Type::CadenceAssociation,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![
+                    Type::Bytes,
+                    Type::Bytes,
+                    Type::Bytes,
+                    Type::Window,
+                    Type::Int,
+                ],
+                Type::CadenceAssociation,
+                PureNative,
+                false,
+            ),
+        ],
         "recipient_eval_demo" => vec![s(
             vec![Type::Int, Type::Int, Type::Window],
             Type::RecipientOutcome,
@@ -630,13 +735,119 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             false,
         )],
 
+        // --- Phase D2 exact scalar & rational intrinsics ---
+        "num" | "den" => vec![s(vec![Type::Ratio], Type::Int, PureNative, false)],
+        "abs" => vec![
+            s(vec![Type::Int], Type::Int, PureNative, false),
+            s(vec![Type::T1], Type::T1, PureNative, false),
+            s(vec![Type::T9], Type::T9, PureNative, false),
+            s(vec![Type::T32], Type::T32, PureNative, false),
+            s(vec![Type::Ratio], Type::Ratio, PureNative, false),
+            s(
+                vec![Type::QExt(Box::new(Type::Ratio))],
+                Type::QExt(Box::new(Type::Ratio)),
+                QExt,
+                false,
+            ),
+        ],
+        "signum" => vec![
+            s(vec![Type::Int], Type::T1, PureNative, false),
+            s(vec![Type::T1], Type::T1, PureNative, false),
+            s(vec![Type::T9], Type::T1, PureNative, false),
+            s(vec![Type::T32], Type::T1, PureNative, false),
+            s(vec![Type::Ratio], Type::T1, PureNative, false),
+        ],
+        "min" | "max" => vec![
+            s(vec![Type::Int, Type::Int], Type::Int, PureNative, false),
+            s(vec![Type::U8, Type::U8], Type::U8, PureNative, false),
+            s(vec![Type::B64, Type::B64], Type::B64, PureNative, false),
+            s(vec![Type::T1, Type::T1], Type::T1, PureNative, false),
+            s(vec![Type::T9, Type::T9], Type::T9, PureNative, false),
+            s(vec![Type::T32, Type::T32], Type::T32, PureNative, false),
+            s(vec![Type::Ratio, Type::Ratio], Type::Ratio, PureNative, false),
+            s(
+                vec![
+                    Type::QExt(Box::new(Type::Ratio)),
+                    Type::QExt(Box::new(Type::Ratio)),
+                ],
+                Type::QExt(Box::new(Type::Ratio)),
+                QExt,
+                false,
+            ),
+        ],
+        "clamp" => vec![
+            s(
+                vec![Type::Int, Type::Int, Type::Int],
+                Type::Int,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![Type::U8, Type::U8, Type::U8],
+                Type::U8,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![Type::B64, Type::B64, Type::B64],
+                Type::B64,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![Type::T1, Type::T1, Type::T1],
+                Type::T1,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![Type::T9, Type::T9, Type::T9],
+                Type::T9,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![Type::T32, Type::T32, Type::T32],
+                Type::T32,
+                PureNative,
+                false,
+            ),
+            s(
+                vec![Type::Ratio, Type::Ratio, Type::Ratio],
+                Type::Ratio,
+                PureNative,
+                false,
+            ),
+        ],
+        "gcd" | "lcm" => vec![
+            s(vec![Type::Int, Type::Int], Type::Int, PureNative, false),
+            s(vec![Type::T9, Type::T9], Type::T9, PureNative, false),
+            s(vec![Type::T32, Type::T32], Type::T32, PureNative, false),
+        ],
+        "pow" => vec![
+            s(vec![Type::Int, Type::Int], Type::Int, PureNative, false),
+            s(vec![Type::T9, Type::Int], Type::T9, PureNative, false),
+            s(vec![Type::T9, Type::T9], Type::T9, PureNative, false),
+            s(vec![Type::T32, Type::Int], Type::T32, PureNative, false),
+            s(vec![Type::T32, Type::T32], Type::T32, PureNative, false),
+            s(vec![Type::Ratio, Type::Int], Type::Ratio, PureNative, false),
+        ],
+
         // --- Strictly quarantined `aod::qext` builtins (`P0-1`, NO unwrap to native!) ---
-        "aod::qext::ext_decimal" => vec![s(
-            vec![Type::Str],
-            Type::QExt(Box::new(Type::Ratio)),
-            QExt,
-            false,
-        )],
+        "aod::qext::ext_decimal" => vec![
+            s(
+                vec![Type::Str],
+                Type::QExt(Box::new(Type::Ratio)),
+                QExt,
+                false,
+            ),
+            s(
+                vec![Type::Bytes],
+                Type::QExt(Box::new(Type::Ratio)),
+                QExt,
+                false,
+            ),
+        ],
         "aod::qext::qext_from_ratio" => vec![s(
             vec![Type::Ratio],
             Type::QExt(Box::new(Type::Ratio)),
@@ -670,6 +881,18 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
         "aod::qext::qext_format_fixed" => vec![s(
             vec![Type::QExt(Box::new(Type::Ratio)), Type::Int],
             Type::QExt(Box::new(Type::Str)),
+            QExt,
+            false,
+        )],
+        "aod::qext::qext_to_bytes_exact" | "aod::qext::qext_render_bytes" => vec![s(
+            vec![Type::QExt(Box::new(Type::Ratio))],
+            Type::QExt(Box::new(Type::Bytes)),
+            QExt,
+            false,
+        )],
+        "aod::qext::qext_format_bytes_fixed" | "aod::qext::qext_format_fixed_bytes" => vec![s(
+            vec![Type::QExt(Box::new(Type::Ratio)), Type::Int],
+            Type::QExt(Box::new(Type::Bytes)),
             QExt,
             false,
         )],

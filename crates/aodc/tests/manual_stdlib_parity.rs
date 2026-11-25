@@ -82,6 +82,7 @@ fn ac02_stdlib_resolver_strict_precedence_and_no_silent_fallback() {
     // 1. Explicit `--stdlib <nonexistent>` MUST fail with ModuleNotFound (ZERO silent fallback, P0-2!)
     let bad_opt = LoadOptions {
         stdlib_dir: Some(missing_stdlib.clone()),
+        ..LoadOptions::default()
     };
     assert_eq!(
         check_file_with_options(&ex01, CompatMode::V2, &bad_opt)

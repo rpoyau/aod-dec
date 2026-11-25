@@ -14,7 +14,7 @@ use aod_core::ratio::Ratio;
 use aod_core::s4_report::sanitize_error;
 use aod_core::sha256::Sha256;
 use aod_core::support::SupportForm;
-use aod_core::ternary::{Addr8, T1};
+use aod_core::ternary::{Addr8, Q4, T1, T32, T9};
 
 use crate::ast::{
     AssignTarget, BinaryOp, DecFnDecl, DecFnKind, Expr, ExprKind, Item, Pattern, ProbeDecl,
@@ -354,6 +354,7 @@ struct AuditState {
     cycle_audit: HookAuditResult,
     frg_audit: HookAuditResult,
     errors: Vec<String>,
+    struct_fields: BTreeMap<String, Vec<String>>,
 }
 
 impl AuditState {
@@ -371,12 +372,20 @@ impl AuditState {
 enum FoldVal {
     Int(BigInt),
     U8(u8),
+    B64(u64),
     T1(T1),
+    T9(T9),
+    T32(T32),
+    Q4(Q4),
     Bool(bool),
     Str(String),
+    Bytes(Vec<u8>),
     Ratio(Ratio),
     Support(SupportForm),
     Range(BigInt, BigInt),
+    Window(BigInt, BigInt),
+    Tuple(Vec<FoldVal>),
+    Seq(Vec<FoldVal>),
     UnclosedTrace,
 }
 
@@ -409,6 +418,7 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
         ExprKind::IntLit(n) => Some(FoldVal::Int(n.clone())),
         ExprKind::BoolLit(b) => Some(FoldVal::Bool(*b)),
         ExprKind::StrLit(s) => Some(FoldVal::Str(s.clone())),
+        ExprKind::BytesLit(bs) => Some(FoldVal::Bytes(bs.clone())),
         ExprKind::RatioLit(r) => Some(FoldVal::Ratio(r.clone())),
         ExprKind::SupportLit(sf) => Some(FoldVal::Support(sf.clone())),
         ExprKind::TritLit(TritLiteral::One) => Some(FoldVal::T1(T1::POS)),
@@ -420,12 +430,37 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
             (FoldVal::Int(s), FoldVal::Int(e)) => Some(FoldVal::Range(s, e)),
             _ => None,
         },
+        ExprKind::WindowLit { start, end } => match (fold_expr(start, env)?, fold_expr(end, env)?) {
+            (FoldVal::Int(s), FoldVal::Int(e)) => Some(FoldVal::Window(s, e)),
+            _ => None,
+        },
+        ExprKind::Tuple(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for it in items {
+                out.push(fold_expr(it, env)?);
+            }
+            Some(FoldVal::Tuple(out))
+        }
+        ExprKind::List(items) | ExprKind::ArrayLit(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for it in items {
+                out.push(fold_expr(it, env)?);
+            }
+            Some(FoldVal::Seq(out))
+        }
+        ExprKind::Field { base, name } => match (fold_expr(base, env)?, name.as_str()) {
+            (FoldVal::Ratio(r), "num") => Some(FoldVal::Int(r.num().clone())),
+            (FoldVal::Ratio(r), "den") => Some(FoldVal::Int(r.den().clone())),
+            _ => None,
+        },
         ExprKind::Unary { op, operand } => {
             let v = fold_expr(operand, env)?;
             match (op, v) {
                 (UnaryOp::Pos, x) => Some(x),
                 (UnaryOp::Neg, FoldVal::Int(n)) => Some(FoldVal::Int(-n)),
                 (UnaryOp::Neg, FoldVal::T1(t)) => Some(FoldVal::T1(t.checked_neg())),
+                (UnaryOp::Neg, FoldVal::T9(t)) => Some(FoldVal::T9(t.checked_neg())),
+                (UnaryOp::Neg, FoldVal::T32(t)) => t.checked_neg().ok().map(FoldVal::T32),
                 (UnaryOp::Neg, FoldVal::Ratio(r)) => Some(FoldVal::Ratio(-r)),
                 (UnaryOp::Not, FoldVal::Bool(b)) => Some(FoldVal::Bool(!b)),
                 _ => None,
@@ -467,12 +502,60 @@ fn fold_expr(expr: &Expr, env: &ConstEnv) -> Option<FoldVal> {
                     n.to_u64().and_then(|v| u8::try_from(v).ok()).map(FoldVal::U8)
                 }
                 ("u8", [FoldVal::U8(b)]) => Some(FoldVal::U8(*b)),
+                ("u8", [FoldVal::Q4(q)]) => Some(FoldVal::U8(q.value())),
+                ("int", [FoldVal::Int(n)]) => Some(FoldVal::Int(n.clone())),
+                ("int", [FoldVal::U8(b)]) => Some(FoldVal::Int(BigInt::from_u64(*b as u64))),
+                ("int", [FoldVal::B64(w)]) => Some(FoldVal::Int(BigInt::from_u64(*w))),
+                ("int", [FoldVal::T1(t)]) => Some(FoldVal::Int(BigInt::from_i64(t.value() as i64))),
+                ("int", [FoldVal::T9(t)]) => Some(FoldVal::Int(BigInt::from_i64(t.value() as i64))),
+                ("int", [FoldVal::T32(t)]) => Some(FoldVal::Int(BigInt::from_i128(t.value()))),
+                ("int", [FoldVal::Q4(q)]) => Some(FoldVal::Int(BigInt::from_u64(q.value() as u64))),
+                ("b64", [FoldVal::Int(n)]) => n.to_u64().map(FoldVal::B64),
+                ("b64", [FoldVal::B64(w)]) => Some(FoldVal::B64(*w)),
                 ("t1", [FoldVal::Int(n)]) => T1::from_bigint(n).ok().map(FoldVal::T1),
+                ("t1", [FoldVal::T1(t)]) => Some(FoldVal::T1(*t)),
+                ("t9", [FoldVal::Int(n)]) => T9::from_bigint(n).ok().map(FoldVal::T9),
+                ("t9", [FoldVal::T9(t)]) => Some(FoldVal::T9(*t)),
+                ("t32", [FoldVal::Int(n)]) => T32::from_bigint(n).ok().map(FoldVal::T32),
+                ("t32", [FoldVal::T32(t)]) => Some(FoldVal::T32(*t)),
+                ("q4", [FoldVal::Int(n)]) => Q4::from_bigint(n).ok().map(FoldVal::Q4),
+                ("q4", [FoldVal::Q4(q)]) => Some(FoldVal::Q4(*q)),
+                ("abs", [FoldVal::Int(n)]) => Some(FoldVal::Int(n.abs())),
+                ("abs", [FoldVal::T1(t)]) => Some(FoldVal::T1(t.abs())),
+                ("abs", [FoldVal::T9(t)]) => Some(FoldVal::T9(t.abs())),
+                ("abs", [FoldVal::T32(t)]) => Some(FoldVal::T32(t.abs())),
+                ("abs", [FoldVal::Ratio(r)]) => Some(FoldVal::Ratio(r.abs())),
+                ("min", [FoldVal::Int(a), FoldVal::Int(b)]) => {
+                    Some(FoldVal::Int(a.min(b).clone()))
+                }
+                ("max", [FoldVal::Int(a), FoldVal::Int(b)]) => {
+                    Some(FoldVal::Int(a.max(b).clone()))
+                }
+                ("min", [FoldVal::Ratio(a), FoldVal::Ratio(b)]) => {
+                    Some(FoldVal::Ratio(a.min(b).clone()))
+                }
+                ("max", [FoldVal::Ratio(a), FoldVal::Ratio(b)]) => {
+                    Some(FoldVal::Ratio(a.max(b).clone()))
+                }
+                ("gcd", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.gcd(b))),
+                ("lcm", [FoldVal::Int(a), FoldVal::Int(b)]) => Some(FoldVal::Int(a.lcm(b))),
+                ("pow", [FoldVal::Int(a), FoldVal::Int(b)]) => {
+                    a.checked_pow_bigint(b).ok().map(FoldVal::Int)
+                }
+                ("pow", [FoldVal::Ratio(a), FoldVal::Int(b)]) => {
+                    a.checked_pow_bigint(b).ok().map(FoldVal::Ratio)
+                }
+                ("num", [FoldVal::Ratio(r)]) => Some(FoldVal::Int(r.num().clone())),
+                ("den", [FoldVal::Ratio(r)]) => Some(FoldVal::Int(r.den().clone())),
                 ("ratio", [FoldVal::Int(a), FoldVal::Int(b)]) => {
                     Ratio::new(a.clone(), b.clone()).ok().map(FoldVal::Ratio)
                 }
                 ("ratio", [FoldVal::Int(a)]) => Some(FoldVal::Ratio(Ratio::from_int(a.clone()))),
                 ("support", [FoldVal::Str(s)]) => SupportForm::parse(s).ok().map(FoldVal::Support),
+                ("support", [FoldVal::Bytes(bs)]) => std::str::from_utf8(bs)
+                    .ok()
+                    .and_then(|s| SupportForm::parse(s).ok())
+                    .map(FoldVal::Support),
                 (
                     "support",
                     [FoldVal::Int(p), FoldVal::Int(q), FoldVal::Int(l), FoldVal::Bool(y)],
@@ -586,7 +669,13 @@ fn audit_program(prog: &Program, is_entry: bool, acc: &mut AuditState) {
                     }
                 }
             }
-            Item::Struct(_) | Item::Enum(_) | Item::Use(_) => {}
+            Item::Struct(sd) => {
+                acc.struct_fields.insert(
+                    sd.name.clone(),
+                    sd.fields.iter().map(|(n, _)| n.clone()).collect(),
+                );
+            }
+            Item::Enum(_) | Item::Use(_) => {}
         }
     }
 
@@ -689,6 +778,25 @@ fn audit_stmt(stmt: &Stmt, env: &mut ConstEnv, acc: &mut AuditState) {
                 env.insert(name.clone(), fv);
             } else {
                 env.remove(name);
+            }
+        }
+        StmtKind::LetTuple { elems, value, .. } => {
+            audit_expr(value, false, env, acc);
+            match fold_expr(value, env) {
+                Some(FoldVal::Tuple(items)) if items.len() == elems.len() => {
+                    for (el, fv) in elems.iter().zip(items) {
+                        if el.name != "_" {
+                            env.insert(el.name.clone(), fv);
+                        }
+                    }
+                }
+                _ => {
+                    for el in elems {
+                        if el.name != "_" {
+                            env.remove(&el.name);
+                        }
+                    }
+                }
             }
         }
         StmtKind::Mut { name, value, .. } | StmtKind::TypedLocal { name, value, .. } => {
@@ -978,11 +1086,28 @@ fn audit_call(
         // Hook 4 (`sheddic_path_audit`, §5.17.5): `_yro` support parity + even sheddic route
         "support" => {
             if args.len() == 1 {
-                if let Some(FoldVal::Str(s)) = fold_expr(&args[0].value, env) {
-                    if let Err(e) = SupportForm::parse(&s) {
-                        acc.sheddic_path_audit
-                            .record(format!("line {line}: support({s:?}) failed _yro audit: {e}"));
+                match fold_expr(&args[0].value, env) {
+                    Some(FoldVal::Str(s)) => {
+                        if let Err(e) = SupportForm::parse(&s) {
+                            acc.sheddic_path_audit
+                                .record(format!("line {line}: support({s:?}) failed _yro audit: {e}"));
+                        }
                     }
+                    Some(FoldVal::Bytes(bs)) => match std::str::from_utf8(&bs) {
+                        Ok(s) => {
+                            if let Err(e) = SupportForm::parse(s) {
+                                acc.sheddic_path_audit.record(format!(
+                                    "line {line}: support(b{s:?}) failed _yro audit: {e}"
+                                ));
+                            }
+                        }
+                        Err(_) => {
+                            acc.sheddic_path_audit.record(format!(
+                                "line {line}: support(bytes) received invalid UTF-8"
+                            ));
+                        }
+                    },
+                    _ => {}
                 }
             } else if args.len() == 4 {
                 if let (
@@ -1050,6 +1175,42 @@ fn audit_call(
         }
 
         // Hook 6 (`frg_audit`, §5.17.9): `t_cross - t_zero == c_cross`
+        "DoubleSlitBin" => {
+            let field_names = acc
+                .struct_fields
+                .get("DoubleSlitBin")
+                .cloned()
+                .unwrap_or_else(|| {
+                    vec![
+                        "bin".to_string(),
+                        "t0".to_string(),
+                        "cx".to_string(),
+                        "tx".to_string(),
+                    ]
+                });
+            if args.len() == field_names.len() {
+                let mut t0_opt = None;
+                let mut cx_opt = None;
+                let mut tx_opt = None;
+                for (fname, arg) in field_names.iter().zip(args) {
+                    if let Some(FoldVal::Int(v)) = fold_expr(&arg.value, env) {
+                        match fname.as_str() {
+                            "t0" => t0_opt = Some(v),
+                            "cx" => cx_opt = Some(v),
+                            "tx" => tx_opt = Some(v),
+                            _ => {}
+                        }
+                    }
+                }
+                if let (Some(t0), Some(cx), Some(tx)) = (t0_opt, cx_opt, tx_opt) {
+                    if (&tx - &t0) != cx {
+                        acc.frg_audit.record(format!(
+                            "line {line}: DoubleSlitBin violates FRG identity tx - t0 == cx ({tx} - {t0} != {cx})"
+                        ));
+                    }
+                }
+            }
+        }
         "verify_frg_cross_return" if !negated && args.len() == 3 => {
             if let (
                 Some(FoldVal::Int(t0)),
@@ -1082,6 +1243,160 @@ fn audit_call(
                 if s.is_negative() || ob.is_negative() || tx.is_negative() || &(&tx - &t0) != &cx {
                     acc.frg_audit.record(format!(
                         "line {line}: double_slit_bin_at(s={s}, cx={cx}, ob={ob}) violates non-negative FRG cross-return domain"
+                    ));
+                }
+            }
+        }
+        // Higher-order AFC scope & sequence callbacks (`P1-2`, `AC-13`)
+        "evolve" | "scan" | "fold_seq" if args.len() == 3 || args.len() == 4 => {
+            if let Some(cb_leaf) = callee_leaf_name(&args[2].value) {
+                let init_fv = fold_expr(&args[0].value, env);
+                let env_fv = args.get(3).and_then(|a| fold_expr(&a.value, env));
+                let elems = fold_iter_elems(&args[1].value, env);
+                if let Some(mut cur_s) = init_fv {
+                    for el in elems {
+                        let mut cb_args = vec![cur_s.clone(), el];
+                        if let Some(ref efv) = env_fv {
+                            cb_args.push(efv.clone());
+                        } else if args.len() == 4 {
+                            break;
+                        }
+                        audit_folded_builtin(cb_leaf, &cb_args, line, acc);
+                        if let Some(next_s) = fold_builtin_step(cb_leaf, &cb_args) {
+                            cur_s = next_s;
+                        }
+                    }
+                }
+            }
+        }
+        "map_seq" | "filter_seq" | "tabulate" | "count" | "any" | "all"
+            if args.len() == 2 || args.len() == 3 =>
+        {
+            if let Some(cb_leaf) = callee_leaf_name(&args[1].value) {
+                let env_fv = args.get(2).and_then(|a| fold_expr(&a.value, env));
+                if args.len() == 2 || env_fv.is_some() {
+                    for el in fold_iter_elems(&args[0].value, env) {
+                        let mut cb_args = vec![el];
+                        if let Some(ref efv) = env_fv {
+                            cb_args.push(efv.clone());
+                        }
+                        audit_folded_builtin(cb_leaf, &cb_args, line, acc);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn fold_iter_elems(src: &Expr, env: &ConstEnv) -> Vec<FoldVal> {
+    match fold_expr(src, env) {
+        Some(FoldVal::Seq(items)) => items,
+        Some(FoldVal::Bytes(bs)) => bs.into_iter().map(FoldVal::U8).collect(),
+        Some(FoldVal::Range(a, b)) => {
+            if let (Some(ai), Some(bi)) = (a.to_i64(), b.to_i64()) {
+                if ai < bi {
+                    return (ai..bi)
+                        .take(256)
+                        .map(|k| FoldVal::Int(BigInt::from_i64(k)))
+                        .collect();
+                }
+            }
+            Vec::new()
+        }
+        Some(FoldVal::Window(u, v)) => {
+            if let (Some(ui), Some(vi)) = (u.to_i64(), v.to_i64()) {
+                if ui < vi {
+                    let mut out = Vec::new();
+                    let mut prev = ui;
+                    while prev < vi && out.len() < 256 {
+                        let k = prev + 1;
+                        out.push(FoldVal::Int(BigInt::from_i64(k)));
+                        prev = k;
+                    }
+                    return out;
+                }
+            }
+            Vec::new()
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn fold_builtin_step(cb_leaf: &str, cb_args: &[FoldVal]) -> Option<FoldVal> {
+    match (cb_leaf, cb_args) {
+        ("sadar_promote", [FoldVal::Int(c3), FoldVal::Int(rho), FoldVal::Ratio(att)]) => {
+            SadarPromotion::promote(c3, rho, att.clone())
+                .ok()
+                .map(|r| FoldVal::Ratio(r.sadar))
+        }
+        _ => None,
+    }
+}
+
+fn audit_folded_builtin(
+    cb_leaf: &str,
+    cb_args: &[FoldVal],
+    line: usize,
+    acc: &mut AuditState,
+) {
+    match (cb_leaf, cb_args) {
+        ("sadar_promote" | "sadar_from_clipped", [c3_f, rho_f, att_f]) => {
+            if let FoldVal::Int(c3) = c3_f {
+                if !c3.is_positive() {
+                    acc.sadar_audit
+                        .record(format!("line {line}: {cb_leaf} requires c3 > 0, got {c3}"));
+                }
+            }
+            if let FoldVal::Int(rho) = rho_f {
+                if rho.is_negative() {
+                    acc.sadar_audit
+                        .record(format!("line {line}: {cb_leaf} requires rho >= 0, got {rho}"));
+                }
+            }
+            if let FoldVal::Ratio(att) = att_f {
+                if att.abs() > Ratio::one() {
+                    acc.sadar_audit.record(format!(
+                        "line {line}: {cb_leaf} requires |att| <= 1, got {}",
+                        att.render_v1()
+                    ));
+                }
+            }
+        }
+        ("support", [FoldVal::Str(s)]) => {
+            if let Err(e) = SupportForm::parse(s) {
+                acc.sheddic_path_audit
+                    .record(format!("line {line}: support({s:?}) failed _yro audit: {e}"));
+            }
+        }
+        ("support", [FoldVal::Bytes(bs)]) => match std::str::from_utf8(bs) {
+            Ok(s) => {
+                if let Err(e) = SupportForm::parse(s) {
+                    acc.sheddic_path_audit
+                        .record(format!("line {line}: support(b{s:?}) failed _yro audit: {e}"));
+                }
+            }
+            Err(_) => {
+                acc.sheddic_path_audit
+                    .record(format!("line {line}: support(bytes) received invalid UTF-8"));
+            }
+        },
+        ("support_rd", [_, FoldVal::Int(h_mu)]) => {
+            if !h_mu.is_positive() {
+                acc.cycle_audit
+                    .record(format!("line {line}: support_rd requires h_mu >= 1, got {h_mu}"));
+            }
+        }
+        ("verify_sheddic_route" | "audit_sheddic_route", [FoldVal::Int(xs), enc_fv]) => {
+            let enc_opt = match enc_fv {
+                FoldVal::U8(b) => Some(*b),
+                FoldVal::Int(n) => n.to_u64().and_then(|v| u8::try_from(v).ok()),
+                _ => None,
+            };
+            if let Some(enc) = enc_opt {
+                if xs.is_positive() && (enc < 2 || !enc.is_multiple_of(2)) {
+                    acc.sheddic_path_audit.record(format!(
+                        "line {line}: sheddic route audit failed: x_shedding={xs} > 0 requires even enclosure >= 2, got {enc}"
                     ));
                 }
             }

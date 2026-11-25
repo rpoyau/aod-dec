@@ -1,7 +1,8 @@
-# Negative Control nc07 — Post-freeze DisplayQuarantine Higgs GeV map leakage into native Dec main() MUST fail!
+# Negative Control nc07 — Post-freeze DisplayQuarantine Higgs GeV map leakage into native dec main MUST fail!
 use stdlib::aod::metrology::DisplayQuarantine
 
-Dec main() -> int:
-    let leaked = DisplayQuarantine::higgs_freeze_gev(61, 7)
-    emit leaked
-    return 0
+dec main:
+    () -> int:
+        let leaked = DisplayQuarantine::higgs_freeze_gev(61, 7)
+        emit leaked
+        return 0

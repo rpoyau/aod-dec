@@ -10,6 +10,7 @@ pub mod codegen;
 pub mod dec_audit;
 pub mod diagnostics;
 pub mod eval;
+pub mod fmt;
 pub mod ir;
 pub mod lexer;
 pub mod manual_data;
@@ -20,6 +21,8 @@ pub mod pdf_audit;
 pub mod report_guard;
 pub mod sim;
 pub mod types;
+
+pub use crate::fmt::{format_program, format_program_with_mode, format_source_with_discipline};
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -62,6 +65,7 @@ pub use crate::report_guard::{
     validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
 };
 
+pub use crate::diagnostics::SyntaxDiscipline;
 use crate::checker::{check_unit, CheckedUnit};
 use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
 use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
@@ -410,7 +414,14 @@ pub fn compute_profile_bindings(
 ) -> (String, String) {
     let ir_json = dumps_ir(checked);
     let kernel_ir_sha256 = Sha256::digest_hex(ir_json.as_bytes());
-    let workload_desc = format!("compat={compat:?};fuel={fuel};max_depth={max_depth}");
+    let workload_desc = match checked.unit.discipline {
+        SyntaxDiscipline::TransitionalV2 => {
+            format!("compat={compat:?};fuel={fuel};max_depth={max_depth}")
+        }
+        SyntaxDiscipline::PureWaveV2 => {
+            format!("compat={compat:?};discipline=PureWaveV2;fuel={fuel};max_depth={max_depth}")
+        }
+    };
     let workload_sha256 = Sha256::digest_hex(workload_desc.as_bytes());
     (kernel_ir_sha256, workload_sha256)
 }

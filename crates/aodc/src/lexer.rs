@@ -5,7 +5,7 @@ use aod_core::support::SupportForm;
 use aod_core::ternary::Addr8;
 
 use crate::ast::TritLiteral;
-use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode, SyntaxDiscipline};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TokenKind {
@@ -17,6 +17,7 @@ pub enum TokenKind {
 
     // Hard keywords (contextual words like window/shedding/base/next/region/capture/clock/etc. remain Ident!)
     Dec,
+    DecLower,
     Let,
     Mut,
     Const,
@@ -47,6 +48,7 @@ pub enum TokenKind {
     Enum,
     Match,
     Null,
+    Where,
 
     // Identifiers & literals
     Ident(String),
@@ -107,11 +109,11 @@ fn is_ident_cont(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }
 
-use crate::diagnostics::CompatMode;
-
 fn map_keyword(s: &str, compat: CompatMode) -> TokenKind {
     match s {
         "Dec" => TokenKind::Dec,
+        "dec" if compat == CompatMode::V2 => TokenKind::DecLower,
+        "where" if compat == CompatMode::V2 => TokenKind::Where,
         "let" => TokenKind::Let,
         "mut" => TokenKind::Mut,
         "const" => TokenKind::Const,
@@ -151,13 +153,37 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
     tokenize_with_compat(source, CompatMode::V2)
 }
 
-/// Tokenize Dec v1 / v2 source code with:
+/// Tokenize Dec v1 / v2 source code under `TransitionalV2` discipline.
+pub fn tokenize_with_compat(source: &str, compat: CompatMode) -> DecResult<Vec<Token>> {
+    tokenize_with_discipline(source, compat, SyntaxDiscipline::TransitionalV2)
+}
+
+pub fn tokenize_with_discipline(
+    source: &str,
+    compat: CompatMode,
+    discipline: SyntaxDiscipline,
+) -> DecResult<Vec<Token>> {
+    tokenize_with_options(source, compat, discipline)
+}
+
+/// Tokenize Dec v1 / v2 source code with explicit `SyntaxDiscipline`:
 /// - Aggregate delimiter depth line joining (`[(0, 6], (4, 8]]` works cleanly, `P1-1`).
 /// - Strict float rejection vs `..` range (`24..40` lexes cleanly; `1.5`, `5.`, `.5`, `1e3` reject).
 /// - Dedicated exact literals: `RatioLit` (`1/3r`), `Addr8Lit` (`00_8`, `00|-`, `0o00`),
 ///   `SupportLit` (`3:3:6`, `1:2:9_yro`), `TritLit` (`0_H`, `0_D`), `BytesLit` (`b"..."`),
 ///   `0x`/`0b` integer literals (v2 only), `null` (v2 only), prefix `∂`.
-pub fn tokenize_with_compat(source: &str, compat: CompatMode) -> DecResult<Vec<Token>> {
+/// - Under `SyntaxDiscipline::PureWaveV2`: rejects `{`/`}`, `"..."`/`'...'`, and uppercase `Dec`.
+pub fn tokenize_with_options(
+    source: &str,
+    compat: CompatMode,
+    discipline: SyntaxDiscipline,
+) -> DecResult<Vec<Token>> {
+    if compat == CompatMode::V1 && discipline == SyntaxDiscipline::PureWaveV2 {
+        return Err(Diagnostic::new(
+            DiagnosticCode::ParseError,
+            "--pure-wave cannot be combined with --compat v1",
+        ));
+    }
     let mut tokens: Vec<Token> = Vec::new();
     let mut indent_stack: Vec<usize> = vec![0];
     let mut delim_depth: usize = 0;
@@ -245,6 +271,14 @@ pub fn tokenize_with_compat(source: &str, compat: CompatMode) -> DecResult<Vec<T
 
             // String literals
             if c == '"' || c == '\'' {
+                if discipline == SyntaxDiscipline::PureWaveV2 {
+                    return Err(Diagnostic::at(
+                        DiagnosticCode::LexError,
+                        line_no,
+                        col,
+                        "UTF-8 string literals are forbidden in --strict-wave; use byte literals b\"...\"",
+                    ));
+                }
                 let (s, next_pos) = scan_string(&chars, pos, line_no)?;
                 tokens.push(Token {
                     kind: TokenKind::StrLit(s),
@@ -387,10 +421,26 @@ pub fn tokenize_with_compat(source: &str, compat: CompatMode) -> DecResult<Vec<T
                     (TokenKind::RBracket, 1)
                 }
                 ('{', _) => {
+                    if discipline == SyntaxDiscipline::PureWaveV2 {
+                        return Err(Diagnostic::at(
+                            DiagnosticCode::LexError,
+                            line_no,
+                            col,
+                            "braces `{` / `}` are forbidden in --strict-wave; use indented blocks, positional constructors, or `map[...]`",
+                        ));
+                    }
                     delim_depth += 1;
                     (TokenKind::LBrace, 1)
                 }
                 ('}', _) => {
+                    if discipline == SyntaxDiscipline::PureWaveV2 {
+                        return Err(Diagnostic::at(
+                            DiagnosticCode::LexError,
+                            line_no,
+                            col,
+                            "braces `{` / `}` are forbidden in --strict-wave; use indented blocks, positional constructors, or `map[...]`",
+                        ));
+                    }
                     if delim_depth == 0 {
                         return Err(Diagnostic::at(
                             DiagnosticCode::LexError,
