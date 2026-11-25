@@ -48,6 +48,7 @@ pub struct SimBuilder {
 #[derive(Debug)]
 pub struct RtState {
     pub arena: RtArena,
+    pub seq_bufs: Vec<Vec<RtValue>>,
     pub sim_builders: Vec<SimBuilder>,
     pub emits: Vec<String>,
     pub cli_args: Vec<Vec<u8>>,
@@ -59,6 +60,7 @@ impl RtState {
     pub fn new(capture_stdout: bool, max_arena_entries: usize) -> Self {
         Self {
             arena: RtArena::new(max_arena_entries),
+            seq_bufs: Vec::new(),
             sim_builders: Vec::new(),
             emits: Vec::new(),
             cli_args: Vec::new(),
@@ -126,7 +128,7 @@ impl RtState {
 
     /// Decode 2-GPR `DecRatio` words `(num, den)` (`(num | den) < 0xC000...` inline, `0xD000...` spill).
     pub fn unpack_dec_ratio(&self, num: u64, den: u64) -> Result<Ratio, String> {
-        if (num | den) < TOP_TAG_MASK {
+        if num < TOP_TAG_MASK && den < TOP_TAG_MASK && den != 0 {
             Ratio::from_inline_words_reduced(num, den).map_err(|e| e.to_string())
         } else if (num & SUBTAG_MASK) == TAG_SPILL_PREFIX && den == 0 {
             let handle = num & TAG_PAYLOAD_MASK;

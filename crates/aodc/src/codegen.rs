@@ -2,25 +2,32 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use aod_core::bigint::BigInt;
+use aod_core::ratio::Ratio;
+use aod_core::trit_int::{PACK4_LUT, TAG_NULL_SENTINEL};
 use aod_llvm::{CodegenPlan, UnrollHint};
 
 use crate::ast::{
-    AssignTarget, BinaryOp, CallArg, ChamberDecl, DecArm, DecArmParam, DecFnDecl, DecFnKind,
-    EnumDecl, Expr, ExprKind, ForTarget, Item, ObserveDecl, Pattern, PrepareDecl, ProbeDecl,
-    Program, Stmt, StmtKind, StructDecl, TritLiteral, TypeExpr, UnaryOp,
+    AdverbOp, BinaryOp, ChamberDecl, ConstDecl, DecArm, DecArmParam, DecFnDecl, EnumDecl, Expr,
+    ExprKind, Item, LetPattern, MatchExprArm, ObserveDecl, Pattern, PipeStage, PrepareDecl,
+    ProbeDecl, Program, Stmt, StmtKind, StructDecl, TypeExpr, UnaryOp,
 };
 use crate::checker::CheckedUnit;
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{builtin_namespace_items, canonical_builtin_name, ImportedSymbol};
-use crate::types::Type;
+use crate::types::{lookup_builtin, Type};
 
 /// Lower a verified `CheckedUnit` using the default baseline `CodegenPlan`.
 pub fn lower_to_llvm_ir(checked: &CheckedUnit) -> DecResult<String> {
     lower_to_llvm_ir_with_plan(checked, &CodegenPlan::baseline_o2())
 }
 
-/// Lower a verified `CheckedUnit` into safe textual LLVM 18 IR parameterized by `CodegenPlan`
-/// (`#![forbid(unsafe_code)]`, `P0-3`).
+/// Lower a verified `CheckedUnit` into safe textual LLVM 18 IR parameterized by `CodegenPlan`.
+///
+/// Representation invariants:
+/// - `int` lowers to a single 64-bit GPR (`i64`) carrying a Trit-Boxed 2-bit balanced ternary word
+///   (`w u< 0xC000_0000_0000_0000` inline 32-trit, `0xD000... | handle` arena spill).
+/// - `ratio` lowers to a coupled 2-GPR pair (`%DecRatio = type { i64, i64 }`).
+/// - `null` lowers to `i64 -4611686018427387904` (`0xC000_0000_0000_0000`).
 pub fn lower_to_llvm_ir_with_plan(
     checked: &CheckedUnit,
     plan: &CodegenPlan,
@@ -35,10 +42,10 @@ pub fn lower_to_llvm_ir_with_plan(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum LlvmTy {
     Void,
+    NullI64,
     I1,
     I8,
     I64,
-    DecInt,
     DecRatio,
     Handle,
 }
@@ -47,11 +54,11 @@ impl LlvmTy {
     fn from_dec(ty: &Type) -> Self {
         match ty.unwrap_read_only() {
             Type::Unit => LlvmTy::Void,
+            Type::Null => LlvmTy::NullI64,
             Type::Bool => LlvmTy::I1,
             Type::QExt(inner) if **inner == Type::Bool => LlvmTy::I1,
-            Type::T1 | Type::Q4 => LlvmTy::I8,
-            Type::T32 => LlvmTy::I64,
-            Type::Int => LlvmTy::DecInt,
+            Type::T1 | Type::Q4 | Type::B8 => LlvmTy::I8,
+            Type::Int | Type::B64 => LlvmTy::I64,
             Type::Ratio => LlvmTy::DecRatio,
             _ => LlvmTy::Handle,
         }
@@ -62,8 +69,7 @@ impl LlvmTy {
             LlvmTy::Void => "void",
             LlvmTy::I1 => "i1",
             LlvmTy::I8 => "i8",
-            LlvmTy::I64 | LlvmTy::Handle => "i64",
-            LlvmTy::DecInt => "%DecInt",
+            LlvmTy::NullI64 | LlvmTy::I64 | LlvmTy::Handle => "i64",
             LlvmTy::DecRatio => "%DecRatio",
         }
     }
@@ -71,11 +77,11 @@ impl LlvmTy {
     fn zero(self) -> &'static str {
         match self {
             LlvmTy::Void => "",
+            LlvmTy::NullI64 => "-4611686018427387904",
             LlvmTy::I1 => "false",
             LlvmTy::I8 => "0",
             LlvmTy::I64 | LlvmTy::Handle => "0",
-            LlvmTy::DecInt => "zeroinitializer",
-            LlvmTy::DecRatio => "{ i8 0, i64 0, i64 1 }",
+            LlvmTy::DecRatio => "{ i64 0, i64 1 }",
         }
     }
 }
@@ -126,10 +132,13 @@ struct FnOverload {
     mod_key: String,
     param_types: Vec<Type>,
     ret_type: Type,
-    is_single: bool,
-    single_params: Vec<String>,
-    single_body: Vec<Stmt>,
-    multi_arms: Vec<DecArm>,
+    arms: Vec<DecArm>,
+}
+
+#[derive(Clone, Debug)]
+enum LoweredCallTarget {
+    UserFn(Vec<FnOverload>),
+    Builtin(String),
 }
 
 struct Codegen<'a> {
@@ -143,13 +152,9 @@ struct Codegen<'a> {
     qext_modules: BTreeSet<(String, String)>,
     consts: BTreeMap<(String, String), ConstMeta>,
     const_order: Vec<(String, String)>,
-    /// Keyed by `(mod_key, fn_name)` -> list of distinct-signature compiled LLVM functions.
     fn_overloads: BTreeMap<(String, String), Vec<FnOverload>>,
-    /// Procedural observer callbacks `(mod_key, obs_name, probe_name) -> llvm_cb_name`.
     obs_callbacks: BTreeMap<(String, String, String), String>,
-    /// Deduplicated UTF-8 byte constants: `bytes -> (global_name, byte_len)`.
     str_pool: BTreeMap<Vec<u8>, (String, usize)>,
-    /// Unique self-referential `!llvm.loop` metadata nodes emitted at module tail (`P0-3`).
     loop_md_defs: Vec<String>,
     next_md_id: usize,
     fn_defs: String,
@@ -179,9 +184,6 @@ impl<'a> Codegen<'a> {
         }
     }
 
-    /// Allocate a single combined self-referential `!N = distinct !{!N, !M1, ...}` loop metadata
-    /// attachment across active hints (`unroll_hint`, `vectorize_loops`, `interleave_count`),
-    /// returning `None` when no hint is active (preserving baseline IR byte-for-byte, `P0-4`).
     fn alloc_loop_hint_md(&mut self) -> Option<String> {
         let mut bodies: Vec<String> = Vec::new();
         match self.plan.unroll_hint {
@@ -219,10 +221,6 @@ impl<'a> Codegen<'a> {
             .push(format!("!{loop_id} = distinct !{{{}}}", refs.join(", ")));
         self.loop_md_defs.extend(child_defs);
         Some(format!(", !llvm.loop !{loop_id}"))
-    }
-
-    fn compat(&self) -> CompatMode {
-        self.checked.unit.compat
     }
 
     fn fresh_id(&mut self) -> usize {
@@ -324,9 +322,7 @@ impl<'a> Codegen<'a> {
     }
 
     fn resolve_type(&self, mod_key: &str, expr: &TypeExpr, line: usize) -> DecResult<Type> {
-        Type::resolve_with(expr, self.compat(), line, &|n| {
-            self.lookup_user_type(mod_key, n)
-        })
+        Type::resolve_with(expr, line, &|n| self.lookup_user_type(mod_key, n))
     }
 
     fn intern_bytes(&mut self, bytes: &[u8]) -> (String, usize) {
@@ -341,18 +337,14 @@ impl<'a> Codegen<'a> {
     }
 
     fn index_all(&mut self) -> DecResult<()> {
-        // Pass 1: register struct/enum/qext names
         self.collect_names("<entry>", &self.checked.unit.entry_program);
         for (mk, prog) in &self.checked.unit.parsed_modules {
             self.collect_names(mk, prog);
         }
-        // Pass 2: resolve struct fields & enum variants
         self.resolve_types_in_program("<entry>", &self.checked.unit.entry_program)?;
         for (mk, prog) in &self.checked.unit.parsed_modules {
             self.resolve_types_in_program(mk, prog)?;
         }
-        // Pass 3: index chambers, prepares, observes, functions, consts in strict post-order
-        // topological dependency order (`P0-1`) so `@aod_init_consts` always initializes dependencies first.
         for mk in &self.checked.unit.module_load_order {
             if let Some(prog) = self.checked.unit.parsed_modules.get(mk) {
                 self.index_items(mk, prog)?;
@@ -478,7 +470,6 @@ impl<'a> Codegen<'a> {
                 _ => {}
             }
         }
-        // Index consts after functions so const expressions can infer return types cleanly
         for item in &prog.items {
             match item {
                 Item::Const(c) => self.index_const(mod_key, c)?,
@@ -496,7 +487,7 @@ impl<'a> Codegen<'a> {
         Ok(())
     }
 
-    fn index_const(&mut self, mod_key: &str, c: &crate::ast::ConstDecl) -> DecResult<()> {
+    fn index_const(&mut self, mod_key: &str, c: &ConstDecl) -> DecResult<()> {
         let key = (mod_key.to_string(), c.name.clone());
         let dec_ty = self
             .checked
@@ -527,134 +518,76 @@ impl<'a> Codegen<'a> {
 
     fn index_fn(&mut self, mod_key: &str, f: &DecFnDecl) -> DecResult<()> {
         let is_entry_main = mod_key == "<entry>" && f.name == "main";
-        match &f.kind {
-            DecFnKind::SingleArm {
-                params,
-                return_type,
-                body,
-            } => {
-                let mut param_types = Vec::with_capacity(params.len());
-                let mut param_names = Vec::with_capacity(params.len());
-                for p in params {
-                    param_types.push(self.resolve_type(mod_key, &p.ty, f.line)?);
-                    param_names.push(p.name.clone());
-                }
-                let ret_type = self.resolve_type(mod_key, return_type, f.line)?;
-                let id = self.fresh_id();
-                let llvm_name = if is_entry_main && params.is_empty() {
-                    "@dec_entry_main".to_string()
-                } else {
-                    format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id)
-                };
-                self.fn_overloads
-                    .entry((mod_key.to_string(), f.name.clone()))
-                    .or_default()
-                    .push(FnOverload {
-                        llvm_name,
-                        mod_key: mod_key.to_string(),
-                        param_types,
-                        ret_type,
-                        is_single: true,
-                        single_params: param_names,
-                        single_body: body.clone(),
-                        multi_arms: Vec::new(),
-                    });
-            }
-            DecFnKind::MultiArm {
-                header_typed_params,
-                arms,
-                ..
-            } => {
-                // Group multi-arm rows by concrete resolved parameter signature so distinct
-                // typed overloads compile to separate typed LLVM functions while overlapping
-                // pattern/guard rows compile into one top-to-bottom dispatching function!
-                let mut slot_hints: Vec<Option<Type>> =
-                    vec![None; arms.first().map_or(0, |a| a.params.len())];
-                if let Some(htp) = header_typed_params {
-                    for (i, p) in htp.iter().enumerate() {
-                        slot_hints[i] = Some(self.resolve_type(mod_key, &p.ty, f.line)?);
-                    }
-                }
-                for arm in arms {
-                    let tys =
-                        self.infer_arm_param_types(mod_key, arm, header_typed_params.as_deref())?;
-                    for (i, t) in tys.into_iter().enumerate() {
-                        if t != Type::Unknown && slot_hints[i].is_none() {
-                            slot_hints[i] = Some(t);
-                        }
-                    }
-                }
 
-                let mut groups: Vec<(Vec<Type>, Type, Vec<DecArm>)> = Vec::new();
-                for arm in arms {
-                    let raw_tys =
-                        self.infer_arm_param_types(mod_key, arm, header_typed_params.as_deref())?;
-                    let concrete_tys: Vec<Type> = raw_tys
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, t)| {
-                            if t == Type::Unknown {
-                                slot_hints[i].clone().unwrap_or(Type::Int)
-                            } else {
-                                t
-                            }
-                        })
-                        .collect();
-                    let rty = self.resolve_type(mod_key, &arm.return_type, arm.line)?;
-                    if let Some(existing) = groups.iter_mut().find(|(sig, _, _)| sig == &concrete_tys)
-                    {
-                        existing.2.push(arm.clone());
-                    } else {
-                        groups.push((concrete_tys, rty, vec![arm.clone()]));
-                    }
-                }
-
-                for (param_types, ret_type, group_arms) in groups {
-                    let id = self.fresh_id();
-                    let llvm_name = if is_entry_main && param_types.is_empty() {
-                        "@dec_entry_main".to_string()
-                    } else {
-                        format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id)
-                    };
-                    self.fn_overloads
-                        .entry((mod_key.to_string(), f.name.clone()))
-                        .or_default()
-                        .push(FnOverload {
-                            llvm_name,
-                            mod_key: mod_key.to_string(),
-                            param_types,
-                            ret_type,
-                            is_single: false,
-                            single_params: Vec::new(),
-                            single_body: Vec::new(),
-                            multi_arms: group_arms,
-                        });
+        // Key slot hints by `(arity, slot_index)` so overloaded multi-arity `dec` blocks
+        // infer untyped pattern arms accurately per arity.
+        let mut slot_hints: BTreeMap<(usize, usize), Type> = BTreeMap::new();
+        for arm in &f.arms {
+            let tys = self.infer_arm_param_types(mod_key, arm)?;
+            let arity = tys.len();
+            for (i, t) in tys.into_iter().enumerate() {
+                if t != Type::Unknown {
+                    slot_hints.entry((arity, i)).or_insert(t);
                 }
             }
+        }
+
+        let mut groups: Vec<(Vec<Type>, Type, Vec<DecArm>)> = Vec::new();
+        for arm in &f.arms {
+            let raw_tys = self.infer_arm_param_types(mod_key, arm)?;
+            let arity = raw_tys.len();
+            let concrete_tys: Vec<Type> = raw_tys
+                .into_iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    if t == Type::Unknown {
+                        slot_hints
+                            .get(&(arity, i))
+                            .cloned()
+                            .unwrap_or(Type::Int)
+                    } else {
+                        t
+                    }
+                })
+                .collect();
+            let rty = self.resolve_type(mod_key, &arm.return_type, arm.line)?;
+            if let Some(existing) = groups.iter_mut().find(|(sig, _, _)| sig == &concrete_tys) {
+                existing.2.push(arm.clone());
+            } else {
+                groups.push((concrete_tys, rty, vec![arm.clone()]));
+            }
+        }
+
+        for (param_types, ret_type, group_arms) in groups {
+            let id = self.fresh_id();
+            let llvm_name = if is_entry_main && param_types.is_empty() {
+                "@dec_entry_main".to_string()
+            } else {
+                format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id)
+            };
+            self.fn_overloads
+                .entry((mod_key.to_string(), f.name.clone()))
+                .or_default()
+                .push(FnOverload {
+                    llvm_name,
+                    mod_key: mod_key.to_string(),
+                    param_types,
+                    ret_type,
+                    arms: group_arms,
+                });
         }
         Ok(())
     }
 
-    fn infer_arm_param_types(
-        &self,
-        mod_key: &str,
-        arm: &DecArm,
-        header_typed: Option<&[crate::ast::TypedParam]>,
-    ) -> DecResult<Vec<Type>> {
+    fn infer_arm_param_types(&self, mod_key: &str, arm: &DecArm) -> DecResult<Vec<Type>> {
         let mut out = Vec::with_capacity(arm.params.len());
-        for (idx, p) in arm.params.iter().enumerate() {
+        for p in &arm.params {
             let inferred = match p {
                 DecArmParam::TypedVar { ty, .. } | DecArmParam::TypedPattern { ty, .. } => {
                     self.resolve_type(mod_key, ty, arm.line)?
                 }
                 DecArmParam::Pattern(pat) => {
-                    if let Some(t) = self.infer_pattern_type(mod_key, pat) {
-                        t
-                    } else if let Some(ht) = header_typed {
-                        self.resolve_type(mod_key, &ht[idx].ty, arm.line)?
-                    } else {
-                        Type::Unknown
-                    }
+                    self.infer_pattern_type(mod_key, pat).unwrap_or(Type::Unknown)
                 }
             };
             out.push(inferred);
@@ -665,9 +598,11 @@ impl<'a> Codegen<'a> {
     fn infer_pattern_type(&self, mod_key: &str, pat: &Pattern) -> Option<Type> {
         match pat {
             Pattern::Wildcard | Pattern::Binding(_) => None,
+            Pattern::NullLit => Some(Type::Null),
             Pattern::IntLit(_) => Some(Type::Int),
             Pattern::BoolLit(_) => Some(Type::Bool),
             Pattern::StrLit(_) => Some(Type::Str),
+            Pattern::BytesLit(_) => Some(Type::Bytes),
             Pattern::TritLit(_) => Some(Type::T1),
             Pattern::RatioLit(_) => Some(Type::Ratio),
             Pattern::Addr8Lit(_) => Some(Type::Addr8),
@@ -739,7 +674,6 @@ impl<'a> Codegen<'a> {
     }
 
     fn emit_all(&mut self) -> DecResult<String> {
-        // 1. Emit procedural observer callbacks
         let obs_list: Vec<(String, ObserveDecl)> = self
             .observes
             .iter()
@@ -765,7 +699,6 @@ impl<'a> Codegen<'a> {
             }
         }
 
-        // 2. Emit every user function & overload (including unreachable ones!)
         let all_overloads: Vec<FnOverload> = self
             .fn_overloads
             .values()
@@ -775,10 +708,8 @@ impl<'a> Codegen<'a> {
             self.emit_user_fn(&ov)?;
         }
 
-        // 3. Emit `@aod_init_consts(ptr %ctx)`
         self.emit_init_consts()?;
 
-        // 4. Emit `@aod_jit_entry(ptr %ctx)` and AOT `@main(i32 %argc, ptr %argv)`
         let main_ret = self
             .checked
             .main_return_type
@@ -786,12 +717,15 @@ impl<'a> Codegen<'a> {
             .unwrap_or(Type::Unit);
         self.emit_entrypoints(&main_ret);
 
-        // Assemble final LLVM 18 module
-        let mut ir = String::with_capacity(self.fn_defs.len() + 24_000);
+        let mut ir = String::with_capacity(self.fn_defs.len() + 28_000);
+        let lut_escaped = escape_llvm_bytes(&PACK4_LUT);
+        let _ = writeln!(
+            ir,
+            "@.pack4_lut = private unnamed_addr constant [81 x i8] c\"{lut_escaped}\", align 1"
+        );
         ir.push_str(LLVM_MODULE_PREAMBLE);
         ir.push('\n');
 
-        // Emit module const globals
         for key in &self.const_order {
             let cm = &self.consts[key];
             let lt = LlvmTy::from_dec(&cm.dec_ty);
@@ -806,7 +740,6 @@ impl<'a> Codegen<'a> {
             }
         }
 
-        // Emit interned byte-string globals
         for (bytes, (gname, len)) in &self.str_pool {
             let escaped = escape_llvm_bytes(bytes);
             let _ = writeln!(
@@ -833,7 +766,7 @@ impl<'a> Codegen<'a> {
         for key in order {
             let cm = self.consts[&key].clone();
             fb.mod_key = cm.mod_key.clone();
-            let v = fb.emit_expr(self, &cm.value_expr)?;
+            let v = fb.emit_expr_with_hint(self, &cm.value_expr, Some(&cm.dec_ty))?;
             fb.emit_fail_return_check();
             let lt = LlvmTy::from_dec(&cm.dec_ty);
             if lt != LlvmTy::Void {
@@ -846,7 +779,8 @@ impl<'a> Codegen<'a> {
             }
         }
         fb.finish_void();
-        self.fn_defs.push_str(&fb.render_fn("define internal void @aod_init_consts(ptr %ctx)"));
+        self.fn_defs
+            .push_str(&fb.render_fn("define internal void @aod_init_consts(ptr %ctx)"));
         Ok(())
     }
 
@@ -863,7 +797,10 @@ impl<'a> Codegen<'a> {
         fb.emit_entry_depth_and_fuel();
         let view_slot = fb.alloc_local(param_name, Type::ReadOnly(Box::new(Type::ChamberView)));
         fb.line(&format!("  store i64 %view_h, ptr {}", view_slot.alloca));
-        fb.scopes.last_mut().unwrap().insert(param_name.to_string(), view_slot);
+        fb.scopes
+            .last_mut()
+            .unwrap()
+            .insert(param_name.to_string(), view_slot);
         fb.emit_stmts(self, body)?;
         if !fb.terminated {
             fb.emit_depth_dec();
@@ -892,113 +829,64 @@ impl<'a> Codegen<'a> {
         let mut fb = FnBuilder::new(&ov.llvm_name, ov.ret_type.clone(), &ov.mod_key);
         fb.emit_entry_depth_and_fuel();
 
-        if ov.is_single {
-            for (i, (pname, pty)) in ov
-                .single_params
-                .iter()
-                .zip(&ov.param_types)
-                .enumerate()
-            {
-                let lt = LlvmTy::from_dec(pty);
-                let slot = fb.alloc_local(pname, pty.clone());
-                if lt != LlvmTy::Void {
-                    fb.line(&format!("  store {} %arg{i}, ptr {}", lt.ir(), slot.alloca));
+        for (arm_idx, arm) in ov.arms.iter().enumerate() {
+            let next_arm_lbl = format!("arm_next_{arm_idx}");
+            fb.push_scope();
+            for (i, (param, pty)) in arm.params.iter().zip(&ov.param_types).enumerate() {
+                let arg_val = Val {
+                    reg: format!("%arg{i}"),
+                    dec_ty: pty.clone(),
+                };
+                match param {
+                    DecArmParam::TypedVar { name, .. } => {
+                        let lt = LlvmTy::from_dec(pty);
+                        let slot = fb.alloc_local(name, pty.clone());
+                        if lt != LlvmTy::Void {
+                            fb.line(&format!(
+                                "  store {} %arg{i}, ptr {}",
+                                lt.ir(),
+                                slot.alloca
+                            ));
+                        }
+                        fb.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                    }
+                    DecArmParam::TypedPattern { pattern, .. }
+                    | DecArmParam::Pattern(pattern) => {
+                        let cond = fb.emit_pattern_match(self, pattern, &arg_val)?;
+                        let ok_lbl = fb.fresh_label("pat_ok");
+                        fb.line(&format!(
+                            "  br i1 {cond}, label %{ok_lbl}, label %{next_arm_lbl}"
+                        ));
+                        fb.start_block(&ok_lbl);
+                    }
                 }
-                fb.scopes.last_mut().unwrap().insert(pname.clone(), slot);
             }
-            fb.emit_stmts(self, &ov.single_body)?;
+            if let Some(ref guard) = arm.guard {
+                let gv = fb.emit_expr(self, guard)?;
+                fb.emit_fail_return_check();
+                let gok = fb.fresh_label("guard_ok");
+                fb.line(&format!(
+                    "  br i1 {}, label %{gok}, label %{next_arm_lbl}",
+                    gv.reg
+                ));
+                fb.start_block(&gok);
+            }
+
+            fb.emit_stmts(self, &arm.body)?;
             if !fb.terminated {
                 fb.emit_depth_dec();
                 fb.emit_default_ret();
             }
-        } else {
-            // Multi-arm dispatch (1 arm for plain v1/v2 overload, or N arms top-to-bottom for patterns/guards!)
-            for (arm_idx, arm) in ov.multi_arms.iter().enumerate() {
-                let next_arm_lbl = format!("arm_next_{arm_idx}");
-                fb.push_scope();
-                for (i, (param, pty)) in arm.params.iter().zip(&ov.param_types).enumerate() {
-                    let arg_val = Val {
-                        reg: format!("%arg{i}"),
-                        dec_ty: pty.clone(),
-                    };
-                    match param {
-                        DecArmParam::TypedVar { name, .. } => {
-                            let lt = LlvmTy::from_dec(pty);
-                            let slot = fb.alloc_local(name, pty.clone());
-                            if lt != LlvmTy::Void {
-                                fb.line(&format!(
-                                    "  store {} %arg{i}, ptr {}",
-                                    lt.ir(),
-                                    slot.alloca
-                                ));
-                            }
-                            fb.scopes.last_mut().unwrap().insert(name.clone(), slot);
-                        }
-                        DecArmParam::TypedPattern { pattern, .. }
-                        | DecArmParam::Pattern(pattern) => {
-                            let cond = fb.emit_pattern_match(self, pattern, &arg_val)?;
-                            let ok_lbl = fb.fresh_label("pat_ok");
-                            fb.line(&format!(
-                                "  br i1 {cond}, label %{ok_lbl}, label %{next_arm_lbl}"
-                            ));
-                            fb.start_block(&ok_lbl);
-                        }
-                    }
-                }
-                if let Some(ref guard) = arm.guard {
-                    let gv = fb.emit_expr(self, guard)?;
-                    fb.emit_fail_return_check();
-                    let gok = fb.fresh_label("guard_ok");
-                    fb.line(&format!(
-                        "  br i1 {}, label %{gok}, label %{next_arm_lbl}",
-                        gv.reg
-                    ));
-                    fb.start_block(&gok);
-                }
-
-                // Allocate optional output binding for v1/v2 multi-arm `-> Type out:`
-                let out_slot = if let Some(ref out_name) = arm.output_name {
-                    let slot = fb.alloc_local(out_name, ov.ret_type.clone());
-                    fb.scopes.last_mut().unwrap().insert(out_name.clone(), slot.clone());
-                    Some(slot)
-                } else {
-                    None
-                };
-
-                fb.emit_stmts(self, &arm.body)?;
-                if !fb.terminated {
-                    if let Some(slot) = out_slot {
-                        if ret_lt != LlvmTy::Void {
-                            let r = fb.fresh_reg();
-                            fb.line(&format!(
-                                "  {r} = load {}, ptr {}",
-                                ret_lt.ir(),
-                                slot.alloca
-                            ));
-                            fb.emit_depth_dec();
-                            fb.line(&format!("  ret {} {r}", ret_lt.ir()));
-                            fb.terminated = true;
-                        } else {
-                            fb.emit_depth_dec();
-                            fb.line("  ret void");
-                            fb.terminated = true;
-                        }
-                    } else {
-                        fb.emit_depth_dec();
-                        fb.emit_default_ret();
-                    }
-                }
-                fb.pop_scope();
-                fb.start_block(&next_arm_lbl);
-            }
-            // Fallthrough if no pattern arm matched at runtime
-            let (msg_g, msg_len) = self.intern_bytes(b"no matching arm for Dec call");
-            fb.line(&format!(
-                "  call void @aod_rt_fail(ptr %ctx, ptr {msg_g}, i64 {msg_len})"
-            ));
-            fb.emit_depth_dec();
-            fb.emit_default_ret();
+            fb.pop_scope();
+            fb.start_block(&next_arm_lbl);
         }
+
+        let (msg_g, msg_len) = self.intern_bytes(b"no matching arm for dec call");
+        fb.line(&format!(
+            "  call void @aod_rt_fail(ptr %ctx, ptr {msg_g}, i64 {msg_len})"
+        ));
+        fb.emit_depth_dec();
+        fb.emit_default_ret();
 
         self.fn_defs.push_str(&fb.render_fn(&header));
         Ok(())
@@ -1022,11 +910,8 @@ impl<'a> Codegen<'a> {
             s.push_str("  %bad1 = icmp ne i8 %f1, 0\n");
             s.push_str("  br i1 %bad1, label %done, label %emit_ret\nemit_ret:\n");
             match main_ret.unwrap_read_only() {
-                Type::Int => {
-                    s.push_str("  %tmp_i = alloca %DecInt, align 8\n");
-                    s.push_str("  store %DecInt %res, ptr %tmp_i\n");
-                    s.push_str("  call void @aod_rt_emit_int(ptr %ctx, ptr %tmp_i)\n");
-                }
+                Type::Null => s.push_str("  call void @aod_rt_emit_null(ptr %ctx)\n"),
+                Type::Int => s.push_str("  call void @aod_rt_emit_int(ptr %ctx, i64 %res)\n"),
                 Type::Bool => {
                     s.push_str("  %b8 = zext i1 %res to i8\n");
                     s.push_str("  call void @aod_rt_emit_bool(ptr %ctx, i8 %b8)\n");
@@ -1036,12 +921,13 @@ impl<'a> Codegen<'a> {
                     s.push_str("  call void @aod_rt_emit_qext_bool(ptr %ctx, i8 %b8)\n");
                 }
                 Type::T1 => s.push_str("  call void @aod_rt_emit_t1(ptr %ctx, i8 %res)\n"),
-                Type::T32 => s.push_str("  call void @aod_rt_emit_t32(ptr %ctx, i64 %res)\n"),
+                Type::B8 => s.push_str("  call void @aod_rt_emit_b8(ptr %ctx, i8 %res)\n"),
+                Type::B64 => s.push_str("  call void @aod_rt_emit_b64(ptr %ctx, i64 %res)\n"),
                 Type::Q4 => s.push_str("  call void @aod_rt_emit_q4(ptr %ctx, i8 %res)\n"),
                 Type::Ratio => {
-                    s.push_str("  %tmp_r = alloca %DecRatio, align 8\n");
-                    s.push_str("  store %DecRatio %res, ptr %tmp_r\n");
-                    s.push_str("  call void @aod_rt_emit_ratio(ptr %ctx, ptr %tmp_r)\n");
+                    s.push_str("  %rn = extractvalue %DecRatio %res, 0\n");
+                    s.push_str("  %rd = extractvalue %DecRatio %res, 1\n");
+                    s.push_str("  call void @aod_rt_emit_ratio(ptr %ctx, i64 %rn, i64 %rd)\n");
                 }
                 _ => s.push_str("  call void @aod_rt_emit_handle(ptr %ctx, i64 %res)\n"),
             }
@@ -1049,7 +935,6 @@ impl<'a> Codegen<'a> {
         }
         s.push_str("done:\n  ret void\n}\n\n");
 
-        // Standalone AOT ELF `main(argc, argv) -> i32`
         s.push_str("define i32 @main(i32 %argc, ptr %argv) {\nentry:\n");
         s.push_str("  %ctx = alloca %AodRtContext, align 8\n");
         s.push_str("  %parse_rc = call i32 @aod_rt_cli_parse_args(i32 %argc, ptr %argv, ptr %ctx)\n");
@@ -1074,7 +959,6 @@ struct FnBuilder {
     lbl_counter: usize,
     terminated: bool,
     scopes: Vec<BTreeMap<String, LocalSlot>>,
-    loop_stack: Vec<(String, String)>, // (continue_lbl, break_lbl)
 }
 
 impl FnBuilder {
@@ -1090,7 +974,6 @@ impl FnBuilder {
             lbl_counter: 0,
             terminated: false,
             scopes: vec![BTreeMap::new()],
-            loop_stack: Vec::new(),
         }
     }
 
@@ -1156,20 +1039,15 @@ impl FnBuilder {
         name
     }
 
-    fn store_temp_int(&mut self, reg: &str) -> String {
-        let ptr = self.alloc_temp("%DecInt");
-        self.line(&format!("  store %DecInt {reg}, ptr {ptr}"));
-        ptr
-    }
-
-    fn store_temp_ratio(&mut self, reg: &str) -> String {
-        let ptr = self.alloc_temp("%DecRatio");
-        self.line(&format!("  store %DecRatio {reg}, ptr {ptr}"));
-        ptr
+    fn extract_ratio_words(&mut self, reg: &str) -> (String, String) {
+        let na = self.fresh_reg();
+        let da = self.fresh_reg();
+        self.line(&format!("  {na} = extractvalue %DecRatio {reg}, 0"));
+        self.line(&format!("  {da} = extractvalue %DecRatio {reg}, 1"));
+        (na, da)
     }
 
     fn emit_entry_depth_and_fuel(&mut self) {
-        // Inline call-depth guard + coarsened fuel check at function entry
         let dp = self.fresh_reg();
         let d = self.fresh_reg();
         let mp = self.fresh_reg();
@@ -1306,11 +1184,16 @@ impl FnBuilder {
                 self.line(&format!("  {r} = call i64 @aod_rt_val_unit(ptr %ctx)"));
                 r
             }
+            Type::Null => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 @aod_rt_val_null(ptr %ctx)"));
+                r
+            }
             Type::Int => {
-                let p = self.store_temp_int(&v.reg);
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @aod_rt_val_from_int(ptr %ctx, ptr {p})"
+                    "  {r} = call i64 @aod_rt_val_from_int(ptr %ctx, i64 {})",
+                    v.reg
                 ));
                 r
             }
@@ -1340,10 +1223,18 @@ impl FnBuilder {
                 ));
                 r
             }
-            Type::T32 => {
+            Type::B8 => {
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @aod_rt_val_from_t32(ptr %ctx, i64 {})",
+                    "  {r} = call i64 @aod_rt_val_from_b8(ptr %ctx, i8 {})",
+                    v.reg
+                ));
+                r
+            }
+            Type::B64 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_val_from_b64(ptr %ctx, i64 {})",
                     v.reg
                 ));
                 r
@@ -1357,10 +1248,10 @@ impl FnBuilder {
                 r
             }
             Type::Ratio => {
-                let p = self.store_temp_ratio(&v.reg);
+                let (na, da) = self.extract_ratio_words(&v.reg);
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @aod_rt_val_from_ratio(ptr %ctx, ptr {p})"
+                    "  {r} = call i64 @aod_rt_val_from_ratio(ptr %ctx, i64 {na}, i64 {da})"
                 ));
                 r
             }
@@ -1371,14 +1262,13 @@ impl FnBuilder {
     fn unbox_handle_to_val(&mut self, h_reg: &str, target_ty: &Type) -> Val {
         let reg = match target_ty.unwrap_read_only() {
             Type::Unit => String::new(),
+            Type::Null => (TAG_NULL_SENTINEL as i64).to_string(),
             Type::Int => {
-                let out = self.alloc_temp("%DecInt");
+                let r = self.fresh_reg();
                 self.line(&format!(
-                    "  call void @aod_rt_val_to_int(ptr %ctx, i64 {h_reg}, ptr {out})"
+                    "  {r} = call i64 @aod_rt_val_to_int(ptr %ctx, i64 {h_reg})"
                 ));
                 self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
                 r
             }
             Type::Bool => {
@@ -1409,10 +1299,18 @@ impl FnBuilder {
                 self.emit_fail_return_check();
                 r
             }
-            Type::T32 => {
+            Type::B8 => {
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @aod_rt_val_to_t32(ptr %ctx, i64 {h_reg})"
+                    "  {r} = call i8 @aod_rt_val_to_b8(ptr %ctx, i64 {h_reg})"
+                ));
+                self.emit_fail_return_check();
+                r
+            }
+            Type::B64 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_val_to_b64(ptr %ctx, i64 {h_reg})"
                 ));
                 self.emit_fail_return_check();
                 r
@@ -1453,6 +1351,16 @@ impl FnBuilder {
         r
     }
 
+    fn emit_bytes_handle(&mut self, cg: &mut Codegen<'_>, bs: &[u8]) -> String {
+        let (g, len) = cg.intern_bytes(bs);
+        let r = self.fresh_reg();
+        self.line(&format!(
+            "  {r} = call i64 @aod_rt_bytes_new(ptr %ctx, ptr {g}, i64 {len})"
+        ));
+        self.emit_fail_return_check();
+        r
+    }
+
     // ==================== Statements ====================
 
     fn emit_stmts(&mut self, cg: &mut Codegen<'_>, stmts: &[Stmt]) -> DecResult<()> {
@@ -1467,43 +1375,19 @@ impl FnBuilder {
 
     fn emit_stmt(&mut self, cg: &mut Codegen<'_>, stmt: &Stmt) -> DecResult<()> {
         match &stmt.kind {
-            StmtKind::Let { name, ty, value }
-            | StmtKind::Mut { name, ty, value } => {
-                let mut val = self.emit_expr(cg, value)?;
-                if let Some(te) = ty {
-                    val.dec_ty = cg.resolve_type(&self.mod_key, te, stmt.line)?;
+            StmtKind::Let { pattern, ty, value } => {
+                let resolved_ann = match ty {
+                    Some(te) => Some(cg.resolve_type(&self.mod_key, te, stmt.line)?),
+                    None => None,
+                };
+                let mut val = self.emit_expr_with_hint(cg, value, resolved_ann.as_ref())?;
+                if let Some(ann) = resolved_ann {
+                    val.dec_ty = ann;
                 }
-                let lt = val.llvm_ty();
-                let slot = self.alloc_local(name, val.dec_ty.clone());
-                if lt != LlvmTy::Void {
-                    self.line(&format!("  store {} {}, ptr {}", lt.ir(), val.reg, slot.alloca));
-                }
-                self.scopes.last_mut().unwrap().insert(name.clone(), slot);
-                Ok(())
-            }
-            StmtKind::TypedLocal { ty, name, value } => {
-                let mut val = self.emit_expr(cg, value)?;
-                val.dec_ty = cg.resolve_type(&self.mod_key, ty, stmt.line)?;
-                let lt = val.llvm_ty();
-                let slot = self.alloc_local(name, val.dec_ty.clone());
-                if lt != LlvmTy::Void {
-                    self.line(&format!("  store {} {}, ptr {}", lt.ir(), val.reg, slot.alloca));
-                }
-                self.scopes.last_mut().unwrap().insert(name.clone(), slot);
-                Ok(())
-            }
-            StmtKind::Assign { target, value } => {
-                let val = self.emit_expr(cg, value)?;
-                match target {
-                    AssignTarget::Ident(name) => {
-                        let slot = self.lookup_var(name).ok_or_else(|| {
-                            Diagnostic::at_line(
-                                DiagnosticCode::RuntimeError,
-                                stmt.line,
-                                format!("codegen: undefined local {name}"),
-                            )
-                        })?;
-                        let lt = LlvmTy::from_dec(&slot.dec_ty);
+                match pattern {
+                    LetPattern::Single(name) => {
+                        let lt = val.llvm_ty();
+                        let slot = self.alloc_local(name, val.dec_ty.clone());
                         if lt != LlvmTy::Void {
                             self.line(&format!(
                                 "  store {} {}, ptr {}",
@@ -1512,70 +1396,38 @@ impl FnBuilder {
                                 slot.alloca
                             ));
                         }
+                        self.scopes.last_mut().unwrap().insert(name.clone(), slot);
                     }
-                    AssignTarget::Field { base, name } => {
-                        // Deep-copy / copy-on-write struct field update (`P0-3`)!
-                        if let ExprKind::Ident(ref vname) = base.kind {
-                            let slot = self.lookup_var(vname).ok_or_else(|| {
-                                Diagnostic::at_line(
+                    LetPattern::Tuple(names) => {
+                        let elem_tys = match val.dec_ty.unwrap_read_only() {
+                            Type::Tuple(ts) => ts.clone(),
+                            other => {
+                                return Err(Diagnostic::at_line(
                                     DiagnosticCode::RuntimeError,
                                     stmt.line,
-                                    format!("codegen: undefined struct {vname}"),
-                                )
-                            })?;
-                            let old_h = self.fresh_reg();
-                            self.line(&format!("  {old_h} = load i64, ptr {}", slot.alloca));
-                            let vh = self.box_val_to_handle(&val);
-                            let (fg, flen) = cg.intern_bytes(name.as_bytes());
-                            let new_h = self.fresh_reg();
+                                    format!("codegen: expected tuple for destructuring, got {other}"),
+                                ));
+                            }
+                        };
+                        for (i, (n, et)) in names.iter().zip(&elem_tys).enumerate() {
+                            let fh = self.fresh_reg();
                             self.line(&format!(
-                                "  {new_h} = call i64 @aod_rt_struct_set(ptr %ctx, i64 {old_h}, ptr {fg}, i64 {flen}, i64 {vh})"
+                                "  {fh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 {i})",
+                                val.reg
                             ));
                             self.emit_fail_return_check();
-                            self.line(&format!("  store i64 {new_h}, ptr {}", slot.alloca));
-                        }
-                    }
-                    AssignTarget::Index { base, index } => {
-                        // Deep-copy / copy-on-write list/map index update (`P0-3`)!
-                        let idx_val = self.emit_expr(cg, index)?;
-                        if let ExprKind::Ident(ref vname) = base.kind {
-                            let slot = self.lookup_var(vname).ok_or_else(|| {
-                                Diagnostic::at_line(
-                                    DiagnosticCode::RuntimeError,
-                                    stmt.line,
-                                    format!("codegen: undefined container {vname}"),
-                                )
-                            })?;
-                            let old_h = self.fresh_reg();
-                            self.line(&format!("  {old_h} = load i64, ptr {}", slot.alloca));
-                            let vh = self.box_val_to_handle(&val);
-                            let new_h = match slot.dec_ty.unwrap_read_only() {
-                                Type::List(_) => {
-                                    let ip = self.store_temp_int(&idx_val.reg);
-                                    let r = self.fresh_reg();
-                                    self.line(&format!(
-                                        "  {r} = call i64 @aod_rt_list_set(ptr %ctx, i64 {old_h}, ptr {ip}, i64 {vh})"
-                                    ));
-                                    r
-                                }
-                                Type::Map(_, _) => {
-                                    let kh = self.box_val_to_handle(&idx_val);
-                                    let r = self.fresh_reg();
-                                    self.line(&format!(
-                                        "  {r} = call i64 @aod_rt_map_set(ptr %ctx, i64 {old_h}, i64 {kh}, i64 {vh})"
-                                    ));
-                                    r
-                                }
-                                _ => {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::RuntimeError,
-                                        stmt.line,
-                                        "codegen: unsupported index assign container",
-                                    ));
-                                }
-                            };
-                            self.emit_fail_return_check();
-                            self.line(&format!("  store i64 {new_h}, ptr {}", slot.alloca));
+                            let fv = self.unbox_handle_to_val(&fh, et);
+                            let lt = fv.llvm_ty();
+                            let slot = self.alloc_local(n, et.clone());
+                            if lt != LlvmTy::Void {
+                                self.line(&format!(
+                                    "  store {} {}, ptr {}",
+                                    lt.ir(),
+                                    fv.reg,
+                                    slot.alloca
+                                ));
+                            }
+                            self.scopes.last_mut().unwrap().insert(n.clone(), slot);
                         }
                     }
                 }
@@ -1602,9 +1454,11 @@ impl FnBuilder {
             StmtKind::Emit(expr) => {
                 let v = self.emit_expr(cg, expr)?;
                 match v.dec_ty.unwrap_read_only() {
+                    Type::Null => {
+                        self.line("  call void @aod_rt_emit_null(ptr %ctx)");
+                    }
                     Type::Int => {
-                        let p = self.store_temp_int(&v.reg);
-                        self.line(&format!("  call void @aod_rt_emit_int(ptr %ctx, ptr {p})"));
+                        self.line(&format!("  call void @aod_rt_emit_int(ptr %ctx, i64 {})", v.reg));
                     }
                     Type::Bool => {
                         let b8 = self.fresh_reg();
@@ -1621,18 +1475,20 @@ impl FnBuilder {
                     Type::T1 => {
                         self.line(&format!("  call void @aod_rt_emit_t1(ptr %ctx, i8 {})", v.reg));
                     }
-                    Type::T32 => {
-                        self.line(&format!(
-                            "  call void @aod_rt_emit_t32(ptr %ctx, i64 {})",
-                            v.reg
-                        ));
+                    Type::B8 => {
+                        self.line(&format!("  call void @aod_rt_emit_b8(ptr %ctx, i8 {})", v.reg));
+                    }
+                    Type::B64 => {
+                        self.line(&format!("  call void @aod_rt_emit_b64(ptr %ctx, i64 {})", v.reg));
                     }
                     Type::Q4 => {
                         self.line(&format!("  call void @aod_rt_emit_q4(ptr %ctx, i8 {})", v.reg));
                     }
                     Type::Ratio => {
-                        let p = self.store_temp_ratio(&v.reg);
-                        self.line(&format!("  call void @aod_rt_emit_ratio(ptr %ctx, ptr {p})"));
+                        let (na, da) = self.extract_ratio_words(&v.reg);
+                        self.line(&format!(
+                            "  call void @aod_rt_emit_ratio(ptr %ctx, i64 {na}, i64 {da})"
+                        ));
                     }
                     _ => {
                         self.line(&format!(
@@ -1646,7 +1502,8 @@ impl FnBuilder {
             }
             StmtKind::Return(opt) => {
                 if let Some(e) = opt {
-                    let v = self.emit_expr(cg, e)?;
+                    let ret_hint = self.ret_ty.clone();
+                    let v = self.emit_expr_with_hint(cg, e, Some(&ret_hint))?;
                     self.emit_depth_dec();
                     if self.is_obs_cb || v.llvm_ty() == LlvmTy::Void {
                         self.line("  ret void");
@@ -1659,466 +1516,6 @@ impl FnBuilder {
                     self.line("  ret void");
                     self.terminated = true;
                 }
-                Ok(())
-            }
-            StmtKind::If {
-                cond,
-                then_body,
-                elifs,
-                else_body,
-            } => {
-                // Sound P0-3 branchless `select` lowering for pure single-statement `if c: v = a else: v = b`
-                if cg.plan.branchless_select
-                    && elifs.is_empty()
-                    && then_body.len() == 1
-                    && else_body.len() == 1
-                {
-                    if let (
-                        StmtKind::Assign {
-                            target: AssignTarget::Ident(tv),
-                            value: te,
-                        },
-                        StmtKind::Assign {
-                            target: AssignTarget::Ident(ev),
-                            value: ee,
-                        },
-                    ) = (&then_body[0].kind, &else_body[0].kind)
-                    {
-                        if tv == ev
-                            && self.is_pure_select_safe(cg, te)
-                            && self.is_pure_select_safe(cg, ee)
-                        {
-                            if let Some(slot) = self.lookup_var(tv) {
-                                let lt = LlvmTy::from_dec(&slot.dec_ty);
-                                if lt != LlvmTy::Void {
-                                    let cv = self.emit_expr(cg, cond)?;
-                                    let tv_val = self.emit_expr(cg, te)?;
-                                    let ev_val = self.emit_expr(cg, ee)?;
-                                    let sel = self.fresh_reg();
-                                    self.line(&format!(
-                                        "  {sel} = select i1 {}, {} {}, {} {}",
-                                        cv.reg,
-                                        lt.ir(),
-                                        tv_val.reg,
-                                        lt.ir(),
-                                        ev_val.reg
-                                    ));
-                                    self.line(&format!(
-                                        "  store {} {sel}, ptr {}",
-                                        lt.ir(),
-                                        slot.alloca
-                                    ));
-                                    return Ok(());
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let merge_lbl = self.fresh_label("if_merge");
-                let mut cur_cond = cond;
-                let mut cur_then = then_body;
-                let mut remaining_elifs = elifs.iter();
-
-                loop {
-                    let cv = self.emit_expr(cg, cur_cond)?;
-                    let then_lbl = self.fresh_label("if_then");
-                    let next_lbl = self.fresh_label("if_else");
-                    self.line(&format!(
-                        "  br i1 {}, label %{then_lbl}, label %{next_lbl}",
-                        cv.reg
-                    ));
-
-                    self.start_block(&then_lbl);
-                    self.push_scope();
-                    self.emit_stmts(cg, cur_then)?;
-                    self.pop_scope();
-                    if !self.terminated {
-                        self.line(&format!("  br label %{merge_lbl}"));
-                        self.terminated = true;
-                    }
-
-                    self.start_block(&next_lbl);
-                    if let Some((ec, eb)) = remaining_elifs.next() {
-                        cur_cond = ec;
-                        cur_then = eb;
-                    } else {
-                        break;
-                    }
-                }
-
-                if !else_body.is_empty() {
-                    self.push_scope();
-                    self.emit_stmts(cg, else_body)?;
-                    self.pop_scope();
-                }
-                if !self.terminated {
-                    self.line(&format!("  br label %{merge_lbl}"));
-                    self.terminated = true;
-                }
-                self.start_block(&merge_lbl);
-                Ok(())
-            }
-            StmtKind::Match { scrutinee, arms } => {
-                let sval = self.emit_expr(cg, scrutinee)?;
-                let merge_lbl = self.fresh_label("match_merge");
-
-                // Use LLVM `switch i32` when matching directly on an Enum scrutinee!
-                if matches!(sval.dec_ty.unwrap_read_only(), Type::Enum { .. })
-                    && arms.iter().all(|a| {
-                        a.guard.is_none()
-                            && matches!(
-                                a.pattern,
-                                Pattern::EnumVariant { .. } | Pattern::Wildcard | Pattern::Binding(_)
-                            )
-                    })
-                {
-                    let tag = self.fresh_reg();
-                    self.line(&format!(
-                        "  {tag} = call i32 @aod_rt_enum_tag(ptr %ctx, i64 {})",
-                        sval.reg
-                    ));
-                    self.emit_fail_return_check();
-
-                    let mut cases: Vec<(i32, String, usize)> = Vec::new();
-                    let mut default_arm: Option<(String, usize)> = None;
-                    for (idx, arm) in arms.iter().enumerate() {
-                        match &arm.pattern {
-                            Pattern::EnumVariant { path, .. } => {
-                                if let Some((em, vidx)) =
-                                    cg.resolve_enum_variant(&self.mod_key, path)
-                                {
-                                    let vtag = em.variants[vidx].1;
-                                    if !cases.iter().any(|(t, _, _)| *t == vtag) {
-                                        let lbl = self.fresh_label("match_case");
-                                        cases.push((vtag, lbl, idx));
-                                    }
-                                }
-                            }
-                            Pattern::Wildcard | Pattern::Binding(_) => {
-                                if default_arm.is_none() {
-                                    default_arm = Some((self.fresh_label("match_def"), idx));
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    let def_lbl = default_arm
-                        .as_ref()
-                        .map(|(l, _)| l.clone())
-                        .unwrap_or_else(|| merge_lbl.clone());
-
-                    let mut sw = format!("  switch i32 {tag}, label %{def_lbl} [");
-                    for (vtag, lbl, _) in &cases {
-                        let _ = write!(sw, " i32 {vtag}, label %{lbl}");
-                    }
-                    sw.push_str(" ]");
-                    self.line(&sw);
-                    self.terminated = true;
-
-                    for (_, lbl, idx) in cases {
-                        let arm = &arms[idx];
-                        self.start_block(&lbl);
-                        self.push_scope();
-                        let cond = self.emit_pattern_match(cg, &arm.pattern, &sval)?;
-                        let body_lbl = self.fresh_label("match_body");
-                        self.line(&format!(
-                            "  br i1 {cond}, label %{body_lbl}, label %{merge_lbl}"
-                        ));
-                        self.start_block(&body_lbl);
-                        self.emit_stmts(cg, &arm.body)?;
-                        self.pop_scope();
-                        if !self.terminated {
-                            self.line(&format!("  br label %{merge_lbl}"));
-                            self.terminated = true;
-                        }
-                    }
-                    if let Some((dlbl, idx)) = default_arm {
-                        let arm = &arms[idx];
-                        self.start_block(&dlbl);
-                        self.push_scope();
-                        let _ = self.emit_pattern_match(cg, &arm.pattern, &sval)?;
-                        self.emit_stmts(cg, &arm.body)?;
-                        self.pop_scope();
-                        if !self.terminated {
-                            self.line(&format!("  br label %{merge_lbl}"));
-                            self.terminated = true;
-                        }
-                    }
-                    self.start_block(&merge_lbl);
-                    return Ok(());
-                }
-
-                // General sequential match (guards, nested patterns, literal matches)
-                for arm in arms {
-                    let next_lbl = self.fresh_label("match_next");
-                    self.push_scope();
-                    let cond = self.emit_pattern_match(cg, &arm.pattern, &sval)?;
-                    let ok_lbl = self.fresh_label("match_ok");
-                    self.line(&format!(
-                        "  br i1 {cond}, label %{ok_lbl}, label %{next_lbl}"
-                    ));
-                    self.start_block(&ok_lbl);
-                    if let Some(ref g) = arm.guard {
-                        let gv = self.emit_expr(cg, g)?;
-                        let gok = self.fresh_label("match_gok");
-                        self.line(&format!(
-                            "  br i1 {}, label %{gok}, label %{next_lbl}",
-                            gv.reg
-                        ));
-                        self.start_block(&gok);
-                    }
-                    self.emit_stmts(cg, &arm.body)?;
-                    self.pop_scope();
-                    if !self.terminated {
-                        self.line(&format!("  br label %{merge_lbl}"));
-                        self.terminated = true;
-                    }
-                    self.start_block(&next_lbl);
-                }
-                if !self.terminated {
-                    self.line(&format!("  br label %{merge_lbl}"));
-                    self.terminated = true;
-                }
-                self.start_block(&merge_lbl);
-                Ok(())
-            }
-            StmtKind::For { target, iter, body } => {
-                // UNBOXED FAST PATH (`AC-05`, `AC-15`): `for i in start..end:` uses pure `i64` counter!
-                if let (ForTarget::Single(var_name), ExprKind::Range { start, end }) =
-                    (target, &iter.kind)
-                {
-                    let sv = self.emit_expr(cg, start)?;
-                    let ev = self.emit_expr(cg, end)?;
-                    let st = self.fresh_reg();
-                    let et = self.fresh_reg();
-                    let both_fast = self.fresh_reg();
-                    let s_i64 = self.fresh_reg();
-                    let e_i64 = self.fresh_reg();
-                    self.line(&format!("  {st} = extractvalue %DecInt {}, 0", sv.reg));
-                    self.line(&format!("  {et} = extractvalue %DecInt {}, 0", ev.reg));
-                    let or_t = self.fresh_reg();
-                    self.line(&format!("  {or_t} = or i8 {st}, {et}"));
-                    self.line(&format!("  {both_fast} = icmp eq i8 {or_t}, 0"));
-                    let ok_r = self.fresh_label("range_fast");
-                    let bad_r = self.fresh_label("range_oob");
-                    self.line(&format!(
-                        "  br i1 {both_fast}, label %{ok_r}, label %{bad_r}"
-                    ));
-                    self.start_block(&bad_r);
-                    let (mg, ml) = cg.intern_bytes(b"range endpoints outside i64 domain");
-                    self.line(&format!(
-                        "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
-                    ));
-                    self.emit_depth_dec();
-                    self.emit_default_ret();
-
-                    self.start_block(&ok_r);
-                    self.line(&format!("  {s_i64} = extractvalue %DecInt {}, 1", sv.reg));
-                    self.line(&format!("  {e_i64} = extractvalue %DecInt {}, 1", ev.reg));
-
-                    let idx_slot = self.alloc_temp("i64");
-                    self.line(&format!("  store i64 {s_i64}, ptr {idx_slot}"));
-                    let var_slot = self.alloc_local(var_name, Type::Int);
-
-                    let cond_lbl = self.fresh_label("for_cond");
-                    let body_lbl = self.fresh_label("for_body");
-                    let step_lbl = self.fresh_label("for_step");
-                    let end_lbl = self.fresh_label("for_end");
-                    self.line(&format!("  br label %{cond_lbl}"));
-
-                    self.start_block(&cond_lbl);
-                    let cur = self.fresh_reg();
-                    let cmp = self.fresh_reg();
-                    self.line(&format!("  {cur} = load i64, ptr {idx_slot}"));
-                    self.line(&format!("  {cmp} = icmp slt i64 {cur}, {e_i64}"));
-                    self.line(&format!(
-                        "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
-                    ));
-
-                    self.start_block(&body_lbl);
-                    self.emit_fuel_tick();
-                    let packed = self.fresh_reg();
-                    self.line(&format!(
-                        "  {packed} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {cur}, 1"
-                    ));
-                    self.line(&format!(
-                        "  store %DecInt {packed}, ptr {}",
-                        var_slot.alloca
-                    ));
-                    self.push_scope();
-                    self.scopes
-                        .last_mut()
-                        .unwrap()
-                        .insert(var_name.clone(), var_slot);
-                    self.loop_stack.push((step_lbl.clone(), end_lbl.clone()));
-                    self.emit_stmts(cg, body)?;
-                    self.loop_stack.pop();
-                    self.pop_scope();
-                    if !self.terminated {
-                        self.line(&format!("  br label %{step_lbl}"));
-                        self.terminated = true;
-                    }
-
-                    self.start_block(&step_lbl);
-                    let cur2 = self.fresh_reg();
-                    let next = self.fresh_reg();
-                    self.line(&format!("  {cur2} = load i64, ptr {idx_slot}"));
-                    self.line(&format!("  {next} = add nsw i64 {cur2}, 1"));
-                    self.line(&format!("  store i64 {next}, ptr {idx_slot}"));
-                    let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
-                    self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
-                    self.terminated = true;
-
-                    self.start_block(&end_lbl);
-                    return Ok(());
-                }
-
-                // General `for` over Range variable, List, or deterministic BTreeMap Map!
-                let it = self.emit_expr(cg, iter)?;
-                match it.dec_ty.unwrap_read_only().clone() {
-                    Type::Range => {
-                        let s_ptr = self.alloc_temp("i64");
-                        let e_ptr = self.alloc_temp("i64");
-                        self.line(&format!(
-                            "  call void @aod_rt_range_bounds(ptr %ctx, i64 {}, ptr {s_ptr}, ptr {e_ptr})",
-                            it.reg
-                        ));
-                        self.emit_fail_return_check();
-                        let s_i64 = self.fresh_reg();
-                        let e_i64 = self.fresh_reg();
-                        self.line(&format!("  {s_i64} = load i64, ptr {s_ptr}"));
-                        self.line(&format!("  {e_i64} = load i64, ptr {e_ptr}"));
-                        let var_name = match target {
-                            ForTarget::Single(v) => v.clone(),
-                            _ => "_".to_string(),
-                        };
-                        let idx_slot = self.alloc_temp("i64");
-                        self.line(&format!("  store i64 {s_i64}, ptr {idx_slot}"));
-                        let var_slot = self.alloc_local(&var_name, Type::Int);
-                        let cond_lbl = self.fresh_label("for_cond");
-                        let body_lbl = self.fresh_label("for_body");
-                        let step_lbl = self.fresh_label("for_step");
-                        let end_lbl = self.fresh_label("for_end");
-                        self.line(&format!("  br label %{cond_lbl}"));
-
-                        self.start_block(&cond_lbl);
-                        let cur = self.fresh_reg();
-                        let cmp = self.fresh_reg();
-                        self.line(&format!("  {cur} = load i64, ptr {idx_slot}"));
-                        self.line(&format!("  {cmp} = icmp slt i64 {cur}, {e_i64}"));
-                        self.line(&format!(
-                            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
-                        ));
-                        self.start_block(&body_lbl);
-                        self.emit_fuel_tick();
-                        let packed = self.fresh_reg();
-                        self.line(&format!(
-                            "  {packed} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {cur}, 1"
-                        ));
-                        self.line(&format!("  store %DecInt {packed}, ptr {}", var_slot.alloca));
-                        self.push_scope();
-                        self.scopes.last_mut().unwrap().insert(var_name, var_slot);
-                        self.loop_stack.push((step_lbl.clone(), end_lbl.clone()));
-                        self.emit_stmts(cg, body)?;
-                        self.loop_stack.pop();
-                        self.pop_scope();
-                        if !self.terminated {
-                            self.line(&format!("  br label %{step_lbl}"));
-                            self.terminated = true;
-                        }
-                        self.start_block(&step_lbl);
-                        let cur2 = self.fresh_reg();
-                        let next = self.fresh_reg();
-                        self.line(&format!("  {cur2} = load i64, ptr {idx_slot}"));
-                        self.line(&format!("  {next} = add i64 {cur2}, 1"));
-                        self.line(&format!("  store i64 {next}, ptr {idx_slot}"));
-                        self.line(&format!("  br label %{cond_lbl}"));
-                        self.terminated = true;
-                        self.start_block(&end_lbl);
-                    }
-                    Type::List(elem_ty) => {
-                        self.emit_for_over_list_handle(cg, &it.reg, &elem_ty, target, body)?;
-                    }
-                    Type::Map(k_ty, v_ty) => {
-                        let (list_h, elem_ty) = match target {
-                            ForTarget::Single(_) => {
-                                let lh = self.fresh_reg();
-                                self.line(&format!(
-                                    "  {lh} = call i64 @aod_rt_map_keys_list(ptr %ctx, i64 {})",
-                                    it.reg
-                                ));
-                                self.emit_fail_return_check();
-                                (lh, (*k_ty).clone())
-                            }
-                            ForTarget::Tuple(_) => {
-                                let lh = self.fresh_reg();
-                                self.line(&format!(
-                                    "  {lh} = call i64 @aod_rt_map_entries_list(ptr %ctx, i64 {})",
-                                    it.reg
-                                ));
-                                self.emit_fail_return_check();
-                                (lh, Type::Tuple(vec![(*k_ty).clone(), (*v_ty).clone()]))
-                            }
-                        };
-                        self.emit_for_over_list_handle(cg, &list_h, &elem_ty, target, body)?;
-                    }
-                    _ => {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::RuntimeError,
-                            stmt.line,
-                            "codegen: unsupported for iterable",
-                        ));
-                    }
-                }
-                Ok(())
-            }
-            StmtKind::While { cond, body } => {
-                let cond_lbl = self.fresh_label("while_cond");
-                let body_lbl = self.fresh_label("while_body");
-                let end_lbl = self.fresh_label("while_end");
-                self.line(&format!("  br label %{cond_lbl}"));
-
-                self.start_block(&cond_lbl);
-                self.emit_fuel_tick();
-                let cv = self.emit_expr(cg, cond)?;
-                self.line(&format!(
-                    "  br i1 {}, label %{body_lbl}, label %{end_lbl}",
-                    cv.reg
-                ));
-
-                self.start_block(&body_lbl);
-                self.push_scope();
-                self.loop_stack.push((cond_lbl.clone(), end_lbl.clone()));
-                self.emit_stmts(cg, body)?;
-                self.loop_stack.pop();
-                self.pop_scope();
-                if !self.terminated {
-                    let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
-                    self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
-                    self.terminated = true;
-                }
-                self.start_block(&end_lbl);
-                Ok(())
-            }
-            StmtKind::Break => {
-                let (_, brk) = self.loop_stack.last().cloned().ok_or_else(|| {
-                    Diagnostic::at_line(DiagnosticCode::RuntimeError, stmt.line, "break outside loop")
-                })?;
-                self.line(&format!("  br label %{brk}"));
-                self.terminated = true;
-                Ok(())
-            }
-            StmtKind::Continue => {
-                let (cont, _) = self.loop_stack.last().cloned().ok_or_else(|| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        stmt.line,
-                        "continue outside loop",
-                    )
-                })?;
-                self.line(&format!("  br label %{cont}"));
-                self.terminated = true;
                 Ok(())
             }
             StmtKind::Pass => Ok(()),
@@ -2135,106 +1532,6 @@ impl FnBuilder {
         }
     }
 
-    fn emit_for_over_list_handle(
-        &mut self,
-        cg: &mut Codegen<'_>,
-        list_h: &str,
-        elem_ty: &Type,
-        target: &ForTarget,
-        body: &[Stmt],
-    ) -> DecResult<()> {
-        let len_r = self.fresh_reg();
-        self.line(&format!(
-            "  {len_r} = call i64 @aod_rt_list_len_raw(ptr %ctx, i64 {list_h})"
-        ));
-        self.emit_fail_return_check();
-        let idx_slot = self.alloc_temp("i64");
-        self.line(&format!("  store i64 0, ptr {idx_slot}"));
-
-        let cond_lbl = self.fresh_label("fl_cond");
-        let body_lbl = self.fresh_label("fl_body");
-        let step_lbl = self.fresh_label("fl_step");
-        let end_lbl = self.fresh_label("fl_end");
-        self.line(&format!("  br label %{cond_lbl}"));
-
-        self.start_block(&cond_lbl);
-        let cur = self.fresh_reg();
-        let cmp = self.fresh_reg();
-        self.line(&format!("  {cur} = load i64, ptr {idx_slot}"));
-        self.line(&format!("  {cmp} = icmp slt i64 {cur}, {len_r}"));
-        self.line(&format!(
-            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
-        ));
-
-        self.start_block(&body_lbl);
-        self.emit_fuel_tick();
-        let idx_dec = self.fresh_reg();
-        self.line(&format!(
-            "  {idx_dec} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {cur}, 1"
-        ));
-        let ip = self.store_temp_int(&idx_dec);
-        let elem_h = self.fresh_reg();
-        self.line(&format!(
-            "  {elem_h} = call i64 @aod_rt_list_get(ptr %ctx, i64 {list_h}, ptr {ip})"
-        ));
-        self.emit_fail_return_check();
-
-        self.push_scope();
-        match target {
-            ForTarget::Single(vname) => {
-                let ev = self.unbox_handle_to_val(&elem_h, elem_ty);
-                let slot = self.alloc_local(vname, elem_ty.clone());
-                let lt = LlvmTy::from_dec(elem_ty);
-                if lt != LlvmTy::Void {
-                    self.line(&format!("  store {} {}, ptr {}", lt.ir(), ev.reg, slot.alloca));
-                }
-                self.scopes.last_mut().unwrap().insert(vname.clone(), slot);
-            }
-            ForTarget::Tuple(vars) => {
-                if let Type::Tuple(etys) = elem_ty {
-                    for (i, (vn, et)) in vars.iter().zip(etys).enumerate() {
-                        let fh = self.fresh_reg();
-                        self.line(&format!(
-                            "  {fh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {elem_h}, i64 {i})"
-                        ));
-                        self.emit_fail_return_check();
-                        let fv = self.unbox_handle_to_val(&fh, et);
-                        let slot = self.alloc_local(vn, et.clone());
-                        let lt = LlvmTy::from_dec(et);
-                        if lt != LlvmTy::Void {
-                            self.line(&format!(
-                                "  store {} {}, ptr {}",
-                                lt.ir(),
-                                fv.reg,
-                                slot.alloca
-                            ));
-                        }
-                        self.scopes.last_mut().unwrap().insert(vn.clone(), slot);
-                    }
-                }
-            }
-        }
-        self.loop_stack.push((step_lbl.clone(), end_lbl.clone()));
-        self.emit_stmts(cg, body)?;
-        self.loop_stack.pop();
-        self.pop_scope();
-        if !self.terminated {
-            self.line(&format!("  br label %{step_lbl}"));
-            self.terminated = true;
-        }
-
-        self.start_block(&step_lbl);
-        let c2 = self.fresh_reg();
-        let nxt = self.fresh_reg();
-        self.line(&format!("  {c2} = load i64, ptr {idx_slot}"));
-        self.line(&format!("  {nxt} = add nsw i64 {c2}, 1"));
-        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
-        self.line(&format!("  br label %{cond_lbl}"));
-        self.terminated = true;
-        self.start_block(&end_lbl);
-        Ok(())
-    }
-
     // ==================== Pattern Matching ====================
 
     fn emit_pattern_match(
@@ -2244,7 +1541,7 @@ impl FnBuilder {
         val: &Val,
     ) -> DecResult<String> {
         match pat {
-            Pattern::Wildcard => Ok("true".to_string()),
+            Pattern::Wildcard | Pattern::NullLit => Ok("true".to_string()),
             Pattern::Binding(name) => {
                 let slot = self.alloc_local(name, val.dec_ty.clone());
                 let lt = val.llvm_ty();
@@ -2258,12 +1555,12 @@ impl FnBuilder {
                 let lit = self.emit_bigint_lit(cg, n);
                 let cmp = self.fresh_reg();
                 self.line(&format!(
-                    "  {cmp} = call i32 @__aod_int_cmp(ptr %ctx, %DecInt {}, %DecInt {})",
+                    "  {cmp} = call i8 @__aod_int_cmp(ptr %ctx, i64 {}, i64 {})",
                     val.reg, lit.reg
                 ));
                 self.emit_fail_return_check();
                 let eq = self.fresh_reg();
-                self.line(&format!("  {eq} = icmp eq i32 {cmp}, 0"));
+                self.line(&format!("  {eq} = icmp eq i8 {cmp}, 0"));
                 Ok(eq)
             }
             Pattern::BoolLit(b) => {
@@ -2292,16 +1589,28 @@ impl FnBuilder {
                 self.line(&format!("  {r} = icmp ne i8 {eq8}, 0"));
                 Ok(r)
             }
+            Pattern::BytesLit(bs) => {
+                let bh = self.emit_bytes_handle(cg, bs);
+                let eq8 = self.fresh_reg();
+                self.line(&format!(
+                    "  {eq8} = call i8 @aod_rt_handle_eq(ptr %ctx, i64 {}, i64 {bh})",
+                    val.reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = icmp ne i8 {eq8}, 0"));
+                Ok(r)
+            }
             Pattern::RatioLit(rat) => {
                 let lit = self.emit_ratio_lit(cg, rat);
                 let cmp = self.fresh_reg();
                 self.line(&format!(
-                    "  {cmp} = call i32 @__aod_ratio_cmp(ptr %ctx, %DecRatio {}, %DecRatio {})",
+                    "  {cmp} = call i8 @__aod_ratio_cmp(ptr %ctx, %DecRatio {}, %DecRatio {})",
                     val.reg, lit.reg
                 ));
                 self.emit_fail_return_check();
                 let r = self.fresh_reg();
-                self.line(&format!("  {r} = icmp eq i32 {cmp}, 0"));
+                self.line(&format!("  {r} = icmp eq i8 {cmp}, 0"));
                 Ok(r)
             }
             Pattern::Addr8Lit(a) => {
@@ -2416,25 +1725,19 @@ impl FnBuilder {
     // ==================== Expressions ====================
 
     fn emit_bigint_lit(&mut self, cg: &mut Codegen<'_>, n: &BigInt) -> Val {
-        if let Some(i) = n.to_i64() {
-            let r = self.fresh_reg();
-            self.line(&format!(
-                "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {i}, 1"
-            ));
+        if let Some(w) = n.inline_word() {
             Val {
-                reg: r,
+                reg: (w as i64).to_string(),
                 dec_ty: Type::Int,
             }
         } else {
             let dec_s = n.to_decimal_string();
             let (g, len) = cg.intern_bytes(dec_s.as_bytes());
-            let out = self.alloc_temp("%DecInt");
+            let r = self.fresh_reg();
             self.line(&format!(
-                "  call void @aod_rt_int_from_str(ptr %ctx, ptr {g}, i64 {len}, ptr {out})"
+                "  {r} = call i64 @aod_rt_int_from_str(ptr %ctx, ptr {g}, i64 {len})"
             ));
             self.emit_fail_return_check();
-            let r = self.fresh_reg();
-            self.line(&format!("  {r} = load %DecInt, ptr {out}"));
             Val {
                 reg: r,
                 dec_ty: Type::Int,
@@ -2442,16 +1745,10 @@ impl FnBuilder {
         }
     }
 
-    fn emit_ratio_lit(&mut self, cg: &mut Codegen<'_>, rat: &aod_core::ratio::Ratio) -> Val {
-        if let (Some(n), Some(d)) = (rat.num().to_i64(), rat.den().to_i64()) {
-            let r1 = self.fresh_reg();
-            let r2 = self.fresh_reg();
-            self.line(&format!(
-                "  {r1} = insertvalue %DecRatio {{ i8 0, i64 0, i64 1 }}, i64 {n}, 1"
-            ));
-            self.line(&format!("  {r2} = insertvalue %DecRatio {r1}, i64 {d}, 2"));
+    fn emit_ratio_lit(&mut self, cg: &mut Codegen<'_>, rat: &Ratio) -> Val {
+        if let Some((nw, dw)) = rat.inline_words() {
             Val {
-                reg: r2,
+                reg: format!("{{ i64 {}, i64 {} }}", nw as i64, dw as i64),
                 dec_ty: Type::Ratio,
             }
         } else {
@@ -2474,7 +1771,20 @@ impl FnBuilder {
     }
 
     fn emit_expr(&mut self, cg: &mut Codegen<'_>, expr: &Expr) -> DecResult<Val> {
+        self.emit_expr_with_hint(cg, expr, None)
+    }
+
+    fn emit_expr_with_hint(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        expr: &Expr,
+        hint: Option<&Type>,
+    ) -> DecResult<Val> {
         match &expr.kind {
+            ExprKind::NullLit => Ok(Val {
+                reg: (TAG_NULL_SENTINEL as i64).to_string(),
+                dec_ty: Type::Null,
+            }),
             ExprKind::IntLit(n) => Ok(self.emit_bigint_lit(cg, n)),
             ExprKind::BoolLit(b) => Ok(Val {
                 reg: if *b { "true" } else { "false" }.to_string(),
@@ -2485,6 +1795,13 @@ impl FnBuilder {
                 Ok(Val {
                     reg: h,
                     dec_ty: Type::Str,
+                })
+            }
+            ExprKind::BytesLit(bs) => {
+                let h = self.emit_bytes_handle(cg, bs);
+                Ok(Val {
+                    reg: h,
+                    dec_ty: Type::Bytes,
                 })
             }
             ExprKind::RatioLit(rat) => Ok(self.emit_ratio_lit(cg, rat)),
@@ -2512,16 +1829,10 @@ impl FnBuilder {
                     dec_ty: Type::Support,
                 })
             }
-            ExprKind::TritLit(tl) => {
-                let v = match tl {
-                    TritLiteral::One => "1",
-                    TritLiteral::Zero | TritLiteral::Hinge0H | TritLiteral::Dwell0D => "0",
-                };
-                Ok(Val {
-                    reg: v.to_string(),
-                    dec_ty: Type::T1,
-                })
-            }
+            ExprKind::TritLit(tl) => Ok(Val {
+                reg: tl.to_t1().value().to_string(),
+                dec_ty: Type::T1,
+            }),
             ExprKind::Ident(name) => {
                 if let Some(slot) = self.lookup_var(name) {
                     let lt = LlvmTy::from_dec(&slot.dec_ty);
@@ -2607,20 +1918,42 @@ impl FnBuilder {
                     format!("codegen: undefined path {}", segs.join("::")),
                 ))
             }
-            ExprKind::List(items) => {
-                let mut elem_ty = Type::Unknown;
+            ExprKind::SeqLit(items) => {
+                let elem_hint: Option<&Type> = match hint.map(Type::unwrap_read_only) {
+                    Some(Type::Array(e, _) | Type::List(e)) => Some(e),
+                    _ => None,
+                };
+                if items.is_empty() {
+                    let et = elem_hint.cloned().unwrap_or(Type::Unknown);
+                    let h = self.emit_handle_array_call("aod_rt_list_new", &[]);
+                    return Ok(Val {
+                        reg: h,
+                        dec_ty: Type::List(Box::new(et)),
+                    });
+                }
+                let mut elem_ty = elem_hint.cloned().unwrap_or(Type::Unknown);
                 let mut handles = Vec::with_capacity(items.len());
                 for it in items {
-                    let v = self.emit_expr(cg, it)?;
+                    let v = self.emit_expr_with_hint(cg, it, elem_hint)?;
                     if elem_ty == Type::Unknown {
                         elem_ty = v.dec_ty.clone();
                     }
                     handles.push(self.box_val_to_handle(&v));
                 }
-                let h = self.emit_handle_array_call("aod_rt_list_new", &handles);
+                let want_list = matches!(hint.map(Type::unwrap_read_only), Some(Type::List(_)));
+                let h = if want_list {
+                    self.emit_handle_array_call("aod_rt_list_new", &handles)
+                } else {
+                    self.emit_handle_array_call("aod_rt_array_new", &handles)
+                };
+                let out_ty = if want_list {
+                    Type::List(Box::new(elem_ty))
+                } else {
+                    Type::Array(Box::new(elem_ty), items.len())
+                };
                 Ok(Val {
                     reg: h,
-                    dec_ty: Type::List(Box::new(elem_ty)),
+                    dec_ty: out_ty,
                 })
             }
             ExprKind::Tuple(elems) => {
@@ -2630,10 +1963,15 @@ impl FnBuilder {
                         dec_ty: Type::Unit,
                     });
                 }
+                let hint_elems: Option<&[Type]> = match hint.map(Type::unwrap_read_only) {
+                    Some(Type::Tuple(ts)) if ts.len() == elems.len() => Some(ts.as_slice()),
+                    _ => None,
+                };
                 let mut tys = Vec::with_capacity(elems.len());
                 let mut handles = Vec::with_capacity(elems.len());
-                for e in elems {
-                    let v = self.emit_expr(cg, e)?;
+                for (i, e) in elems.iter().enumerate() {
+                    let eh = hint_elems.map(|ts| &ts[i]);
+                    let v = self.emit_expr_with_hint(cg, e, eh)?;
                     tys.push(v.dec_ty.clone());
                     handles.push(self.box_val_to_handle(&v));
                 }
@@ -2644,15 +1982,21 @@ impl FnBuilder {
                 })
             }
             ExprKind::MapLit(entries) => {
-                let mut kt = Type::Unknown;
-                let mut vt = Type::Unknown;
+                let (k_hint, v_hint) = match hint.map(Type::unwrap_read_only) {
+                    Some(Type::Map(k, v)) => (Some(k.as_ref()), Some(v.as_ref())),
+                    _ => (None, None),
+                };
+                let mut kt = k_hint.cloned().unwrap_or(Type::Unknown);
+                let mut vt = v_hint.cloned().unwrap_or(Type::Unknown);
                 let mut khs = Vec::with_capacity(entries.len());
                 let mut vhs = Vec::with_capacity(entries.len());
                 for (ke, ve) in entries {
-                    let kv = self.emit_expr(cg, ke)?;
-                    let vv = self.emit_expr(cg, ve)?;
+                    let kv = self.emit_expr_with_hint(cg, ke, k_hint)?;
+                    let vv = self.emit_expr_with_hint(cg, ve, v_hint)?;
                     if kt == Type::Unknown {
                         kt = kv.dec_ty.clone();
+                    }
+                    if vt == Type::Unknown {
                         vt = vv.dec_ty.clone();
                     }
                     khs.push(self.box_val_to_handle(&kv));
@@ -2692,32 +2036,13 @@ impl FnBuilder {
                     dec_ty: Type::Map(Box::new(kt), Box::new(vt)),
                 })
             }
-            ExprKind::StructLit { path, fields } => {
-                let sm = cg
-                    .resolve_struct(&self.mod_key, path)
-                    .cloned()
-                    .ok_or_else(|| {
-                        Diagnostic::at_line(
-                            DiagnosticCode::RuntimeError,
-                            expr.line,
-                            format!("codegen: unknown struct {}", path.join("::")),
-                        )
-                    })?;
-                let mut pairs: Vec<(String, Val)> = Vec::with_capacity(fields.len());
-                for (fname, fexpr) in fields {
-                    let v = self.emit_expr(cg, fexpr)?;
-                    pairs.push((fname.clone(), v));
-                }
-                self.emit_struct_construct(cg, &sm, &pairs)
-            }
             ExprKind::WindowLit { start, end } => {
                 let u = self.emit_expr(cg, start)?;
                 let v = self.emit_expr(cg, end)?;
-                let up = self.store_temp_int(&u.reg);
-                let vp = self.store_temp_int(&v.reg);
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @aod_rt_window_new(ptr %ctx, ptr {up}, ptr {vp})"
+                    "  {r} = call i64 @aod_rt_window_new(ptr %ctx, i64 {}, i64 {})",
+                    u.reg, v.reg
                 ));
                 self.emit_fail_return_check();
                 Ok(Val {
@@ -2728,11 +2053,10 @@ impl FnBuilder {
             ExprKind::Range { start, end } => {
                 let a = self.emit_expr(cg, start)?;
                 let b = self.emit_expr(cg, end)?;
-                let ap = self.store_temp_int(&a.reg);
-                let bp = self.store_temp_int(&b.reg);
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @aod_rt_range_new(ptr %ctx, ptr {ap}, ptr {bp})"
+                    "  {r} = call i64 @aod_rt_range_new(ptr %ctx, i64 {}, i64 {})",
+                    a.reg, b.reg
                 ));
                 self.emit_fail_return_check();
                 Ok(Val {
@@ -2762,149 +2086,129 @@ impl FnBuilder {
             } => self.emit_simulate(cg, prepare, ticks, observers, expr.line),
             ExprKind::Unary { op, operand } => {
                 let v = self.emit_expr(cg, operand)?;
-                self.emit_unary(*op, v)
+                self.emit_unary(cg, *op, v, expr.line)
             }
+            ExprKind::Adverb { op, operand } => self.emit_adverb_expr(cg, *op, operand, expr.line),
             ExprKind::Binary { op, left, right } => {
-                // Short-circuit `and` / `or` via PHI blocks (untaken branch has zero effects!)
                 if matches!(op, BinaryOp::And | BinaryOp::Or) {
                     let lv = self.emit_expr(cg, left)?;
-                    let lhs_lbl = self.fresh_label("sc_lhs");
-                    let rhs_lbl = self.fresh_label("sc_rhs");
-                    let join_lbl = self.fresh_label("sc_join");
-                    let res_slot = self.alloc_temp("i1");
-                    self.line(&format!("  store i1 {}, ptr {res_slot}", lv.reg));
-                    if *op == BinaryOp::And {
-                        self.line(&format!(
-                            "  br i1 {}, label %{rhs_lbl}, label %{lhs_lbl}",
-                            lv.reg
-                        ));
-                    } else {
-                        self.line(&format!(
-                            "  br i1 {}, label %{lhs_lbl}, label %{rhs_lbl}",
-                            lv.reg
-                        ));
-                    }
-                    self.start_block(&lhs_lbl);
-                    self.line(&format!("  br label %{join_lbl}"));
-                    self.start_block(&rhs_lbl);
-                    let rv = self.emit_expr(cg, right)?;
-                    self.line(&format!("  store i1 {}, ptr {res_slot}", rv.reg));
-                    if !self.terminated {
+                    if matches!(lv.dec_ty.unwrap_read_only(), Type::Bool)
+                        || matches!(lv.dec_ty.unwrap_read_only(), Type::QExt(inner) if **inner == Type::Bool)
+                    {
+                        let lhs_lbl = self.fresh_label("sc_lhs");
+                        let rhs_lbl = self.fresh_label("sc_rhs");
+                        let join_lbl = self.fresh_label("sc_join");
+                        let res_slot = self.alloc_temp("i1");
+                        self.line(&format!("  store i1 {}, ptr {res_slot}", lv.reg));
+                        if *op == BinaryOp::And {
+                            self.line(&format!(
+                                "  br i1 {}, label %{rhs_lbl}, label %{lhs_lbl}",
+                                lv.reg
+                            ));
+                        } else {
+                            self.line(&format!(
+                                "  br i1 {}, label %{lhs_lbl}, label %{rhs_lbl}",
+                                lv.reg
+                            ));
+                        }
+                        self.start_block(&lhs_lbl);
                         self.line(&format!("  br label %{join_lbl}"));
-                        self.terminated = true;
+                        self.start_block(&rhs_lbl);
+                        let rv = self.emit_expr(cg, right)?;
+                        self.line(&format!("  store i1 {}, ptr {res_slot}", rv.reg));
+                        if !self.terminated {
+                            self.line(&format!("  br label %{join_lbl}"));
+                            self.terminated = true;
+                        }
+                        self.start_block(&join_lbl);
+                        let out = self.fresh_reg();
+                        self.line(&format!("  {out} = load i1, ptr {res_slot}"));
+                        return Ok(Val {
+                            reg: out,
+                            dec_ty: lv.dec_ty,
+                        });
                     }
-                    self.start_block(&join_lbl);
-                    let out = self.fresh_reg();
-                    self.line(&format!("  {out} = load i1, ptr {res_slot}"));
-                    return Ok(Val {
-                        reg: out,
-                        dec_ty: lv.dec_ty,
-                    });
+                    let rv = self.emit_expr(cg, right)?;
+                    return self.emit_binary(cg, *op, lv, rv, expr.line);
                 }
                 let lv = self.emit_expr(cg, left)?;
                 let rv = self.emit_expr(cg, right)?;
-                self.emit_binary(cg, *op, lv, rv)
+                self.emit_binary(cg, *op, lv, rv, expr.line)
             }
-            ExprKind::Ternary { cond, yes, no } => {
-                // Sound P0-3 branchless `select` lowering when both arms pass strict whitelist
-                if cg.plan.branchless_select
-                    && self.is_pure_select_safe(cg, yes)
-                    && self.is_pure_select_safe(cg, no)
-                {
-                    let cv = self.emit_expr(cg, cond)?;
-                    let yv = self.emit_expr(cg, yes)?;
-                    let nv = self.emit_expr(cg, no)?;
-                    let lt = yv.llvm_ty();
-                    if lt != LlvmTy::Void {
-                        let sel = self.fresh_reg();
-                        self.line(&format!(
-                            "  {sel} = select i1 {}, {} {}, {} {}",
-                            cv.reg,
-                            lt.ir(),
-                            yv.reg,
-                            lt.ir(),
-                            nv.reg
-                        ));
-                        return Ok(Val {
-                            reg: sel,
-                            dec_ty: yv.dec_ty,
-                        });
-                    }
-                    return Ok(Val {
-                        reg: String::new(),
-                        dec_ty: yv.dec_ty,
-                    });
-                }
-
-                let cv = self.emit_expr(cg, cond)?;
-                let y_lbl = self.fresh_label("tern_yes");
-                let n_lbl = self.fresh_label("tern_no");
-                let j_lbl = self.fresh_label("tern_join");
-                self.line(&format!(
-                    "  br i1 {}, label %{y_lbl}, label %{n_lbl}",
-                    cv.reg
-                ));
-                self.start_block(&y_lbl);
-                let yv = self.emit_expr(cg, yes)?;
-                let lt = yv.llvm_ty();
-                let res_slot = if lt != LlvmTy::Void {
-                    let s = self.alloc_temp(lt.ir());
-                    self.line(&format!("  store {} {}, ptr {s}", lt.ir(), yv.reg));
-                    Some(s)
-                } else {
-                    None
-                };
-                if !self.terminated {
-                    self.line(&format!("  br label %{j_lbl}"));
-                    self.terminated = true;
-                }
-                self.start_block(&n_lbl);
-                let nv = self.emit_expr(cg, no)?;
-                if let Some(ref s) = res_slot {
-                    self.line(&format!("  store {} {}, ptr {s}", lt.ir(), nv.reg));
-                }
-                if !self.terminated {
-                    self.line(&format!("  br label %{j_lbl}"));
-                    self.terminated = true;
-                }
-                self.start_block(&j_lbl);
-                let reg = if let Some(s) = res_slot {
-                    let r = self.fresh_reg();
-                    self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
-                    r
-                } else {
-                    String::new()
-                };
-                Ok(Val {
-                    reg,
-                    dec_ty: yv.dec_ty,
-                })
+            ExprKind::Pipe { input, stage } => {
+                self.emit_pipe_expr(cg, input, stage, hint, expr.line)
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                self.emit_match_expr(cg, scrutinee, arms, hint, expr.line)
             }
             ExprKind::Field { base, name } => {
                 let bv = self.emit_expr(cg, base)?;
-                let field_ty = self.resolve_field_type(cg, &bv.dec_ty, name, expr.line)?;
-                let (fg, flen) = cg.intern_bytes(name.as_bytes());
-                let fh = self.fresh_reg();
-                self.line(&format!(
-                    "  {fh} = call i64 @aod_rt_field_get(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
-                    bv.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(self.unbox_handle_to_val(&fh, &field_ty))
+                match bv.dec_ty.unwrap_read_only().clone() {
+                    Type::Array(elem_ty, n) => {
+                        let ft = self.resolve_field_type(cg, &elem_ty, name, expr.line)?;
+                        let (fg, flen) = cg.intern_bytes(name.as_bytes());
+                        let fh = self.fresh_reg();
+                        self.line(&format!(
+                            "  {fh} = call i64 @aod_rt_field_get(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
+                            bv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: fh,
+                            dec_ty: Type::Array(Box::new(ft), n),
+                        })
+                    }
+                    Type::List(elem_ty) => {
+                        let ft = self.resolve_field_type(cg, &elem_ty, name, expr.line)?;
+                        let (fg, flen) = cg.intern_bytes(name.as_bytes());
+                        let fh = self.fresh_reg();
+                        self.line(&format!(
+                            "  {fh} = call i64 @aod_rt_field_get(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
+                            bv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: fh,
+                            dec_ty: Type::List(Box::new(ft)),
+                        })
+                    }
+                    _ => {
+                        let field_ty = self.resolve_field_type(cg, &bv.dec_ty, name, expr.line)?;
+                        let (fg, flen) = cg.intern_bytes(name.as_bytes());
+                        let fh = self.fresh_reg();
+                        self.line(&format!(
+                            "  {fh} = call i64 @aod_rt_field_get(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
+                            bv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(self.unbox_handle_to_val(&fh, &field_ty))
+                    }
+                }
             }
             ExprKind::Index { base, index } => {
                 let bv = self.emit_expr(cg, base)?;
                 let iv = self.emit_expr(cg, index)?;
                 match bv.dec_ty.unwrap_read_only().clone() {
-                    Type::List(elem_ty) => {
-                        let ip = self.store_temp_int(&iv.reg);
+                    Type::Array(elem_ty, _) | Type::List(elem_ty) => {
                         let eh = self.fresh_reg();
                         self.line(&format!(
-                            "  {eh} = call i64 @aod_rt_list_get(ptr %ctx, i64 {}, ptr {ip})",
-                            bv.reg
+                            "  {eh} = call i64 @aod_rt_seq_get(ptr %ctx, i64 {}, i64 {})",
+                            bv.reg, iv.reg
                         ));
                         self.emit_fail_return_check();
                         Ok(self.unbox_handle_to_val(&eh, &elem_ty))
+                    }
+                    Type::Bytes => {
+                        let b = self.fresh_reg();
+                        self.line(&format!(
+                            "  {b} = call i8 @aod_rt_bytes_get(ptr %ctx, i64 {}, i64 {})",
+                            bv.reg, iv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: b,
+                            dec_ty: Type::B8,
+                        })
                     }
                     Type::Map(_, v_ty) => {
                         let kh = self.box_val_to_handle(&iv);
@@ -2923,8 +2227,794 @@ impl FnBuilder {
                     )),
                 }
             }
-            ExprKind::Call { callee, args } => self.emit_call(cg, callee, args, expr.line),
+            ExprKind::Call { callee, args } => {
+                self.emit_call_with_prepended(cg, None, callee, args, hint, expr.line)
+            }
         }
+    }
+
+    fn emit_match_expr(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        scrutinee: &Expr,
+        arms: &[MatchExprArm],
+        hint: Option<&Type>,
+        line: usize,
+    ) -> DecResult<Val> {
+        let sval = self.emit_expr(cg, scrutinee)?;
+        let merge_lbl = self.fresh_label("match_merge");
+        let mut res_slot: Option<(String, Type)> = None;
+
+        for arm in arms {
+            let next_lbl = self.fresh_label("match_next");
+            self.push_scope();
+            let cond = self.emit_pattern_match(cg, &arm.pattern, &sval)?;
+            let ok_lbl = self.fresh_label("match_ok");
+            self.line(&format!(
+                "  br i1 {cond}, label %{ok_lbl}, label %{next_lbl}"
+            ));
+            self.start_block(&ok_lbl);
+            if let Some(ref g) = arm.guard {
+                let gv = self.emit_expr(cg, g)?;
+                let gok = self.fresh_label("match_gok");
+                self.line(&format!(
+                    "  br i1 {}, label %{gok}, label %{next_lbl}",
+                    gv.reg
+                ));
+                self.start_block(&gok);
+            }
+            let effective_hint = res_slot.as_ref().map(|(_, t)| t).or(hint).cloned();
+            let body_val = self.emit_expr_with_hint(cg, &arm.body, effective_hint.as_ref())?;
+            if res_slot.is_none() {
+                let target_ty = if type_contains_unknown(&body_val.dec_ty) {
+                    hint.cloned().unwrap_or(body_val.dec_ty.clone())
+                } else {
+                    body_val.dec_ty.clone()
+                };
+                let lt = LlvmTy::from_dec(&target_ty);
+                let slot = if lt != LlvmTy::Void {
+                    self.alloc_temp(lt.ir())
+                } else {
+                    String::new()
+                };
+                res_slot = Some((slot, target_ty));
+            }
+            if let Some((ref slot, ref target_ty)) = res_slot {
+                let lt = LlvmTy::from_dec(target_ty);
+                if lt != LlvmTy::Void && !self.terminated {
+                    self.line(&format!("  store {} {}, ptr {slot}", lt.ir(), body_val.reg));
+                }
+            }
+            self.pop_scope();
+            if !self.terminated {
+                self.line(&format!("  br label %{merge_lbl}"));
+                self.terminated = true;
+            }
+            self.start_block(&next_lbl);
+        }
+
+        if !self.terminated {
+            let (mg, ml) = cg.intern_bytes(b"non-exhaustive match at runtime");
+            self.line(&format!(
+                "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
+            ));
+            self.emit_depth_dec();
+            self.emit_default_ret();
+        }
+        self.start_block(&merge_lbl);
+
+        let Some((slot, out_ty)) = res_slot else {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                "codegen: empty match arms",
+            ));
+        };
+        let lt = LlvmTy::from_dec(&out_ty);
+        if lt == LlvmTy::Void {
+            Ok(Val {
+                reg: String::new(),
+                dec_ty: out_ty,
+            })
+        } else {
+            let r = self.fresh_reg();
+            self.line(&format!("  {r} = load {}, ptr {slot}", lt.ir()));
+            Ok(Val {
+                reg: r,
+                dec_ty: out_ty,
+            })
+        }
+    }
+
+    fn emit_pipe_expr(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        input: &Expr,
+        stage: &PipeStage,
+        hint: Option<&Type>,
+        line: usize,
+    ) -> DecResult<Val> {
+        // Stream-fusion fast path: `(mask ?> vals) |> fold_adverb` or `(a..b) |> fold_adverb`
+        if let PipeStage::Adverb(op) = stage {
+            return self.emit_adverb_expr(cg, *op, input, line);
+        }
+        let in_val = self.emit_expr(cg, input)?;
+        match stage {
+            PipeStage::Adverb(_) => unreachable!(),
+            PipeStage::Boundary => self.emit_unary(cg, UnaryOp::Boundary, in_val, line),
+            PipeStage::Section { op, rhs } => {
+                let lv = self.materialize_if_range(in_val);
+                let rv = self.emit_expr(cg, rhs)?;
+                self.emit_binary(cg, *op, lv, rv, line)
+            }
+            PipeStage::Call { callee, extra_args } => {
+                self.emit_call_with_prepended(cg, Some(in_val), callee, extra_args, hint, line)
+            }
+        }
+    }
+
+    fn materialize_if_range(&mut self, v: Val) -> Val {
+        if *v.dec_ty.unwrap_read_only() == Type::Range {
+            let lh = self.fresh_reg();
+            self.line(&format!(
+                "  {lh} = call i64 @aod_rt_range_to_list(ptr %ctx, i64 {})",
+                v.reg
+            ));
+            self.emit_fail_return_check();
+            Val {
+                reg: lh,
+                dec_ty: Type::List(Box::new(Type::Int)),
+            }
+        } else {
+            v
+        }
+    }
+
+    // ==================== Adverbs & Stream Fusion ====================
+
+    fn emit_adverb_expr(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        operand: &Expr,
+        line: usize,
+    ) -> DecResult<Val> {
+        let is_scan = matches!(
+            op,
+            AdverbOp::ScanAdd | AdverbOp::ScanMul | AdverbOp::ScanMin | AdverbOp::ScanMax
+        );
+
+        // Stream Fusion 1: `(mask ?> vals) |> fold_adverb` with ZERO intermediate list allocation!
+        if !is_scan && !matches!(op, AdverbOp::FoldMin | AdverbOp::FoldMax) {
+            if let ExprKind::Binary {
+                op: BinaryOp::Sieve,
+                left: mask_expr,
+                right: vals_expr,
+            } = &operand.kind
+            {
+                let mv = self.emit_expr(cg, mask_expr)?;
+                let vv = self.emit_expr(cg, vals_expr)?;
+                let mv = self.materialize_if_range(mv);
+                let vv = self.materialize_if_range(vv);
+                let elem_ty = seq_elem_type(&vv.dec_ty).unwrap_or(Type::Int);
+                return self.emit_fused_sieve_fold(cg, op, &mv.reg, &vv.reg, &elem_ty, line);
+            }
+        }
+
+        // Stream Fusion 2: `(start..end) |> fold_adverb` in pure unboxed i64 registers!
+        if matches!(op, AdverbOp::FoldAdd | AdverbOp::FoldMul) {
+            if let ExprKind::Range { start, end } = &operand.kind {
+                let sv = self.emit_expr(cg, start)?;
+                let ev = self.emit_expr(cg, end)?;
+                return self.emit_fused_range_fold(cg, op, &sv.reg, &ev.reg);
+            }
+        }
+
+        let seq_val = self.emit_expr(cg, operand)?;
+        let seq_val = self.materialize_if_range(seq_val);
+        let (elem_ty, fixed_len) = match seq_val.dec_ty.unwrap_read_only().clone() {
+            Type::Array(e, n) => ((*e).clone(), Some(n)),
+            Type::List(e) => ((*e).clone(), None),
+            other => {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: adverb expects sequence, got {other}"),
+                ));
+            }
+        };
+
+        if is_scan {
+            self.emit_scan_loop(cg, op, &seq_val.reg, &elem_ty, fixed_len, line)
+        } else {
+            self.emit_fold_loop(cg, op, &seq_val.reg, &elem_ty, line)
+        }
+    }
+
+    fn emit_fused_range_fold(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        start_reg: &str,
+        end_reg: &str,
+    ) -> DecResult<Val> {
+        let rh = self.fresh_reg();
+        self.line(&format!(
+            "  {rh} = call i64 @aod_rt_range_new(ptr %ctx, i64 {start_reg}, i64 {end_reg})"
+        ));
+        self.emit_fail_return_check();
+        let s_ptr = self.alloc_temp("i64");
+        let e_ptr = self.alloc_temp("i64");
+        self.line(&format!(
+            "  call void @aod_rt_range_bounds(ptr %ctx, i64 {rh}, ptr {s_ptr}, ptr {e_ptr})"
+        ));
+        self.emit_fail_return_check();
+        let s_i64 = self.fresh_reg();
+        let e_i64 = self.fresh_reg();
+        self.line(&format!("  {s_i64} = load i64, ptr {s_ptr}"));
+        self.line(&format!("  {e_i64} = load i64, ptr {e_ptr}"));
+
+        let init_word = if op == AdverbOp::FoldAdd { "0" } else { "1" };
+        let acc_slot = self.alloc_temp("i64");
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 {init_word}, ptr {acc_slot}"));
+        self.line(&format!("  store i64 {s_i64}, ptr {idx_slot}"));
+
+        let cond_lbl = self.fresh_label("rfold_cond");
+        let body_lbl = self.fresh_label("rfold_body");
+        let end_lbl = self.fresh_label("rfold_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let cur = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {cur} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {cur}, {e_i64}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let item_w = self.fresh_reg();
+        self.line(&format!(
+            "  {item_w} = call i64 @aod_rt_int_from_i64(ptr %ctx, i64 {cur})"
+        ));
+        let prev_acc = self.fresh_reg();
+        self.line(&format!("  {prev_acc} = load i64, ptr {acc_slot}"));
+        let helper = if op == AdverbOp::FoldAdd {
+            "@__aod_int_add"
+        } else {
+            "@__aod_int_mul"
+        };
+        let next_acc = self.fresh_reg();
+        self.line(&format!(
+            "  {next_acc} = call i64 {helper}(ptr %ctx, i64 {prev_acc}, i64 {item_w})"
+        ));
+        self.emit_fail_return_check();
+        self.line(&format!("  store i64 {next_acc}, ptr {acc_slot}"));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add i64 {cur}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let res = self.fresh_reg();
+        self.line(&format!("  {res} = load i64, ptr {acc_slot}"));
+        Ok(Val {
+            reg: res,
+            dec_ty: Type::Int,
+        })
+    }
+
+    fn emit_fused_sieve_fold(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        mask_h: &str,
+        vals_h: &str,
+        elem_ty: &Type,
+        line: usize,
+    ) -> DecResult<Val> {
+        let ml = self.fresh_reg();
+        let vl = self.fresh_reg();
+        self.line(&format!(
+            "  {ml} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {mask_h})"
+        ));
+        self.line(&format!(
+            "  {vl} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {vals_h})"
+        ));
+        self.emit_fail_return_check();
+        let len_eq = self.fresh_reg();
+        self.line(&format!("  {len_eq} = icmp eq i64 {ml}, {vl}"));
+        let ok_len = self.fresh_label("sieve_len_ok");
+        let bad_len = self.fresh_label("sieve_len_bad");
+        self.line(&format!(
+            "  br i1 {len_eq}, label %{ok_len}, label %{bad_len}"
+        ));
+        self.start_block(&bad_len);
+        let (mg, mlen) = cg.intern_bytes(b"sieve length mismatch");
+        self.line(&format!(
+            "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {mlen})"
+        ));
+        self.emit_depth_dec();
+        self.emit_default_ret();
+
+        self.start_block(&ok_len);
+        let init_val = self.emit_adverb_identity(cg, op, elem_ty, line)?;
+        let lt = LlvmTy::from_dec(&init_val.dec_ty);
+        let acc_slot = self.alloc_temp(lt.ir());
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!(
+            "  store {} {}, ptr {acc_slot}",
+            lt.ir(),
+            init_val.reg
+        ));
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+
+        let cond_lbl = self.fresh_label("sfold_cond");
+        let body_lbl = self.fresh_label("sfold_body");
+        let take_lbl = self.fresh_label("sfold_take");
+        let step_lbl = self.fresh_label("sfold_step");
+        let end_lbl = self.fresh_label("sfold_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {vl}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let mh_i = self.fresh_reg();
+        self.line(&format!(
+            "  {mh_i} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {mask_h}, i64 {idx})"
+        ));
+        let mv_i = self.unbox_handle_to_val(&mh_i, &Type::Bool);
+        self.line(&format!(
+            "  br i1 {}, label %{take_lbl}, label %{step_lbl}",
+            mv_i.reg
+        ));
+
+        self.start_block(&take_lbl);
+        let vh_i = self.fresh_reg();
+        self.line(&format!(
+            "  {vh_i} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {vals_h}, i64 {idx})"
+        ));
+        let item_v = self.unbox_handle_to_val(&vh_i, &init_val.dec_ty);
+        let cur_acc = self.fresh_reg();
+        self.line(&format!("  {cur_acc} = load {}, ptr {acc_slot}", lt.ir()));
+        let acc_v = Val {
+            reg: cur_acc,
+            dec_ty: init_val.dec_ty.clone(),
+        };
+        let next_v = self.emit_adverb_step(cg, op, acc_v, item_v, line)?;
+        self.line(&format!(
+            "  store {} {}, ptr {acc_slot}",
+            lt.ir(),
+            next_v.reg
+        ));
+        self.line(&format!("  br label %{step_lbl}"));
+
+        self.start_block(&step_lbl);
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let res = self.fresh_reg();
+        self.line(&format!("  {res} = load {}, ptr {acc_slot}", lt.ir()));
+        Ok(Val {
+            reg: res,
+            dec_ty: init_val.dec_ty,
+        })
+    }
+
+    fn emit_adverb_identity(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        elem_ty: &Type,
+        line: usize,
+    ) -> DecResult<Val> {
+        let base_ty = if *elem_ty.unwrap_read_only() == Type::Unknown {
+            match op {
+                AdverbOp::FoldAdd | AdverbOp::FoldMul => Type::Int,
+                AdverbOp::FoldAnd | AdverbOp::FoldOr => Type::Bool,
+                AdverbOp::FoldSuperpose => Type::T1,
+                _ => Type::Int,
+            }
+        } else {
+            elem_ty.unwrap_read_only().clone()
+        };
+        match (op, &base_ty) {
+            (AdverbOp::FoldAdd, Type::Int) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::Int,
+            }),
+            (AdverbOp::FoldAdd, Type::Ratio) => Ok(Val {
+                reg: "{ i64 0, i64 1 }".to_string(),
+                dec_ty: Type::Ratio,
+            }),
+            (AdverbOp::FoldAdd, Type::T1) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::T1,
+            }),
+            (AdverbOp::FoldAdd, Type::QExt(inner)) if **inner == Type::Ratio => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_from_ratio(ptr %ctx, i64 0, i64 1)"
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                })
+            }
+            (AdverbOp::FoldMul, Type::Int) => Ok(Val {
+                reg: "1".to_string(),
+                dec_ty: Type::Int,
+            }),
+            (AdverbOp::FoldMul, Type::Ratio) => Ok(Val {
+                reg: "{ i64 1, i64 1 }".to_string(),
+                dec_ty: Type::Ratio,
+            }),
+            (AdverbOp::FoldMul, Type::T1) => Ok(Val {
+                reg: "1".to_string(),
+                dec_ty: Type::T1,
+            }),
+            (AdverbOp::FoldMul, Type::QExt(inner)) if **inner == Type::Ratio => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_from_ratio(ptr %ctx, i64 1, i64 1)"
+                ));
+                self.emit_fail_return_check();
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                })
+            }
+            (AdverbOp::FoldAnd, Type::Bool) => Ok(Val {
+                reg: "true".to_string(),
+                dec_ty: Type::Bool,
+            }),
+            (AdverbOp::FoldAnd, Type::B8) => Ok(Val {
+                reg: "-1".to_string(),
+                dec_ty: Type::B8,
+            }),
+            (AdverbOp::FoldAnd, Type::B64) => Ok(Val {
+                reg: "-1".to_string(),
+                dec_ty: Type::B64,
+            }),
+            (AdverbOp::FoldAnd, Type::Q4) => Ok(Val {
+                reg: "15".to_string(),
+                dec_ty: Type::Q4,
+            }),
+            (AdverbOp::FoldOr, Type::Bool) => Ok(Val {
+                reg: "false".to_string(),
+                dec_ty: Type::Bool,
+            }),
+            (AdverbOp::FoldOr, Type::B8) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::B8,
+            }),
+            (AdverbOp::FoldOr, Type::B64) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::B64,
+            }),
+            (AdverbOp::FoldOr, Type::Q4) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::Q4,
+            }),
+            (AdverbOp::FoldSuperpose, Type::T1) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::T1,
+            }),
+            (AdverbOp::FoldSuperpose, Type::Int) => Ok(Val {
+                reg: "0".to_string(),
+                dec_ty: Type::Int,
+            }),
+            _ => {
+                let _ = cg;
+                Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: unsupported adverb identity for {base_ty}"),
+                ))
+            }
+        }
+    }
+
+    fn emit_adverb_step(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        acc: Val,
+        item: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        match op {
+            AdverbOp::FoldAdd | AdverbOp::ScanAdd => {
+                self.emit_binary(cg, BinaryOp::Add, acc, item, line)
+            }
+            AdverbOp::FoldMul | AdverbOp::ScanMul => {
+                self.emit_binary(cg, BinaryOp::Mul, acc, item, line)
+            }
+            AdverbOp::FoldMin | AdverbOp::ScanMin => {
+                self.emit_binary(cg, BinaryOp::Min, acc, item, line)
+            }
+            AdverbOp::FoldMax | AdverbOp::ScanMax => {
+                self.emit_binary(cg, BinaryOp::Max, acc, item, line)
+            }
+            AdverbOp::FoldAnd => {
+                if *acc.dec_ty.unwrap_read_only() == Type::Bool {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = and i1 {}, {}", acc.reg, item.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Bool,
+                    })
+                } else {
+                    self.emit_binary(cg, BinaryOp::BitAnd, acc, item, line)
+                }
+            }
+            AdverbOp::FoldOr => {
+                if *acc.dec_ty.unwrap_read_only() == Type::Bool {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = or i1 {}, {}", acc.reg, item.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Bool,
+                    })
+                } else {
+                    self.emit_binary(cg, BinaryOp::BitOr, acc, item, line)
+                }
+            }
+            AdverbOp::FoldSuperpose => self.emit_builtin("superpose_cancel", vec![acc, item], line),
+        }
+    }
+
+    fn emit_fold_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        seq_h: &str,
+        elem_ty: &Type,
+        line: usize,
+    ) -> DecResult<Val> {
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {seq_h})"
+        ));
+        self.emit_fail_return_check();
+
+        let out_ty = if *elem_ty.unwrap_read_only() == Type::Unknown {
+            match op {
+                AdverbOp::FoldAdd | AdverbOp::FoldMul => Type::Int,
+                AdverbOp::FoldAnd | AdverbOp::FoldOr => Type::Bool,
+                AdverbOp::FoldSuperpose => Type::T1,
+                _ => Type::Int,
+            }
+        } else {
+            elem_ty.unwrap_read_only().clone()
+        };
+        let lt = LlvmTy::from_dec(&out_ty);
+        let acc_slot = self.alloc_temp(lt.ir());
+        let idx_slot = self.alloc_temp("i64");
+
+        let is_empty = self.fresh_reg();
+        let empty_lbl = self.fresh_label("fold_empty");
+        let non_empty_lbl = self.fresh_label("fold_nonempty");
+        let cond_lbl = self.fresh_label("fold_cond");
+        let body_lbl = self.fresh_label("fold_body");
+        let done_lbl = self.fresh_label("fold_done");
+        self.line(&format!("  {is_empty} = icmp sle i64 {len}, 0"));
+        self.line(&format!(
+            "  br i1 {is_empty}, label %{empty_lbl}, label %{non_empty_lbl}"
+        ));
+
+        self.start_block(&empty_lbl);
+        if matches!(op, AdverbOp::FoldMin | AdverbOp::FoldMax) {
+            let (mg, ml) = cg.intern_bytes(b"min/ and max/ require non-empty sequence");
+            self.line(&format!(
+                "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
+            ));
+            self.emit_depth_dec();
+            self.emit_default_ret();
+        } else {
+            let id_val = self.emit_adverb_identity(cg, op, &out_ty, line)?;
+            self.line(&format!(
+                "  store {} {}, ptr {acc_slot}",
+                lt.ir(),
+                id_val.reg
+            ));
+            self.line(&format!("  br label %{done_lbl}"));
+            self.terminated = true;
+        }
+
+        self.start_block(&non_empty_lbl);
+        let h0 = self.fresh_reg();
+        self.line(&format!(
+            "  {h0} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {seq_h}, i64 0)"
+        ));
+        let v0 = self.unbox_handle_to_val(&h0, &out_ty);
+        self.line(&format!("  store {} {}, ptr {acc_slot}", lt.ir(), v0.reg));
+        self.line(&format!("  store i64 1, ptr {idx_slot}"));
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{done_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let hi = self.fresh_reg();
+        self.line(&format!(
+            "  {hi} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {seq_h}, i64 {idx})"
+        ));
+        let vi = self.unbox_handle_to_val(&hi, &out_ty);
+        let cur = self.fresh_reg();
+        self.line(&format!("  {cur} = load {}, ptr {acc_slot}", lt.ir()));
+        let acc_v = Val {
+            reg: cur,
+            dec_ty: out_ty.clone(),
+        };
+        let next_v = self.emit_adverb_step(cg, op, acc_v, vi, line)?;
+        self.line(&format!(
+            "  store {} {}, ptr {acc_slot}",
+            lt.ir(),
+            next_v.reg
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&done_lbl);
+        let res = self.fresh_reg();
+        self.line(&format!("  {res} = load {}, ptr {acc_slot}", lt.ir()));
+        Ok(Val {
+            reg: res,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_scan_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: AdverbOp,
+        seq_h: &str,
+        elem_ty: &Type,
+        fixed_len: Option<usize>,
+        line: usize,
+    ) -> DecResult<Val> {
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {seq_h})"
+        ));
+        self.emit_fail_return_check();
+
+        let out_elem = if *elem_ty.unwrap_read_only() == Type::Unknown {
+            Type::Int
+        } else {
+            elem_ty.unwrap_read_only().clone()
+        };
+        let lt = LlvmTy::from_dec(&out_elem);
+        let acc_slot = self.alloc_temp(lt.ir());
+        let idx_slot = self.alloc_temp("i64");
+        let res_h_slot = self.alloc_temp("i64");
+
+        let is_empty = self.fresh_reg();
+        let empty_lbl = self.fresh_label("scan_empty");
+        let non_empty_lbl = self.fresh_label("scan_nonempty");
+        let cond_lbl = self.fresh_label("scan_cond");
+        let body_lbl = self.fresh_label("scan_body");
+        let finish_lbl = self.fresh_label("scan_finish");
+        let done_lbl = self.fresh_label("scan_done");
+        self.line(&format!("  {is_empty} = icmp sle i64 {len}, 0"));
+        self.line(&format!(
+            "  br i1 {is_empty}, label %{empty_lbl}, label %{non_empty_lbl}"
+        ));
+
+        self.start_block(&empty_lbl);
+        let empty_h = self.emit_handle_array_call("aod_rt_list_new", &[]);
+        self.line(&format!("  store i64 {empty_h}, ptr {res_h_slot}"));
+        self.line(&format!("  br label %{done_lbl}"));
+
+        self.start_block(&non_empty_lbl);
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let h0 = self.fresh_reg();
+        self.line(&format!(
+            "  {h0} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {seq_h}, i64 0)"
+        ));
+        let v0 = self.unbox_handle_to_val(&h0, &out_elem);
+        self.line(&format!("  store {} {}, ptr {acc_slot}", lt.ir(), v0.reg));
+        let bh0 = self.box_val_to_handle(&v0);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {bh0})"
+        ));
+        self.line(&format!("  store i64 1, ptr {idx_slot}"));
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{finish_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let hi = self.fresh_reg();
+        self.line(&format!(
+            "  {hi} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {seq_h}, i64 {idx})"
+        ));
+        let vi = self.unbox_handle_to_val(&hi, &out_elem);
+        let cur = self.fresh_reg();
+        self.line(&format!("  {cur} = load {}, ptr {acc_slot}", lt.ir()));
+        let acc_v = Val {
+            reg: cur,
+            dec_ty: out_elem.clone(),
+        };
+        let next_v = self.emit_adverb_step(cg, op, acc_v, vi, line)?;
+        self.line(&format!(
+            "  store {} {}, ptr {acc_slot}",
+            lt.ir(),
+            next_v.reg
+        ));
+        let bhi = self.box_val_to_handle(&next_v);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {bhi})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&finish_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let fin_h = self.fresh_reg();
+        self.line(&format!(
+            "  {fin_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        self.line(&format!("  store i64 {fin_h}, ptr {res_h_slot}"));
+        self.line(&format!("  br label %{done_lbl}"));
+
+        self.start_block(&done_lbl);
+        let out_h = self.fresh_reg();
+        self.line(&format!("  {out_h} = load i64, ptr {res_h_slot}"));
+        let seq_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem), n),
+            None => Type::List(Box::new(out_elem)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: seq_ty,
+        })
     }
 
     fn load_const(&mut self, cm: &ConstMeta) -> Val {
@@ -3078,184 +3168,453 @@ impl FnBuilder {
         }
     }
 
-    fn emit_unary(&mut self, op: UnaryOp, v: Val) -> DecResult<Val> {
-        match (op, v.dec_ty.unwrap_read_only().clone()) {
-            (UnaryOp::Not, ty) => {
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = xor i1 {}, true", v.reg));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: ty,
-                })
-            }
-            (UnaryOp::Pos, _) => Ok(v),
-            (UnaryOp::Neg, Type::Int) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call %DecInt @__aod_int_neg(ptr %ctx, %DecInt {})",
-                    v.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            (UnaryOp::Neg, Type::T1) => {
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = sub i8 0, {}", v.reg));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::T1,
-                })
-            }
-            (UnaryOp::Neg, Type::T32) => {
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = sub i64 0, {}", v.reg));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::T32,
-                })
-            }
-            (UnaryOp::Neg, Type::Ratio) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call %DecRatio @__aod_ratio_neg(ptr %ctx, %DecRatio {})",
-                    v.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Ratio,
-                })
-            }
-            (UnaryOp::Neg, Type::QExt(inner)) if *inner == Type::Ratio => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_qext_neg(ptr %ctx, i64 {})",
-                    v.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
-                })
-            }
-            (UnaryOp::Boundary, ty) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_boundary_of(ptr %ctx, i64 {})",
-                    v.reg
-                ));
-                self.emit_fail_return_check();
-                let ret_ty = match ty {
-                    Type::Box3 | Type::SimResult => Type::Str,
-                    _ => Type::Tuple(vec![Type::Int, Type::Int]),
-                };
-                Ok(Val {
-                    reg: r,
-                    dec_ty: ret_ty,
-                })
-            }
-            _ => Err(Diagnostic::new(
-                DiagnosticCode::RuntimeError,
-                "codegen: unsupported unary op",
-            )),
+    // ==================== Unary, Binary, & Rank-Lifted Loops ====================
+
+    fn emit_unary(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: UnaryOp,
+        v: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let base_ty = v.dec_ty.unwrap_read_only().clone();
+        if op == UnaryOp::Boundary {
+            let r = self.fresh_reg();
+            self.line(&format!(
+                "  {r} = call i64 @aod_rt_boundary_of(ptr %ctx, i64 {})",
+                v.reg
+            ));
+            self.emit_fail_return_check();
+            let ret_ty = match base_ty {
+                Type::Box3 | Type::SimResult => Type::Str,
+                Type::Window | Type::Range => Type::Tuple(vec![Type::Int, Type::Int]),
+                Type::Array(elem, n) => Type::Array(elem, n.saturating_sub(1)),
+                Type::List(elem) => Type::List(elem),
+                other => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("codegen: invalid boundary operand {other}"),
+                    ));
+                }
+            };
+            return Ok(Val {
+                reg: r,
+                dec_ty: ret_ty,
+            });
         }
-    }
 
-    /// Strict P0-3 pure-expression whitelist for sound branchless `select` lowering.
-    /// NEVER permits trapping, spilling, allocating, or side-effecting expressions to be evaluated eagerly!
-    fn peek_pure_type(&self, cg: &Codegen<'_>, expr: &Expr) -> Option<Type> {
-        match &expr.kind {
-            ExprKind::IntLit(n) if n.to_i64().is_some() => Some(Type::Int),
-            ExprKind::BoolLit(_) => Some(Type::Bool),
-            ExprKind::TritLit(_) => Some(Type::T1),
-            ExprKind::RatioLit(r) if r.num().to_i64().is_some() && r.den().to_i64().is_some() => {
-                Some(Type::Ratio)
+        match base_ty {
+            Type::Array(elem_ty, n) => {
+                self.emit_rank_unary_op_loop(cg, op, &v.reg, &elem_ty, Some(n), line)
             }
-            ExprKind::Ident(name) => {
-                if let Some(slot) = self.lookup_var(name) {
-                    return Some(slot.dec_ty.unwrap_read_only().clone());
-                }
-                if let Some(cm) = cg.consts.get(&(self.mod_key.clone(), name.clone())) {
-                    return Some(cm.dec_ty.unwrap_read_only().clone());
-                }
-                let base = cg.base_module_of(&self.mod_key).to_string();
-                if let Some(cm) = cg.consts.get(&(base, name.clone())) {
-                    return Some(cm.dec_ty.unwrap_read_only().clone());
-                }
-                if let Some(ImportedSymbol::ModuleItem { module, item }) =
-                    cg.imports_for(&self.mod_key).get(name)
-                {
-                    if let Some(cm) = cg.consts.get(&(module.clone(), item.clone())) {
-                        return Some(cm.dec_ty.unwrap_read_only().clone());
-                    }
-                }
-                None
+            Type::List(elem_ty) => {
+                self.emit_rank_unary_op_loop(cg, op, &v.reg, &elem_ty, None, line)
             }
-            ExprKind::Unary { op, operand } => {
-                let t = self.peek_pure_type(cg, operand)?;
-                match op {
-                    UnaryOp::Pos => Some(t),
-                    UnaryOp::Not if t == Type::Bool => Some(Type::Bool),
-                    UnaryOp::Neg if matches!(t, Type::T1 | Type::T32) => Some(t),
-                    _ => None,
+            Type::Bool => match op {
+                UnaryOp::Not => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i1 {}, true", v.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Bool,
+                    })
                 }
-            }
-            ExprKind::Binary { op, left, right } => {
-                let lt = self.peek_pure_type(cg, left)?;
-                let rt = self.peek_pure_type(cg, right)?;
-                if lt != rt {
-                    return None;
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported bool unary op",
+                )),
+            },
+            Type::QExt(ref inner) if **inner == Type::Bool => match op {
+                UnaryOp::Not => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i1 {}, true", v.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::QExt(Box::new(Type::Bool)),
+                    })
                 }
-                match op {
-                    BinaryOp::Eq
-                    | BinaryOp::NotEq
-                    | BinaryOp::Lt
-                    | BinaryOp::LtEq
-                    | BinaryOp::Gt
-                    | BinaryOp::GtEq
-                        if matches!(lt, Type::Bool | Type::T1 | Type::T32 | Type::Q4) =>
-                    {
-                        Some(Type::Bool)
-                    }
-                    BinaryOp::Mul if lt == Type::T1 => Some(Type::T1),
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
-    }
-
-    fn is_pure_select_safe(&self, cg: &Codegen<'_>, expr: &Expr) -> bool {
-        self.peek_pure_type(cg, expr).is_some()
-    }
-
-    fn emit_binary(&mut self, cg: &Codegen<'_>, op: BinaryOp, lv: Val, rv: Val) -> DecResult<Val> {
-        let ty = lv.dec_ty.unwrap_read_only().clone();
-        match ty {
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported QExt<bool> unary op",
+                )),
+            },
             Type::Int => match op {
-                BinaryOp::Add => self.emit_int_helper("@__aod_int_add", &lv.reg, &rv.reg),
-                BinaryOp::Sub => self.emit_int_helper("@__aod_int_sub", &lv.reg, &rv.reg),
-                BinaryOp::Mul => self.emit_int_helper("@__aod_int_mul", &lv.reg, &rv.reg),
-                BinaryOp::FloorDiv => self.emit_int_helper("@__aod_int_div_floor", &lv.reg, &rv.reg),
-                BinaryOp::Mod => self.emit_int_helper("@__aod_int_rem_floor", &lv.reg, &rv.reg),
-                BinaryOp::BitAnd => self.emit_int_helper("@__aod_int_bitand", &lv.reg, &rv.reg),
-                BinaryOp::BitOr => self.emit_int_helper("@__aod_int_bitor", &lv.reg, &rv.reg),
-                BinaryOp::BitXor => self.emit_int_helper("@__aod_int_bitxor", &lv.reg, &rv.reg),
-                BinaryOp::Shl => self.emit_int_helper("@__aod_int_shl", &lv.reg, &rv.reg),
-                BinaryOp::Shr => self.emit_int_helper("@__aod_int_shr", &lv.reg, &rv.reg),
-                BinaryOp::Div => {
+                UnaryOp::Pos => Ok(Val {
+                    reg: v.reg,
+                    dec_ty: Type::Int,
+                }),
+                UnaryOp::Neg => {
+                    let r = self.fresh_reg();
+                    let helper = if cg.plan.trit_ssa_promotion {
+                        "@__aod_int_neg"
+                    } else {
+                        "@aod_rt_int_neg"
+                    };
+                    self.line(&format!("  {r} = call i64 {helper}(ptr %ctx, i64 {})", v.reg));
+                    self.emit_fail_return_check();
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported int unary op",
+                )),
+            },
+            Type::T1 => match op {
+                UnaryOp::Pos => Ok(Val {
+                    reg: v.reg,
+                    dec_ty: Type::T1,
+                }),
+                UnaryOp::Neg => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = sub i8 0, {}", v.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T1,
+                    })
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported t1 unary op",
+                )),
+            },
+            Type::Ratio => match op {
+                UnaryOp::Pos => Ok(Val {
+                    reg: v.reg,
+                    dec_ty: Type::Ratio,
+                }),
+                UnaryOp::Neg => {
+                    if cg.plan.inline_ratio_fastpath {
+                        let r = self.fresh_reg();
+                        self.line(&format!(
+                            "  {r} = call %DecRatio @__aod_ratio_neg(ptr %ctx, %DecRatio {})",
+                            v.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::Ratio,
+                        })
+                    } else {
+                        let (na, da) = self.extract_ratio_words(&v.reg);
+                        let out = self.alloc_temp("%DecRatio");
+                        self.line(&format!(
+                            "  call void @aod_rt_ratio_neg(ptr %ctx, i64 {na}, i64 {da}, ptr {out})"
+                        ));
+                        self.emit_fail_return_check();
+                        let r = self.fresh_reg();
+                        self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::Ratio,
+                        })
+                    }
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported ratio unary op",
+                )),
+            },
+            Type::QExt(ref inner) if **inner == Type::Ratio => match op {
+                UnaryOp::Pos => Ok(Val {
+                    reg: v.reg,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                }),
+                UnaryOp::Neg => {
                     let r = self.fresh_reg();
                     self.line(&format!(
-                        "  {r} = call %DecRatio @__aod_int_exact_div(ptr %ctx, %DecInt {}, %DecInt {})",
-                        lv.reg, rv.reg
+                        "  {r} = call i64 @aod_rt_qext_neg(ptr %ctx, i64 {})",
+                        v.reg
                     ));
                     self.emit_fail_return_check();
                     Ok(Val {
                         reg: r,
-                        dec_ty: Type::Ratio,
+                        dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                    })
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported QExt<ratio> unary op",
+                )),
+            },
+            Type::B8 => match op {
+                UnaryOp::BitNot => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i8 {}, -1", v.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B8,
+                    })
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported b8 unary op",
+                )),
+            },
+            Type::B64 => match op {
+                UnaryOp::BitNot => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i64 {}, -1", v.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported b64 unary op",
+                )),
+            },
+            Type::Q4 => match op {
+                UnaryOp::BitNot => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = xor i8 {}, 15", v.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Q4,
+                    })
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported q4 unary op",
+                )),
+            },
+            other => Err(Diagnostic::at_line(
+                DiagnosticCode::RuntimeError,
+                line,
+                format!("codegen: unsupported unary op on {other}"),
+            )),
+        }
+    }
+
+    fn emit_rank_unary_op_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: UnaryOp,
+        seq_h: &str,
+        elem_ty: &Type,
+        fixed_len: Option<usize>,
+        line: usize,
+    ) -> DecResult<Val> {
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {seq_h})"
+        ));
+        self.emit_fail_return_check();
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+
+        let cond_lbl = self.fresh_label("uop_cond");
+        let body_lbl = self.fresh_label("uop_body");
+        let end_lbl = self.fresh_label("uop_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let eh = self.fresh_reg();
+        self.line(&format!(
+            "  {eh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {seq_h}, i64 {idx})"
+        ));
+        let ev = self.unbox_handle_to_val(&eh, elem_ty);
+        let mapped = self.emit_unary(cg, op, ev, line)?;
+        let out_elem_ty = mapped.dec_ty.clone();
+        let mh = self.box_val_to_handle(&mapped);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {mh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_binary(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: BinaryOp,
+        lv: Val,
+        rv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let lty = lv.dec_ty.unwrap_read_only().clone();
+        let rty = rv.dec_ty.unwrap_read_only().clone();
+
+        // 1. Mask Sieve `mask ?> xs`
+        if op == BinaryOp::Sieve {
+            let lv = self.materialize_if_range(lv);
+            let rv = self.materialize_if_range(rv);
+            let out_elem = seq_elem_type(&rv.dec_ty).unwrap_or(Type::Unknown);
+            let r = self.fresh_reg();
+            self.line(&format!(
+                "  {r} = call i64 @aod_rt_seq_sieve(ptr %ctx, i64 {}, i64 {})",
+                lv.reg, rv.reg
+            ));
+            self.emit_fail_return_check();
+            return Ok(Val {
+                reg: r,
+                dec_ty: Type::List(Box::new(out_elem)),
+            });
+        }
+
+        // 2. Outer products `+:` and `*:`
+        if matches!(op, BinaryOp::OuterAdd | BinaryOp::OuterMul) {
+            return self.emit_outer_product_loop(cg, op, lv, rv, line);
+        }
+
+        // 3. Whole-sequence `==` / `!=` when both sides have equal positive sequence rank
+        let lr = type_seq_rank(&lty);
+        let rr = type_seq_rank(&rty);
+        if matches!(op, BinaryOp::Eq | BinaryOp::NotEq) && lr > 0 && lr == rr {
+            let eq8 = self.fresh_reg();
+            self.line(&format!(
+                "  {eq8} = call i8 @aod_rt_handle_eq(ptr %ctx, i64 {}, i64 {})",
+                lv.reg, rv.reg
+            ));
+            self.emit_fail_return_check();
+            let pred = if op == BinaryOp::NotEq { "eq" } else { "ne" };
+            let r = self.fresh_reg();
+            self.line(&format!("  {r} = icmp {pred} i8 {eq8}, 0"));
+            return Ok(Val {
+                reg: r,
+                dec_ty: Type::Bool,
+            });
+        }
+
+        // 4. Rank-lifted binary operations + scalar/lower-rank broadcast
+        if lr > 0 || rr > 0 {
+            return self.emit_rank_binary_op_loop(cg, op, lv, rv, line);
+        }
+
+        // 5. Ternary phase-gate `int * t1` / `t1 * int` and `ratio * t1` / `t1 * ratio`
+        if op == BinaryOp::Mul {
+            if lty == Type::Int && rty == Type::T1 {
+                return Ok(self.emit_int_phase_gate(&lv.reg, &rv.reg, cg.plan.trit_ssa_promotion));
+            }
+            if lty == Type::T1 && rty == Type::Int {
+                return Ok(self.emit_int_phase_gate(&rv.reg, &lv.reg, cg.plan.trit_ssa_promotion));
+            }
+            if lty == Type::Ratio && rty == Type::T1 {
+                return Ok(self.emit_ratio_phase_gate(&lv.reg, &rv.reg, cg.plan.inline_ratio_fastpath));
+            }
+            if lty == Type::T1 && rty == Type::Ratio {
+                return Ok(self.emit_ratio_phase_gate(&rv.reg, &lv.reg, cg.plan.inline_ratio_fastpath));
+            }
+        }
+
+        // 6. Bit shifts `(b8 | b64 | q4) << int` / `>> int`
+        if matches!(op, BinaryOp::Shl | BinaryOp::Shr) {
+            return self.emit_bit_shift(cg, op, lv, rv, line);
+        }
+
+        // 7. Scalar homogeneous operations
+        match lty {
+            Type::Null => {
+                let r = if op == BinaryOp::Eq { "true" } else { "false" };
+                Ok(Val {
+                    reg: r.to_string(),
+                    dec_ty: Type::Bool,
+                })
+            }
+            Type::Int => match op {
+                BinaryOp::Add => self.emit_int_bin(cg, "@__aod_int_add", "@aod_rt_int_add", &lv.reg, &rv.reg),
+                BinaryOp::Sub => self.emit_int_bin(cg, "@__aod_int_sub", "@aod_rt_int_sub", &lv.reg, &rv.reg),
+                BinaryOp::Mul => self.emit_int_bin(cg, "@__aod_int_mul", "@aod_rt_int_mul", &lv.reg, &rv.reg),
+                BinaryOp::FloorDiv => {
+                    self.emit_int_bin(cg, "@__aod_int_div_floor", "@aod_rt_int_div_floor", &lv.reg, &rv.reg)
+                }
+                BinaryOp::Mod => {
+                    self.emit_int_bin(cg, "@__aod_int_rem_floor", "@aod_rt_int_rem_floor", &lv.reg, &rv.reg)
+                }
+                BinaryOp::Div => {
+                    if cg.plan.inline_ratio_fastpath {
+                        let r = self.fresh_reg();
+                        self.line(&format!(
+                            "  {r} = call %DecRatio @__aod_int_exact_div(ptr %ctx, i64 {}, i64 {})",
+                            lv.reg, rv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::Ratio,
+                        })
+                    } else {
+                        let out = self.alloc_temp("%DecRatio");
+                        self.line(&format!(
+                            "  call void @aod_rt_int_exact_div(ptr %ctx, i64 {}, i64 {}, ptr {out})",
+                            lv.reg, rv.reg
+                        ));
+                        self.emit_fail_return_check();
+                        let r = self.fresh_reg();
+                        self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                        Ok(Val {
+                            reg: r,
+                            dec_ty: Type::Ratio,
+                        })
+                    }
+                }
+                BinaryOp::Min | BinaryOp::Max => {
+                    let cmp = self.emit_int_cmp8(cg, &lv.reg, &rv.reg);
+                    let pred = if op == BinaryOp::Min { "sle" } else { "sge" };
+                    let take_l = self.fresh_reg();
+                    let sel = self.fresh_reg();
+                    self.line(&format!("  {take_l} = icmp {pred} i8 {cmp}, 0"));
+                    self.line(&format!(
+                        "  {sel} = select i1 {take_l}, i64 {}, i64 {}",
+                        lv.reg, rv.reg
+                    ));
+                    Ok(Val {
+                        reg: sel,
+                        dec_ty: Type::Int,
+                    })
+                }
+                BinaryOp::Cmp3 => {
+                    let cmp = self.emit_int_cmp8(cg, &lv.reg, &rv.reg);
+                    Ok(Val {
+                        reg: cmp,
+                        dec_ty: Type::T1,
                     })
                 }
                 BinaryOp::Eq
@@ -3264,15 +3623,14 @@ impl FnBuilder {
                 | BinaryOp::LtEq
                 | BinaryOp::Gt
                 | BinaryOp::GtEq => {
-                    let cmp = self.fresh_reg();
-                    self.line(&format!(
-                        "  {cmp} = call i32 @__aod_int_cmp(ptr %ctx, %DecInt {}, %DecInt {})",
-                        lv.reg, rv.reg
-                    ));
-                    self.emit_fail_return_check();
-                    Ok(self.cmp3_to_bool(&cmp, op, Type::Bool))
+                    let cmp = self.emit_int_cmp8(cg, &lv.reg, &rv.reg);
+                    Ok(self.cmp8_to_bool(&cmp, op, Type::Bool))
                 }
-                _ => unreachable!(),
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported int binary op",
+                )),
             },
             Type::T1 => match op {
                 BinaryOp::Add => self.emit_t1_helper("@__aod_t1_add", &lv.reg, &rv.reg),
@@ -3293,38 +3651,23 @@ impl FnBuilder {
                         dec_ty: Type::Ratio,
                     })
                 }
-                _ => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, true)),
-            },
-            Type::T32 => match op {
-                BinaryOp::Add => self.emit_t32_helper("@__aod_t32_add", &lv.reg, &rv.reg),
-                BinaryOp::Sub => self.emit_t32_helper("@__aod_t32_sub", &lv.reg, &rv.reg),
-                BinaryOp::Mul => self.emit_t32_helper("@__aod_t32_mul", &lv.reg, &rv.reg),
-                BinaryOp::FloorDiv => self.emit_t32_helper("@__aod_t32_div_floor", &lv.reg, &rv.reg),
-                BinaryOp::Mod => self.emit_t32_helper("@__aod_t32_rem_floor", &lv.reg, &rv.reg),
-                BinaryOp::Div => {
-                    let n = self.fresh_reg();
-                    let d = self.fresh_reg();
-                    self.line(&format!("  {n} = sext i64 {} to i128", lv.reg));
-                    self.line(&format!("  {d} = sext i64 {} to i128", rv.reg));
-                    let r = self.fresh_reg();
+                BinaryOp::Min | BinaryOp::Max => {
+                    let pred = if op == BinaryOp::Min { "sle" } else { "sge" };
+                    let take_l = self.fresh_reg();
+                    let sel = self.fresh_reg();
+                    self.line(&format!("  {take_l} = icmp {pred} i8 {}, {}", lv.reg, rv.reg));
                     self.line(&format!(
-                        "  {r} = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 {n}, i128 {d})"
+                        "  {sel} = select i1 {take_l}, i8 {}, i8 {}",
+                        lv.reg, rv.reg
                     ));
-                    self.emit_fail_return_check();
                     Ok(Val {
-                        reg: r,
-                        dec_ty: Type::Ratio,
+                        reg: sel,
+                        dec_ty: Type::T1,
                     })
                 }
-                _ => Ok(self.emit_scalar_cmp("i64", op, &lv.reg, &rv.reg, true)),
+                BinaryOp::Cmp3 => Ok(self.emit_scalar_cmp3("i8", &lv.reg, &rv.reg, true)),
+                _ => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, true)),
             },
-            Type::Q4 => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, false)),
-            Type::Bool => Ok(self.emit_scalar_cmp("i1", op, &lv.reg, &rv.reg, false)),
-            Type::QExt(ref inner) if **inner == Type::Bool => {
-                let mut v = self.emit_scalar_cmp("i1", op, &lv.reg, &rv.reg, false);
-                v.dec_ty = Type::QExt(Box::new(Type::Bool));
-                Ok(v)
-            }
             Type::Ratio => match op {
                 BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
                     if cg.plan.inline_ratio_fastpath {
@@ -3344,11 +3687,11 @@ impl FnBuilder {
                             BinaryOp::Div => "@aod_rt_ratio_div",
                             _ => unreachable!(),
                         };
-                        let pa = self.store_temp_ratio(&lv.reg);
-                        let pb = self.store_temp_ratio(&rv.reg);
+                        let (na, da) = self.extract_ratio_words(&lv.reg);
+                        let (nb, db) = self.extract_ratio_words(&rv.reg);
                         let out = self.alloc_temp("%DecRatio");
                         self.line(&format!(
-                            "  call void {rt_fn}(ptr %ctx, ptr {pa}, ptr {pb}, ptr {out})"
+                            "  call void {rt_fn}(ptr %ctx, i64 {na}, i64 {da}, i64 {nb}, i64 {db}, ptr {out})"
                         ));
                         self.emit_fail_return_check();
                         let r = self.fresh_reg();
@@ -3359,21 +3702,148 @@ impl FnBuilder {
                         })
                     }
                 }
+                BinaryOp::Min | BinaryOp::Max => {
+                    let cmp = self.emit_ratio_cmp8(cg, &lv.reg, &rv.reg);
+                    let pred = if op == BinaryOp::Min { "sle" } else { "sge" };
+                    let take_l = self.fresh_reg();
+                    let sel = self.fresh_reg();
+                    self.line(&format!("  {take_l} = icmp {pred} i8 {cmp}, 0"));
+                    self.line(&format!(
+                        "  {sel} = select i1 {take_l}, %DecRatio {}, %DecRatio {}",
+                        lv.reg, rv.reg
+                    ));
+                    Ok(Val {
+                        reg: sel,
+                        dec_ty: Type::Ratio,
+                    })
+                }
+                BinaryOp::Cmp3 => {
+                    let cmp = self.emit_ratio_cmp8(cg, &lv.reg, &rv.reg);
+                    Ok(Val {
+                        reg: cmp,
+                        dec_ty: Type::T1,
+                    })
+                }
                 BinaryOp::Eq
                 | BinaryOp::NotEq
                 | BinaryOp::Lt
                 | BinaryOp::LtEq
                 | BinaryOp::Gt
                 | BinaryOp::GtEq => {
-                    let cmp = self.fresh_reg();
+                    let cmp = self.emit_ratio_cmp8(cg, &lv.reg, &rv.reg);
+                    Ok(self.cmp8_to_bool(&cmp, op, Type::Bool))
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    "codegen: unsupported ratio binary op",
+                )),
+            },
+            Type::B8 | Type::Q4 => match op {
+                BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor => {
+                    let ir_op = match op {
+                        BinaryOp::BitAnd => "and",
+                        BinaryOp::BitOr => "or",
+                        BinaryOp::BitXor => "xor",
+                        _ => unreachable!(),
+                    };
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = {ir_op} i8 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: lty,
+                    })
+                }
+                BinaryOp::Min | BinaryOp::Max => {
+                    let pred = if op == BinaryOp::Min { "ule" } else { "uge" };
+                    let take_l = self.fresh_reg();
+                    let sel = self.fresh_reg();
+                    self.line(&format!("  {take_l} = icmp {pred} i8 {}, {}", lv.reg, rv.reg));
                     self.line(&format!(
-                        "  {cmp} = call i32 @__aod_ratio_cmp(ptr %ctx, %DecRatio {}, %DecRatio {})",
+                        "  {sel} = select i1 {take_l}, i8 {}, i8 {}",
                         lv.reg, rv.reg
                     ));
-                    self.emit_fail_return_check();
-                    Ok(self.cmp3_to_bool(&cmp, op, Type::Bool))
+                    Ok(Val {
+                        reg: sel,
+                        dec_ty: lty,
+                    })
                 }
-                _ => unreachable!(),
+                BinaryOp::Cmp3 => Ok(self.emit_scalar_cmp3("i8", &lv.reg, &rv.reg, false)),
+                _ => Ok(self.emit_scalar_cmp("i8", op, &lv.reg, &rv.reg, false)),
+            },
+            Type::B64 => match op {
+                BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor => {
+                    let ir_op = match op {
+                        BinaryOp::BitAnd => "and",
+                        BinaryOp::BitOr => "or",
+                        BinaryOp::BitXor => "xor",
+                        _ => unreachable!(),
+                    };
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = {ir_op} i64 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::B64,
+                    })
+                }
+                BinaryOp::Min | BinaryOp::Max => {
+                    let pred = if op == BinaryOp::Min { "ule" } else { "uge" };
+                    let take_l = self.fresh_reg();
+                    let sel = self.fresh_reg();
+                    self.line(&format!("  {take_l} = icmp {pred} i64 {}, {}", lv.reg, rv.reg));
+                    self.line(&format!(
+                        "  {sel} = select i1 {take_l}, i64 {}, i64 {}",
+                        lv.reg, rv.reg
+                    ));
+                    Ok(Val {
+                        reg: sel,
+                        dec_ty: Type::B64,
+                    })
+                }
+                BinaryOp::Cmp3 => Ok(self.emit_scalar_cmp3("i64", &lv.reg, &rv.reg, false)),
+                _ => Ok(self.emit_scalar_cmp("i64", op, &lv.reg, &rv.reg, false)),
+            },
+            Type::Bool => match op {
+                BinaryOp::And => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = and i1 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Bool,
+                    })
+                }
+                BinaryOp::Or => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = or i1 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Bool,
+                    })
+                }
+                _ => Ok(self.emit_scalar_cmp("i1", op, &lv.reg, &rv.reg, false)),
+            },
+            Type::QExt(ref inner) if **inner == Type::Bool => match op {
+                BinaryOp::And => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = and i1 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::QExt(Box::new(Type::Bool)),
+                    })
+                }
+                BinaryOp::Or => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = or i1 {}, {}", lv.reg, rv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::QExt(Box::new(Type::Bool)),
+                    })
+                }
+                _ => {
+                    let mut v = self.emit_scalar_cmp("i1", op, &lv.reg, &rv.reg, false);
+                    v.dec_ty = Type::QExt(Box::new(Type::Bool));
+                    Ok(v)
+                }
             },
             Type::QExt(ref inner) if **inner == Type::Ratio => match op {
                 BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div => {
@@ -3395,24 +3865,68 @@ impl FnBuilder {
                         dec_ty: Type::QExt(Box::new(Type::Ratio)),
                     })
                 }
-                BinaryOp::Eq
-                | BinaryOp::NotEq
-                | BinaryOp::Lt
-                | BinaryOp::LtEq
-                | BinaryOp::Gt
-                | BinaryOp::GtEq => {
+                BinaryOp::Min | BinaryOp::Max => {
                     let cmp = self.fresh_reg();
                     self.line(&format!(
-                        "  {cmp} = call i32 @aod_rt_qext_cmp(ptr %ctx, i64 {}, i64 {})",
+                        "  {cmp} = call i8 @aod_rt_qext_cmp(ptr %ctx, i64 {}, i64 {})",
                         lv.reg, rv.reg
                     ));
                     self.emit_fail_return_check();
-                    Ok(self.cmp3_to_bool(&cmp, op, Type::QExt(Box::new(Type::Bool))))
+                    let pred = if op == BinaryOp::Min { "sle" } else { "sge" };
+                    let take_l = self.fresh_reg();
+                    let sel = self.fresh_reg();
+                    self.line(&format!("  {take_l} = icmp {pred} i8 {cmp}, 0"));
+                    self.line(&format!(
+                        "  {sel} = select i1 {take_l}, i64 {}, i64 {}",
+                        lv.reg, rv.reg
+                    ));
+                    Ok(Val {
+                        reg: sel,
+                        dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                    })
                 }
-                _ => unreachable!(),
+                _ => {
+                    let cmp = self.fresh_reg();
+                    self.line(&format!(
+                        "  {cmp} = call i8 @aod_rt_qext_cmp(ptr %ctx, i64 {}, i64 {})",
+                        lv.reg, rv.reg
+                    ));
+                    self.emit_fail_return_check();
+                    Ok(self.cmp8_to_bool(&cmp, op, Type::QExt(Box::new(Type::Bool))))
+                }
             },
+            Type::Str | Type::Bytes | Type::Addr8
+                if !matches!(op, BinaryOp::Eq | BinaryOp::NotEq) =>
+            {
+                let cmp = self.fresh_reg();
+                self.line(&format!(
+                    "  {cmp} = call i8 @aod_rt_handle_cmp(ptr %ctx, i64 {}, i64 {})",
+                    lv.reg, rv.reg
+                ));
+                self.emit_fail_return_check();
+                match op {
+                    BinaryOp::Min | BinaryOp::Max => {
+                        let pred = if op == BinaryOp::Min { "sle" } else { "sge" };
+                        let take_l = self.fresh_reg();
+                        let sel = self.fresh_reg();
+                        self.line(&format!("  {take_l} = icmp {pred} i8 {cmp}, 0"));
+                        self.line(&format!(
+                            "  {sel} = select i1 {take_l}, i64 {}, i64 {}",
+                            lv.reg, rv.reg
+                        ));
+                        Ok(Val {
+                            reg: sel,
+                            dec_ty: lty,
+                        })
+                    }
+                    BinaryOp::Cmp3 => Ok(Val {
+                        reg: cmp,
+                        dec_ty: Type::T1,
+                    }),
+                    _ => Ok(self.cmp8_to_bool(&cmp, op, Type::Bool)),
+                }
+            }
             _ => {
-                // Arena handle equality (`Str`, `Addr8`, `Support`, `Struct`, `Enum`, `List`, `Map`, `Tuple`, `QExt<Str>`, ...)
                 let eq8 = self.fresh_reg();
                 self.line(&format!(
                     "  {eq8} = call i8 @aod_rt_handle_eq(ptr %ctx, i64 {}, i64 {})",
@@ -3422,7 +3936,7 @@ impl FnBuilder {
                 let pred = if op == BinaryOp::NotEq { "eq" } else { "ne" };
                 let r = self.fresh_reg();
                 self.line(&format!("  {r} = icmp {pred} i8 {eq8}, 0"));
-                let out_ty = if ty.is_qext() {
+                let out_ty = if lty.is_qext() {
                     Type::QExt(Box::new(Type::Bool))
                 } else {
                     Type::Bool
@@ -3435,16 +3949,495 @@ impl FnBuilder {
         }
     }
 
-    fn emit_int_helper(&mut self, helper: &str, a: &str, b: &str) -> DecResult<Val> {
-        let r = self.fresh_reg();
+    fn emit_int_phase_gate(&mut self, int_reg: &str, role_reg: &str, ssa_fast: bool) -> Val {
+        let neg_fn = if ssa_fast {
+            "@__aod_int_neg"
+        } else {
+            "@aod_rt_int_neg"
+        };
+        let is_zero = self.fresh_reg();
+        let is_neg = self.fresh_reg();
+        let neg_v = self.fresh_reg();
+        let s1 = self.fresh_reg();
+        let s2 = self.fresh_reg();
+        self.line(&format!("  {is_zero} = icmp eq i8 {role_reg}, 0"));
+        self.line(&format!("  {is_neg} = icmp slt i8 {role_reg}, 0"));
         self.line(&format!(
-            "  {r} = call %DecInt {helper}(ptr %ctx, %DecInt {a}, %DecInt {b})"
+            "  {neg_v} = call i64 {neg_fn}(ptr %ctx, i64 {int_reg})"
         ));
+        self.emit_fail_return_check();
+        self.line(&format!(
+            "  {s1} = select i1 {is_neg}, i64 {neg_v}, i64 {int_reg}"
+        ));
+        self.line(&format!("  {s2} = select i1 {is_zero}, i64 0, i64 {s1}"));
+        Val {
+            reg: s2,
+            dec_ty: Type::Int,
+        }
+    }
+
+    fn emit_ratio_phase_gate(&mut self, rat_reg: &str, role_reg: &str, fast: bool) -> Val {
+        let neg_r = if fast {
+            let r = self.fresh_reg();
+            self.line(&format!(
+                "  {r} = call %DecRatio @__aod_ratio_neg(ptr %ctx, %DecRatio {rat_reg})"
+            ));
+            self.emit_fail_return_check();
+            r
+        } else {
+            let (na, da) = self.extract_ratio_words(rat_reg);
+            let out = self.alloc_temp("%DecRatio");
+            self.line(&format!(
+                "  call void @aod_rt_ratio_neg(ptr %ctx, i64 {na}, i64 {da}, ptr {out})"
+            ));
+            self.emit_fail_return_check();
+            let r = self.fresh_reg();
+            self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+            r
+        };
+        let is_zero = self.fresh_reg();
+        let is_neg = self.fresh_reg();
+        let s1 = self.fresh_reg();
+        let s2 = self.fresh_reg();
+        self.line(&format!("  {is_zero} = icmp eq i8 {role_reg}, 0"));
+        self.line(&format!("  {is_neg} = icmp slt i8 {role_reg}, 0"));
+        self.line(&format!(
+            "  {s1} = select i1 {is_neg}, %DecRatio {neg_r}, %DecRatio {rat_reg}"
+        ));
+        self.line(&format!(
+            "  {s2} = select i1 {is_zero}, %DecRatio {{ i64 0, i64 1 }}, %DecRatio {s1}"
+        ));
+        Val {
+            reg: s2,
+            dec_ty: Type::Ratio,
+        }
+    }
+
+    fn emit_bit_shift(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: BinaryOp,
+        lv: Val,
+        rv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let lty = lv.dec_ty.unwrap_read_only().clone();
+        let max_shift: u64 = match lty {
+            Type::B8 => 7,
+            Type::B64 => 63,
+            Type::Q4 => 3,
+            _ => {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: invalid shift lhs {lty}"),
+                ));
+            }
+        };
+        // Convert `rv: int` (`DecInt`) to unsigned `u64` via `aod_rt_b64_from_unsigned_int`
+        // (which rejects negative shifts cleanly!) and check `<= max_shift`.
+        let sh64 = self.fresh_reg();
+        self.line(&format!(
+            "  {sh64} = call i64 @aod_rt_b64_from_unsigned_int(ptr %ctx, i64 {})",
+            rv.reg
+        ));
+        self.emit_fail_return_check();
+        let in_bounds = self.fresh_reg();
+        let ok_lbl = self.fresh_label("sh_ok");
+        let bad_lbl = self.fresh_label("sh_oob");
+        self.line(&format!("  {in_bounds} = icmp ule i64 {sh64}, {max_shift}"));
+        self.line(&format!(
+            "  br i1 {in_bounds}, label %{ok_lbl}, label %{bad_lbl}"
+        ));
+        self.start_block(&bad_lbl);
+        let (mg, ml) = cg.intern_bytes(b"bit shift count out of bounds");
+        self.line(&format!(
+            "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
+        ));
+        self.emit_depth_dec();
+        self.emit_default_ret();
+
+        self.start_block(&ok_lbl);
+        match lty {
+            Type::B64 => {
+                let ir_op = if op == BinaryOp::Shl { "shl" } else { "lshr" };
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = {ir_op} i64 {}, {sh64}", lv.reg));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::B64,
+                })
+            }
+            Type::B8 => {
+                let sh8 = self.fresh_reg();
+                let r = self.fresh_reg();
+                let ir_op = if op == BinaryOp::Shl { "shl" } else { "lshr" };
+                self.line(&format!("  {sh8} = trunc i64 {sh64} to i8"));
+                self.line(&format!("  {r} = {ir_op} i8 {}, {sh8}", lv.reg));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::B8,
+                })
+            }
+            Type::Q4 => {
+                let sh8 = self.fresh_reg();
+                let raw = self.fresh_reg();
+                let r = self.fresh_reg();
+                let ir_op = if op == BinaryOp::Shl { "shl" } else { "lshr" };
+                self.line(&format!("  {sh8} = trunc i64 {sh64} to i8"));
+                self.line(&format!("  {raw} = {ir_op} i8 {}, {sh8}", lv.reg));
+                self.line(&format!("  {r} = and i8 {raw}, 15"));
+                Ok(Val {
+                    reg: r,
+                    dec_ty: Type::Q4,
+                })
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn emit_outer_product_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: BinaryOp,
+        lv: Val,
+        rv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let lv = self.materialize_if_range(lv);
+        let rv = self.materialize_if_range(rv);
+        let (le, l_fixed) = match lv.dec_ty.unwrap_read_only().clone() {
+            Type::Array(e, n) => ((*e).clone(), Some(n)),
+            Type::List(e) => ((*e).clone(), None),
+            other => {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: outer product expects sequence, got {other}"),
+                ));
+            }
+        };
+        let (re, r_fixed) = match rv.dec_ty.unwrap_read_only().clone() {
+            Type::Array(e, n) => ((*e).clone(), Some(n)),
+            Type::List(e) => ((*e).clone(), None),
+            other => {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: outer product expects sequence, got {other}"),
+                ));
+            }
+        };
+        let both_fixed = l_fixed.is_some() && r_fixed.is_some();
+        let inner_op = if op == BinaryOp::OuterAdd {
+            BinaryOp::Add
+        } else {
+            BinaryOp::Mul
+        };
+
+        let m_len = self.fresh_reg();
+        let n_len = self.fresh_reg();
+        self.line(&format!(
+            "  {m_len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            lv.reg
+        ));
+        self.line(&format!(
+            "  {n_len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            rv.reg
+        ));
+        self.emit_fail_return_check();
+
+        let outer_buf = self.fresh_reg();
+        self.line(&format!(
+            "  {outer_buf} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {m_len})"
+        ));
+        let i_slot = self.alloc_temp("i64");
+        let j_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {i_slot}"));
+
+        let o_cond = self.fresh_label("out_i_cond");
+        let o_body = self.fresh_label("out_i_body");
+        let i_cond = self.fresh_label("out_j_cond");
+        let i_body = self.fresh_label("out_j_body");
+        let i_end = self.fresh_label("out_j_end");
+        let o_end = self.fresh_label("out_i_end");
+        self.line(&format!("  br label %{o_cond}"));
+
+        self.start_block(&o_cond);
+        let i_cur = self.fresh_reg();
+        let i_cmp = self.fresh_reg();
+        self.line(&format!("  {i_cur} = load i64, ptr {i_slot}"));
+        self.line(&format!("  {i_cmp} = icmp slt i64 {i_cur}, {m_len}"));
+        self.line(&format!(
+            "  br i1 {i_cmp}, label %{o_body}, label %{o_end}"
+        ));
+
+        self.start_block(&o_body);
+        let xh = self.fresh_reg();
+        self.line(&format!(
+            "  {xh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {i_cur})",
+            lv.reg
+        ));
+        let xv = self.unbox_handle_to_val(&xh, &le);
+        let row_buf = self.fresh_reg();
+        self.line(&format!(
+            "  {row_buf} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {n_len})"
+        ));
+        self.line(&format!("  store i64 0, ptr {j_slot}"));
+        self.line(&format!("  br label %{i_cond}"));
+
+        self.start_block(&i_cond);
+        let j_cur = self.fresh_reg();
+        let j_cmp = self.fresh_reg();
+        self.line(&format!("  {j_cur} = load i64, ptr {j_slot}"));
+        self.line(&format!("  {j_cmp} = icmp slt i64 {j_cur}, {n_len}"));
+        self.line(&format!(
+            "  br i1 {j_cmp}, label %{i_body}, label %{i_end}"
+        ));
+
+        self.start_block(&i_body);
+        self.emit_fuel_tick();
+        let yh = self.fresh_reg();
+        self.line(&format!(
+            "  {yh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {j_cur})",
+            rv.reg
+        ));
+        let yv = self.unbox_handle_to_val(&yh, &re);
+        let cell = self.emit_binary(cg, inner_op, xv.clone(), yv, line)?;
+        let cell_ty = cell.dec_ty.clone();
+        let ch = self.box_val_to_handle(&cell);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {row_buf}, i64 {ch})"
+        ));
+        let j_nxt = self.fresh_reg();
+        self.line(&format!("  {j_nxt} = add nsw i64 {j_cur}, 1"));
+        self.line(&format!("  store i64 {j_nxt}, ptr {j_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{i_cond}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&i_end);
+        let is_arr = u8::from(both_fixed);
+        let row_h = self.fresh_reg();
+        self.line(&format!(
+            "  {row_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {row_buf}, i8 {is_arr})"
+        ));
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {outer_buf}, i64 {row_h})"
+        ));
+        let i_nxt = self.fresh_reg();
+        self.line(&format!("  {i_nxt} = add nsw i64 {i_cur}, 1"));
+        self.line(&format!("  store i64 {i_nxt}, ptr {i_slot}"));
+        self.line(&format!("  br label %{o_cond}"));
+        self.terminated = true;
+
+        self.start_block(&o_end);
+        let mat_h = self.fresh_reg();
+        self.line(&format!(
+            "  {mat_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {outer_buf}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+
+        let out_ty = match (l_fixed, r_fixed) {
+            (Some(m), Some(n)) => Type::Array(Box::new(Type::Array(Box::new(cell_ty), n)), m),
+            _ => Type::List(Box::new(Type::List(Box::new(cell_ty)))),
+        };
+        Ok(Val {
+            reg: mat_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_rank_binary_op_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        op: BinaryOp,
+        lv: Val,
+        rv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let lv = self.materialize_if_range(lv);
+        let rv = self.materialize_if_range(rv);
+        let lr = type_seq_rank(&lv.dec_ty);
+        let rr = type_seq_rank(&rv.dec_ty);
+
+        let (len_reg, fixed_len, step_l, step_r) = if lr > rr {
+            let (le, fl) = extract_seq_elem_and_fixed(&lv.dec_ty);
+            let len = self.fresh_reg();
+            self.line(&format!(
+                "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                lv.reg
+            ));
+            self.emit_fail_return_check();
+            (len, fl, Some(le), None)
+        } else if rr > lr {
+            let (re, fr) = extract_seq_elem_and_fixed(&rv.dec_ty);
+            let len = self.fresh_reg();
+            self.line(&format!(
+                "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                rv.reg
+            ));
+            self.emit_fail_return_check();
+            (len, fr, None, Some(re))
+        } else {
+            let (le, fl) = extract_seq_elem_and_fixed(&lv.dec_ty);
+            let (re, fr) = extract_seq_elem_and_fixed(&rv.dec_ty);
+            let ll = self.fresh_reg();
+            let rl = self.fresh_reg();
+            self.line(&format!(
+                "  {ll} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                lv.reg
+            ));
+            self.line(&format!(
+                "  {rl} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                rv.reg
+            ));
+            self.emit_fail_return_check();
+            let eq = self.fresh_reg();
+            let ok_lbl = self.fresh_label("zip_len_ok");
+            let bad_lbl = self.fresh_label("zip_len_bad");
+            self.line(&format!("  {eq} = icmp eq i64 {ll}, {rl}"));
+            self.line(&format!("  br i1 {eq}, label %{ok_lbl}, label %{bad_lbl}"));
+            self.start_block(&bad_lbl);
+            let (mg, ml) = cg.intern_bytes(b"sequence length mismatch in rank-lifted op");
+            self.line(&format!(
+                "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
+            ));
+            self.emit_depth_dec();
+            self.emit_default_ret();
+            self.start_block(&ok_lbl);
+            let fixed = match (fl, fr) {
+                (Some(n), Some(_)) => Some(n),
+                _ => None,
+            };
+            (ll, fixed, Some(le), Some(re))
+        };
+
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len_reg})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+
+        let cond_lbl = self.fresh_label("bop_cond");
+        let body_lbl = self.fresh_label("bop_body");
+        let end_lbl = self.fresh_label("bop_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len_reg}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let item_l = if let Some(ref le) = step_l {
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                lv.reg
+            ));
+            self.unbox_handle_to_val(&h, le)
+        } else {
+            lv.clone()
+        };
+        let item_r = if let Some(ref re) = step_r {
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                rv.reg
+            ));
+            self.unbox_handle_to_val(&h, re)
+        } else {
+            rv.clone()
+        };
+        let mapped = self.emit_binary(cg, op, item_l, item_r, line)?;
+        let out_elem_ty = mapped.dec_ty.clone();
+        let mh = self.box_val_to_handle(&mapped);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {mh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_int_bin(
+        &mut self,
+        cg: &Codegen<'_>,
+        ssa_fn: &str,
+        rt_fn: &str,
+        a: &str,
+        b: &str,
+    ) -> DecResult<Val> {
+        let callee = if cg.plan.trit_ssa_promotion {
+            ssa_fn
+        } else {
+            rt_fn
+        };
+        let r = self.fresh_reg();
+        self.line(&format!("  {r} = call i64 {callee}(ptr %ctx, i64 {a}, i64 {b})"));
         self.emit_fail_return_check();
         Ok(Val {
             reg: r,
             dec_ty: Type::Int,
         })
+    }
+
+    fn emit_int_cmp8(&mut self, cg: &Codegen<'_>, a: &str, b: &str) -> String {
+        let callee = if cg.plan.trit_ssa_promotion {
+            "@__aod_int_cmp"
+        } else {
+            "@aod_rt_int_cmp"
+        };
+        let r = self.fresh_reg();
+        self.line(&format!("  {r} = call i8 {callee}(ptr %ctx, i64 {a}, i64 {b})"));
+        self.emit_fail_return_check();
+        r
+    }
+
+    fn emit_ratio_cmp8(&mut self, cg: &Codegen<'_>, a: &str, b: &str) -> String {
+        if cg.plan.inline_ratio_fastpath {
+            let r = self.fresh_reg();
+            self.line(&format!(
+                "  {r} = call i8 @__aod_ratio_cmp(ptr %ctx, %DecRatio {a}, %DecRatio {b})"
+            ));
+            self.emit_fail_return_check();
+            r
+        } else {
+            let (na, da) = self.extract_ratio_words(a);
+            let (nb, db) = self.extract_ratio_words(b);
+            let r = self.fresh_reg();
+            self.line(&format!(
+                "  {r} = call i8 @aod_rt_ratio_cmp(ptr %ctx, i64 {na}, i64 {da}, i64 {nb}, i64 {db})"
+            ));
+            self.emit_fail_return_check();
+            r
+        }
     }
 
     fn emit_t1_helper(&mut self, helper: &str, a: &str, b: &str) -> DecResult<Val> {
@@ -3454,18 +4447,6 @@ impl FnBuilder {
         Ok(Val {
             reg: r,
             dec_ty: Type::T1,
-        })
-    }
-
-    fn emit_t32_helper(&mut self, helper: &str, a: &str, b: &str) -> DecResult<Val> {
-        let r = self.fresh_reg();
-        self.line(&format!(
-            "  {r} = call i64 {helper}(ptr %ctx, i64 {a}, i64 {b})"
-        ));
-        self.emit_fail_return_check();
-        Ok(Val {
-            reg: r,
-            dec_ty: Type::T32,
         })
     }
 
@@ -3481,7 +4462,7 @@ impl FnBuilder {
         })
     }
 
-    fn cmp3_to_bool(&mut self, cmp_reg: &str, op: BinaryOp, out_ty: Type) -> Val {
+    fn cmp8_to_bool(&mut self, cmp_reg: &str, op: BinaryOp, out_ty: Type) -> Val {
         let pred = match op {
             BinaryOp::Eq => "eq",
             BinaryOp::NotEq => "ne",
@@ -3492,7 +4473,7 @@ impl FnBuilder {
             _ => "eq",
         };
         let r = self.fresh_reg();
-        self.line(&format!("  {r} = icmp {pred} i32 {cmp_reg}, 0"));
+        self.line(&format!("  {r} = icmp {pred} i8 {cmp_reg}, 0"));
         Val {
             reg: r,
             dec_ty: out_ty,
@@ -3528,33 +4509,182 @@ impl FnBuilder {
         }
     }
 
-    // ==================== Calls & Builtins ====================
+    fn emit_scalar_cmp3(&mut self, ir_ty: &str, a: &str, b: &str, signed: bool) -> Val {
+        let lt_pred = if signed { "slt" } else { "ult" };
+        let gt_pred = if signed { "sgt" } else { "ugt" };
+        let lt = self.fresh_reg();
+        let gt = self.fresh_reg();
+        let lt8 = self.fresh_reg();
+        let gt8 = self.fresh_reg();
+        let diff = self.fresh_reg();
+        self.line(&format!("  {lt} = icmp {lt_pred} {ir_ty} {a}, {b}"));
+        self.line(&format!("  {gt} = icmp {gt_pred} {ir_ty} {a}, {b}"));
+        self.line(&format!("  {lt8} = zext i1 {lt} to i8"));
+        self.line(&format!("  {gt8} = zext i1 {gt} to i8"));
+        self.line(&format!("  {diff} = sub i8 {gt8}, {lt8}"));
+        Val {
+            reg: diff,
+            dec_ty: Type::T1,
+        }
+    }
+    // ==================== Calls, Combinators, & Builtins ====================
 
-    fn emit_call(
+    fn peek_pure_type(&self, cg: &Codegen<'_>, expr: &Expr) -> Option<Type> {
+        match &expr.kind {
+            ExprKind::NullLit => Some(Type::Null),
+            ExprKind::IntLit(n) if n.inline_word().is_some() => Some(Type::Int),
+            ExprKind::BoolLit(_) => Some(Type::Bool),
+            ExprKind::TritLit(_) => Some(Type::T1),
+            ExprKind::RatioLit(r) if r.inline_words().is_some() => Some(Type::Ratio),
+            ExprKind::Ident(name) => {
+                if let Some(slot) = self.lookup_var(name) {
+                    return Some(slot.dec_ty.unwrap_read_only().clone());
+                }
+                if let Some(cm) = cg.consts.get(&(self.mod_key.clone(), name.clone())) {
+                    return Some(cm.dec_ty.unwrap_read_only().clone());
+                }
+                let base = cg.base_module_of(&self.mod_key).to_string();
+                if let Some(cm) = cg.consts.get(&(base, name.clone())) {
+                    return Some(cm.dec_ty.unwrap_read_only().clone());
+                }
+                if let Some(ImportedSymbol::ModuleItem { module, item }) =
+                    cg.imports_for(&self.mod_key).get(name)
+                {
+                    if let Some(cm) = cg.consts.get(&(module.clone(), item.clone())) {
+                        return Some(cm.dec_ty.unwrap_read_only().clone());
+                    }
+                }
+                None
+            }
+            ExprKind::Unary { op, operand } => {
+                let t = self.peek_pure_type(cg, operand)?;
+                match op {
+                    UnaryOp::Pos => Some(t),
+                    UnaryOp::Not if t == Type::Bool => Some(Type::Bool),
+                    UnaryOp::Neg if t == Type::T1 => Some(Type::T1),
+                    UnaryOp::BitNot if matches!(t, Type::B8 | Type::B64 | Type::Q4) => Some(t),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn is_pure_select_safe(&self, cg: &Codegen<'_>, expr: &Expr) -> bool {
+        self.peek_pure_type(cg, expr).is_some()
+    }
+
+    fn emit_call_with_prepended(
         &mut self,
         cg: &mut Codegen<'_>,
+        prepended: Option<Val>,
         callee: &Expr,
-        args: &[CallArg],
+        args: &[Expr],
+        hint: Option<&Type>,
         line: usize,
     ) -> DecResult<Val> {
-        let mut eval_args: Vec<(Option<String>, Val)> = Vec::with_capacity(args.len());
-        for a in args {
-            eval_args.push((a.name.clone(), self.emit_expr(cg, &a.value)?));
+        let simple_name = match &callee.kind {
+            ExprKind::Ident(n) => Some(n.as_str()),
+            ExprKind::Path(segs) if segs.len() == 3 && segs[0] == "aod" && segs[1] == "core" => {
+                Some(segs[2].as_str())
+            }
+            _ => None,
+        };
+        let total_arity = usize::from(prepended.is_some()) + args.len();
+
+        // 1. Higher-order pure combinators & short-circuiting scalar `select` / `mux`
+        if let Some(cname) = simple_name {
+            match (cname, total_arity) {
+                ("walk", 3) | ("settle", 3) => {
+                    let is_settle = cname == "settle";
+                    let (cur0, count_expr, fn_expr) = if let Some(in_v) = prepended {
+                        (in_v, &args[0], &args[1])
+                    } else {
+                        (self.emit_expr(cg, &args[0])?, &args[1], &args[2])
+                    };
+                    let count_val = self.emit_expr(cg, count_expr)?;
+                    let fn_target = self.resolve_lowered_target(cg, fn_expr, line)?;
+                    return self.emit_walk_or_settle(cg, is_settle, cur0, &count_val.reg, &fn_target, line);
+                }
+                ("fold", 3) | ("scan", 3) => {
+                    let is_scan = cname == "scan";
+                    let (seq_v, init_expr, fn_expr) = if let Some(in_v) = prepended {
+                        (in_v, &args[0], &args[1])
+                    } else {
+                        (self.emit_expr(cg, &args[0])?, &args[1], &args[2])
+                    };
+                    let seq_v = self.materialize_if_range(seq_v);
+                    let init_val = self.emit_expr(cg, init_expr)?;
+                    let fn_target = self.resolve_lowered_target(cg, fn_expr, line)?;
+                    return self.emit_ho_fold_or_scan(cg, is_scan, seq_v, init_val, &fn_target, line);
+                }
+                ("each", 2) => {
+                    let (seq_v, fn_expr) = if let Some(in_v) = prepended {
+                        (in_v, &args[0])
+                    } else {
+                        (self.emit_expr(cg, &args[0])?, &args[1])
+                    };
+                    let seq_v = self.materialize_if_range(seq_v);
+                    let fn_target = self.resolve_lowered_target(cg, fn_expr, line)?;
+                    return self.emit_ho_each(cg, seq_v, &fn_target, line);
+                }
+                ("select", 3) => {
+                    let (cv, t_expr, f_expr) = if let Some(in_v) = prepended {
+                        (in_v, &args[0], &args[1])
+                    } else {
+                        (self.emit_expr(cg, &args[0])?, &args[1], &args[2])
+                    };
+                    let c_base = cv.dec_ty.unwrap_read_only();
+                    if *c_base == Type::Bool
+                        || matches!(c_base, Type::QExt(inner) if **inner == Type::Bool)
+                    {
+                        return self.emit_scalar_select(cg, &cv.reg, t_expr, f_expr, hint);
+                    }
+                    let tv = self.emit_expr_with_hint(cg, t_expr, hint)?;
+                    let fv = self.emit_expr_with_hint(cg, f_expr, hint)?;
+                    return self.emit_rank_select_loop(cg, cv, tv, fv, line);
+                }
+                ("mux", 4) => {
+                    let (rv, n_expr, z_expr, p_expr) = if let Some(in_v) = prepended {
+                        (in_v, &args[0], &args[1], &args[2])
+                    } else {
+                        (
+                            self.emit_expr(cg, &args[0])?,
+                            &args[1],
+                            &args[2],
+                            &args[3],
+                        )
+                    };
+                    if *rv.dec_ty.unwrap_read_only() == Type::T1 {
+                        return self.emit_scalar_mux(cg, &rv.reg, n_expr, z_expr, p_expr, hint);
+                    }
+                    let nv = self.emit_expr_with_hint(cg, n_expr, hint)?;
+                    let zv = self.emit_expr_with_hint(cg, z_expr, hint)?;
+                    let pv = self.emit_expr_with_hint(cg, p_expr, hint)?;
+                    return self.emit_rank_mux_loop(cg, rv, nv, zv, pv, line);
+                }
+                _ => {}
+            }
         }
 
-        // 1. Enum payload constructor `Enum::Variant(args...)`
+        // 2. Enum payload constructor `Enum::Variant(args...)`
         if let ExprKind::Path(ref segs) = callee.kind {
             if let Some((em, vidx)) = cg.resolve_enum_variant(&self.mod_key, segs) {
                 let em_mod = em.module.clone();
                 let em_name = em.name.clone();
-                let (vname, vtag, _) = em.variants[vidx].clone();
+                let (vname, vtag, payload_tys) = em.variants[vidx].clone();
+                let mut vals = Vec::with_capacity(total_arity);
+                if let Some(in_v) = prepended {
+                    vals.push(in_v);
+                }
+                for (idx, a) in args.iter().enumerate() {
+                    let phint = payload_tys.get(vals.len() + idx - idx);
+                    vals.push(self.emit_expr_with_hint(cg, a, phint)?);
+                }
                 let mh = self.emit_str_handle(cg, &em_mod);
                 let nh = self.emit_str_handle(cg, &em_name);
                 let vh = self.emit_str_handle(cg, &vname);
-                let phs: Vec<String> = eval_args
-                    .iter()
-                    .map(|(_, v)| self.box_val_to_handle(v))
-                    .collect();
+                let phs: Vec<String> = vals.iter().map(|v| self.box_val_to_handle(v)).collect();
                 let n = phs.len();
                 let r = if n == 0 {
                     let r = self.fresh_reg();
@@ -3588,7 +4718,7 @@ impl FnBuilder {
             }
         }
 
-        // 2. Struct positional/named constructor `Foo(...)`
+        // 3. Positional struct constructor `Foo(e1, e2, ...)`
         let sp_opt: Option<Vec<String>> = match &callee.kind {
             ExprKind::Ident(n) => Some(vec![n.clone()]),
             ExprKind::Path(segs) => Some(segs.clone()),
@@ -3597,21 +4727,1089 @@ impl FnBuilder {
         if let Some(ref sp) = sp_opt {
             if let Some(sm) = cg.resolve_struct(&self.mod_key, sp).cloned() {
                 let mut pairs = Vec::with_capacity(sm.fields.len());
-                let mut pos_idx = 0usize;
-                for (n_opt, v) in eval_args {
-                    match n_opt {
-                        None => {
-                            pairs.push((sm.fields[pos_idx].0.clone(), v));
-                            pos_idx += 1;
-                        }
-                        Some(n) => pairs.push((n, v)),
-                    }
+                let mut f_idx = 0usize;
+                if let Some(in_v) = prepended {
+                    pairs.push((sm.fields[0].0.clone(), in_v));
+                    f_idx = 1;
+                }
+                for a in args {
+                    let fhint = sm.fields.get(f_idx).map(|(_, t)| t);
+                    let v = self.emit_expr_with_hint(cg, a, fhint)?;
+                    pairs.push((sm.fields[f_idx].0.clone(), v));
+                    f_idx += 1;
                 }
                 return self.emit_struct_construct(cg, &sm, &pairs);
             }
         }
 
-        // 3. Resolve user function vs builtin
+        // 4. Resolve function target & evaluate arguments with parameter hints when unique
+        let target = self.resolve_lowered_target(cg, callee, line)?;
+        let param_hints: Option<Vec<Type>> = match &target {
+            LoweredCallTarget::UserFn(ovs) if ovs.len() == 1 && ovs[0].param_types.len() == total_arity => {
+                Some(ovs[0].param_types.clone())
+            }
+            LoweredCallTarget::Builtin(canon) => {
+                let sigs = lookup_builtin(canon);
+                if sigs.len() == 1 && sigs[0].params.len() == total_arity {
+                    Some(sigs[0].params.clone())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        let mut vals = Vec::with_capacity(total_arity);
+        let mut arg_pos = 0usize;
+        if let Some(in_v) = prepended {
+            vals.push(in_v);
+            arg_pos = 1;
+        }
+        for a in args {
+            let ah = param_hints.as_ref().and_then(|ps| ps.get(arg_pos));
+            vals.push(self.emit_expr_with_hint(cg, a, ah)?);
+            arg_pos += 1;
+        }
+
+        self.invoke_lowered_target(cg, &target, vals, hint, line)
+    }
+
+    fn emit_scalar_select(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        cond_reg: &str,
+        t_expr: &Expr,
+        f_expr: &Expr,
+        hint: Option<&Type>,
+    ) -> DecResult<Val> {
+        if cg.plan.branchless_select
+            && self.is_pure_select_safe(cg, t_expr)
+            && self.is_pure_select_safe(cg, f_expr)
+        {
+            let tv = self.emit_expr_with_hint(cg, t_expr, hint)?;
+            let fv = self.emit_expr_with_hint(cg, f_expr, hint)?;
+            let lt = tv.llvm_ty();
+            if lt == LlvmTy::Void {
+                return Ok(Val {
+                    reg: String::new(),
+                    dec_ty: tv.dec_ty,
+                });
+            }
+            let sel = self.fresh_reg();
+            self.line(&format!(
+                "  {sel} = select i1 {cond_reg}, {} {}, {} {}",
+                lt.ir(),
+                tv.reg,
+                lt.ir(),
+                fv.reg
+            ));
+            return Ok(Val {
+                reg: sel,
+                dec_ty: tv.dec_ty,
+            });
+        }
+
+        let t_lbl = self.fresh_label("sel_t");
+        let f_lbl = self.fresh_label("sel_f");
+        let j_lbl = self.fresh_label("sel_j");
+        self.line(&format!(
+            "  br i1 {cond_reg}, label %{t_lbl}, label %{f_lbl}"
+        ));
+
+        self.start_block(&t_lbl);
+        let tv = self.emit_expr_with_hint(cg, t_expr, hint)?;
+        let out_ty = if type_contains_unknown(&tv.dec_ty) {
+            hint.cloned().unwrap_or(tv.dec_ty.clone())
+        } else {
+            tv.dec_ty.clone()
+        };
+        let lt = LlvmTy::from_dec(&out_ty);
+        let slot = if lt != LlvmTy::Void {
+            let s = self.alloc_temp(lt.ir());
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), tv.reg));
+            Some(s)
+        } else {
+            None
+        };
+        if !self.terminated {
+            self.line(&format!("  br label %{j_lbl}"));
+            self.terminated = true;
+        }
+
+        self.start_block(&f_lbl);
+        let fv = self.emit_expr_with_hint(cg, f_expr, Some(&out_ty))?;
+        let final_ty = if type_contains_unknown(&out_ty) {
+            fv.dec_ty.clone()
+        } else {
+            out_ty
+        };
+        if let Some(ref s) = slot {
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), fv.reg));
+        }
+        if !self.terminated {
+            self.line(&format!("  br label %{j_lbl}"));
+            self.terminated = true;
+        }
+
+        self.start_block(&j_lbl);
+        let reg = match slot {
+            Some(s) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
+                r
+            }
+            None => String::new(),
+        };
+        Ok(Val {
+            reg,
+            dec_ty: final_ty,
+        })
+    }
+
+    fn emit_scalar_mux(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        role_reg: &str,
+        n_expr: &Expr,
+        z_expr: &Expr,
+        p_expr: &Expr,
+        hint: Option<&Type>,
+    ) -> DecResult<Val> {
+        if cg.plan.branchless_select
+            && self.is_pure_select_safe(cg, n_expr)
+            && self.is_pure_select_safe(cg, z_expr)
+            && self.is_pure_select_safe(cg, p_expr)
+        {
+            let nv = self.emit_expr_with_hint(cg, n_expr, hint)?;
+            let zv = self.emit_expr_with_hint(cg, z_expr, hint)?;
+            let pv = self.emit_expr_with_hint(cg, p_expr, hint)?;
+            let lt = nv.llvm_ty();
+            if lt == LlvmTy::Void {
+                return Ok(Val {
+                    reg: String::new(),
+                    dec_ty: nv.dec_ty,
+                });
+            }
+            let is_neg = self.fresh_reg();
+            let is_zero = self.fresh_reg();
+            let s1 = self.fresh_reg();
+            let s2 = self.fresh_reg();
+            self.line(&format!("  {is_neg} = icmp slt i8 {role_reg}, 0"));
+            self.line(&format!("  {is_zero} = icmp eq i8 {role_reg}, 0"));
+            self.line(&format!(
+                "  {s1} = select i1 {is_zero}, {} {}, {} {}",
+                lt.ir(),
+                zv.reg,
+                lt.ir(),
+                pv.reg
+            ));
+            self.line(&format!(
+                "  {s2} = select i1 {is_neg}, {} {}, {} {s1}",
+                lt.ir(),
+                nv.reg,
+                lt.ir()
+            ));
+            return Ok(Val {
+                reg: s2,
+                dec_ty: nv.dec_ty,
+            });
+        }
+
+        let is_neg = self.fresh_reg();
+        let neg_lbl = self.fresh_label("mux_neg");
+        let chk0_lbl = self.fresh_label("mux_chk0");
+        let zero_lbl = self.fresh_label("mux_zero");
+        let pos_lbl = self.fresh_label("mux_pos");
+        let join_lbl = self.fresh_label("mux_join");
+        self.line(&format!("  {is_neg} = icmp slt i8 {role_reg}, 0"));
+        self.line(&format!(
+            "  br i1 {is_neg}, label %{neg_lbl}, label %{chk0_lbl}"
+        ));
+
+        self.start_block(&chk0_lbl);
+        let is_z = self.fresh_reg();
+        self.line(&format!("  {is_z} = icmp eq i8 {role_reg}, 0"));
+        self.line(&format!(
+            "  br i1 {is_z}, label %{zero_lbl}, label %{pos_lbl}"
+        ));
+
+        self.start_block(&neg_lbl);
+        let nv = self.emit_expr_with_hint(cg, n_expr, hint)?;
+        let mut out_ty = if type_contains_unknown(&nv.dec_ty) {
+            hint.cloned().unwrap_or(nv.dec_ty.clone())
+        } else {
+            nv.dec_ty.clone()
+        };
+        let lt = LlvmTy::from_dec(&out_ty);
+        let slot = if lt != LlvmTy::Void {
+            let s = self.alloc_temp(lt.ir());
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), nv.reg));
+            Some(s)
+        } else {
+            None
+        };
+        if !self.terminated {
+            self.line(&format!("  br label %{join_lbl}"));
+            self.terminated = true;
+        }
+
+        self.start_block(&zero_lbl);
+        let zv = self.emit_expr_with_hint(cg, z_expr, Some(&out_ty))?;
+        if type_contains_unknown(&out_ty) {
+            out_ty = zv.dec_ty.clone();
+        }
+        if let Some(ref s) = slot {
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), zv.reg));
+        }
+        if !self.terminated {
+            self.line(&format!("  br label %{join_lbl}"));
+            self.terminated = true;
+        }
+
+        self.start_block(&pos_lbl);
+        let pv = self.emit_expr_with_hint(cg, p_expr, Some(&out_ty))?;
+        if type_contains_unknown(&out_ty) {
+            out_ty = pv.dec_ty.clone();
+        }
+        if let Some(ref s) = slot {
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), pv.reg));
+        }
+        if !self.terminated {
+            self.line(&format!("  br label %{join_lbl}"));
+            self.terminated = true;
+        }
+
+        self.start_block(&join_lbl);
+        let reg = match slot {
+            Some(s) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
+                r
+            }
+            None => String::new(),
+        };
+        Ok(Val {
+            reg,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_rank_select_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        cv: Val,
+        tv: Val,
+        fv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let c_base = cv.dec_ty.unwrap_read_only().clone();
+        if c_base == Type::Bool || matches!(c_base, Type::QExt(ref inner) if **inner == Type::Bool)
+        {
+            let lt = tv.llvm_ty();
+            if lt == LlvmTy::Void {
+                return Ok(tv);
+            }
+            let r = self.fresh_reg();
+            self.line(&format!(
+                "  {r} = select i1 {}, {} {}, {} {}",
+                cv.reg,
+                lt.ir(),
+                tv.reg,
+                lt.ir(),
+                fv.reg
+            ));
+            return Ok(Val {
+                reg: r,
+                dec_ty: tv.dec_ty,
+            });
+        }
+
+        let (ce, fixed_len) = extract_seq_elem_and_fixed(&cv.dec_ty);
+        let cr = type_seq_rank(&cv.dec_ty);
+        let tr = type_seq_rank(&tv.dec_ty);
+        let fr = type_seq_rank(&fv.dec_ty);
+
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            cv.reg
+        ));
+        self.emit_fail_return_check();
+
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("rsel_cond");
+        let body_lbl = self.fresh_label("rsel_body");
+        let end_lbl = self.fresh_label("rsel_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let ch = self.fresh_reg();
+        self.line(&format!(
+            "  {ch} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+            cv.reg
+        ));
+        let ci = self.unbox_handle_to_val(&ch, &ce);
+        let ti = if tr >= cr && tr > 0 {
+            let (te, _) = extract_seq_elem_and_fixed(&tv.dec_ty);
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                tv.reg
+            ));
+            self.unbox_handle_to_val(&h, &te)
+        } else {
+            tv.clone()
+        };
+        let fi = if fr >= cr && fr > 0 {
+            let (fe, _) = extract_seq_elem_and_fixed(&fv.dec_ty);
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                fv.reg
+            ));
+            self.unbox_handle_to_val(&h, &fe)
+        } else {
+            fv.clone()
+        };
+        let elem = self.emit_rank_select_loop(cg, ci, ti, fi, line)?;
+        let out_elem_ty = elem.dec_ty.clone();
+        let eh = self.box_val_to_handle(&elem);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {eh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_rank_mux_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        rv: Val,
+        nv: Val,
+        zv: Val,
+        pv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        if *rv.dec_ty.unwrap_read_only() == Type::T1 {
+            let lt = nv.llvm_ty();
+            if lt == LlvmTy::Void {
+                return Ok(nv);
+            }
+            let is_neg = self.fresh_reg();
+            let is_zero = self.fresh_reg();
+            let s1 = self.fresh_reg();
+            let s2 = self.fresh_reg();
+            self.line(&format!("  {is_neg} = icmp slt i8 {}, 0", rv.reg));
+            self.line(&format!("  {is_zero} = icmp eq i8 {}, 0", rv.reg));
+            self.line(&format!(
+                "  {s1} = select i1 {is_zero}, {} {}, {} {}",
+                lt.ir(),
+                zv.reg,
+                lt.ir(),
+                pv.reg
+            ));
+            self.line(&format!(
+                "  {s2} = select i1 {is_neg}, {} {}, {} {s1}",
+                lt.ir(),
+                nv.reg,
+                lt.ir()
+            ));
+            return Ok(Val {
+                reg: s2,
+                dec_ty: nv.dec_ty,
+            });
+        }
+
+        let (re, fixed_len) = extract_seq_elem_and_fixed(&rv.dec_ty);
+        let rr = type_seq_rank(&rv.dec_ty);
+        let nr = type_seq_rank(&nv.dec_ty);
+        let zr = type_seq_rank(&zv.dec_ty);
+        let pr = type_seq_rank(&pv.dec_ty);
+
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            rv.reg
+        ));
+        self.emit_fail_return_check();
+
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("rmux_cond");
+        let body_lbl = self.fresh_label("rmux_body");
+        let end_lbl = self.fresh_label("rmux_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let rh = self.fresh_reg();
+        self.line(&format!(
+            "  {rh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+            rv.reg
+        ));
+        let ri = self.unbox_handle_to_val(&rh, &re);
+        let ni = if nr >= rr && nr > 0 {
+            let (ne, _) = extract_seq_elem_and_fixed(&nv.dec_ty);
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                nv.reg
+            ));
+            self.unbox_handle_to_val(&h, &ne)
+        } else {
+            nv.clone()
+        };
+        let zi = if zr >= rr && zr > 0 {
+            let (ze, _) = extract_seq_elem_and_fixed(&zv.dec_ty);
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                zv.reg
+            ));
+            self.unbox_handle_to_val(&h, &ze)
+        } else {
+            zv.clone()
+        };
+        let pi = if pr >= rr && pr > 0 {
+            let (pe, _) = extract_seq_elem_and_fixed(&pv.dec_ty);
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                pv.reg
+            ));
+            self.unbox_handle_to_val(&h, &pe)
+        } else {
+            pv.clone()
+        };
+        let elem = self.emit_rank_mux_loop(cg, ri, ni, zi, pi, line)?;
+        let out_elem_ty = elem.dec_ty.clone();
+        let eh = self.box_val_to_handle(&elem);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {eh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_gate_val(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        cv: Val,
+        vv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        if *cv.dec_ty.unwrap_read_only() == Type::Bool {
+            return match vv.dec_ty.unwrap_read_only().clone() {
+                Type::Int => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = select i1 {}, i64 {}, i64 0", cv.reg, vv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Int,
+                    })
+                }
+                Type::T1 => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = select i1 {}, i8 {}, i8 0", cv.reg, vv.reg));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::T1,
+                    })
+                }
+                Type::Ratio => {
+                    let r = self.fresh_reg();
+                    self.line(&format!(
+                        "  {r} = select i1 {}, %DecRatio {}, %DecRatio {{ i64 0, i64 1 }}",
+                        cv.reg, vv.reg
+                    ));
+                    Ok(Val {
+                        reg: r,
+                        dec_ty: Type::Ratio,
+                    })
+                }
+                Type::Array(elem_ty, n) => {
+                    self.emit_zero_or_keep_seq_gate(cg, &cv.reg, &vv.reg, &elem_ty, Some(n), line)
+                }
+                Type::List(elem_ty) => {
+                    self.emit_zero_or_keep_seq_gate(cg, &cv.reg, &vv.reg, &elem_ty, None, line)
+                }
+                other => Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: gate requires numeric value, got {other}"),
+                )),
+            };
+        }
+
+        let (ce, fixed_len) = extract_seq_elem_and_fixed(&cv.dec_ty);
+        let cr = type_seq_rank(&cv.dec_ty);
+        let vr = type_seq_rank(&vv.dec_ty);
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            cv.reg
+        ));
+        self.emit_fail_return_check();
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("gate_cond");
+        let body_lbl = self.fresh_label("gate_body");
+        let end_lbl = self.fresh_label("gate_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let ch = self.fresh_reg();
+        self.line(&format!(
+            "  {ch} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+            cv.reg
+        ));
+        let ci = self.unbox_handle_to_val(&ch, &ce);
+        let vi = if vr >= cr && vr > 0 {
+            let (ve, _) = extract_seq_elem_and_fixed(&vv.dec_ty);
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                vv.reg
+            ));
+            self.unbox_handle_to_val(&h, &ve)
+        } else {
+            vv.clone()
+        };
+        let elem = self.emit_gate_val(cg, ci, vi, line)?;
+        let out_elem_ty = elem.dec_ty.clone();
+        let eh = self.box_val_to_handle(&elem);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {eh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_zero_or_keep_seq_gate(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        cond_reg: &str,
+        seq_h: &str,
+        elem_ty: &Type,
+        fixed_len: Option<usize>,
+        line: usize,
+    ) -> DecResult<Val> {
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {seq_h})"
+        ));
+        self.emit_fail_return_check();
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("zgate_cond");
+        let body_lbl = self.fresh_label("zgate_body");
+        let end_lbl = self.fresh_label("zgate_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let eh = self.fresh_reg();
+        self.line(&format!(
+            "  {eh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {seq_h}, i64 {idx})"
+        ));
+        let ev = self.unbox_handle_to_val(&eh, elem_ty);
+        let cval = Val {
+            reg: cond_reg.to_string(),
+            dec_ty: Type::Bool,
+        };
+        let gated = self.emit_gate_val(cg, cval, ev, line)?;
+        let gh = self.box_val_to_handle(&gated);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {gh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        self.line(&format!("  br label %{cond_lbl}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(elem_ty.clone()), n),
+            None => Type::List(Box::new(elem_ty.clone())),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_walk_or_settle(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        is_settle: bool,
+        cur0: Val,
+        count_reg: &str,
+        fn_target: &LoweredCallTarget,
+        line: usize,
+    ) -> DecResult<Val> {
+        let state_ty = cur0.dec_ty.unwrap_read_only().clone();
+        let lt = LlvmTy::from_dec(&state_ty);
+        let state_slot = if lt != LlvmTy::Void {
+            let s = self.alloc_temp(lt.ir());
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), cur0.reg));
+            Some(s)
+        } else {
+            None
+        };
+
+        // Unpack non-negative iteration count `n` via `aod_rt_b64_from_unsigned_int`
+        let n_u64 = self.fresh_reg();
+        self.line(&format!(
+            "  {n_u64} = call i64 @aod_rt_b64_from_unsigned_int(ptr %ctx, i64 {count_reg})"
+        ));
+        self.emit_fail_return_check();
+        let fits_i64 = self.fresh_reg();
+        let n_ok = self.fresh_label("walk_n_ok");
+        let n_bad = self.fresh_label("walk_n_bad");
+        self.line(&format!("  {fits_i64} = icmp sge i64 {n_u64}, 0"));
+        self.line(&format!("  br i1 {fits_i64}, label %{n_ok}, label %{n_bad}"));
+        self.start_block(&n_bad);
+        let (mg, ml) = cg.intern_bytes(b"walk/settle count exceeds i64::MAX");
+        self.line(&format!(
+            "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
+        ));
+        self.emit_depth_dec();
+        self.emit_default_ret();
+
+        self.start_block(&n_ok);
+        let takes_two = match fn_target {
+            LoweredCallTarget::UserFn(ovs) => ovs.iter().any(|o| {
+                o.param_types.len() == 2
+                    && types_match_for_call(&state_ty, o.param_types[0].unwrap_read_only())
+            }),
+            LoweredCallTarget::Builtin(_) => true,
+        };
+
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("walk_cond");
+        let body_lbl = self.fresh_label("walk_body");
+        let step_lbl = self.fresh_label("walk_step");
+        let exhaust_lbl = self.fresh_label("walk_exhaust");
+        let done_lbl = self.fresh_label("walk_done");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {n_u64}"));
+        let false_lbl = if is_settle { &exhaust_lbl } else { &done_lbl };
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{false_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let cur_val = match state_slot {
+            Some(ref s) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
+                Val {
+                    reg: r,
+                    dec_ty: state_ty.clone(),
+                }
+            }
+            None => Val {
+                reg: String::new(),
+                dec_ty: state_ty.clone(),
+            },
+        };
+        let call_args = if takes_two {
+            let step_w = self.fresh_reg();
+            self.line(&format!(
+                "  {step_w} = call i64 @aod_rt_int_from_i64(ptr %ctx, i64 {idx})"
+            ));
+            vec![
+                cur_val.clone(),
+                Val {
+                    reg: step_w,
+                    dec_ty: Type::Int,
+                },
+            ]
+        } else {
+            vec![cur_val.clone()]
+        };
+        let next_val = self.invoke_lowered_target(cg, fn_target, call_args, Some(&state_ty), line)?;
+        if let Some(ref s) = state_slot {
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), next_val.reg));
+        }
+
+        if is_settle {
+            let eq_val = self.emit_binary(cg, BinaryOp::Eq, next_val, cur_val, line)?;
+            self.line(&format!(
+                "  br i1 {}, label %{done_lbl}, label %{step_lbl}",
+                eq_val.reg
+            ));
+        } else {
+            self.line(&format!("  br label %{step_lbl}"));
+        }
+
+        self.start_block(&step_lbl);
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        if is_settle {
+            self.start_block(&exhaust_lbl);
+            self.line("  call void @aod_rt_budget_exhausted(ptr %ctx, i8 0)");
+            self.emit_depth_dec();
+            self.emit_default_ret();
+        }
+
+        self.start_block(&done_lbl);
+        let out_reg = match state_slot {
+            Some(s) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
+                r
+            }
+            None => String::new(),
+        };
+        Ok(Val {
+            reg: out_reg,
+            dec_ty: state_ty,
+        })
+    }
+
+    fn emit_ho_fold_or_scan(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        is_scan: bool,
+        seq_v: Val,
+        init_val: Val,
+        fn_target: &LoweredCallTarget,
+        line: usize,
+    ) -> DecResult<Val> {
+        let (elem_ty, fixed_len) = extract_seq_elem_and_fixed(&seq_v.dec_ty);
+        let acc_ty = init_val.dec_ty.unwrap_read_only().clone();
+        let lt = LlvmTy::from_dec(&acc_ty);
+        let acc_slot = if lt != LlvmTy::Void {
+            let s = self.alloc_temp(lt.ir());
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), init_val.reg));
+            Some(s)
+        } else {
+            None
+        };
+
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            seq_v.reg
+        ));
+        self.emit_fail_return_check();
+
+        let buf_id = if is_scan {
+            let b = self.fresh_reg();
+            self.line(&format!(
+                "  {b} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+            ));
+            Some(b)
+        } else {
+            None
+        };
+
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("hof_cond");
+        let body_lbl = self.fresh_label("hof_body");
+        let end_lbl = self.fresh_label("hof_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let eh = self.fresh_reg();
+        self.line(&format!(
+            "  {eh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+            seq_v.reg
+        ));
+        let ev = self.unbox_handle_to_val(&eh, &elem_ty);
+        let cur_acc = match acc_slot {
+            Some(ref s) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
+                Val {
+                    reg: r,
+                    dec_ty: acc_ty.clone(),
+                }
+            }
+            None => Val {
+                reg: String::new(),
+                dec_ty: acc_ty.clone(),
+            },
+        };
+        let next_acc = self.invoke_lowered_target(
+            cg,
+            fn_target,
+            vec![cur_acc, ev],
+            Some(&acc_ty),
+            line,
+        )?;
+        if let Some(ref s) = acc_slot {
+            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), next_acc.reg));
+        }
+        if let Some(ref b) = buf_id {
+            let nh = self.box_val_to_handle(&next_acc);
+            self.line(&format!(
+                "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {b}, i64 {nh})"
+            ));
+        }
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        if let Some(b) = buf_id {
+            let is_arr = u8::from(fixed_len.is_some());
+            let out_h = self.fresh_reg();
+            self.line(&format!(
+                "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {b}, i8 {is_arr})"
+            ));
+            self.emit_fail_return_check();
+            let out_ty = match fixed_len {
+                Some(n) => Type::Array(Box::new(acc_ty), n),
+                None => Type::List(Box::new(acc_ty)),
+            };
+            Ok(Val {
+                reg: out_h,
+                dec_ty: out_ty,
+            })
+        } else {
+            let out_reg = match acc_slot {
+                Some(s) => {
+                    let r = self.fresh_reg();
+                    self.line(&format!("  {r} = load {}, ptr {s}", lt.ir()));
+                    r
+                }
+                None => String::new(),
+            };
+            Ok(Val {
+                reg: out_reg,
+                dec_ty: acc_ty,
+            })
+        }
+    }
+
+    fn emit_ho_each(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        seq_v: Val,
+        fn_target: &LoweredCallTarget,
+        line: usize,
+    ) -> DecResult<Val> {
+        let (elem_ty, fixed_len) = extract_seq_elem_and_fixed(&seq_v.dec_ty);
+        let len = self.fresh_reg();
+        self.line(&format!(
+            "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+            seq_v.reg
+        ));
+        self.emit_fail_return_check();
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("each_cond");
+        let body_lbl = self.fresh_label("each_body");
+        let end_lbl = self.fresh_label("each_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let eh = self.fresh_reg();
+        self.line(&format!(
+            "  {eh} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+            seq_v.reg
+        ));
+        let ev = self.unbox_handle_to_val(&eh, &elem_ty);
+        let mapped = self.invoke_lowered_target(cg, fn_target, vec![ev], None, line)?;
+        let out_elem_ty = mapped.dec_ty.clone();
+        let mh = self.box_val_to_handle(&mapped);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {mh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn resolve_lowered_target(
+        &self,
+        cg: &Codegen<'_>,
+        callee: &Expr,
+        line: usize,
+    ) -> DecResult<LoweredCallTarget> {
         let base_mod = cg.base_module_of(&self.mod_key).to_string();
         match &callee.kind {
             ExprKind::Ident(name) => {
@@ -3620,42 +5818,40 @@ impl FnBuilder {
                     .get(&(self.mod_key.clone(), name.clone()))
                     .cloned()
                 {
-                    return self.emit_user_call(&ovs, eval_args, line);
+                    return Ok(LoweredCallTarget::UserFn(ovs));
                 }
                 if base_mod != self.mod_key {
                     if let Some(ovs) = cg.fn_overloads.get(&(base_mod, name.clone())).cloned() {
-                        return self.emit_user_call(&ovs, eval_args, line);
+                        return Ok(LoweredCallTarget::UserFn(ovs));
                     }
                 }
                 if let Some(sym) = cg.imports_for(&self.mod_key).get(name).cloned() {
                     match sym {
                         ImportedSymbol::ModuleItem { module, item } => {
                             if let Some(ovs) = cg.fn_overloads.get(&(module, item)).cloned() {
-                                return self.emit_user_call(&ovs, eval_args, line);
+                                return Ok(LoweredCallTarget::UserFn(ovs));
                             }
                         }
                         ImportedSymbol::Builtin(canon) => {
-                            let pos: Vec<Val> = eval_args.into_iter().map(|(_, v)| v).collect();
-                            return self.emit_builtin(&canon, pos, line);
+                            return Ok(LoweredCallTarget::Builtin(canon));
                         }
                         ImportedSymbol::ModuleNamespace(_) => {}
                     }
                 }
-                let pos: Vec<Val> = eval_args.into_iter().map(|(_, v)| v).collect();
-                self.emit_builtin(name, pos, line)
+                Ok(LoweredCallTarget::Builtin(name.clone()))
             }
             ExprKind::Path(segs) => {
                 if segs.len() == 3 && segs[0] == "aod" {
                     let ns = &segs[0..2];
                     if builtin_namespace_items(ns).is_some() {
-                        let canon = canonical_builtin_name(ns, &segs[2]);
-                        let pos: Vec<Val> = eval_args.into_iter().map(|(_, v)| v).collect();
-                        return self.emit_builtin(&canon, pos, line);
+                        return Ok(LoweredCallTarget::Builtin(canonical_builtin_name(
+                            ns, &segs[2],
+                        )));
                     }
                 } else if segs.len() == 2 {
                     if let Some(qsub) = cg.resolve_qext_submodule(&self.mod_key, &segs[0]) {
                         if let Some(ovs) = cg.fn_overloads.get(&(qsub, segs[1].clone())).cloned() {
-                            return self.emit_user_call(&ovs, eval_args, line);
+                            return Ok(LoweredCallTarget::UserFn(ovs));
                         }
                     }
                     if let Some(ImportedSymbol::ModuleNamespace(m)) =
@@ -3663,12 +5859,12 @@ impl FnBuilder {
                     {
                         if let Some(rest) = m.strip_prefix("aod::") {
                             let ns_vec = vec!["aod".to_string(), rest.to_string()];
-                            let canon = canonical_builtin_name(&ns_vec, &segs[1]);
-                            let pos: Vec<Val> = eval_args.into_iter().map(|(_, v)| v).collect();
-                            return self.emit_builtin(&canon, pos, line);
+                            return Ok(LoweredCallTarget::Builtin(canonical_builtin_name(
+                                &ns_vec, &segs[1],
+                            )));
                         }
                         if let Some(ovs) = cg.fn_overloads.get(&(m, segs[1].clone())).cloned() {
-                            return self.emit_user_call(&ovs, eval_args, line);
+                            return Ok(LoweredCallTarget::UserFn(ovs));
                         }
                     }
                 } else if segs.len() == 3 {
@@ -3676,7 +5872,7 @@ impl FnBuilder {
                         cg.resolve_qext_submodule_3seg(&self.mod_key, &segs[0], &segs[1])
                     {
                         if let Some(ovs) = cg.fn_overloads.get(&(qsub, segs[2].clone())).cloned() {
-                            return self.emit_user_call(&ovs, eval_args, line);
+                            return Ok(LoweredCallTarget::UserFn(ovs));
                         }
                     }
                 }
@@ -3694,60 +5890,189 @@ impl FnBuilder {
         }
     }
 
-    fn emit_user_call(
+    fn invoke_lowered_target(
         &mut self,
-        overloads: &[FnOverload],
-        args: Vec<(Option<String>, Val)>,
+        cg: &mut Codegen<'_>,
+        target: &LoweredCallTarget,
+        vals: Vec<Val>,
+        hint: Option<&Type>,
         line: usize,
     ) -> DecResult<Val> {
-        let ov = if overloads.len() == 1 {
-            &overloads[0]
-        } else {
-            let arg_tys: Vec<Type> = args
-                .iter()
-                .map(|(_, v)| v.dec_ty.unwrap_read_only().clone())
-                .collect();
-            overloads
-                .iter()
-                .find(|o| {
-                    o.param_types.len() == arg_tys.len()
-                        && o.param_types.iter().zip(&arg_tys).all(|(p, a)| {
-                            p.unwrap_read_only() == a
-                                || matches!((a, p.unwrap_read_only()), (Type::List(ax), Type::List(_)) if **ax == Type::Unknown)
-                                || matches!((a, p.unwrap_read_only()), (Type::Map(ak, av), Type::Map(_, _)) if **ak == Type::Unknown && **av == Type::Unknown)
-                        })
-                })
-                .ok_or_else(|| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "codegen: no matching overload",
-                    )
-                })?
-        };
-
-        let ordered: Vec<Val> = if ov.is_single {
-            let mut slots: Vec<Option<Val>> = vec![None; ov.single_params.len()];
-            let mut pi = 0usize;
-            for (n_opt, v) in args {
-                match n_opt {
-                    None => {
-                        slots[pi] = Some(v);
-                        pi += 1;
-                    }
-                    Some(n) => {
-                        let idx = ov.single_params.iter().position(|p| p == &n).unwrap();
-                        slots[idx] = Some(v);
-                    }
+        // 1. Direct match first
+        match target {
+            LoweredCallTarget::UserFn(overloads) => {
+                if let Some(ov) = find_matching_overload(overloads, &vals) {
+                    return self.emit_direct_user_call(ov, &vals);
                 }
             }
-            slots.into_iter().map(Option::unwrap).collect()
+            LoweredCallTarget::Builtin(canon) => {
+                if let Some(res) = self.try_emit_builtin(cg, canon, &vals, hint, line)? {
+                    return Ok(res);
+                }
+            }
+        }
+
+        // 2. Automatic rank-lifted unary call fallback
+        if vals.len() == 1 {
+            let v0 = self.materialize_if_range(vals.into_iter().next().unwrap());
+            if type_seq_rank(&v0.dec_ty) > 0 {
+                return self.emit_ho_each(cg, v0, target, line);
+            }
+        } else if vals.len() == 2 {
+            // 3. Automatic rank-lifted binary call fallback
+            let mut it = vals.into_iter();
+            let lv = self.materialize_if_range(it.next().unwrap());
+            let rv = self.materialize_if_range(it.next().unwrap());
+            if type_seq_rank(&lv.dec_ty) > 0 || type_seq_rank(&rv.dec_ty) > 0 {
+                return self.emit_rank_binary_target_loop(cg, target, lv, rv, line);
+            }
+        }
+
+        Err(Diagnostic::at_line(
+            DiagnosticCode::RuntimeError,
+            line,
+            "codegen: no matching overload or builtin signature",
+        ))
+    }
+
+    fn emit_rank_binary_target_loop(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        target: &LoweredCallTarget,
+        lv: Val,
+        rv: Val,
+        line: usize,
+    ) -> DecResult<Val> {
+        let lr = type_seq_rank(&lv.dec_ty);
+        let rr = type_seq_rank(&rv.dec_ty);
+
+        let (len_reg, fixed_len, step_l, step_r) = if lr > rr {
+            let (le, fl) = extract_seq_elem_and_fixed(&lv.dec_ty);
+            let len = self.fresh_reg();
+            self.line(&format!(
+                "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                lv.reg
+            ));
+            self.emit_fail_return_check();
+            (len, fl, Some(le), None)
+        } else if rr > lr {
+            let (re, fr) = extract_seq_elem_and_fixed(&rv.dec_ty);
+            let len = self.fresh_reg();
+            self.line(&format!(
+                "  {len} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                rv.reg
+            ));
+            self.emit_fail_return_check();
+            (len, fr, None, Some(re))
         } else {
-            args.into_iter().map(|(_, v)| v).collect()
+            let (le, fl) = extract_seq_elem_and_fixed(&lv.dec_ty);
+            let (re, fr) = extract_seq_elem_and_fixed(&rv.dec_ty);
+            let ll = self.fresh_reg();
+            let rl = self.fresh_reg();
+            self.line(&format!(
+                "  {ll} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                lv.reg
+            ));
+            self.line(&format!(
+                "  {rl} = call i64 @aod_rt_seq_len_raw(ptr %ctx, i64 {})",
+                rv.reg
+            ));
+            self.emit_fail_return_check();
+            let eq = self.fresh_reg();
+            let ok_lbl = self.fresh_label("bcall_len_ok");
+            let bad_lbl = self.fresh_label("bcall_len_bad");
+            self.line(&format!("  {eq} = icmp eq i64 {ll}, {rl}"));
+            self.line(&format!("  br i1 {eq}, label %{ok_lbl}, label %{bad_lbl}"));
+            self.start_block(&bad_lbl);
+            let (mg, ml) = cg.intern_bytes(b"sequence length mismatch in rank-lifted call");
+            self.line(&format!(
+                "  call void @aod_rt_fail(ptr %ctx, ptr {mg}, i64 {ml})"
+            ));
+            self.emit_depth_dec();
+            self.emit_default_ret();
+            self.start_block(&ok_lbl);
+            let fixed = match (fl, fr) {
+                (Some(n), Some(_)) => Some(n),
+                _ => None,
+            };
+            (ll, fixed, Some(le), Some(re))
         };
 
+        let buf_id = self.fresh_reg();
+        self.line(&format!(
+            "  {buf_id} = call i64 @aod_rt_seq_buf_new(ptr %ctx, i64 {len_reg})"
+        ));
+        let idx_slot = self.alloc_temp("i64");
+        self.line(&format!("  store i64 0, ptr {idx_slot}"));
+        let cond_lbl = self.fresh_label("bcall_cond");
+        let body_lbl = self.fresh_label("bcall_body");
+        let end_lbl = self.fresh_label("bcall_end");
+        self.line(&format!("  br label %{cond_lbl}"));
+
+        self.start_block(&cond_lbl);
+        let idx = self.fresh_reg();
+        let cmp = self.fresh_reg();
+        self.line(&format!("  {idx} = load i64, ptr {idx_slot}"));
+        self.line(&format!("  {cmp} = icmp slt i64 {idx}, {len_reg}"));
+        self.line(&format!(
+            "  br i1 {cmp}, label %{body_lbl}, label %{end_lbl}"
+        ));
+
+        self.start_block(&body_lbl);
+        self.emit_fuel_tick();
+        let item_l = if let Some(ref le) = step_l {
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                lv.reg
+            ));
+            self.unbox_handle_to_val(&h, le)
+        } else {
+            lv.clone()
+        };
+        let item_r = if let Some(ref re) = step_r {
+            let h = self.fresh_reg();
+            self.line(&format!(
+                "  {h} = call i64 @aod_rt_seq_get_raw_idx(ptr %ctx, i64 {}, i64 {idx})",
+                rv.reg
+            ));
+            self.unbox_handle_to_val(&h, re)
+        } else {
+            rv.clone()
+        };
+        let mapped = self.invoke_lowered_target(cg, target, vec![item_l, item_r], None, line)?;
+        let out_elem_ty = mapped.dec_ty.clone();
+        let mh = self.box_val_to_handle(&mapped);
+        self.line(&format!(
+            "  call void @aod_rt_seq_buf_push(ptr %ctx, i64 {buf_id}, i64 {mh})"
+        ));
+        let nxt = self.fresh_reg();
+        self.line(&format!("  {nxt} = add nsw i64 {idx}, 1"));
+        self.line(&format!("  store i64 {nxt}, ptr {idx_slot}"));
+        let md_suffix = cg.alloc_loop_hint_md().unwrap_or_default();
+        self.line(&format!("  br label %{cond_lbl}{md_suffix}"));
+        self.terminated = true;
+
+        self.start_block(&end_lbl);
+        let is_arr = u8::from(fixed_len.is_some());
+        let out_h = self.fresh_reg();
+        self.line(&format!(
+            "  {out_h} = call i64 @aod_rt_seq_buf_finish(ptr %ctx, i64 {buf_id}, i8 {is_arr})"
+        ));
+        self.emit_fail_return_check();
+        let out_ty = match fixed_len {
+            Some(n) => Type::Array(Box::new(out_elem_ty), n),
+            None => Type::List(Box::new(out_elem_ty)),
+        };
+        Ok(Val {
+            reg: out_h,
+            dec_ty: out_ty,
+        })
+    }
+
+    fn emit_direct_user_call(&mut self, ov: &FnOverload, vals: &[Val]) -> DecResult<Val> {
         let mut call_args = String::from("ptr %ctx");
-        for (v, pt) in ordered.iter().zip(&ov.param_types) {
+        for (v, pt) in vals.iter().zip(&ov.param_types) {
             let lt = LlvmTy::from_dec(pt);
             let _ = write!(call_args, ", {} {}", lt.ir(), v.reg);
         }
@@ -3770,556 +6095,1294 @@ impl FnBuilder {
             dec_ty: ov.ret_type.clone(),
         })
     }
-
-    fn emit_builtin(&mut self, name: &str, args: Vec<Val>, line: usize) -> DecResult<Val> {
-        match (name, args.as_slice()) {
-            ("t1", [a]) => {
-                let p = self.store_temp_int(&a.reg);
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = call i8 @aod_rt_int_to_t1(ptr %ctx, ptr {p})"));
-                self.emit_fail_return_check();
+    fn emit_builtin(&mut self, canon: &str, vals: Vec<Val>, line: usize) -> DecResult<Val> {
+        match (canon, vals.as_slice()) {
+            ("superpose_cancel", [a, b])
+                if *a.dec_ty.unwrap_read_only() == Type::T1
+                    && *b.dec_ty.unwrap_read_only() == Type::T1 =>
+            {
+                let sum = self.fresh_reg();
+                let is_neg = self.fresh_reg();
+                let is_pos = self.fresh_reg();
+                let s1 = self.fresh_reg();
+                let s2 = self.fresh_reg();
+                self.line(&format!("  {sum} = add i8 {}, {}", a.reg, b.reg));
+                self.line(&format!("  {is_neg} = icmp slt i8 {sum}, 0"));
+                self.line(&format!("  {is_pos} = icmp sgt i8 {sum}, 0"));
+                self.line(&format!("  {s1} = select i1 {is_pos}, i8 1, i8 0"));
+                self.line(&format!("  {s2} = select i1 {is_neg}, i8 -1, i8 {s1}"));
                 Ok(Val {
-                    reg: r,
+                    reg: s2,
                     dec_ty: Type::T1,
                 })
             }
-            ("t32", [a]) => {
+            ("superpose_cancel", [a, b])
+                if *a.dec_ty.unwrap_read_only() == Type::Int
+                    && *b.dec_ty.unwrap_read_only() == Type::Int =>
+            {
                 let r = self.fresh_reg();
                 self.line(&format!(
-                    "  {r} = call i64 @__aod_int_to_t32(ptr %ctx, %DecInt {})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::T32,
-                })
-            }
-            ("q4", [a]) => {
-                let p = self.store_temp_int(&a.reg);
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = call i8 @aod_rt_int_to_q4(ptr %ctx, ptr {p})"));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Q4,
-                })
-            }
-            ("int", [a]) => match a.dec_ty.unwrap_read_only() {
-                Type::Int => Ok(a.clone()),
-                Type::T1 => {
-                    let ext = self.fresh_reg();
-                    let r = self.fresh_reg();
-                    self.line(&format!("  {ext} = sext i8 {} to i64", a.reg));
-                    self.line(&format!(
-                        "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {ext}, 1"
-                    ));
-                    Ok(Val {
-                        reg: r,
-                        dec_ty: Type::Int,
-                    })
-                }
-                Type::T32 => {
-                    let r = self.fresh_reg();
-                    self.line(&format!(
-                        "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {}, 1",
-                        a.reg
-                    ));
-                    Ok(Val {
-                        reg: r,
-                        dec_ty: Type::Int,
-                    })
-                }
-                Type::Q4 => {
-                    let ext = self.fresh_reg();
-                    let r = self.fresh_reg();
-                    self.line(&format!("  {ext} = zext i8 {} to i64", a.reg));
-                    self.line(&format!(
-                        "  {r} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 {ext}, 1"
-                    ));
-                    Ok(Val {
-                        reg: r,
-                        dec_ty: Type::Int,
-                    })
-                }
-                Type::Ratio => {
-                    let rp = self.store_temp_ratio(&a.reg);
-                    let out = self.alloc_temp("%DecInt");
-                    self.line(&format!(
-                        "  call void @aod_rt_ratio_to_int_exact(ptr %ctx, ptr {rp}, ptr {out})"
-                    ));
-                    self.emit_fail_return_check();
-                    let r = self.fresh_reg();
-                    self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                    Ok(Val {
-                        reg: r,
-                        dec_ty: Type::Int,
-                    })
-                }
-                _ => Err(Diagnostic::at_line(
-                    DiagnosticCode::RuntimeError,
-                    line,
-                    "codegen: unsupported int(...) conversion",
-                )),
-            },
-            ("ratio", [a]) => {
-                let one = self.fresh_reg();
-                self.line(&format!(
-                    "  {one} = insertvalue %DecInt {{ i8 0, i64 0 }}, i64 1, 1"
-                ));
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call %DecRatio @__aod_int_exact_div(ptr %ctx, %DecInt {}, %DecInt {one})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Ratio,
-                })
-            }
-            ("ratio", [a, b]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call %DecRatio @__aod_int_exact_div(ptr %ctx, %DecInt {}, %DecInt {})",
+                    "  {r} = call i64 @aod_rt_int_superpose_cancel(ptr %ctx, i64 {}, i64 {})",
                     a.reg, b.reg
                 ));
                 self.emit_fail_return_check();
                 Ok(Val {
                     reg: r,
-                    dec_ty: Type::Ratio,
-                })
-            }
-            ("pack", [a]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call %DecInt @__aod_t32_pack(ptr %ctx, i64 {})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
                     dec_ty: Type::Int,
-                })
-            }
-            ("unpack", [a]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @__aod_t32_unpack(ptr %ctx, %DecInt {})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::T32,
-                })
-            }
-            ("neg", [a]) => self.emit_unary(UnaryOp::Neg, a.clone()),
-            ("boundary_of", [a]) => self.emit_unary(UnaryOp::Boundary, a.clone()),
-            ("len", [a]) => {
-                let out = self.alloc_temp("%DecInt");
-                self.line(&format!(
-                    "  call void @aod_rt_len(ptr %ctx, i64 {}, ptr {out})",
-                    a.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            ("contains", [m, k]) => {
-                let kh = self.box_val_to_handle(k);
-                let b8 = self.fresh_reg();
-                self.line(&format!(
-                    "  {b8} = call i8 @aod_rt_map_contains(ptr %ctx, i64 {}, i64 {kh})",
-                    m.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = icmp ne i8 {b8}, 0"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Bool,
-                })
-            }
-            ("trace", [sc, lin, q]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_trace_new(ptr %ctx, i64 {}, i64 {}, i8 {})",
-                    sc.reg, lin.reg, q.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Trace,
-                })
-            }
-            ("step", [t, q, o]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_trace_step(ptr %ctx, i64 {}, i8 {}, i8 {})",
-                    t.reg, q.reg, o.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Trace,
-                })
-            }
-            ("hinge", [t]) => self.emit_handle1("aod_rt_trace_hinge", &t.reg, Type::Trace),
-            ("dwell", [t]) => self.emit_handle1("aod_rt_trace_dwell", &t.reg, Type::Trace),
-            ("close", [t]) => self.emit_handle1("aod_rt_trace_close", &t.reg, Type::Trace),
-            ("phases", [t]) => self.emit_handle_to_int("aod_rt_trace_phases", &t.reg),
-            ("beats", [t]) => self.emit_handle_to_int("aod_rt_trace_beats", &t.reg),
-            ("rate", [t]) => self.emit_handle_to_ratio("aod_rt_trace_rate", &t.reg),
-            ("fold", [a, b, sc, lin]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_fold(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {})",
-                    a.reg, b.reg, sc.reg, lin.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Fusion,
-                })
-            }
-            ("outer", [f, q]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_outer(ptr %ctx, i64 {}, i8 {})",
-                    f.reg, q.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Trace,
-                })
-            }
-            ("fuse", [f, t]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_fuse(ptr %ctx, i64 {}, i64 {})",
-                    f.reg, t.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Trace,
-                })
-            }
-            ("coupling", [a, b, w]) => {
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_coupling_new(ptr %ctx, i64 {}, i64 {}, i64 {})",
-                    a.reg, b.reg, w.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Coupling,
-                })
-            }
-            ("contact", [c, a, b]) => {
-                let ap = self.store_temp_int(&a.reg);
-                let bp = self.store_temp_int(&b.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_coupling_contact(ptr %ctx, i64 {}, ptr {ap}, ptr {bp})",
-                    c.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Coupling,
-                })
-            }
-            ("cadence", [c]) => self.emit_handle_to_ratio("aod_rt_coupling_cadence", &c.reg),
-            ("lag", [c]) => self.emit_handle_to_int("aod_rt_coupling_lag", &c.reg),
-            ("drift", [c]) => self.emit_handle_to_int("aod_rt_coupling_drift", &c.reg),
-            ("probability", [neg, h, pos, role]) => {
-                let np = self.store_temp_int(&neg.reg);
-                let hp = self.store_temp_int(&h.reg);
-                let pp = self.store_temp_int(&pos.reg);
-                let out = self.alloc_temp("%DecRatio");
-                self.line(&format!(
-                    "  call void @aod_rt_probability(ptr %ctx, ptr {np}, ptr {hp}, ptr {pp}, i8 {}, ptr {out})",
-                    role.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Ratio,
-                })
-            }
-            ("addr8", [s]) => self.emit_handle1("aod_rt_addr8_from_str", &s.reg, Type::Addr8),
-            ("support", [s]) => self.emit_handle1("aod_rt_support_from_str", &s.reg, Type::Support),
-            ("support", [p, q, l, yro]) => {
-                let pp = self.store_temp_int(&p.reg);
-                let qp = self.store_temp_int(&q.reg);
-                let lp = self.store_temp_int(&l.reg);
-                let y8 = self.fresh_reg();
-                self.line(&format!("  {y8} = zext i1 {} to i8", yro.reg));
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_support_new(ptr %ctx, ptr {pp}, ptr {qp}, ptr {lp}, i8 {y8})"
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Support,
-                })
-            }
-            ("support_pi", [sf]) => self.emit_handle_to_int("aod_rt_support_pi", &sf.reg),
-            ("support_rd", [sf, h]) => {
-                let hp = self.store_temp_int(&h.reg);
-                let out = self.alloc_temp("%DecInt");
-                self.line(&format!(
-                    "  call void @aod_rt_support_rd(ptr %ctx, i64 {}, ptr {hp}, ptr {out})",
-                    sf.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            ("support_pressure", [sf, c3, h, w]) => {
-                let c3p = self.store_temp_int(&c3.reg);
-                let hp = self.store_temp_int(&h.reg);
-                let wp = self.store_temp_int(&w.reg);
-                let out = self.alloc_temp("%DecInt");
-                self.line(&format!(
-                    "  call void @aod_rt_support_pressure(ptr %ctx, i64 {}, ptr {c3p}, ptr {hp}, ptr {wp}, ptr {out})",
-                    sf.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            ("support_overhang", [sf, c3, h, w]) => {
-                let c3p = self.store_temp_int(&c3.reg);
-                let hp = self.store_temp_int(&h.reg);
-                let wp = self.store_temp_int(&w.reg);
-                let out = self.alloc_temp("%DecInt");
-                self.line(&format!(
-                    "  call void @aod_rt_support_overhang(ptr %ctx, i64 {}, ptr {c3p}, ptr {hp}, ptr {wp}, ptr {out})",
-                    sf.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            ("shedding_excess", [pd, cc]) => {
-                let pdp = self.store_temp_int(&pd.reg);
-                let ccp = self.store_temp_int(&cc.reg);
-                let out = self.alloc_temp("%DecInt");
-                self.line(&format!(
-                    "  call void @aod_rt_shedding_excess(ptr %ctx, ptr {pdp}, ptr {ccp}, ptr {out})"
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            ("sadar_promote", [c3, rho, att]) => {
-                let c3p = self.store_temp_int(&c3.reg);
-                let rhop = self.store_temp_int(&rho.reg);
-                let attp = self.store_temp_ratio(&att.reg);
-                let out = self.alloc_temp("%DecRatio");
-                self.line(&format!(
-                    "  call void @aod_rt_sadar_promote(ptr %ctx, ptr {c3p}, ptr {rhop}, ptr {attp}, ptr {out})"
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Ratio,
-                })
-            }
-            ("window_dedup_count", [lin, sc, cuts, wins]) => {
-                let out = self.alloc_temp("%DecInt");
-                self.line(&format!(
-                    "  call void @aod_rt_window_dedup_count(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {}, ptr {out})",
-                    lin.reg, sc.reg, cuts.reg, wins.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Int,
-                })
-            }
-            ("native_cadence_ratio", [ida, qa, idr, qr, coupled, bc]) => {
-                let qap = self.store_temp_int(&qa.reg);
-                let qrp = self.store_temp_int(&qr.reg);
-                let bcp = self.store_temp_int(&bc.reg);
-                let c8 = self.fresh_reg();
-                self.line(&format!("  {c8} = zext i1 {} to i8", coupled.reg));
-                let out = self.alloc_temp("%DecRatio");
-                self.line(&format!(
-                    "  call void @aod_rt_native_cadence_ratio(ptr %ctx, i64 {}, ptr {qap}, i64 {}, ptr {qrp}, i8 {c8}, ptr {bcp}, ptr {out})",
-                    ida.reg, idr.reg
-                ));
-                self.emit_fail_return_check();
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::Ratio,
-                })
-            }
-            ("single_contact_association", [wid, pid, rid, win, bc]) => {
-                let bcp = self.store_temp_int(&bc.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_single_contact_assoc(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {}, ptr {bcp})",
-                    wid.reg, pid.reg, rid.reg, win.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::CadenceAssociation,
-                })
-            }
-            ("recipient_eval_demo", [ek, sk, win]) => {
-                let ekp = self.store_temp_int(&ek.reg);
-                let skp = self.store_temp_int(&sk.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_recipient_eval_demo(ptr %ctx, ptr {ekp}, ptr {skp}, i64 {})",
-                    win.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::RecipientOutcome,
-                })
-            }
-            ("aod::qext::ext_decimal", [s]) => self.emit_handle1(
-                "aod_rt_qext_ext_decimal",
-                &s.reg,
-                Type::QExt(Box::new(Type::Ratio)),
-            ),
-            ("aod::qext::qext_from_ratio", [rat]) => {
-                let rp = self.store_temp_ratio(&rat.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_qext_from_ratio(ptr %ctx, ptr {rp})"
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
-                })
-            }
-            ("aod::qext::qext_add", [a, b]) => self.emit_qext_binop(0, &a.reg, &b.reg),
-            ("aod::qext::qext_sub", [a, b]) => self.emit_qext_binop(1, &a.reg, &b.reg),
-            ("aod::qext::qext_mul", [a, b]) => self.emit_qext_binop(2, &a.reg, &b.reg),
-            ("aod::qext::qext_div", [a, b]) => self.emit_qext_binop(3, &a.reg, &b.reg),
-            ("aod::qext::qext_render", [q]) => self.emit_handle1(
-                "aod_rt_qext_render",
-                &q.reg,
-                Type::QExt(Box::new(Type::Str)),
-            ),
-            ("aod::qext::qext_round_half_even", [q, dec]) => {
-                let dp = self.store_temp_int(&dec.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_qext_round_half_even(ptr %ctx, i64 {}, ptr {dp})",
-                    q.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
-                })
-            }
-            ("aod::qext::qext_format_fixed", [q, dec]) => {
-                let dp = self.store_temp_int(&dec.reg);
-                let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_qext_format_fixed(ptr %ctx, i64 {}, ptr {dp})",
-                    q.reg
-                ));
-                self.emit_fail_return_check();
-                Ok(Val {
-                    reg: r,
-                    dec_ty: Type::QExt(Box::new(Type::Str)),
                 })
             }
             _ => Err(Diagnostic::at_line(
                 DiagnosticCode::RuntimeError,
                 line,
-                format!("codegen: unlisted builtin {name}"),
+                format!("codegen: internal builtin helper unsupported for {canon}"),
             )),
         }
     }
 
-    fn emit_handle1(&mut self, func: &str, h: &str, out_ty: Type) -> DecResult<Val> {
-        let r = self.fresh_reg();
-        self.line(&format!("  {r} = call i64 @{func}(ptr %ctx, i64 {h})"));
-        self.emit_fail_return_check();
-        Ok(Val {
-            reg: r,
-            dec_ty: out_ty,
-        })
-    }
+    fn try_emit_builtin(
+        &mut self,
+        cg: &mut Codegen<'_>,
+        canon: &str,
+        vals: &[Val],
+        _hint: Option<&Type>,
+        line: usize,
+    ) -> DecResult<Option<Val>> {
+        let arg_tys: Vec<Type> = vals
+            .iter()
+            .map(|v| v.dec_ty.unwrap_read_only().clone())
+            .collect();
 
-    fn emit_handle_to_int(&mut self, func: &str, h: &str) -> DecResult<Val> {
-        let out = self.alloc_temp("%DecInt");
-        self.line(&format!("  call void @{func}(ptr %ctx, i64 {h}, ptr {out})"));
-        self.emit_fail_return_check();
-        let r = self.fresh_reg();
-        self.line(&format!("  {r} = load %DecInt, ptr {out}"));
-        Ok(Val {
-            reg: r,
-            dec_ty: Type::Int,
-        })
-    }
+        let res: Val = match (canon, arg_tys.as_slice()) {
+            // --- Core constructors & exact conversions ---
+            ("t1", [Type::T1]) => vals[0].clone(),
+            ("t1", [Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i8 @aod_rt_int_to_t1(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::T1,
+                }
+            }
+            ("q4", [Type::Q4]) => vals[0].clone(),
+            ("q4", [Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i8 @aod_rt_int_to_q4(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Q4,
+                }
+            }
+            ("b8", [Type::B8]) => vals[0].clone(),
+            ("b8", [Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i8 @aod_rt_int_to_b8(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::B8,
+                }
+            }
+            ("b64", [Type::B64]) => vals[0].clone(),
+            ("b64", [Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_int_to_b64_view(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::B64,
+                }
+            }
+            ("b64_bits", [Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_b64_from_unsigned_int(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::B64,
+                }
+            }
+            ("u64_int", [Type::B64]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_int_from_u64(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("int", [Type::Int]) => vals[0].clone(),
+            ("int", [Type::T1]) => {
+                // In 2-bit Trit-Boxed representation: -1 -> 2 (0b10), 0 -> 0 (0b00), +1 -> 1 (0b01)
+                let is_neg = self.fresh_reg();
+                let is_pos = self.fresh_reg();
+                let s1 = self.fresh_reg();
+                let s2 = self.fresh_reg();
+                self.line(&format!("  {is_neg} = icmp slt i8 {}, 0", vals[0].reg));
+                self.line(&format!("  {is_pos} = icmp sgt i8 {}, 0", vals[0].reg));
+                self.line(&format!("  {s1} = select i1 {is_pos}, i64 1, i64 0"));
+                self.line(&format!("  {s2} = select i1 {is_neg}, i64 2, i64 {s1}"));
+                Val {
+                    reg: s2,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("int", [Type::Q4]) => {
+                let u = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {u} = zext i8 {} to i64", vals[0].reg));
+                self.line(&format!("  {r} = call i64 @__aod_fast_pack_t32(i64 {u})"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("int", [Type::B8]) => {
+                let u = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {u} = zext i8 {} to i64", vals[0].reg));
+                self.line(&format!("  {r} = call i64 @__aod_fast_pack_t32(i64 {u})"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("int", [Type::B64]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_int_from_b64_view(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("int", [Type::Ratio]) => {
+                let (na, da) = self.extract_ratio_words(&vals[0].reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_ratio_to_int_exact(ptr %ctx, i64 {na}, i64 {da})"
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("ratio", [Type::Ratio]) => vals[0].clone(),
+            ("ratio", [Type::Int]) => {
+                let is_inl = self.fresh_reg();
+                let inl_lbl = self.fresh_label("rat_int_inl");
+                let slow_lbl = self.fresh_label("rat_int_slow");
+                let join_lbl = self.fresh_label("rat_int_join");
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  {is_inl} = icmp ult i64 {}, -4611686018427387904",
+                    vals[0].reg
+                ));
+                self.line(&format!(
+                    "  br i1 {is_inl}, label %{inl_lbl}, label %{slow_lbl}"
+                ));
+                self.start_block(&inl_lbl);
+                let p0 = self.fresh_reg();
+                let p1 = self.fresh_reg();
+                self.line(&format!(
+                    "  {p0} = insertvalue %DecRatio undef, i64 {}, 0",
+                    vals[0].reg
+                ));
+                self.line(&format!("  {p1} = insertvalue %DecRatio {p0}, i64 1, 1"));
+                self.line(&format!("  store %DecRatio {p1}, ptr {out}"));
+                self.line(&format!("  br label %{join_lbl}"));
+                self.start_block(&slow_lbl);
+                self.line(&format!(
+                    "  call void @aod_rt_ratio_from_ints(ptr %ctx, i64 {}, i64 1, ptr {out})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                self.line(&format!("  br label %{join_lbl}"));
+                self.start_block(&join_lbl);
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("ratio", [Type::T1]) => {
+                let is_neg = self.fresh_reg();
+                let is_pos = self.fresh_reg();
+                let s1 = self.fresh_reg();
+                let nw = self.fresh_reg();
+                let p0 = self.fresh_reg();
+                let p1 = self.fresh_reg();
+                self.line(&format!("  {is_neg} = icmp slt i8 {}, 0", vals[0].reg));
+                self.line(&format!("  {is_pos} = icmp sgt i8 {}, 0", vals[0].reg));
+                self.line(&format!("  {s1} = select i1 {is_pos}, i64 1, i64 0"));
+                self.line(&format!("  {nw} = select i1 {is_neg}, i64 2, i64 {s1}"));
+                self.line(&format!("  {p0} = insertvalue %DecRatio undef, i64 {nw}, 0"));
+                self.line(&format!("  {p1} = insertvalue %DecRatio {p0}, i64 1, 1"));
+                Val {
+                    reg: p1,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("ratio", [Type::Int, Type::Int]) => {
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_ratio_from_ints(ptr %ctx, i64 {}, i64 {}, ptr {out})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("bytes", [Type::Bytes]) => vals[0].clone(),
+            ("bytes", [Type::B64]) | ("b64_le_bytes", [Type::B64]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_from_b64(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("bytes", [Type::Str | Type::Addr8]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_from_seq(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("bytes", [Type::Array(elem, _) | Type::List(elem)]) if **elem == Type::B8 => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_from_seq(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("str_bytes", [Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_str_from_bytes(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Str,
+                }
+            }
+            (
+                "u16_le_bytes" | "u32_le_bytes" | "i32_le_bytes" | "i64_le_bytes",
+                [Type::Int],
+            ) => {
+                let kind: u8 = match canon {
+                    "u16_le_bytes" => 0,
+                    "u32_le_bytes" => 1,
+                    "i32_le_bytes" => 2,
+                    _ => 3,
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_le_bytes_from_int(ptr %ctx, i64 {}, i8 {kind})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("push_byte", [Type::Bytes, Type::B8]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_push(ptr %ctx, i64 {}, i8 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("concat_bytes", [Type::Bytes, Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_concat(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("slice_bytes", [Type::Bytes, Type::Int, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_slice(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("sha256_bytes", [Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_bytes_sha256(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("hex_bytes", [Type::Bytes]) => {
+                let bh = self.fresh_reg();
+                self.line(&format!(
+                    "  {bh} = call i64 @aod_rt_bytes_hex(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let sh = self.fresh_reg();
+                self.line(&format!(
+                    "  {sh} = call i64 @aod_rt_str_from_bytes(ptr %ctx, i64 {bh})"
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: sh,
+                    dec_ty: Type::Str,
+                }
+            }
+            ("pack_ratio", [Type::Ratio]) => {
+                let (na, da) = self.extract_ratio_words(&vals[0].reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_pack_ratio(ptr %ctx, i64 {na}, i64 {da})"
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::B64,
+                }
+            }
+            ("unpack_ratio", [Type::B64]) => {
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_unpack_ratio(ptr %ctx, i64 {}, ptr {out})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
 
-    fn emit_handle_to_ratio(&mut self, func: &str, h: &str) -> DecResult<Val> {
-        let out = self.alloc_temp("%DecRatio");
-        self.line(&format!("  call void @{func}(ptr %ctx, i64 {h}, ptr {out})"));
-        self.emit_fail_return_check();
-        let r = self.fresh_reg();
-        self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
-        Ok(Val {
-            reg: r,
-            dec_ty: Type::Ratio,
-        })
-    }
+            // --- Algebra, ternary, & bit queries ---
+            ("neg", [Type::Int | Type::T1 | Type::Ratio]) => {
+                self.emit_unary(cg, UnaryOp::Neg, vals[0].clone(), line)?
+            }
+            ("neg", [Type::QExt(inner)]) if **inner == Type::Ratio => {
+                self.emit_unary(cg, UnaryOp::Neg, vals[0].clone(), line)?
+            }
+            ("abs", [Type::Int]) => {
+                let sgn = self.fresh_reg();
+                let sgn_fn = if cg.plan.trit_ssa_promotion {
+                    "@__aod_int_sgn"
+                } else {
+                    "@aod_rt_int_sgn"
+                };
+                self.line(&format!(
+                    "  {sgn} = call i8 {sgn_fn}(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let is_neg = self.fresh_reg();
+                self.line(&format!("  {is_neg} = icmp slt i8 {sgn}, 0"));
+                let neg_v = self.emit_unary(cg, UnaryOp::Neg, vals[0].clone(), line)?;
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = select i1 {is_neg}, i64 {}, i64 {}",
+                    neg_v.reg, vals[0].reg
+                ));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("abs", [Type::T1]) => {
+                let is_neg = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {is_neg} = icmp slt i8 {}, 0", vals[0].reg));
+                self.line(&format!("  {r} = select i1 {is_neg}, i8 1, i8 {}", vals[0].reg));
+                Val {
+                    reg: r,
+                    dec_ty: Type::T1,
+                }
+            }
+            ("abs", [Type::Ratio]) => {
+                let (na, da) = self.extract_ratio_words(&vals[0].reg);
+                let sgn = self.fresh_reg();
+                self.line(&format!(
+                    "  {sgn} = call i8 @aod_rt_ratio_sgn(ptr %ctx, i64 {na}, i64 {da})"
+                ));
+                self.emit_fail_return_check();
+                let is_neg = self.fresh_reg();
+                self.line(&format!("  {is_neg} = icmp slt i8 {sgn}, 0"));
+                let neg_v = self.emit_unary(cg, UnaryOp::Neg, vals[0].clone(), line)?;
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = select i1 {is_neg}, %DecRatio {}, %DecRatio {}",
+                    neg_v.reg, vals[0].reg
+                ));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("abs", [Type::QExt(inner)]) if **inner == Type::Ratio => {
+                let z = self.fresh_reg();
+                self.line(&format!(
+                    "  {z} = call i64 @aod_rt_qext_from_ratio(ptr %ctx, i64 0, i64 1)"
+                ));
+                self.emit_fail_return_check();
+                let cmp = self.fresh_reg();
+                self.line(&format!(
+                    "  {cmp} = call i8 @aod_rt_qext_cmp(ptr %ctx, i64 {}, i64 {z})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let is_neg = self.fresh_reg();
+                self.line(&format!("  {is_neg} = icmp slt i8 {cmp}, 0"));
+                let neg_h = self.fresh_reg();
+                self.line(&format!(
+                    "  {neg_h} = call i64 @aod_rt_qext_neg(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = select i1 {is_neg}, i64 {neg_h}, i64 {}",
+                    vals[0].reg
+                ));
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                }
+            }
+            ("sgn", [Type::T1]) => vals[0].clone(),
+            ("sgn", [Type::Int]) => {
+                let callee = if cg.plan.trit_ssa_promotion {
+                    "@__aod_int_sgn"
+                } else {
+                    "@aod_rt_int_sgn"
+                };
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i8 {callee}(ptr %ctx, i64 {})", vals[0].reg));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::T1,
+                }
+            }
+            ("sgn", [Type::Ratio]) => {
+                let (na, da) = self.extract_ratio_words(&vals[0].reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i8 @aod_rt_ratio_sgn(ptr %ctx, i64 {na}, i64 {da})"
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::T1,
+                }
+            }
+            (
+                "min" | "max",
+                [Type::Int, Type::Int]
+                | [Type::T1, Type::T1]
+                | [Type::Ratio, Type::Ratio]
+                | [Type::B8, Type::B8]
+                | [Type::B64, Type::B64],
+            ) => {
+                let op = if canon == "min" {
+                    BinaryOp::Min
+                } else {
+                    BinaryOp::Max
+                };
+                self.emit_binary(cg, op, vals[0].clone(), vals[1].clone(), line)?
+            }
+            ("pow", [Type::Int, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_int_pow(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("pow", [Type::Ratio, Type::Int]) => {
+                let (na, da) = self.extract_ratio_words(&vals[0].reg);
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_ratio_pow(ptr %ctx, i64 {na}, i64 {da}, i64 {}, ptr {out})",
+                    vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("gcd" | "lcm" | "trit_shl" | "trit_shr", [Type::Int, Type::Int]) => {
+                let callee = match canon {
+                    "gcd" => "@aod_rt_int_gcd",
+                    "lcm" => "@aod_rt_int_lcm",
+                    "trit_shl" => "@aod_rt_int_trit_shl",
+                    _ => "@aod_rt_int_trit_shr",
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 {callee}(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("superpose_cancel", [Type::T1, Type::T1] | [Type::Int, Type::Int]) => {
+                self.emit_builtin("superpose_cancel", vals.to_vec(), line)?
+            }
+            ("popcnt", [Type::B64]) => {
+                let cnt = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {cnt} = call i64 @llvm.ctpop.i64(i64 {})", vals[0].reg));
+                self.line(&format!("  {r} = call i64 @__aod_fast_pack_t32(i64 {cnt})"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("popcnt", [Type::B8 | Type::Q4]) => {
+                let cnt8 = self.fresh_reg();
+                let cnt64 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {cnt8} = call i8 @llvm.ctpop.i8(i8 {})", vals[0].reg));
+                self.line(&format!("  {cnt64} = zext i8 {cnt8} to i64"));
+                self.line(&format!("  {r} = call i64 @__aod_fast_pack_t32(i64 {cnt64})"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("is_hamming1", [Type::Q4, Type::Q4]) => {
+                let x = self.fresh_reg();
+                let m = self.fresh_reg();
+                let c = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {x} = xor i8 {}, {}", vals[0].reg, vals[1].reg));
+                self.line(&format!("  {m} = and i8 {x}, 15"));
+                self.line(&format!("  {c} = call i8 @llvm.ctpop.i8(i8 {m})"));
+                self.line(&format!("  {r} = icmp eq i8 {c}, 1"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                }
+            }
+            ("gate", [_, _]) => {
+                let cv = self.materialize_if_range(vals[0].clone());
+                let vv = self.materialize_if_range(vals[1].clone());
+                self.emit_gate_val(cg, cv, vv, line)?
+            }
+            ("argmin" | "argmax", [Type::Array(_, _) | Type::List(_) | Type::Range]) => {
+                let sv = self.materialize_if_range(vals[0].clone());
+                let is_max = u8::from(canon == "argmax");
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_seq_argmin_argmax(ptr %ctx, i64 {}, i8 {is_max})",
+                    sv.reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("range_seq", [Type::Int, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_range_seq(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(Box::new(Type::Int)),
+                }
+            }
+            ("push", [Type::Array(elem, _) | Type::List(elem), _]) => {
+                let eh = self.box_val_to_handle(&vals[1]);
+                let out_elem = if **elem == Type::Unknown {
+                    vals[1].dec_ty.clone()
+                } else {
+                    (**elem).clone()
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_seq_push(ptr %ctx, i64 {}, i64 {eh})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(Box::new(out_elem)),
+                }
+            }
+            ("concat", [Type::Array(e1, _) | Type::List(e1), Type::Array(e2, _) | Type::List(e2)]) => {
+                let out_elem = if **e1 == Type::Unknown {
+                    (**e2).clone()
+                } else {
+                    (**e1).clone()
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_seq_concat(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(Box::new(out_elem)),
+                }
+            }
+            ("slice", [Type::Array(elem, _) | Type::List(elem), Type::Int, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_seq_slice(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(elem.clone()),
+                }
+            }
+            ("set_at", [Type::Array(elem, n), Type::Int, _]) => {
+                let eh = self.box_val_to_handle(&vals[2]);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Array(elem.clone(), *n),
+                }
+            }
+            ("set_at", [Type::List(elem), Type::Int, _]) => {
+                let eh = self.box_val_to_handle(&vals[2]);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(elem.clone()),
+                }
+            }
+            ("map_put", [Type::Map(kt, vt), _, _]) => {
+                let kh = self.box_val_to_handle(&vals[1]);
+                let vh = self.box_val_to_handle(&vals[2]);
+                let out_k = if **kt == Type::Unknown {
+                    vals[1].dec_ty.clone()
+                } else {
+                    (**kt).clone()
+                };
+                let out_v = if **vt == Type::Unknown {
+                    vals[2].dec_ty.clone()
+                } else {
+                    (**vt).clone()
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_map_set(ptr %ctx, i64 {}, i64 {kh}, i64 {vh})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Map(Box::new(out_k), Box::new(out_v)),
+                }
+            }
+            ("contains", [Type::Map(_, _), _]) => {
+                let kh = self.box_val_to_handle(&vals[1]);
+                let b8 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {b8} = call i8 @aod_rt_map_contains(ptr %ctx, i64 {}, i64 {kh})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                self.line(&format!("  {r} = icmp ne i8 {b8}, 0"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                }
+            }
+            ("contains", [Type::Array(_, _) | Type::List(_), _]) => {
+                let eh = self.box_val_to_handle(&vals[1]);
+                let b8 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {b8} = call i8 @aod_rt_seq_contains(ptr %ctx, i64 {}, i64 {eh})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                self.line(&format!("  {r} = icmp ne i8 {b8}, 0"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                }
+            }
+            ("len", [Type::Str | Type::Bytes | Type::Array(_, _) | Type::List(_) | Type::Map(_, _)]) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 @aod_rt_len(ptr %ctx, i64 {})", vals[0].reg));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
 
-    fn emit_qext_binop(&mut self, code: u8, a: &str, b: &str) -> DecResult<Val> {
-        let r = self.fresh_reg();
-        self.line(&format!(
-            "  {r} = call i64 @aod_rt_qext_binop(ptr %ctx, i8 {code}, i64 {a}, i64 {b})"
-        ));
-        self.emit_fail_return_check();
-        Ok(Val {
-            reg: r,
-            dec_ty: Type::QExt(Box::new(Type::Ratio)),
-        })
+            // --- Witness primitives ---
+            ("trace", [Type::Str, Type::Str, Type::Q4]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_trace_new(ptr %ctx, i64 {}, i64 {}, i8 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Trace,
+                }
+            }
+            ("step", [Type::Trace, Type::Q4, Type::T1]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_trace_step(ptr %ctx, i64 {}, i8 {}, i8 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Trace,
+                }
+            }
+            ("hinge" | "dwell" | "close", [Type::Trace]) => {
+                let callee = match canon {
+                    "hinge" => "@aod_rt_trace_hinge",
+                    "dwell" => "@aod_rt_trace_dwell",
+                    _ => "@aod_rt_trace_close",
+                };
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 {callee}(ptr %ctx, i64 {})", vals[0].reg));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Trace,
+                }
+            }
+            ("phases" | "beats", [Type::Trace]) => {
+                let callee = if canon == "phases" {
+                    "@aod_rt_trace_phases"
+                } else {
+                    "@aod_rt_trace_beats"
+                };
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 {callee}(ptr %ctx, i64 {})", vals[0].reg));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("rate", [Type::Trace]) => {
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_trace_rate(ptr %ctx, i64 {}, ptr {out})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("fold", [Type::Trace, Type::Trace, Type::Str, Type::Str]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_fold(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg, vals[3].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Fusion,
+                }
+            }
+            ("outer", [Type::Fusion, Type::Q4]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_outer(ptr %ctx, i64 {}, i8 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Trace,
+                }
+            }
+            ("fuse", [Type::Fusion, Type::Trace]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_fuse(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Trace,
+                }
+            }
+            ("coupling", [Type::Trace, Type::Trace, Type::Str]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_coupling_new(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Coupling,
+                }
+            }
+            ("contact", [Type::Coupling, Type::Int, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_coupling_contact(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Coupling,
+                }
+            }
+            ("cadence", [Type::Coupling]) => {
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_coupling_cadence(ptr %ctx, i64 {}, ptr {out})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("lag" | "drift", [Type::Coupling]) => {
+                let callee = if canon == "lag" {
+                    "@aod_rt_coupling_lag"
+                } else {
+                    "@aod_rt_coupling_drift"
+                };
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 {callee}(ptr %ctx, i64 {})", vals[0].reg));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("probability", [Type::Int, Type::Int, Type::Int, Type::T1]) => {
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_probability(ptr %ctx, i64 {}, i64 {}, i64 {}, i8 {}, ptr {out})",
+                    vals[0].reg, vals[1].reg, vals[2].reg, vals[3].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+
+            // --- Support, ledger, boundary, & wavelet primitives ---
+            ("addr8", [Type::Str]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_addr8_from_str(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Addr8,
+                }
+            }
+            ("support", [Type::Str]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_support_from_str(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Support,
+                }
+            }
+            ("support", [Type::Int, Type::Int, Type::Int, Type::Bool]) => {
+                let b8 = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!("  {b8} = zext i1 {} to i8", vals[3].reg));
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_support_new(ptr %ctx, i64 {}, i64 {}, i64 {}, i8 {b8})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Support,
+                }
+            }
+            ("support_pi", [Type::Support]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_support_pi(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("support_rd", [Type::Support, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_support_rd(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("support_pressure" | "support_overhang", [Type::Support, Type::Int, Type::Int, Type::Int]) => {
+                let callee = if canon == "support_pressure" {
+                    "@aod_rt_support_pressure"
+                } else {
+                    "@aod_rt_support_overhang"
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 {callee}(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg, vals[3].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("shedding_excess", [Type::Int, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_shedding_excess(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("sadar_promote", [Type::Int, Type::Int, Type::Ratio]) => {
+                let (na, da) = self.extract_ratio_words(&vals[2].reg);
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!(
+                    "  call void @aod_rt_sadar_promote(ptr %ctx, i64 {}, i64 {}, i64 {na}, i64 {da}, ptr {out})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            ("boundary_of", [Type::Box3 | Type::Window | Type::Range | Type::SimResult]) => {
+                self.emit_unary(cg, UnaryOp::Boundary, vals[0].clone(), line)?
+            }
+            (
+                "window_dedup_count",
+                [
+                    Type::Str,
+                    Type::Str,
+                    Type::Array(_, _) | Type::List(_),
+                    Type::Array(_, _) | Type::List(_),
+                ],
+            ) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_window_dedup_count(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg, vals[3].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            (
+                "native_cadence_ratio",
+                [Type::Str, Type::Int, Type::Str, Type::Int, Type::Bool, Type::Int],
+            ) => {
+                let b8 = self.fresh_reg();
+                let out = self.alloc_temp("%DecRatio");
+                self.line(&format!("  {b8} = zext i1 {} to i8", vals[4].reg));
+                self.line(&format!(
+                    "  call void @aod_rt_native_cadence_ratio(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {}, i8 {b8}, i64 {}, ptr {out})",
+                    vals[0].reg, vals[1].reg, vals[2].reg, vals[3].reg, vals[5].reg
+                ));
+                self.emit_fail_return_check();
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = load %DecRatio, ptr {out}"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Ratio,
+                }
+            }
+            (
+                "single_contact_association",
+                [Type::Str, Type::Str, Type::Str, Type::Window, Type::Int],
+            ) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_single_contact_assoc(ptr %ctx, i64 {}, i64 {}, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg, vals[3].reg, vals[4].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::CadenceAssociation,
+                }
+            }
+            ("recipient_eval_demo", [Type::Int, Type::Int, Type::Window]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_recipient_eval_demo(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg, vals[2].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::RecipientOutcome,
+                }
+            }
+
+            // --- Strictly quarantined `aod::qext` builtins ---
+            ("aod::qext::ext_decimal", [Type::Str]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_ext_decimal(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                }
+            }
+            ("aod::qext::qext_from_ratio", [Type::Ratio]) => {
+                let (na, da) = self.extract_ratio_words(&vals[0].reg);
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_from_ratio(ptr %ctx, i64 {na}, i64 {da})"
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                }
+            }
+            (
+                "aod::qext::qext_add"
+                | "aod::qext::qext_sub"
+                | "aod::qext::qext_mul"
+                | "aod::qext::qext_div",
+                [Type::QExt(a), Type::QExt(b)],
+            ) if **a == Type::Ratio && **b == Type::Ratio => {
+                let op_code: u8 = match canon {
+                    "aod::qext::qext_add" => 0,
+                    "aod::qext::qext_sub" => 1,
+                    "aod::qext::qext_mul" => 2,
+                    _ => 3,
+                };
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_binop(ptr %ctx, i8 {op_code}, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                }
+            }
+            ("aod::qext::qext_render", [Type::QExt(a)]) if **a == Type::Ratio => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_render(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Str)),
+                }
+            }
+            ("aod::qext::qext_round_half_even", [Type::QExt(a), Type::Int])
+                if **a == Type::Ratio =>
+            {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_round_half_even(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Ratio)),
+                }
+            }
+            ("aod::qext::qext_format_fixed", [Type::QExt(a), Type::Int]) if **a == Type::Ratio => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_qext_format_fixed(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::QExt(Box::new(Type::Str)),
+                }
+            }
+
+            // --- Explicit `aod::sys` bootstrap I/O (`Effect::SysIo`) ---
+            ("aod::sys::cli_args", []) => {
+                let r = self.fresh_reg();
+                self.line(&format!("  {r} = call i64 @aod_rt_sys_cli_args(ptr %ctx)"));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::List(Box::new(Type::Bytes)),
+                }
+            }
+            ("aod::sys::read_file_bytes", [Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_read_file_bytes(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("aod::sys::write_executable_elf", [Type::Bytes, Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_write_executable_elf(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+
+            _ => return Ok(None),
+        };
+
+        Ok(Some(res))
     }
 
     fn emit_simulate(
@@ -4327,163 +7390,296 @@ impl FnBuilder {
         cg: &mut Codegen<'_>,
         prepare_name: &str,
         ticks_expr: &Expr,
-        observers: &[String],
+        observer_names: &[String],
         line: usize,
     ) -> DecResult<Val> {
-        let ticks_val = self.emit_expr(cg, ticks_expr)?;
-        let prep = cg
+        let base_mod = cg.base_module_of(&self.mod_key).to_string();
+        let (prep_mod, prep) = cg
             .prepares
             .get(&(self.mod_key.clone(), prepare_name.to_string()))
-            .cloned()
+            .map(|p| (self.mod_key.clone(), p.clone()))
+            .or_else(|| {
+                cg.prepares
+                    .get(&(base_mod.clone(), prepare_name.to_string()))
+                    .map(|p| (base_mod.clone(), p.clone()))
+            })
+            .or_else(|| {
+                if let Some(ImportedSymbol::ModuleItem { module, item }) =
+                    cg.imports_for(&self.mod_key).get(prepare_name)
+                {
+                    cg.prepares
+                        .get(&(module.clone(), item.clone()))
+                        .map(|p| (module.clone(), p.clone()))
+                } else {
+                    None
+                }
+            })
             .ok_or_else(|| {
                 Diagnostic::at_line(
                     DiagnosticCode::RuntimeError,
                     line,
-                    format!("codegen: undefined prepare {prepare_name}"),
-                )
-            })?;
-        let chamber = cg
-            .chambers
-            .get(&(self.mod_key.clone(), prep.chamber.clone()))
-            .cloned()
-            .ok_or_else(|| {
-                Diagnostic::at_line(
-                    DiagnosticCode::RuntimeError,
-                    line,
-                    format!("codegen: undefined chamber {}", prep.chamber),
+                    format!("codegen: unknown prepare {prepare_name}"),
                 )
             })?;
 
-        let space_v = self.emit_expr(cg, &chamber.space)?;
+        let chamber = cg
+            .chambers
+            .get(&(prep_mod.clone(), prep.chamber.clone()))
+            .cloned()
+            .or_else(|| {
+                if let Some(ImportedSymbol::ModuleItem { module, item }) =
+                    cg.imports_for(&prep_mod).get(&prep.chamber)
+                {
+                    cg.chambers.get(&(module.clone(), item.clone())).cloned()
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| {
+                Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!("codegen: unknown chamber {}", prep.chamber),
+                )
+            })?;
+
+        let saved_mod = self.mod_key.clone();
+        self.mod_key = prep_mod.clone();
+        self.push_scope();
+
         let cname_h = self.emit_str_handle(cg, &chamber.name);
-        let b_h = self.fresh_reg();
+        let space_v = self.emit_expr(cg, &chamber.space)?;
+        let walls_code = chamber.walls.to_code();
+        let bh = self.fresh_reg();
         self.line(&format!(
-            "  {b_h} = call i64 @aod_rt_sim_builder_new(ptr %ctx, i64 {cname_h}, i64 {}, i8 {})",
-            space_v.reg,
-            chamber.walls.to_code()
+            "  {bh} = call i64 @aod_rt_sim_builder_new(ptr %ctx, i64 {cname_h}, i64 {}, i8 {walls_code})",
+            space_v.reg
         ));
         self.emit_fail_return_check();
 
-        // Prepare lets, clocks, injections inside fresh scope
-        self.push_scope();
-        self.emit_stmts(cg, &prep.lets)?;
+        for st in &prep.lets {
+            self.emit_stmt(cg, st)?;
+        }
+
         for clk in &prep.clocks {
-            let pv = self.emit_expr(cg, &clk.period)?;
-            let pp = self.store_temp_int(&pv.reg);
             let nh = self.emit_str_handle(cg, &clk.name);
+            let pv = self.emit_expr(cg, &clk.period)?;
             self.line(&format!(
-                "  call void @aod_rt_sim_builder_add_clock(ptr %ctx, i64 {b_h}, i64 {nh}, ptr {pp})"
+                "  call void @aod_rt_sim_builder_add_clock(ptr %ctx, i64 {bh}, i64 {nh}, i64 {})",
+                pv.reg
             ));
             self.emit_fail_return_check();
         }
+
         for inj in &prep.injections {
-            let sf = self.emit_expr(cg, &inj.support)?;
-            let pos = self.emit_expr(cg, &inj.pos)?;
+            let sup_v = self.emit_expr(cg, &inj.support)?;
+            let pos_v = self.emit_expr(cg, &inj.pos)?;
             let xh = self.fresh_reg();
             let yh = self.fresh_reg();
             let zh = self.fresh_reg();
             self.line(&format!(
                 "  {xh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 0)",
-                pos.reg
+                pos_v.reg
             ));
             self.line(&format!(
                 "  {yh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 1)",
-                pos.reg
+                pos_v.reg
             ));
             self.line(&format!(
                 "  {zh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 2)",
-                pos.reg
+                pos_v.reg
             ));
+            self.emit_fail_return_check();
             let xv = self.unbox_handle_to_val(&xh, &Type::Int);
             let yv = self.unbox_handle_to_val(&yh, &Type::Int);
             let zv = self.unbox_handle_to_val(&zh, &Type::Int);
-            let xp = self.store_temp_int(&xv.reg);
-            let yp = self.store_temp_int(&yv.reg);
-            let zp = self.store_temp_int(&zv.reg);
-
-            let ov = self.emit_expr(cg, &inj.orient)?;
-            let orient_i8 = if ov.dec_ty == Type::T1 {
-                ov.reg
-            } else {
-                let op = self.store_temp_int(&ov.reg);
-                let r = self.fresh_reg();
-                self.line(&format!("  {r} = call i8 @aod_rt_int_to_t1(ptr %ctx, ptr {op})"));
-                self.emit_fail_return_check();
-                r
-            };
-            let shv = self.emit_expr(cg, &inj.shells)?;
-            let shp = self.store_temp_int(&shv.reg);
+            let dir_code = inj.dir.to_code();
+            let orient_v = self.emit_expr(cg, &inj.orient)?;
+            let shells_v = self.emit_expr(cg, &inj.shells)?;
             self.line(&format!(
-                "  call void @aod_rt_sim_builder_add_carrier(ptr %ctx, i64 {b_h}, i64 {}, ptr {xp}, ptr {yp}, ptr {zp}, i8 {}, i8 {orient_i8}, ptr {shp})",
-                sf.reg,
-                inj.dir.to_code()
+                "  call void @aod_rt_sim_builder_add_carrier(ptr %ctx, i64 {bh}, i64 {}, i64 {}, i64 {}, i64 {}, i8 {dir_code}, i8 {}, i64 {})",
+                sup_v.reg, xv.reg, yv.reg, zv.reg, orient_v.reg, shells_v.reg
             ));
             self.emit_fail_return_check();
         }
-        self.pop_scope();
 
-        // Register attached observers
-        for obs_name in observers {
-            let obs = cg
+        self.pop_scope();
+        self.mod_key = saved_mod;
+
+        for obs_name in observer_names {
+            let (obs_mod, obs) = cg
                 .observes
                 .get(&(self.mod_key.clone(), obs_name.clone()))
-                .cloned()
+                .map(|o| (self.mod_key.clone(), o.clone()))
+                .or_else(|| {
+                    cg.observes
+                        .get(&(base_mod.clone(), obs_name.clone()))
+                        .map(|o| (base_mod.clone(), o.clone()))
+                })
+                .or_else(|| {
+                    if let Some(ImportedSymbol::ModuleItem { module, item }) =
+                        cg.imports_for(&self.mod_key).get(obs_name)
+                    {
+                        cg.observes
+                            .get(&(module.clone(), item.clone()))
+                            .map(|o| (module.clone(), o.clone()))
+                    } else {
+                        None
+                    }
+                })
                 .ok_or_else(|| {
                     Diagnostic::at_line(
                         DiagnosticCode::RuntimeError,
                         line,
-                        format!("codegen: undefined observe {obs_name}"),
+                        format!("codegen: unknown observe {obs_name}"),
                     )
                 })?;
+
+            let prev_mod = self.mod_key.clone();
+            self.mod_key = obs_mod.clone();
             for probe in &obs.probes {
                 match probe {
                     ProbeDecl::Declarative {
-                        kind,
-                        name,
-                        region,
-                        ..
+                        kind, name, region, ..
                     } => {
-                        let rv = self.emit_expr(cg, region)?;
+                        let kcode = kind.to_code();
                         let nh = self.emit_str_handle(cg, name);
+                        let reg_v = self.emit_expr(cg, region)?;
                         self.line(&format!(
-                            "  call void @aod_rt_sim_builder_add_decl_obs(ptr %ctx, i64 {b_h}, i8 {}, i64 {nh}, i64 {})",
-                            kind.to_code(),
-                            rv.reg
+                            "  call void @aod_rt_sim_builder_add_decl_obs(ptr %ctx, i64 {bh}, i8 {kcode}, i64 {nh}, i64 {})",
+                            reg_v.reg
                         ));
                         self.emit_fail_return_check();
                     }
                     ProbeDecl::Procedural { name, .. } => {
-                        let cb_name = cg.obs_callbacks
-                            [&(self.mod_key.clone(), obs.name.clone(), name.clone())]
-                            .clone();
                         let nh = self.emit_str_handle(cg, name);
+                        let cb_sym = cg.obs_callbacks
+                            [&(obs_mod.clone(), obs.name.clone(), name.clone())]
+                            .clone();
                         self.line(&format!(
-                            "  call void @aod_rt_sim_builder_add_proc_obs(ptr %ctx, i64 {b_h}, i64 {nh}, ptr {cb_name})"
+                            "  call void @aod_rt_sim_builder_add_proc_obs(ptr %ctx, i64 {bh}, i64 {nh}, ptr {cb_sym})"
                         ));
                         self.emit_fail_return_check();
                     }
                 }
             }
+            self.mod_key = prev_mod;
         }
 
-        let tp = self.store_temp_int(&ticks_val.reg);
-        let sim_h = self.fresh_reg();
+        let ticks_v = self.emit_expr(cg, ticks_expr)?;
         let par_flag = u8::from(cg.plan.parallel_observers);
+        let res_h = self.fresh_reg();
         self.line(&format!(
-            "  {sim_h} = call i64 @aod_rt_sim_run_ex(ptr %ctx, i64 {b_h}, ptr {tp}, i8 {par_flag})"
+            "  {res_h} = call i64 @aod_rt_sim_run_ex(ptr %ctx, i64 {bh}, i64 {}, i8 {par_flag})",
+            ticks_v.reg
         ));
         self.emit_fail_return_check();
         Ok(Val {
-            reg: sim_h,
+            reg: res_h,
             dec_ty: Type::SimResult,
         })
     }
 }
 
+// ============================================================================
+// Free Codegen Type & Mangling Helpers
+// ============================================================================
+
+fn seq_elem_type(ty: &Type) -> Option<Type> {
+    match ty.unwrap_read_only() {
+        Type::Array(e, _) | Type::List(e) => Some((**e).clone()),
+        Type::Range => Some(Type::Int),
+        _ => None,
+    }
+}
+
+fn extract_seq_elem_and_fixed(ty: &Type) -> (Type, Option<usize>) {
+    match ty.unwrap_read_only() {
+        Type::Array(e, n) => ((**e).clone(), Some(*n)),
+        Type::List(e) => ((**e).clone(), None),
+        Type::Range => (Type::Int, None),
+        other => (other.clone(), None),
+    }
+}
+
+fn type_seq_rank(ty: &Type) -> usize {
+    match ty.unwrap_read_only() {
+        Type::Array(inner, _) | Type::List(inner) => 1 + type_seq_rank(inner),
+        Type::Range => 1,
+        _ => 0,
+    }
+}
+
+fn type_contains_unknown(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => true,
+        Type::Array(e, _) | Type::List(e) | Type::ReadOnly(e) | Type::QExt(e) => {
+            type_contains_unknown(e)
+        }
+        Type::Map(k, v) => type_contains_unknown(k) || type_contains_unknown(v),
+        Type::Tuple(ts) => ts.iter().any(type_contains_unknown),
+        _ => false,
+    }
+}
+
+fn types_match_for_call(actual: &Type, expected: &Type) -> bool {
+    let a = actual.unwrap_read_only();
+    let e = expected.unwrap_read_only();
+    if *a == Type::Unknown || *e == Type::Unknown {
+        return true;
+    }
+    match (a, e) {
+        (Type::Array(ae, an), Type::Array(ee, en)) => an == en && types_match_for_call(ae, ee),
+        (Type::Array(ae, _) | Type::List(ae), Type::List(ee)) => types_match_for_call(ae, ee),
+        (Type::Map(ak, av), Type::Map(ek, ev)) => {
+            types_match_for_call(ak, ek) && types_match_for_call(av, ev)
+        }
+        (Type::Tuple(as_), Type::Tuple(es)) => {
+            as_.len() == es.len()
+                && as_
+                    .iter()
+                    .zip(es)
+                    .all(|(x, y)| types_match_for_call(x, y))
+        }
+        (Type::QExt(ai), Type::QExt(ei)) => types_match_for_call(ai, ei),
+        _ => a == e,
+    }
+}
+
+fn find_matching_overload<'a>(overloads: &'a [FnOverload], vals: &[Val]) -> Option<&'a FnOverload> {
+    // Prefer exact `[T; N]` array matches before `[T; N] -> [T]` coercion
+    for ov in overloads {
+        if ov.param_types.len() == vals.len()
+            && vals
+                .iter()
+                .zip(&ov.param_types)
+                .all(|(v, p)| v.dec_ty.unwrap_read_only() == p.unwrap_read_only())
+        {
+            return Some(ov);
+        }
+    }
+    overloads.iter().find(|ov| {
+        ov.param_types.len() == vals.len()
+            && vals
+                .iter()
+                .zip(&ov.param_types)
+                .all(|(v, p)| types_match_for_call(&v.dec_ty, p))
+    })
+}
+
 fn sanitize_ident(s: &str) -> String {
-    s.chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect()
+    let mut out = String::with_capacity(s.len().max(1));
+    for ch in s.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        out.push('x');
+    }
+    out
 }
 
 fn escape_llvm_bytes(bytes: &[u8]) -> String {
@@ -4492,105 +7688,139 @@ fn escape_llvm_bytes(bytes: &[u8]) -> String {
         if (0x20..=0x7E).contains(&b) && b != b'"' && b != b'\\' {
             out.push(b as char);
         } else {
-            let _ = write!(out, "\\{:02X}", b);
+            let _ = write!(out, "\\{b:02X}");
         }
     }
     out
 }
 
-/// LLVM 18 module preamble: exact C ABI types, LLVM overflow/cttz/ctpop intrinsics,
-/// `aod_rt_*` declarations, and unboxed-first inline arithmetic helpers (`P0-1`, `P0-3`).
-const LLVM_MODULE_PREAMBLE: &str = r#"; ModuleID = 'aod_dec_v2'
+// ============================================================================
+// LLVM 18 Module Preamble: Trit-Boxed `DecInt` (i64) & `DecRatio` ({i64, i64})
+// ============================================================================
+
+const LLVM_MODULE_PREAMBLE: &str = r#"; AOD Dec Clean-Break LLVM 18 Module (Trit-Boxed 2-Bit Balanced Ternary ABI)
 %AodRtContext = type { i64, i32, i32, i8, i8, [6 x i8], ptr }
-%DecInt = type { i8, i64 }
-%DecRatio = type { i8, i64, i64 }
+%DecRatio = type { i64, i64 }
 
-declare { i64, i1 } @llvm.sadd.with.overflow.i64(i64, i64)
-declare { i64, i1 } @llvm.ssub.with.overflow.i64(i64, i64)
-declare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64)
-declare { i128, i1 } @llvm.sadd.with.overflow.i128(i128, i128)
-declare { i128, i1 } @llvm.ssub.with.overflow.i128(i128, i128)
+@.t1_ovf_msg = private unnamed_addr constant [20 x i8] c"t1 addition overflow", align 1
+
+declare i64 @llvm.ctlz.i64(i64, i1 immarg)
 declare i128 @llvm.cttz.i128(i128, i1 immarg)
+declare i64 @llvm.ctpop.i64(i64)
+declare i8 @llvm.ctpop.i8(i8)
 
+declare void @aod_rt_ctx_init(ptr, i64, i32, i8)
 declare i32 @aod_rt_cli_parse_args(i32, ptr, ptr)
 declare i32 @aod_rt_ctx_finish(ptr)
 declare void @aod_rt_fail(ptr, ptr, i64)
 declare void @aod_rt_assert_failed(ptr, i64)
 declare void @aod_rt_budget_exhausted(ptr, i8)
 
-declare void @aod_rt_int_from_str(ptr, ptr, i64, ptr)
-declare void @aod_rt_int_from_u64(ptr, i64, ptr)
-declare void @aod_rt_int_neg(ptr, ptr, ptr)
-declare void @aod_rt_int_add(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_sub(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_mul(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_div_floor(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_rem_floor(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_exact_div(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_bitand(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_bitor(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_bitxor(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_shl(ptr, ptr, ptr, ptr)
-declare void @aod_rt_int_shr(ptr, ptr, ptr, ptr)
-declare i32 @aod_rt_int_cmp(ptr, ptr, ptr)
-declare i8 @aod_rt_int_to_t1(ptr, ptr)
-declare i64 @aod_rt_int_to_t32(ptr, ptr)
-declare i8 @aod_rt_int_to_q4(ptr, ptr)
-declare i64 @aod_rt_t32_unpack_bigint(ptr, ptr)
+declare i64 @aod_rt_int_from_str(ptr, ptr, i64)
+declare i64 @aod_rt_int_from_i64(ptr, i64)
+declare i64 @aod_rt_int_from_u64(ptr, i64)
+declare i64 @aod_rt_int_neg(ptr, i64)
+declare i64 @aod_rt_int_add(ptr, i64, i64)
+declare i64 @aod_rt_int_sub(ptr, i64, i64)
+declare i64 @aod_rt_int_mul(ptr, i64, i64)
+declare i64 @aod_rt_int_div_floor(ptr, i64, i64)
+declare i64 @aod_rt_int_rem_floor(ptr, i64, i64)
+declare i64 @aod_rt_int_pow(ptr, i64, i64)
+declare i64 @aod_rt_int_gcd(ptr, i64, i64)
+declare i64 @aod_rt_int_lcm(ptr, i64, i64)
+declare i64 @aod_rt_int_superpose_cancel(ptr, i64, i64)
+declare i64 @aod_rt_int_trit_shl(ptr, i64, i64)
+declare i64 @aod_rt_int_trit_shr(ptr, i64, i64)
+declare i64 @aod_rt_b64_from_unsigned_int(ptr, i64)
+declare void @aod_rt_int_exact_div(ptr, i64, i64, ptr)
+declare i8 @aod_rt_int_cmp(ptr, i64, i64)
+declare i8 @aod_rt_int_sgn(ptr, i64)
+declare i8 @aod_rt_int_to_t1(ptr, i64)
+declare i8 @aod_rt_int_to_q4(ptr, i64)
+declare i8 @aod_rt_int_to_b8(ptr, i64)
+declare i64 @aod_rt_int_to_b64_view(ptr, i64)
+declare i64 @aod_rt_int_from_b64_view(ptr, i64)
 
 declare void @aod_rt_ratio_reduce_i128(ptr, i64, i64, i64, i64, ptr)
+declare void @aod_rt_ratio_from_ints(ptr, i64, i64, ptr)
 declare void @aod_rt_ratio_from_str(ptr, ptr, i64, ptr, i64, ptr)
-declare void @aod_rt_ratio_neg(ptr, ptr, ptr)
-declare void @aod_rt_ratio_add(ptr, ptr, ptr, ptr)
-declare void @aod_rt_ratio_sub(ptr, ptr, ptr, ptr)
-declare void @aod_rt_ratio_mul(ptr, ptr, ptr, ptr)
-declare void @aod_rt_ratio_div(ptr, ptr, ptr, ptr)
-declare i32 @aod_rt_ratio_cmp(ptr, ptr, ptr)
-declare void @aod_rt_ratio_to_int_exact(ptr, ptr, ptr)
+declare void @aod_rt_ratio_neg(ptr, i64, i64, ptr)
+declare void @aod_rt_ratio_add(ptr, i64, i64, i64, i64, ptr)
+declare void @aod_rt_ratio_sub(ptr, i64, i64, i64, i64, ptr)
+declare void @aod_rt_ratio_mul(ptr, i64, i64, i64, i64, ptr)
+declare void @aod_rt_ratio_div(ptr, i64, i64, i64, i64, ptr)
+declare i8 @aod_rt_ratio_cmp(ptr, i64, i64, i64, i64)
+declare i8 @aod_rt_ratio_sgn(ptr, i64, i64)
+declare i64 @aod_rt_ratio_to_int_exact(ptr, i64, i64)
+declare i64 @aod_rt_pack_ratio(ptr, i64, i64)
+declare void @aod_rt_unpack_ratio(ptr, i64, ptr)
+declare void @aod_rt_ratio_pow(ptr, i64, i64, i64, ptr)
 
-declare void @aod_rt_emit_int(ptr, ptr)
+declare void @aod_rt_emit_null(ptr)
+declare void @aod_rt_emit_int(ptr, i64)
 declare void @aod_rt_emit_bool(ptr, i8)
 declare void @aod_rt_emit_qext_bool(ptr, i8)
 declare void @aod_rt_emit_t1(ptr, i8)
-declare void @aod_rt_emit_t32(ptr, i64)
+declare void @aod_rt_emit_b8(ptr, i8)
+declare void @aod_rt_emit_b64(ptr, i64)
 declare void @aod_rt_emit_q4(ptr, i8)
-declare void @aod_rt_emit_ratio(ptr, ptr)
+declare void @aod_rt_emit_ratio(ptr, i64, i64)
 declare void @aod_rt_emit_handle(ptr, i64)
 
 declare i64 @aod_rt_str_new(ptr, ptr, i64)
+declare i64 @aod_rt_bytes_new(ptr, ptr, i64)
+declare i64 @aod_rt_bytes_from_seq(ptr, i64)
+declare i64 @aod_rt_bytes_from_b64(ptr, i64)
+declare i8 @aod_rt_bytes_get(ptr, i64, i64)
+declare i64 @aod_rt_bytes_slice(ptr, i64, i64, i64)
+declare i64 @aod_rt_bytes_concat(ptr, i64, i64)
+declare i64 @aod_rt_bytes_sha256(ptr, i64)
+declare i64 @aod_rt_bytes_hex(ptr, i64)
+declare i64 @aod_rt_str_from_bytes(ptr, i64)
+declare i64 @aod_rt_le_bytes_from_int(ptr, i64, i8)
+declare i64 @aod_rt_bytes_push(ptr, i64, i8)
+
+declare i64 @aod_rt_sys_cli_args(ptr)
+declare i64 @aod_rt_sys_read_file_bytes(ptr, i64)
+declare i64 @aod_rt_sys_write_executable_elf(ptr, i64, i64)
+
 declare i8 @aod_rt_handle_eq(ptr, i64, i64)
+declare i8 @aod_rt_handle_cmp(ptr, i64, i64)
 declare i64 @aod_rt_val_unit(ptr)
-declare i64 @aod_rt_val_from_int(ptr, ptr)
-declare void @aod_rt_val_to_int(ptr, i64, ptr)
+declare i64 @aod_rt_val_null(ptr)
+declare i64 @aod_rt_val_from_int(ptr, i64)
+declare i64 @aod_rt_val_to_int(ptr, i64)
 declare i64 @aod_rt_val_from_bool(ptr, i8)
 declare i8 @aod_rt_val_to_bool(ptr, i64)
 declare i64 @aod_rt_val_from_qext_bool(ptr, i8)
 declare i8 @aod_rt_val_to_qext_bool(ptr, i64)
 declare i64 @aod_rt_val_from_t1(ptr, i8)
 declare i8 @aod_rt_val_to_t1(ptr, i64)
-declare i64 @aod_rt_val_from_t32(ptr, i64)
-declare i64 @aod_rt_val_to_t32(ptr, i64)
+declare i64 @aod_rt_val_from_b8(ptr, i8)
+declare i8 @aod_rt_val_to_b8(ptr, i64)
+declare i64 @aod_rt_val_from_b64(ptr, i64)
+declare i64 @aod_rt_val_to_b64(ptr, i64)
 declare i64 @aod_rt_val_from_q4(ptr, i8)
 declare i8 @aod_rt_val_to_q4(ptr, i64)
-declare i64 @aod_rt_val_from_ratio(ptr, ptr)
+declare i64 @aod_rt_val_from_ratio(ptr, i64, i64)
 declare void @aod_rt_val_to_ratio(ptr, i64, ptr)
 
 declare i64 @aod_rt_addr8_parse(ptr, ptr, i64)
 declare i64 @aod_rt_addr8_from_str(ptr, i64)
 declare i64 @aod_rt_support_parse(ptr, ptr, i64)
 declare i64 @aod_rt_support_from_str(ptr, i64)
-declare i64 @aod_rt_support_new(ptr, ptr, ptr, ptr, i8)
-declare void @aod_rt_support_pi(ptr, i64, ptr)
-declare void @aod_rt_support_rd(ptr, i64, ptr, ptr)
-declare void @aod_rt_support_pressure(ptr, i64, ptr, ptr, ptr, ptr)
-declare void @aod_rt_support_overhang(ptr, i64, ptr, ptr, ptr, ptr)
-declare void @aod_rt_shedding_excess(ptr, ptr, ptr, ptr)
-declare void @aod_rt_sadar_promote(ptr, ptr, ptr, ptr, ptr)
-declare void @aod_rt_probability(ptr, ptr, ptr, ptr, i8, ptr)
-
-declare i64 @aod_rt_window_new(ptr, ptr, ptr)
-declare i64 @aod_rt_range_new(ptr, ptr, ptr)
+declare i64 @aod_rt_support_new(ptr, i64, i64, i64, i8)
+declare i64 @aod_rt_support_pi(ptr, i64)
+declare i64 @aod_rt_support_rd(ptr, i64, i64)
+declare i64 @aod_rt_support_pressure(ptr, i64, i64, i64, i64)
+declare i64 @aod_rt_support_overhang(ptr, i64, i64, i64, i64)
+declare i64 @aod_rt_shedding_excess(ptr, i64, i64)
+declare void @aod_rt_sadar_promote(ptr, i64, i64, i64, i64, ptr)
+declare void @aod_rt_probability(ptr, i64, i64, i64, i8, ptr)
+declare i64 @aod_rt_window_new(ptr, i64, i64)
+declare i64 @aod_rt_range_new(ptr, i64, i64)
 declare void @aod_rt_range_bounds(ptr, i64, ptr, ptr)
+declare i64 @aod_rt_range_to_list(ptr, i64)
 declare i64 @aod_rt_box_new(ptr, i64, i64, i64)
 declare i64 @aod_rt_boundary_of(ptr, i64)
 
@@ -4599,36 +7829,48 @@ declare i64 @aod_rt_trace_step(ptr, i64, i8, i8)
 declare i64 @aod_rt_trace_hinge(ptr, i64)
 declare i64 @aod_rt_trace_dwell(ptr, i64)
 declare i64 @aod_rt_trace_close(ptr, i64)
-declare void @aod_rt_trace_phases(ptr, i64, ptr)
-declare void @aod_rt_trace_beats(ptr, i64, ptr)
+declare i64 @aod_rt_trace_phases(ptr, i64)
+declare i64 @aod_rt_trace_beats(ptr, i64)
 declare void @aod_rt_trace_rate(ptr, i64, ptr)
 declare i64 @aod_rt_fold(ptr, i64, i64, i64, i64)
 declare i64 @aod_rt_outer(ptr, i64, i8)
 declare i64 @aod_rt_fuse(ptr, i64, i64)
 declare i64 @aod_rt_coupling_new(ptr, i64, i64, i64)
-declare i64 @aod_rt_coupling_contact(ptr, i64, ptr, ptr)
+declare i64 @aod_rt_coupling_contact(ptr, i64, i64, i64)
 declare void @aod_rt_coupling_cadence(ptr, i64, ptr)
-declare void @aod_rt_coupling_lag(ptr, i64, ptr)
-declare void @aod_rt_coupling_drift(ptr, i64, ptr)
-declare void @aod_rt_window_dedup_count(ptr, i64, i64, i64, i64, ptr)
-declare void @aod_rt_native_cadence_ratio(ptr, i64, ptr, i64, ptr, i8, ptr, ptr)
-declare i64 @aod_rt_single_contact_assoc(ptr, i64, i64, i64, i64, ptr)
-declare i64 @aod_rt_recipient_eval_demo(ptr, ptr, ptr, i64)
+declare i64 @aod_rt_coupling_lag(ptr, i64)
+declare i64 @aod_rt_coupling_drift(ptr, i64)
+declare i64 @aod_rt_window_dedup_count(ptr, i64, i64, i64, i64)
+declare void @aod_rt_native_cadence_ratio(ptr, i64, i64, i64, i64, i8, i64, ptr)
+declare i64 @aod_rt_single_contact_assoc(ptr, i64, i64, i64, i64, i64)
+declare i64 @aod_rt_recipient_eval_demo(ptr, i64, i64, i64)
 
 declare i64 @aod_rt_qext_ext_decimal(ptr, i64)
-declare i64 @aod_rt_qext_from_ratio(ptr, ptr)
+declare i64 @aod_rt_qext_from_ratio(ptr, i64, i64)
 declare i64 @aod_rt_qext_binop(ptr, i8, i64, i64)
 declare i64 @aod_rt_qext_neg(ptr, i64)
-declare i32 @aod_rt_qext_cmp(ptr, i64, i64)
+declare i8 @aod_rt_qext_cmp(ptr, i64, i64)
 declare i64 @aod_rt_qext_render(ptr, i64)
-declare i64 @aod_rt_qext_round_half_even(ptr, i64, ptr)
-declare i64 @aod_rt_qext_format_fixed(ptr, i64, ptr)
+declare i64 @aod_rt_qext_round_half_even(ptr, i64, i64)
+declare i64 @aod_rt_qext_format_fixed(ptr, i64, i64)
 
+declare i64 @aod_rt_array_new(ptr, ptr, i64)
 declare i64 @aod_rt_list_new(ptr, ptr, i64)
-declare i64 @aod_rt_list_get(ptr, i64, ptr)
-declare i64 @aod_rt_list_set(ptr, i64, ptr, i64)
-declare i64 @aod_rt_list_len_raw(ptr, i64)
-declare void @aod_rt_len(ptr, i64, ptr)
+declare i64 @aod_rt_seq_get(ptr, i64, i64)
+declare i64 @aod_rt_seq_get_raw_idx(ptr, i64, i64)
+declare i64 @aod_rt_array_set(ptr, i64, i64, i64)
+declare i64 @aod_rt_seq_len_raw(ptr, i64)
+declare i64 @aod_rt_seq_sieve(ptr, i64, i64)
+declare i64 @aod_rt_seq_argmin_argmax(ptr, i64, i8)
+declare i64 @aod_rt_len(ptr, i64)
+declare i64 @aod_rt_seq_push(ptr, i64, i64)
+declare i64 @aod_rt_seq_concat(ptr, i64, i64)
+declare i64 @aod_rt_seq_slice(ptr, i64, i64, i64)
+declare i8 @aod_rt_seq_contains(ptr, i64, i64)
+declare i64 @aod_rt_range_seq(ptr, i64, i64)
+declare i64 @aod_rt_seq_buf_new(ptr, i64)
+declare void @aod_rt_seq_buf_push(ptr, i64, i64)
+declare i64 @aod_rt_seq_buf_finish(ptr, i64, i8)
 declare i64 @aod_rt_tuple_new(ptr, ptr, i64)
 declare i64 @aod_rt_tuple_get(ptr, i64, i64)
 declare i64 @aod_rt_map_new(ptr, ptr, ptr, i64)
@@ -4638,948 +7880,670 @@ declare i8 @aod_rt_map_contains(ptr, i64, i64)
 declare i64 @aod_rt_map_keys_list(ptr, i64)
 declare i64 @aod_rt_map_entries_list(ptr, i64)
 declare i64 @aod_rt_struct_new(ptr, i64, i64, ptr, ptr, i64)
-declare i64 @aod_rt_struct_set(ptr, i64, ptr, i64, i64)
 declare i64 @aod_rt_enum_new(ptr, i64, i64, i64, i32, ptr, i64)
 declare i32 @aod_rt_enum_tag(ptr, i64)
 declare i64 @aod_rt_enum_payload(ptr, i64, i64)
 declare i64 @aod_rt_field_get(ptr, i64, ptr, i64)
 
 declare i64 @aod_rt_sim_builder_new(ptr, i64, i64, i8)
-declare void @aod_rt_sim_builder_add_clock(ptr, i64, i64, ptr)
-declare void @aod_rt_sim_builder_add_carrier(ptr, i64, i64, ptr, ptr, ptr, i8, i8, ptr)
+declare void @aod_rt_sim_builder_add_clock(ptr, i64, i64, i64)
+declare void @aod_rt_sim_builder_add_carrier(ptr, i64, i64, i64, i64, i64, i8, i8, i64)
 declare void @aod_rt_sim_builder_add_decl_obs(ptr, i64, i8, i64, i64)
 declare void @aod_rt_sim_builder_add_proc_obs(ptr, i64, i64, ptr)
-declare i64 @aod_rt_sim_run(ptr, i64, ptr)
-declare i64 @aod_rt_sim_run_ex(ptr, i64, ptr, i8)
+declare i64 @aod_rt_sim_run(ptr, i64, i64)
+declare i64 @aod_rt_sim_run_ex(ptr, i64, i64, i8)
 
-@.err_t1 = private unnamed_addr constant [17 x i8] c"t1 out of bounds\00", align 1
-@.err_t32 = private unnamed_addr constant [18 x i8] c"t32 out of bounds\00", align 1
-@.err_div0 = private unnamed_addr constant [17 x i8] c"division by zero\00", align 1
-@.err_neg_pack = private unnamed_addr constant [30 x i8] c"packed t32 cannot be negative\00", align 1
-@.err_bad_lane = private unnamed_addr constant [30 x i8] c"invalid balanced trit code 11\00", align 1
-
-; ==================== Unboxed-First DecInt Helpers ====================
-
-define internal %DecInt @__aod_int_neg(ptr %ctx, %DecInt %a) alwaysinline {
+define internal i64 @__aod_swar_neg(i64 %w) alwaysinline {
 entry:
-  %pa = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %va = extractvalue %DecInt %a, 1
-  %is_inline = icmp eq i8 %ta, 0
-  %not_min = icmp ne i64 %va, -9223372036854775808
-  %fast = and i1 %is_inline, %not_min
-  br i1 %fast, label %ok, label %cold
-ok:
-  %nv = sub nsw i64 0, %va
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %nv, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  call void @aod_rt_int_neg(ptr %ctx, ptr %pa, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_add(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
-fast:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %ov_res = call { i64, i1 } @llvm.sadd.with.overflow.i64(i64 %va, i64 %vb)
-  %sum = extractvalue { i64, i1 } %ov_res, 0
-  %ov = extractvalue { i64, i1 } %ov_res, 1
-  br i1 %ov, label %cold, label %ok
-ok:
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %sum, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_add(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_sub(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
-fast:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %ov_res = call { i64, i1 } @llvm.ssub.with.overflow.i64(i64 %va, i64 %vb)
-  %diff = extractvalue { i64, i1 } %ov_res, 0
-  %ov = extractvalue { i64, i1 } %ov_res, 1
-  br i1 %ov, label %cold, label %ok
-ok:
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %diff, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_sub(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_mul(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
-fast:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %ov_res = call { i64, i1 } @llvm.smul.with.overflow.i64(i64 %va, i64 %vb)
-  %prod = extractvalue { i64, i1 } %ov_res, 0
-  %ov = extractvalue { i64, i1 } %ov_res, 1
-  br i1 %ov, label %cold, label %ok
-ok:
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %prod, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_mul(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_div_floor(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %nz = icmp ne i64 %vb, 0
-  %is_min = icmp eq i64 %va, -9223372036854775808
-  %is_m1 = icmp eq i64 %vb, -1
-  %min_div = and i1 %is_min, %is_m1
-  %not_min_div = xor i1 %min_div, true
-  %safe = and i1 %nz, %not_min_div
-  br i1 %safe, label %fast, label %cold
-fast:
-  %q = sdiv i64 %va, %vb
-  %rem = srem i64 %va, %vb
-  %rem_nz = icmp ne i64 %rem, 0
-  %x = xor i64 %va, %vb
-  %diff_sign = icmp slt i64 %x, 0
-  %adj = and i1 %rem_nz, %diff_sign
-  %qm1 = sub i64 %q, 1
-  %qf = select i1 %adj, i64 %qm1, i64 %q
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %qf, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_div_floor(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_rem_floor(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %nz = icmp ne i64 %vb, 0
-  %is_min = icmp eq i64 %va, -9223372036854775808
-  %is_m1 = icmp eq i64 %vb, -1
-  %min_div = and i1 %is_min, %is_m1
-  %not_min_div = xor i1 %min_div, true
-  %safe = and i1 %nz, %not_min_div
-  br i1 %safe, label %fast, label %cold
-fast:
-  %rem = srem i64 %va, %vb
-  %rem_nz = icmp ne i64 %rem, 0
-  %x = xor i64 %rem, %vb
-  %diff_sign = icmp slt i64 %x, 0
-  %adj = and i1 %rem_nz, %diff_sign
-  %r_plus_b = add i64 %rem, %vb
-  %rf = select i1 %adj, i64 %r_plus_b, i64 %rem
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %rf, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_rem_floor(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_bitand(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %or_v = or i64 %va, %vb
-  %nonneg = icmp sge i64 %or_v, 0
-  br i1 %nonneg, label %fast, label %cold
-fast:
-  %v = and i64 %va, %vb
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %v, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_bitand(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_bitor(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %or_v = or i64 %va, %vb
-  %nonneg = icmp sge i64 %or_v, 0
-  br i1 %nonneg, label %fast, label %cold
-fast:
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %or_v, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_bitor(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_bitxor(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %or_v = or i64 %va, %vb
-  %nonneg = icmp sge i64 %or_v, 0
-  br i1 %nonneg, label %fast, label %cold
-fast:
-  %v = xor i64 %va, %vb
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %v, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_bitxor(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_shl(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %a_nn = icmp sge i64 %va, 0
-  %b_nn = icmp sge i64 %vb, 0
-  %b_le62 = icmp sle i64 %vb, 62
-  %ok1 = and i1 %a_nn, %b_nn
-  %ok2 = and i1 %ok1, %b_le62
-  br i1 %ok2, label %chk2, label %cold
-chk2:
-  %lim = lshr i64 9223372036854775807, %vb
-  %fits = icmp sle i64 %va, %lim
-  br i1 %fits, label %fast, label %cold
-fast:
-  %v = shl i64 %va, %vb
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %v, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_shl(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal %DecInt @__aod_int_shr(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %chk, label %cold
-chk:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %a_nn = icmp sge i64 %va, 0
-  %b_nn = icmp sge i64 %vb, 0
-  %nn = and i1 %a_nn, %b_nn
-  br i1 %nn, label %chk64, label %cold
-chk64:
-  %ge64 = icmp sge i64 %vb, 64
-  br i1 %ge64, label %ret0, label %fast
-ret0:
-  ret %DecInt zeroinitializer
-fast:
-  %v = lshr i64 %va, %vb
-  %r = insertvalue %DecInt { i8 0, i64 0 }, i64 %v, 1
-  ret %DecInt %r
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_shr(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecInt, ptr %pout
-  ret %DecInt %res
-}
-
-define internal i32 @__aod_int_cmp(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
-fast:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %lt = icmp slt i64 %va, %vb
-  %gt = icmp sgt i64 %va, %vb
-  %lt32 = zext i1 %lt to i32
-  %gt32 = zext i1 %gt to i32
-  %diff = sub i32 %gt32, %lt32
-  ret i32 %diff
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  %res = call i32 @aod_rt_int_cmp(ptr %ctx, ptr %pa, ptr %pb)
-  ret i32 %res
-}
-
-define internal i64 @__aod_int_to_t32(ptr %ctx, %DecInt %a) alwaysinline {
-entry:
-  %pa = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %is_inline = icmp eq i8 %ta, 0
-  br i1 %is_inline, label %fast, label %cold
-fast:
-  %va = extractvalue %DecInt %a, 1
-  %lo = icmp sge i64 %va, -926510094425920
-  %hi = icmp sle i64 %va, 926510094425920
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %cold
-ret_ok:
-  ret i64 %va
-cold:
-  store %DecInt %a, ptr %pa
-  %res = call i64 @aod_rt_int_to_t32(ptr %ctx, ptr %pa)
+  %even = and i64 %w, 6148914691236517205
+  %odd = and i64 %w, -6148914691236517206
+  %shl = shl i64 %even, 1
+  %shr = lshr i64 %odd, 1
+  %res = or i64 %shl, %shr
   ret i64 %res
 }
 
-; ==================== Binary Stein's GCD (ZERO urem i128 / __umodti3!) ====================
-
-define internal i128 @__aod_gcd_u128(i128 %u0, i128 %v0) alwaysinline {
+define internal i64 @__aod_swar_bias(i64 %w) alwaysinline {
 entry:
-  %u_z = icmp eq i128 %u0, 0
-  br i1 %u_z, label %ret_v0, label %chk_v0
-ret_v0:
-  ret i128 %v0
-chk_v0:
-  %v_z = icmp eq i128 %v0, 0
-  br i1 %v_z, label %ret_u0, label %init
-ret_u0:
-  ret i128 %u0
+  %even = and i64 %w, 6148914691236517205
+  %hi = shl i64 %even, 1
+  %shr = lshr i64 %w, 1
+  %or1 = or i64 %w, %shr
+  %not1 = xor i64 %or1, -1
+  %lo = and i64 %not1, 6148914691236517205
+  %res = or i64 %hi, %lo
+  ret i64 %res
+}
+
+define internal i64 @__aod_swar_unpack_unchecked(i64 %w) alwaysinline {
+entry:
+  %u1 = call i64 @__aod_swar_bias(i64 %w)
+  %u1_lo = and i64 %u1, 3689348814741910323
+  %u1_sh = lshr i64 %u1, 2
+  %u1_hi = and i64 %u1_sh, 3689348814741910323
+  %u1_hm = mul i64 %u1_hi, 3
+  %u2 = add i64 %u1_lo, %u1_hm
+  %u2_lo = and i64 %u2, 1085102592571150095
+  %u2_sh = lshr i64 %u2, 4
+  %u2_hi = and i64 %u2_sh, 1085102592571150095
+  %u2_hm = mul i64 %u2_hi, 9
+  %u4 = add i64 %u2_lo, %u2_hm
+  %u4_lo = and i64 %u4, 71777214294589695
+  %u4_sh = lshr i64 %u4, 8
+  %u4_hi = and i64 %u4_sh, 71777214294589695
+  %u4_hm = mul i64 %u4_hi, 81
+  %u8l = add i64 %u4_lo, %u4_hm
+  %u8_lo = and i64 %u8l, 281470681808895
+  %u8_sh = lshr i64 %u8l, 16
+  %u8_hi = and i64 %u8_sh, 281470681808895
+  %u8_hm = mul i64 %u8_hi, 6561
+  %u16l = add i64 %u8_lo, %u8_hm
+  %lo32 = and i64 %u16l, 4294967295
+  %hi32 = lshr i64 %u16l, 32
+  %hi32_m = mul i64 %hi32, 43046721
+  %biased = add i64 %lo32, %hi32_m
+  %res = sub i64 %biased, 926510094425920
+  ret i64 %res
+}
+
+define internal i64 @__aod_fast_pack_t32(i64 %n) alwaysinline {
+entry:
+  %u = add i64 %n, 926510094425920
+  %lo16 = urem i64 %u, 43046721
+  %hi16 = udiv i64 %u, 43046721
+  %b01 = urem i64 %lo16, 6561
+  %b23 = udiv i64 %lo16, 6561
+  %b45 = urem i64 %hi16, 6561
+  %b67 = udiv i64 %hi16, 6561
+  %i0 = urem i64 %b01, 81
+  %i1 = udiv i64 %b01, 81
+  %i2 = urem i64 %b23, 81
+  %i3 = udiv i64 %b23, 81
+  %i4 = urem i64 %b45, 81
+  %i5 = udiv i64 %b45, 81
+  %i6 = urem i64 %b67, 81
+  %i7 = udiv i64 %b67, 81
+  %p0 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i0
+  %p1 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i1
+  %p2 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i2
+  %p3 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i3
+  %p4 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i4
+  %p5 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i5
+  %p6 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i6
+  %p7 = getelementptr inbounds [81 x i8], ptr @.pack4_lut, i64 0, i64 %i7
+  %v0 = load i8, ptr %p0, align 1
+  %v1 = load i8, ptr %p1, align 1
+  %v2 = load i8, ptr %p2, align 1
+  %v3 = load i8, ptr %p3, align 1
+  %v4 = load i8, ptr %p4, align 1
+  %v5 = load i8, ptr %p5, align 1
+  %v6 = load i8, ptr %p6, align 1
+  %v7 = load i8, ptr %p7, align 1
+  %c0 = zext i8 %v0 to i64
+  %c1 = zext i8 %v1 to i64
+  %c2 = zext i8 %v2 to i64
+  %c3 = zext i8 %v3 to i64
+  %c4 = zext i8 %v4 to i64
+  %c5 = zext i8 %v5 to i64
+  %c6 = zext i8 %v6 to i64
+  %c7 = zext i8 %v7 to i64
+  %s1 = shl i64 %c1, 8
+  %s2 = shl i64 %c2, 16
+  %s3 = shl i64 %c3, 24
+  %s4 = shl i64 %c4, 32
+  %s5 = shl i64 %c5, 40
+  %s6 = shl i64 %c6, 48
+  %s7 = shl i64 %c7, 56
+  %o01 = or i64 %c0, %s1
+  %o23 = or i64 %s2, %s3
+  %o45 = or i64 %s4, %s5
+  %o67 = or i64 %s6, %s7
+  %o0123 = or i64 %o01, %o23
+  %o4567 = or i64 %o45, %o67
+  %res = or i64 %o0123, %o4567
+  ret i64 %res
+}
+
+define internal i64 @__aod_int_neg(ptr %ctx, i64 %a) alwaysinline {
+entry:
+  %inl = icmp ult i64 %a, -4611686018427387904
+  br i1 %inl, label %fast, label %slow
+fast:
+  %r = call i64 @__aod_swar_neg(i64 %a)
+  ret i64 %r
+slow:
+  %rs = call i64 @aod_rt_int_neg(ptr %ctx, i64 %a)
+  ret i64 %rs
+}
+
+define internal i8 @__aod_int_sgn(ptr %ctx, i64 %a) alwaysinline {
+entry:
+  %isz = icmp eq i64 %a, 0
+  br i1 %isz, label %zero, label %nz
+zero:
+  ret i8 0
+nz:
+  %inl = icmp ult i64 %a, -4611686018427387904
+  br i1 %inl, label %fast, label %slow
+fast:
+  %lz = call i64 @llvm.ctlz.i64(i64 %a, i1 true)
+  %odd = and i64 %lz, 1
+  %pos = icmp eq i64 %odd, 1
+  %s = select i1 %pos, i8 1, i8 -1
+  ret i8 %s
+slow:
+  %rs = call i8 @aod_rt_int_sgn(ptr %ctx, i64 %a)
+  ret i8 %rs
+}
+
+define internal i8 @__aod_int_cmp(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %both = and i1 %ia, %ib
+  br i1 %both, label %fast, label %slow
+fast:
+  %eq = icmp eq i64 %a, %b
+  br i1 %eq, label %same, label %diff
+same:
+  ret i8 0
+diff:
+  %ba = call i64 @__aod_swar_bias(i64 %a)
+  %bb = call i64 @__aod_swar_bias(i64 %b)
+  %lt = icmp ult i64 %ba, %bb
+  %c = select i1 %lt, i8 -1, i8 1
+  ret i8 %c
+slow:
+  %rs = call i8 @aod_rt_int_cmp(ptr %ctx, i64 %a, i64 %b)
+  ret i8 %rs
+}
+
+define internal i64 @__aod_int_add(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %both = and i1 %ia, %ib
+  br i1 %both, label %fast, label %slow
+fast:
+  %va = call i64 @__aod_swar_unpack_unchecked(i64 %a)
+  %vb = call i64 @__aod_swar_unpack_unchecked(i64 %b)
+  %sum = add nsw i64 %va, %vb
+  %ge = icmp sge i64 %sum, -926510094425920
+  %le = icmp sle i64 %sum, 926510094425920
+  %fit = and i1 %ge, %le
+  br i1 %fit, label %pack, label %spill
+pack:
+  %pw = call i64 @__aod_fast_pack_t32(i64 %sum)
+  ret i64 %pw
+spill:
+  %sw = call i64 @aod_rt_int_from_i64(ptr %ctx, i64 %sum)
+  ret i64 %sw
+slow:
+  %rs = call i64 @aod_rt_int_add(ptr %ctx, i64 %a, i64 %b)
+  ret i64 %rs
+}
+
+define internal i64 @__aod_int_sub(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %both = and i1 %ia, %ib
+  br i1 %both, label %fast, label %slow
+fast:
+  %va = call i64 @__aod_swar_unpack_unchecked(i64 %a)
+  %vb = call i64 @__aod_swar_unpack_unchecked(i64 %b)
+  %diff = sub nsw i64 %va, %vb
+  %ge = icmp sge i64 %diff, -926510094425920
+  %le = icmp sle i64 %diff, 926510094425920
+  %fit = and i1 %ge, %le
+  br i1 %fit, label %pack, label %spill
+pack:
+  %pw = call i64 @__aod_fast_pack_t32(i64 %diff)
+  ret i64 %pw
+spill:
+  %sw = call i64 @aod_rt_int_from_i64(ptr %ctx, i64 %diff)
+  ret i64 %sw
+slow:
+  %rs = call i64 @aod_rt_int_sub(ptr %ctx, i64 %a, i64 %b)
+  ret i64 %rs
+}
+
+define internal i64 @__aod_int_mul(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %both = and i1 %ia, %ib
+  br i1 %both, label %fast, label %slow
+fast:
+  %va = call i64 @__aod_swar_unpack_unchecked(i64 %a)
+  %vb = call i64 @__aod_swar_unpack_unchecked(i64 %b)
+  %va128 = sext i64 %va to i128
+  %vb128 = sext i64 %vb to i128
+  %prod = mul nsw i128 %va128, %vb128
+  %ge = icmp sge i128 %prod, -926510094425920
+  %le = icmp sle i128 %prod, 926510094425920
+  %fit = and i1 %ge, %le
+  br i1 %fit, label %pack, label %slow
+pack:
+  %p64 = trunc i128 %prod to i64
+  %pw = call i64 @__aod_fast_pack_t32(i64 %p64)
+  ret i64 %pw
+slow:
+  %rs = call i64 @aod_rt_int_mul(ptr %ctx, i64 %a, i64 %b)
+  ret i64 %rs
+}
+
+define internal i64 @__aod_int_div_floor(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %nz = icmp ne i64 %b, 0
+  %c1 = and i1 %ia, %ib
+  %ok = and i1 %c1, %nz
+  br i1 %ok, label %fast, label %slow
+fast:
+  %va = call i64 @__aod_swar_unpack_unchecked(i64 %a)
+  %vb = call i64 @__aod_swar_unpack_unchecked(i64 %b)
+  %qt = sdiv i64 %va, %vb
+  %rt = srem i64 %va, %vb
+  %rnz = icmp ne i64 %rt, 0
+  %xr = xor i64 %rt, %vb
+  %opp = icmp slt i64 %xr, 0
+  %adj = and i1 %rnz, %opp
+  %qm1 = sub nsw i64 %qt, 1
+  %qf = select i1 %adj, i64 %qm1, i64 %qt
+  %pw = call i64 @__aod_fast_pack_t32(i64 %qf)
+  ret i64 %pw
+slow:
+  %rs = call i64 @aod_rt_int_div_floor(ptr %ctx, i64 %a, i64 %b)
+  ret i64 %rs
+}
+
+define internal i64 @__aod_int_rem_floor(ptr %ctx, i64 %a, i64 %b) alwaysinline {
+entry:
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %nz = icmp ne i64 %b, 0
+  %c1 = and i1 %ia, %ib
+  %ok = and i1 %c1, %nz
+  br i1 %ok, label %fast, label %slow
+fast:
+  %va = call i64 @__aod_swar_unpack_unchecked(i64 %a)
+  %vb = call i64 @__aod_swar_unpack_unchecked(i64 %b)
+  %rt = srem i64 %va, %vb
+  %rnz = icmp ne i64 %rt, 0
+  %xr = xor i64 %rt, %vb
+  %opp = icmp slt i64 %xr, 0
+  %adj = and i1 %rnz, %opp
+  %rp = add nsw i64 %rt, %vb
+  %rf = select i1 %adj, i64 %rp, i64 %rt
+  %pw = call i64 @__aod_fast_pack_t32(i64 %rf)
+  ret i64 %pw
+slow:
+  %rs = call i64 @aod_rt_int_rem_floor(ptr %ctx, i64 %a, i64 %b)
+  ret i64 %rs
+}
+
+define internal i128 @__aod_gcd_u128(i128 %a0, i128 %b0) {
+entry:
+  %az = icmp eq i128 %a0, 0
+  br i1 %az, label %ret_b, label %chk_b
+ret_b:
+  ret i128 %b0
+chk_b:
+  %bz = icmp eq i128 %b0, 0
+  br i1 %bz, label %ret_a, label %init
+ret_a:
+  ret i128 %a0
 init:
-  %tzu = call i128 @llvm.cttz.i128(i128 %u0, i1 true)
-  %tzv = call i128 @llvm.cttz.i128(i128 %v0, i1 true)
-  %lt = icmp ult i128 %tzu, %tzv
-  %shift = select i1 %lt, i128 %tzu, i128 %tzv
-  %u1 = lshr i128 %u0, %tzu
+  %za = call i128 @llvm.cttz.i128(i128 %a0, i1 true)
+  %zb = call i128 @llvm.cttz.i128(i128 %b0, i1 true)
+  %lt_z = icmp ult i128 %za, %zb
+  %k = select i1 %lt_z, i128 %za, i128 %zb
+  %u_init = lshr i128 %a0, %za
   br label %loop
 loop:
-  %u = phi i128 [ %u1, %init ], [ %u_next, %loop ]
-  %v = phi i128 [ %v0, %init ], [ %v_next, %loop ]
-  %tzv2 = call i128 @llvm.cttz.i128(i128 %v, i1 true)
-  %v1 = lshr i128 %v, %tzv2
-  %swap = icmp ugt i128 %u, %v1
-  %u_next = select i1 %swap, i128 %v1, i128 %u
-  %v_hi = select i1 %swap, i128 %u, i128 %v1
-  %v_next = sub i128 %v_hi, %u_next
-  %done = icmp eq i128 %v_next, 0
-  br i1 %done, label %exit, label %loop
+  %u = phi i128 [ %u_init, %init ], [ %u_next, %step ]
+  %v_raw = phi i128 [ %b0, %init ], [ %diff, %step ]
+  %zv = call i128 @llvm.cttz.i128(i128 %v_raw, i1 true)
+  %v = lshr i128 %v_raw, %zv
+  %gt = icmp ugt i128 %u, %v
+  %u_min = select i1 %gt, i128 %v, i128 %u
+  %v_max = select i1 %gt, i128 %u, i128 %v
+  %diff = sub i128 %v_max, %u_min
+  %done = icmp eq i128 %diff, 0
+  %u_next = add i128 %u_min, 0
+  br i1 %done, label %exit, label %step
+step:
+  br label %loop
 exit:
-  %res = shl i128 %u_next, %shift
-  ret i128 %res
+  %g = shl i128 %u_min, %k
+  ret i128 %g
 }
 
-; ==================== Unboxed-First DecRatio Helpers (ZERO __divti3/__udivti3!) ====================
-
-define internal %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num0, i128 %den0) alwaysinline {
+define internal %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %n_in, i128 %d_in) {
 entry:
-  %pout = alloca %DecRatio, align 8
-  %den_z = icmp eq i128 %den0, 0
-  br i1 %den_z, label %cold, label %chk_sign
-chk_sign:
-  %den_neg = icmp slt i128 %den0, 0
-  %num_is_min = icmp eq i128 %num0, -170141183460469231731687303715884105728
-  %den_is_min = icmp eq i128 %den0, -170141183460469231731687303715884105728
-  %any_min = or i1 %num_is_min, %den_is_min
-  br i1 %any_min, label %cold, label %sign_ok
-sign_ok:
-  %neg_n = sub i128 0, %num0
-  %neg_d = sub i128 0, %den0
-  %num = select i1 %den_neg, i128 %neg_n, i128 %num0
-  %den = select i1 %den_neg, i128 %neg_d, i128 %den0
-  %num_z = icmp eq i128 %num, 0
-  br i1 %num_z, label %ret_zero, label %nonzero
+  %dz = icmp eq i128 %d_in, 0
+  br i1 %dz, label %slow, label %nz_den
+nz_den:
+  %nz = icmp eq i128 %n_in, 0
+  br i1 %nz, label %ret_zero, label %canon
 ret_zero:
-  ret %DecRatio { i8 0, i64 0, i64 1 }
-nonzero:
-  %n_neg = icmp slt i128 %num, 0
-  %n_abs_neg = sub i128 0, %num
-  %abs_n = select i1 %n_neg, i128 %n_abs_neg, i128 %num
-  %g = call i128 @__aod_gcd_u128(i128 %abs_n, i128 %den)
-  %g_is_1 = icmp eq i128 %g, 1
-  br i1 %g_is_1, label %chk_i64, label %chk_pow2
-chk_pow2:
-  %gm1 = sub i128 %g, 1
-  %and_g = and i128 %g, %gm1
-  %is_pow2 = icmp eq i128 %and_g, 0
-  br i1 %is_pow2, label %reduce_pow2, label %chk_div64
-reduce_pow2:
-  %sh = call i128 @llvm.cttz.i128(i128 %g, i1 true)
-  %num_p2 = ashr i128 %num, %sh
-  %den_p2 = lshr i128 %den, %sh
-  br label %chk_i64
-chk_div64:
-  %n_fits64 = icmp ule i128 %abs_n, 9223372036854775807
-  %d_fits64 = icmp ule i128 %den, 9223372036854775807
-  %both64 = and i1 %n_fits64, %d_fits64
-  br i1 %both64, label %reduce_div64, label %cold
-reduce_div64:
-  %n64 = trunc i128 %num to i64
-  %d64 = trunc i128 %den to i64
-  %g64 = trunc i128 %g to i64
-  %rn64 = sdiv i64 %n64, %g64
-  %rd64 = sdiv i64 %d64, %g64
-  %r1_64 = insertvalue %DecRatio { i8 0, i64 0, i64 1 }, i64 %rn64, 1
-  %r2_64 = insertvalue %DecRatio %r1_64, i64 %rd64, 2
-  ret %DecRatio %r2_64
-chk_i64:
-  %fn = phi i128 [ %num, %nonzero ], [ %num_p2, %reduce_pow2 ]
-  %fd = phi i128 [ %den, %nonzero ], [ %den_p2, %reduce_pow2 ]
-  %n_lo = icmp sge i128 %fn, -9223372036854775808
-  %n_hi = icmp sle i128 %fn, 9223372036854775807
-  %d_hi = icmp sle i128 %fd, 9223372036854775807
-  %ok_n = and i1 %n_lo, %n_hi
-  %ok_all = and i1 %ok_n, %d_hi
-  br i1 %ok_all, label %pack_ok, label %cold
-pack_ok:
-  %tn = trunc i128 %fn to i64
-  %td = trunc i128 %fd to i64
-  %r1 = insertvalue %DecRatio { i8 0, i64 0, i64 1 }, i64 %tn, 1
-  %r2 = insertvalue %DecRatio %r1, i64 %td, 2
-  ret %DecRatio %r2
-cold:
-  %n_lo64 = trunc i128 %num0 to i64
-  %n_shr = lshr i128 %num0, 64
-  %n_hi64 = trunc i128 %n_shr to i64
-  %d_lo64 = trunc i128 %den0 to i64
-  %d_shr = lshr i128 %den0, 64
-  %d_hi64 = trunc i128 %d_shr to i64
-  call void @aod_rt_ratio_reduce_i128(ptr %ctx, i64 %n_lo64, i64 %n_hi64, i64 %d_lo64, i64 %d_hi64, ptr %pout)
-  %res = load %DecRatio, ptr %pout
+  ret %DecRatio { i64 0, i64 1 }
+canon:
+  %dneg = icmp slt i128 %d_in, 0
+  %nn = sub i128 0, %n_in
+  %dn = sub i128 0, %d_in
+  %n1 = select i1 %dneg, i128 %nn, i128 %n_in
+  %d1 = select i1 %dneg, i128 %dn, i128 %d_in
+  %nneg = icmp slt i128 %n1, 0
+  %nneg_abs = sub i128 0, %n1
+  %un = select i1 %nneg, i128 %nneg_abs, i128 %n1
+  %g = call i128 @__aod_gcd_u128(i128 %un, i128 %d1)
+  %rn_u = udiv i128 %un, %g
+  %rd_u = udiv i128 %d1, %g
+  %rn_neg = sub i128 0, %rn_u
+  %rn = select i1 %nneg, i128 %rn_neg, i128 %rn_u
+  %n_ge = icmp sge i128 %rn, -926510094425920
+  %n_le = icmp sle i128 %rn, 926510094425920
+  %d_le = icmp ule i128 %rd_u, 926510094425920
+  %fit1 = and i1 %n_ge, %n_le
+  %fit = and i1 %fit1, %d_le
+  br i1 %fit, label %pack, label %slow
+pack:
+  %rn64 = trunc i128 %rn to i64
+  %rd64 = trunc i128 %rd_u to i64
+  %nw = call i64 @__aod_fast_pack_t32(i64 %rn64)
+  %dw = call i64 @__aod_fast_pack_t32(i64 %rd64)
+  %p0 = insertvalue %DecRatio undef, i64 %nw, 0
+  %p1 = insertvalue %DecRatio %p0, i64 %dw, 1
+  ret %DecRatio %p1
+slow:
+  %out = alloca %DecRatio, align 8
+  %n_lo = trunc i128 %n_in to i64
+  %n_sh = ashr i128 %n_in, 64
+  %n_hi = trunc i128 %n_sh to i64
+  %d_lo = trunc i128 %d_in to i64
+  %d_sh = ashr i128 %d_in, 64
+  %d_hi = trunc i128 %d_sh to i64
+  call void @aod_rt_ratio_reduce_i128(ptr %ctx, i64 %n_lo, i64 %n_hi, i64 %d_lo, i64 %d_hi, ptr %out)
+  %res = load %DecRatio, ptr %out, align 8
   ret %DecRatio %res
 }
 
-define internal %DecRatio @__aod_int_exact_div(ptr %ctx, %DecInt %a, %DecInt %b) alwaysinline {
+define internal %DecRatio @__aod_int_exact_div(ptr %ctx, i64 %a, i64 %b) alwaysinline {
 entry:
-  %pa = alloca %DecInt, align 8
-  %pb = alloca %DecInt, align 8
-  %pout = alloca %DecRatio, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %tb = extractvalue %DecInt %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
+  %ia = icmp ult i64 %a, -4611686018427387904
+  %ib = icmp ult i64 %b, -4611686018427387904
+  %nz = icmp ne i64 %b, 0
+  %c1 = and i1 %ia, %ib
+  %ok = and i1 %c1, %nz
+  br i1 %ok, label %fast, label %slow
 fast:
-  %va = extractvalue %DecInt %a, 1
-  %vb = extractvalue %DecInt %b, 1
-  %n128 = sext i64 %va to i128
-  %d128 = sext i64 %vb to i128
-  %res_f = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %n128, i128 %d128)
-  ret %DecRatio %res_f
-cold:
-  store %DecInt %a, ptr %pa
-  store %DecInt %b, ptr %pb
-  call void @aod_rt_int_exact_div(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecRatio, ptr %pout
-  ret %DecRatio %res
+  %va = call i64 @__aod_swar_unpack_unchecked(i64 %a)
+  %vb = call i64 @__aod_swar_unpack_unchecked(i64 %b)
+  %va128 = sext i64 %va to i128
+  %vb128 = sext i64 %vb to i128
+  %r = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %va128, i128 %vb128)
+  ret %DecRatio %r
+slow:
+  %out = alloca %DecRatio, align 8
+  call void @aod_rt_int_exact_div(ptr %ctx, i64 %a, i64 %b, ptr %out)
+  %rs = load %DecRatio, ptr %out, align 8
+  ret %DecRatio %rs
 }
 
 define internal %DecRatio @__aod_ratio_neg(ptr %ctx, %DecRatio %a) alwaysinline {
 entry:
-  %pa = alloca %DecRatio, align 8
-  %pout = alloca %DecRatio, align 8
-  %ta = extractvalue %DecRatio %a, 0
-  %na = extractvalue %DecRatio %a, 1
-  %is_inline = icmp eq i8 %ta, 0
-  %not_min = icmp ne i64 %na, -9223372036854775808
-  %fast = and i1 %is_inline, %not_min
-  br i1 %fast, label %ok, label %cold
-ok:
-  %nn = sub nsw i64 0, %na
-  %r = insertvalue %DecRatio %a, i64 %nn, 1
-  ret %DecRatio %r
-cold:
-  store %DecRatio %a, ptr %pa
-  call void @aod_rt_ratio_neg(ptr %ctx, ptr %pa, ptr %pout)
-  %res = load %DecRatio, ptr %pout
-  ret %DecRatio %res
+  %na = extractvalue %DecRatio %a, 0
+  %da = extractvalue %DecRatio %a, 1
+  %ia = icmp ult i64 %na, -4611686018427387904
+  %id = icmp ult i64 %da, -4611686018427387904
+  %dz = icmp ne i64 %da, 0
+  %c1 = and i1 %ia, %id
+  %ok = and i1 %c1, %dz
+  br i1 %ok, label %fast, label %slow
+fast:
+  %nneg = call i64 @__aod_swar_neg(i64 %na)
+  %p0 = insertvalue %DecRatio undef, i64 %nneg, 0
+  %p1 = insertvalue %DecRatio %p0, i64 %da, 1
+  ret %DecRatio %p1
+slow:
+  %out = alloca %DecRatio, align 8
+  call void @aod_rt_ratio_neg(ptr %ctx, i64 %na, i64 %da, ptr %out)
+  %rs = load %DecRatio, ptr %out, align 8
+  ret %DecRatio %rs
 }
 
 define internal %DecRatio @__aod_ratio_add(ptr %ctx, %DecRatio %a, %DecRatio %b) alwaysinline {
 entry:
-  %pa = alloca %DecRatio, align 8
-  %pb = alloca %DecRatio, align 8
-  %pout = alloca %DecRatio, align 8
-  %ta = extractvalue %DecRatio %a, 0
-  %tb = extractvalue %DecRatio %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
+  %na = extractvalue %DecRatio %a, 0
+  %da = extractvalue %DecRatio %a, 1
+  %nb = extractvalue %DecRatio %b, 0
+  %db = extractvalue %DecRatio %b, 1
+  %c0 = icmp ult i64 %na, -4611686018427387904
+  %c1 = icmp ult i64 %da, -4611686018427387904
+  %c2 = icmp ult i64 %nb, -4611686018427387904
+  %c3 = icmp ult i64 %db, -4611686018427387904
+  %d0 = icmp ne i64 %da, 0
+  %d1 = icmp ne i64 %db, 0
+  %m0 = and i1 %c0, %c1
+  %m1 = and i1 %c2, %c3
+  %m2 = and i1 %d0, %d1
+  %m3 = and i1 %m0, %m1
+  %ok = and i1 %m3, %m2
+  br i1 %ok, label %fast, label %slow
 fast:
-  %na = extractvalue %DecRatio %a, 1
-  %da = extractvalue %DecRatio %a, 2
-  %nb = extractvalue %DecRatio %b, 1
-  %db = extractvalue %DecRatio %b, 2
-  %na128 = sext i64 %na to i128
-  %da128 = sext i64 %da to i128
-  %nb128 = sext i64 %nb to i128
-  %db128 = sext i64 %db to i128
+  %na_v = call i64 @__aod_swar_unpack_unchecked(i64 %na)
+  %da_v = call i64 @__aod_swar_unpack_unchecked(i64 %da)
+  %nb_v = call i64 @__aod_swar_unpack_unchecked(i64 %nb)
+  %db_v = call i64 @__aod_swar_unpack_unchecked(i64 %db)
+  %na128 = sext i64 %na_v to i128
+  %da128 = sext i64 %da_v to i128
+  %nb128 = sext i64 %nb_v to i128
+  %db128 = sext i64 %db_v to i128
   %t1 = mul nsw i128 %na128, %db128
   %t2 = mul nsw i128 %nb128, %da128
-  %ov_res = call { i128, i1 } @llvm.sadd.with.overflow.i128(i128 %t1, i128 %t2)
-  %num = extractvalue { i128, i1 } %ov_res, 0
-  %ov = extractvalue { i128, i1 } %ov_res, 1
-  br i1 %ov, label %cold, label %norm
-norm:
+  %num = add nsw i128 %t1, %t2
   %den = mul nsw i128 %da128, %db128
-  %res_f = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
-  ret %DecRatio %res_f
-cold:
-  store %DecRatio %a, ptr %pa
-  store %DecRatio %b, ptr %pb
-  call void @aod_rt_ratio_add(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecRatio, ptr %pout
-  ret %DecRatio %res
+  %r = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
+  ret %DecRatio %r
+slow:
+  %out = alloca %DecRatio, align 8
+  call void @aod_rt_ratio_add(ptr %ctx, i64 %na, i64 %da, i64 %nb, i64 %db, ptr %out)
+  %rs = load %DecRatio, ptr %out, align 8
+  ret %DecRatio %rs
 }
 
 define internal %DecRatio @__aod_ratio_sub(ptr %ctx, %DecRatio %a, %DecRatio %b) alwaysinline {
 entry:
-  %pa = alloca %DecRatio, align 8
-  %pb = alloca %DecRatio, align 8
-  %pout = alloca %DecRatio, align 8
-  %ta = extractvalue %DecRatio %a, 0
-  %tb = extractvalue %DecRatio %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
+  %na = extractvalue %DecRatio %a, 0
+  %da = extractvalue %DecRatio %a, 1
+  %nb = extractvalue %DecRatio %b, 0
+  %db = extractvalue %DecRatio %b, 1
+  %c0 = icmp ult i64 %na, -4611686018427387904
+  %c1 = icmp ult i64 %da, -4611686018427387904
+  %c2 = icmp ult i64 %nb, -4611686018427387904
+  %c3 = icmp ult i64 %db, -4611686018427387904
+  %d0 = icmp ne i64 %da, 0
+  %d1 = icmp ne i64 %db, 0
+  %m0 = and i1 %c0, %c1
+  %m1 = and i1 %c2, %c3
+  %m2 = and i1 %d0, %d1
+  %m3 = and i1 %m0, %m1
+  %ok = and i1 %m3, %m2
+  br i1 %ok, label %fast, label %slow
 fast:
-  %na = extractvalue %DecRatio %a, 1
-  %da = extractvalue %DecRatio %a, 2
-  %nb = extractvalue %DecRatio %b, 1
-  %db = extractvalue %DecRatio %b, 2
-  %na128 = sext i64 %na to i128
-  %da128 = sext i64 %da to i128
-  %nb128 = sext i64 %nb to i128
-  %db128 = sext i64 %db to i128
+  %na_v = call i64 @__aod_swar_unpack_unchecked(i64 %na)
+  %da_v = call i64 @__aod_swar_unpack_unchecked(i64 %da)
+  %nb_v = call i64 @__aod_swar_unpack_unchecked(i64 %nb)
+  %db_v = call i64 @__aod_swar_unpack_unchecked(i64 %db)
+  %na128 = sext i64 %na_v to i128
+  %da128 = sext i64 %da_v to i128
+  %nb128 = sext i64 %nb_v to i128
+  %db128 = sext i64 %db_v to i128
   %t1 = mul nsw i128 %na128, %db128
   %t2 = mul nsw i128 %nb128, %da128
-  %ov_res = call { i128, i1 } @llvm.ssub.with.overflow.i128(i128 %t1, i128 %t2)
-  %num = extractvalue { i128, i1 } %ov_res, 0
-  %ov = extractvalue { i128, i1 } %ov_res, 1
-  br i1 %ov, label %cold, label %norm
-norm:
+  %num = sub nsw i128 %t1, %t2
   %den = mul nsw i128 %da128, %db128
-  %res_f = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
-  ret %DecRatio %res_f
-cold:
-  store %DecRatio %a, ptr %pa
-  store %DecRatio %b, ptr %pb
-  call void @aod_rt_ratio_sub(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecRatio, ptr %pout
-  ret %DecRatio %res
+  %r = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
+  ret %DecRatio %r
+slow:
+  %out = alloca %DecRatio, align 8
+  call void @aod_rt_ratio_sub(ptr %ctx, i64 %na, i64 %da, i64 %nb, i64 %db, ptr %out)
+  %rs = load %DecRatio, ptr %out, align 8
+  ret %DecRatio %rs
 }
 
 define internal %DecRatio @__aod_ratio_mul(ptr %ctx, %DecRatio %a, %DecRatio %b) alwaysinline {
 entry:
-  %pa = alloca %DecRatio, align 8
-  %pb = alloca %DecRatio, align 8
-  %pout = alloca %DecRatio, align 8
-  %ta = extractvalue %DecRatio %a, 0
-  %tb = extractvalue %DecRatio %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
+  %na = extractvalue %DecRatio %a, 0
+  %da = extractvalue %DecRatio %a, 1
+  %nb = extractvalue %DecRatio %b, 0
+  %db = extractvalue %DecRatio %b, 1
+  %c0 = icmp ult i64 %na, -4611686018427387904
+  %c1 = icmp ult i64 %da, -4611686018427387904
+  %c2 = icmp ult i64 %nb, -4611686018427387904
+  %c3 = icmp ult i64 %db, -4611686018427387904
+  %d0 = icmp ne i64 %da, 0
+  %d1 = icmp ne i64 %db, 0
+  %m0 = and i1 %c0, %c1
+  %m1 = and i1 %c2, %c3
+  %m2 = and i1 %d0, %d1
+  %m3 = and i1 %m0, %m1
+  %ok = and i1 %m3, %m2
+  br i1 %ok, label %fast, label %slow
 fast:
-  %na = extractvalue %DecRatio %a, 1
-  %da = extractvalue %DecRatio %a, 2
-  %nb = extractvalue %DecRatio %b, 1
-  %db = extractvalue %DecRatio %b, 2
-  %na128 = sext i64 %na to i128
-  %da128 = sext i64 %da to i128
-  %nb128 = sext i64 %nb to i128
-  %db128 = sext i64 %db to i128
+  %na_v = call i64 @__aod_swar_unpack_unchecked(i64 %na)
+  %da_v = call i64 @__aod_swar_unpack_unchecked(i64 %da)
+  %nb_v = call i64 @__aod_swar_unpack_unchecked(i64 %nb)
+  %db_v = call i64 @__aod_swar_unpack_unchecked(i64 %db)
+  %na128 = sext i64 %na_v to i128
+  %da128 = sext i64 %da_v to i128
+  %nb128 = sext i64 %nb_v to i128
+  %db128 = sext i64 %db_v to i128
   %num = mul nsw i128 %na128, %nb128
   %den = mul nsw i128 %da128, %db128
-  %res_f = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
-  ret %DecRatio %res_f
-cold:
-  store %DecRatio %a, ptr %pa
-  store %DecRatio %b, ptr %pb
-  call void @aod_rt_ratio_mul(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecRatio, ptr %pout
-  ret %DecRatio %res
+  %r = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
+  ret %DecRatio %r
+slow:
+  %out = alloca %DecRatio, align 8
+  call void @aod_rt_ratio_mul(ptr %ctx, i64 %na, i64 %da, i64 %nb, i64 %db, ptr %out)
+  %rs = load %DecRatio, ptr %out, align 8
+  ret %DecRatio %rs
 }
 
 define internal %DecRatio @__aod_ratio_div(ptr %ctx, %DecRatio %a, %DecRatio %b) alwaysinline {
 entry:
-  %pa = alloca %DecRatio, align 8
-  %pb = alloca %DecRatio, align 8
-  %pout = alloca %DecRatio, align 8
-  %ta = extractvalue %DecRatio %a, 0
-  %tb = extractvalue %DecRatio %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
+  %na = extractvalue %DecRatio %a, 0
+  %da = extractvalue %DecRatio %a, 1
+  %nb = extractvalue %DecRatio %b, 0
+  %db = extractvalue %DecRatio %b, 1
+  %c0 = icmp ult i64 %na, -4611686018427387904
+  %c1 = icmp ult i64 %da, -4611686018427387904
+  %c2 = icmp ult i64 %nb, -4611686018427387904
+  %c3 = icmp ult i64 %db, -4611686018427387904
+  %d0 = icmp ne i64 %da, 0
+  %d1 = icmp ne i64 %db, 0
+  %nz = icmp ne i64 %nb, 0
+  %m0 = and i1 %c0, %c1
+  %m1 = and i1 %c2, %c3
+  %m2 = and i1 %d0, %d1
+  %m3 = and i1 %m0, %m1
+  %m4 = and i1 %m3, %m2
+  %ok = and i1 %m4, %nz
+  br i1 %ok, label %fast, label %slow
 fast:
-  %na = extractvalue %DecRatio %a, 1
-  %da = extractvalue %DecRatio %a, 2
-  %nb = extractvalue %DecRatio %b, 1
-  %db = extractvalue %DecRatio %b, 2
-  %na128 = sext i64 %na to i128
-  %da128 = sext i64 %da to i128
-  %nb128 = sext i64 %nb to i128
-  %db128 = sext i64 %db to i128
+  %na_v = call i64 @__aod_swar_unpack_unchecked(i64 %na)
+  %da_v = call i64 @__aod_swar_unpack_unchecked(i64 %da)
+  %nb_v = call i64 @__aod_swar_unpack_unchecked(i64 %nb)
+  %db_v = call i64 @__aod_swar_unpack_unchecked(i64 %db)
+  %na128 = sext i64 %na_v to i128
+  %da128 = sext i64 %da_v to i128
+  %nb128 = sext i64 %nb_v to i128
+  %db128 = sext i64 %db_v to i128
   %num = mul nsw i128 %na128, %db128
   %den = mul nsw i128 %da128, %nb128
-  %res_f = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
-  ret %DecRatio %res_f
-cold:
-  store %DecRatio %a, ptr %pa
-  store %DecRatio %b, ptr %pb
-  call void @aod_rt_ratio_div(ptr %ctx, ptr %pa, ptr %pb, ptr %pout)
-  %res = load %DecRatio, ptr %pout
-  ret %DecRatio %res
+  %r = call %DecRatio @__aod_ratio_norm_i128(ptr %ctx, i128 %num, i128 %den)
+  ret %DecRatio %r
+slow:
+  %out = alloca %DecRatio, align 8
+  call void @aod_rt_ratio_div(ptr %ctx, i64 %na, i64 %da, i64 %nb, i64 %db, ptr %out)
+  %rs = load %DecRatio, ptr %out, align 8
+  ret %DecRatio %rs
 }
 
-define internal i32 @__aod_ratio_cmp(ptr %ctx, %DecRatio %a, %DecRatio %b) alwaysinline {
+define internal i8 @__aod_ratio_cmp(ptr %ctx, %DecRatio %a, %DecRatio %b) alwaysinline {
 entry:
-  %pa = alloca %DecRatio, align 8
-  %pb = alloca %DecRatio, align 8
-  %ta = extractvalue %DecRatio %a, 0
-  %tb = extractvalue %DecRatio %b, 0
-  %or_t = or i8 %ta, %tb
-  %both_inline = icmp eq i8 %or_t, 0
-  br i1 %both_inline, label %fast, label %cold
+  %na = extractvalue %DecRatio %a, 0
+  %da = extractvalue %DecRatio %a, 1
+  %nb = extractvalue %DecRatio %b, 0
+  %db = extractvalue %DecRatio %b, 1
+  %c0 = icmp ult i64 %na, -4611686018427387904
+  %c1 = icmp ult i64 %da, -4611686018427387904
+  %c2 = icmp ult i64 %nb, -4611686018427387904
+  %c3 = icmp ult i64 %db, -4611686018427387904
+  %d0 = icmp ne i64 %da, 0
+  %d1 = icmp ne i64 %db, 0
+  %m0 = and i1 %c0, %c1
+  %m1 = and i1 %c2, %c3
+  %m2 = and i1 %d0, %d1
+  %m3 = and i1 %m0, %m1
+  %ok = and i1 %m3, %m2
+  br i1 %ok, label %fast, label %slow
 fast:
-  %na = extractvalue %DecRatio %a, 1
-  %da = extractvalue %DecRatio %a, 2
-  %nb = extractvalue %DecRatio %b, 1
-  %db = extractvalue %DecRatio %b, 2
-  %na128 = sext i64 %na to i128
-  %da128 = sext i64 %da to i128
-  %nb128 = sext i64 %nb to i128
-  %db128 = sext i64 %db to i128
+  %na_v = call i64 @__aod_swar_unpack_unchecked(i64 %na)
+  %da_v = call i64 @__aod_swar_unpack_unchecked(i64 %da)
+  %nb_v = call i64 @__aod_swar_unpack_unchecked(i64 %nb)
+  %db_v = call i64 @__aod_swar_unpack_unchecked(i64 %db)
+  %na128 = sext i64 %na_v to i128
+  %da128 = sext i64 %da_v to i128
+  %nb128 = sext i64 %nb_v to i128
+  %db128 = sext i64 %db_v to i128
   %lhs = mul nsw i128 %na128, %db128
   %rhs = mul nsw i128 %nb128, %da128
   %lt = icmp slt i128 %lhs, %rhs
   %gt = icmp sgt i128 %lhs, %rhs
-  %lt32 = zext i1 %lt to i32
-  %gt32 = zext i1 %gt to i32
-  %diff = sub i32 %gt32, %lt32
-  ret i32 %diff
-cold:
-  store %DecRatio %a, ptr %pa
-  store %DecRatio %b, ptr %pb
-  %res = call i32 @aod_rt_ratio_cmp(ptr %ctx, ptr %pa, ptr %pb)
-  ret i32 %res
+  %lt8 = zext i1 %lt to i8
+  %gt8 = zext i1 %gt to i8
+  %cmp = sub i8 %gt8, %lt8
+  ret i8 %cmp
+slow:
+  %rs = call i8 @aod_rt_ratio_cmp(ptr %ctx, i64 %na, i64 %da, i64 %nb, i64 %db)
+  ret i8 %rs
 }
-
-; ==================== Unboxed T1 & T32 + pack/unpack (`P0-3`) ====================
 
 define internal i8 @__aod_t1_add(ptr %ctx, i8 %a, i8 %b) alwaysinline {
 entry:
   %s = add i8 %a, %b
-  %lo = icmp sge i8 %s, -1
-  %hi = icmp sle i8 %s, 1
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %fail
-ret_ok:
-  ret i8 %s
-fail:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_t1, i64 16)
+  %ge = icmp sge i8 %s, -1
+  %le = icmp sle i8 %s, 1
+  %ok = and i1 %ge, %le
+  br i1 %ok, label %done, label %ovf
+ovf:
+  call void @aod_rt_fail(ptr %ctx, ptr @.t1_ovf_msg, i64 20)
   ret i8 0
+done:
+  ret i8 %s
 }
 
 define internal i8 @__aod_t1_sub(ptr %ctx, i8 %a, i8 %b) alwaysinline {
 entry:
   %s = sub i8 %a, %b
-  %lo = icmp sge i8 %s, -1
-  %hi = icmp sle i8 %s, 1
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %fail
-ret_ok:
-  ret i8 %s
-fail:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_t1, i64 16)
+  %ge = icmp sge i8 %s, -1
+  %le = icmp sle i8 %s, 1
+  %ok = and i1 %ge, %le
+  br i1 %ok, label %done, label %ovf
+ovf:
+  call void @aod_rt_fail(ptr %ctx, ptr @.t1_ovf_msg, i64 20)
   ret i8 0
+done:
+  ret i8 %s
 }
 
 define internal i8 @__aod_t1_mul(ptr %ctx, i8 %a, i8 %b) alwaysinline {
 entry:
-  %p = mul i8 %a, %b
+  %p = mul nsw i8 %a, %b
   ret i8 %p
-}
-
-define internal i64 @__aod_t32_add(ptr %ctx, i64 %a, i64 %b) alwaysinline {
-entry:
-  %ov_res = call { i64, i1 } @llvm.sadd.with.overflow.i64(i64 %a, i64 %b)
-  %v = extractvalue { i64, i1 } %ov_res, 0
-  %ov = extractvalue { i64, i1 } %ov_res, 1
-  br i1 %ov, label %fail, label %chk
-chk:
-  %lo = icmp sge i64 %v, -926510094425920
-  %hi = icmp sle i64 %v, 926510094425920
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %fail
-ret_ok:
-  ret i64 %v
-fail:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_t32, i64 17)
-  ret i64 0
-}
-
-define internal i64 @__aod_t32_sub(ptr %ctx, i64 %a, i64 %b) alwaysinline {
-entry:
-  %ov_res = call { i64, i1 } @llvm.ssub.with.overflow.i64(i64 %a, i64 %b)
-  %v = extractvalue { i64, i1 } %ov_res, 0
-  %ov = extractvalue { i64, i1 } %ov_res, 1
-  br i1 %ov, label %fail, label %chk
-chk:
-  %lo = icmp sge i64 %v, -926510094425920
-  %hi = icmp sle i64 %v, 926510094425920
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %fail
-ret_ok:
-  ret i64 %v
-fail:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_t32, i64 17)
-  ret i64 0
-}
-
-define internal i64 @__aod_t32_mul(ptr %ctx, i64 %a, i64 %b) alwaysinline {
-entry:
-  %ov_res = call { i64, i1 } @llvm.smul.with.overflow.i64(i64 %a, i64 %b)
-  %v = extractvalue { i64, i1 } %ov_res, 0
-  %ov = extractvalue { i64, i1 } %ov_res, 1
-  br i1 %ov, label %fail, label %chk
-chk:
-  %lo = icmp sge i64 %v, -926510094425920
-  %hi = icmp sle i64 %v, 926510094425920
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %fail
-ret_ok:
-  ret i64 %v
-fail:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_t32, i64 17)
-  ret i64 0
-}
-
-define internal i64 @__aod_t32_div_floor(ptr %ctx, i64 %a, i64 %b) alwaysinline {
-entry:
-  %z = icmp eq i64 %b, 0
-  br i1 %z, label %div0, label %fast
-div0:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_div0, i64 16)
-  ret i64 0
-fast:
-  %q = sdiv i64 %a, %b
-  %rem = srem i64 %a, %b
-  %rnz = icmp ne i64 %rem, 0
-  %x = xor i64 %a, %b
-  %ds = icmp slt i64 %x, 0
-  %adj = and i1 %rnz, %ds
-  %qm1 = sub i64 %q, 1
-  %qf = select i1 %adj, i64 %qm1, i64 %q
-  %lo = icmp sge i64 %qf, -926510094425920
-  %hi = icmp sle i64 %qf, 926510094425920
-  %ok = and i1 %lo, %hi
-  br i1 %ok, label %ret_ok, label %oob
-ret_ok:
-  ret i64 %qf
-oob:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_t32, i64 17)
-  ret i64 0
-}
-
-define internal i64 @__aod_t32_rem_floor(ptr %ctx, i64 %a, i64 %b) alwaysinline {
-entry:
-  %z = icmp eq i64 %b, 0
-  br i1 %z, label %div0, label %fast
-div0:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_div0, i64 16)
-  ret i64 0
-fast:
-  %rem = srem i64 %a, %b
-  %rnz = icmp ne i64 %rem, 0
-  %x = xor i64 %rem, %b
-  %ds = icmp slt i64 %x, 0
-  %adj = and i1 %rnz, %ds
-  %rp = add i64 %rem, %b
-  %rf = select i1 %adj, i64 %rp, i64 %rem
-  ret i64 %rf
-}
-
-define internal %DecInt @__aod_t32_pack(ptr %ctx, i64 %v0) {
-entry:
-  %pout = alloca %DecInt, align 8
-  br label %loop
-loop:
-  %i = phi i64 [ 0, %entry ], [ %i_next, %loop ]
-  %n = phi i64 [ %v0, %entry ], [ %n_next, %loop ]
-  %bits = phi i64 [ 0, %entry ], [ %bits_next, %loop ]
-  %r0 = srem i64 %n, 3
-  %r_neg = icmp slt i64 %r0, 0
-  %r_plus = add i64 %r0, 3
-  %rem = select i1 %r_neg, i64 %r_plus, i64 %r0
-  %is2 = icmp eq i64 %rem, 2
-  %digit = select i1 %is2, i64 -1, i64 %rem
-  ; Exact aod_core::T32::pack encoding: 0 -> 00 (0), +1 -> 01 (1), -1 -> 10 (2)
-  %sh = shl i64 %i, 1
-  %shifted = shl i64 %rem, %sh
-  %bits_next = or i64 %bits, %shifted
-  %n_sub = sub i64 %n, %digit
-  %n_next = sdiv i64 %n_sub, 3
-  %i_next = add i64 %i, 1
-  %done = icmp eq i64 %i_next, 32
-  br i1 %done, label %after, label %loop
-after:
-  %bit63_set = icmp slt i64 %bits_next, 0
-  br i1 %bit63_set, label %spill_u64, label %inline_ok
-inline_ok:
-  %res_in = insertvalue %DecInt { i8 0, i64 0 }, i64 %bits_next, 1
-  ret %DecInt %res_in
-spill_u64:
-  call void @aod_rt_int_from_u64(ptr %ctx, i64 %bits_next, ptr %pout)
-  %res_sp = load %DecInt, ptr %pout
-  ret %DecInt %res_sp
-}
-
-define internal i64 @__aod_t32_unpack(ptr %ctx, %DecInt %a) {
-entry:
-  %pa = alloca %DecInt, align 8
-  %ta = extractvalue %DecInt %a, 0
-  %is_big = icmp ne i8 %ta, 0
-  br i1 %is_big, label %big_path, label %chk_neg
-big_path:
-  store %DecInt %a, ptr %pa
-  %rb = call i64 @aod_rt_t32_unpack_bigint(ptr %ctx, ptr %pa)
-  ret i64 %rb
-chk_neg:
-  %bits = extractvalue %DecInt %a, 1
-  %neg = icmp slt i64 %bits, 0
-  br i1 %neg, label %fail_neg, label %loop
-fail_neg:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_neg_pack, i64 29)
-  ret i64 0
-loop:
-  %i = phi i64 [ 0, %chk_neg ], [ %i_next, %step_ok ]
-  %acc = phi i64 [ 0, %chk_neg ], [ %acc_next, %step_ok ]
-  %pow = phi i64 [ 1, %chk_neg ], [ %pow_next, %step_ok ]
-  %sh = shl i64 %i, 1
-  %shifted = lshr i64 %bits, %sh
-  %lane = and i64 %shifted, 3
-  %bad = icmp eq i64 %lane, 3
-  br i1 %bad, label %fail_lane, label %step_ok
-fail_lane:
-  call void @aod_rt_fail(ptr %ctx, ptr @.err_bad_lane, i64 29)
-  ret i64 0
-step_ok:
-  ; Exact aod_core::T32::unpack decoding: 0 -> 0, 1 -> +1, 2 -> -1
-  %is2 = icmp eq i64 %lane, 2
-  %digit = select i1 %is2, i64 -1, i64 %lane
-  %term = mul i64 %digit, %pow
-  %acc_next = add i64 %acc, %term
-  %pow_next = mul i64 %pow, 3
-  %i_next = add i64 %i, 1
-  %done = icmp eq i64 %i_next, 32
-  br i1 %done, label %ret_ok, label %loop
-ret_ok:
-  ret i64 %acc_next
 }
 "#;

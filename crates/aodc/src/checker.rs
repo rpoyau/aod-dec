@@ -1,21 +1,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::{
-    AssignTarget, BinaryOp, CallArg, ChamberDecl, ConstDecl, DecArm, DecArmParam, DecFnDecl,
-    DecFnKind, EnumDecl, Expr, ExprKind, ForTarget, Item, MatchArm, ObserveDecl, Pattern,
-    PrepareDecl, ProbeDecl, Program, Stmt, StmtKind, StructDecl, TypeExpr, UnaryOp,
+    AdverbOp, BinaryOp, ChamberDecl, ConstDecl, DecArm, DecArmParam, DecFnDecl, EnumDecl, Expr,
+    ExprKind, Item, LetPattern, MatchExprArm, ObserveDecl, Pattern, PipeStage, PrepareDecl,
+    ProbeDecl, Program, Stmt, StmtKind, StructDecl, TypeExpr, UnaryOp,
 };
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{
     builtin_namespace_items, canonical_builtin_name, ImportedSymbol, LoadedUnit,
 };
-use crate::types::{is_v1_builtin_name, lookup_builtin, Effect, Type};
+use crate::types::{is_reserved_builtin_name, lookup_builtin, Effect, Type};
 
 #[derive(Clone, Debug)]
 struct VarBinding {
     ty: Type,
-    mutable: bool,
-    initialized: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -50,12 +48,10 @@ struct CheckContext {
     module_key: String,
     effect: Effect,
     in_main: bool,
+    in_const: bool,
+    in_prepare: bool,
     in_qext_sink: bool,
-    qext_outer_scope_depth: usize,
-    qext_outer_loop_depth: usize,
-    loop_depth: usize,
     expected_return: Type,
-    observer_local_floor: usize,
 }
 
 /// Verified compilation unit ready for IR serialization, LLVM lowering, and exact evaluation.
@@ -68,8 +64,8 @@ pub struct CheckedUnit {
     pub const_types: BTreeMap<(String, String), Type>,
 }
 
-/// Exhaustively typecheck every module, struct, enum, function, overload arm, apparatus block,
-/// and quarantine module in `unit`, enforcing all 5 compile-time firewalls (`P0-1`, `P0-A`, `P1-3`).
+/// Exhaustively typecheck every module, struct, enum, function, signature arm, apparatus block,
+/// rank-lifted expression, pipeline, and quarantine module in `unit`.
 pub fn check_unit(unit: LoadedUnit, require_main: bool) -> DecResult<CheckedUnit> {
     let mut checker = Checker {
         unit: &unit,
@@ -96,46 +92,21 @@ pub fn check_unit(unit: LoadedUnit, require_main: bool) -> DecResult<CheckedUnit
     for item in &unit.entry_program.items {
         if let Item::DecFn(f) = item {
             if f.name == "main" {
-                match &f.kind {
-                    DecFnKind::MultiArm { arms, .. } => {
-                        let zero_arg: Vec<&DecArm> =
-                            arms.iter().filter(|a| a.params.is_empty()).collect();
-                        if zero_arg.len() != 1 {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                f.line,
-                                "core program requires exactly one main() signature",
-                            ));
-                        }
-                        main_ret = Some(checker.resolve_type(
-                            "<entry>",
-                            &zero_arg[0].return_type,
-                            zero_arg[0].line,
-                        )?);
-                    }
-                    DecFnKind::SingleArm {
-                        params,
-                        return_type,
-                        ..
-                    } => {
-                        if !params.is_empty() {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                f.line,
-                                "main() must take zero arguments",
-                            ));
-                        }
-                        main_ret = Some(checker.resolve_type("<entry>", return_type, f.line)?);
-                    }
+                let zero_arg: Vec<&DecArm> = f.arms.iter().filter(|a| a.params.is_empty()).collect();
+                if zero_arg.len() != 1 || f.arms.len() != 1 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        f.line,
+                        "core program requires a single zero-argument main() signature",
+                    ));
                 }
-            } else if f.name.starts_with("test_") {
-                let is_zero_arg = match &f.kind {
-                    DecFnKind::SingleArm { params, .. } => params.is_empty(),
-                    DecFnKind::MultiArm { arms, .. } => arms.iter().any(|a| a.params.is_empty()),
-                };
-                if is_zero_arg {
-                    test_functions.push(f.name.clone());
-                }
+                main_ret = Some(checker.resolve_type(
+                    "<entry>",
+                    &zero_arg[0].return_type,
+                    zero_arg[0].line,
+                )?);
+            } else if f.name.starts_with("test_") && f.arms.iter().any(|a| a.params.is_empty()) {
+                test_functions.push(f.name.clone());
             }
         }
     }
@@ -143,7 +114,7 @@ pub fn check_unit(unit: LoadedUnit, require_main: bool) -> DecResult<CheckedUnit
     if require_main && main_ret.is_none() {
         return Err(Diagnostic::new(
             DiagnosticCode::TypeError,
-            "core program requires exactly one main() signature",
+            "core program requires a main() declaration",
         ));
     }
 
@@ -176,11 +147,12 @@ struct Checker<'a> {
     checked_transitive: BTreeSet<(String, String, Vec<Type>, Effect)>,
 }
 
-impl<'a> Checker<'a> {
-    fn compat(&self) -> CompatMode {
-        self.unit.compat
-    }
+enum CallTarget {
+    Builtin(String),
+    UserFn(FnEntry),
+}
 
+impl<'a> Checker<'a> {
     fn base_module_of<'b>(&self, mod_key: &'b str) -> &'b str {
         if let Some((parent, leaf)) = mod_key.rsplit_once("::") {
             if self
@@ -205,7 +177,6 @@ impl<'a> Checker<'a> {
         }
     }
 
-    /// Resolve a `quarantine Q_ext` local, sibling (`P2-3`), or imported (`P0-1`) submodule.
     fn resolve_qext_submodule(&self, mod_key: &str, ns: &str) -> Option<String> {
         if self
             .qext_modules
@@ -231,7 +202,6 @@ impl<'a> Checker<'a> {
         None
     }
 
-    /// Resolve a 3-segment cross-module `quarantine Q_ext` submodule (`mod_ns::QMod::...`, `P0-1`).
     fn resolve_qext_submodule_3seg(&self, mod_key: &str, ns: &str, qmod: &str) -> Option<String> {
         if let Some(ImportedSymbol::ModuleNamespace(m)) = self.imports_for(mod_key).get(ns) {
             if self.qext_modules.contains(&(m.clone(), qmod.to_string())) {
@@ -284,9 +254,7 @@ impl<'a> Checker<'a> {
     }
 
     fn resolve_type(&self, mod_key: &str, expr: &TypeExpr, line: usize) -> DecResult<Type> {
-        Type::resolve_with(expr, self.compat(), line, &|name| {
-            self.lookup_user_type(mod_key, name)
-        })
+        Type::resolve_with(expr, line, &|name| self.lookup_user_type(mod_key, name))
     }
 
     fn collect_type_names(&mut self) -> DecResult<()> {
@@ -331,14 +299,11 @@ impl<'a> Checker<'a> {
     }
 
     fn collect_all_declarations(&mut self) -> DecResult<()> {
-        // Resolve all structs & enums first so functions/consts can reference them
         self.collect_program_types("<entry>", &self.unit.entry_program)?;
         for (mod_key, prog) in &self.unit.parsed_modules {
             self.collect_program_types(mod_key, prog)?;
         }
 
-        // Collect functions, apparatus blocks, and quarantine modules before const evaluation
-        // so consts inside quarantine modules can reference sibling quarantine modules (`P2-3`).
         self.collect_program_items("<entry>", &self.unit.entry_program)?;
         for (mod_key, prog) in &self.unit.parsed_modules {
             self.collect_program_items(mod_key, prog)?;
@@ -490,7 +455,7 @@ impl<'a> Checker<'a> {
                                 return Err(Diagnostic::at_line(
                                     DiagnosticCode::QExtLeakageForbidden,
                                     qm.line,
-                                    "only const and Dec declarations are permitted in quarantine Q_ext modules",
+                                    "only const and dec declarations are permitted in quarantine Q_ext modules",
                                 ));
                             }
                         }
@@ -520,11 +485,11 @@ impl<'a> Checker<'a> {
     }
 
     fn register_fn(&mut self, mod_key: &str, f: &DecFnDecl, is_qext: bool) -> DecResult<()> {
-        if is_v1_builtin_name(&f.name) {
+        if is_reserved_builtin_name(&f.name) {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::TypeError,
                 f.line,
-                format!("cannot redefine builtin {}", f.name),
+                format!("cannot redefine core builtin {}", f.name),
             ));
         }
         let key = (mod_key.to_string(), f.name.clone());
@@ -532,201 +497,83 @@ impl<'a> Checker<'a> {
             return Err(Diagnostic::at_line(
                 DiagnosticCode::TypeError,
                 f.line,
-                format!("put overloads in one Dec declaration ({})", f.name),
+                format!("put all signature arms in one `dec {}:` block", f.name),
             ));
         }
 
-        match &f.kind {
-            DecFnKind::MultiArm {
-                header_params,
-                header_typed_params,
-                output_name,
-                header_return_type,
-                arms,
-            } => {
-                let mut uniq_h = BTreeSet::new();
-                for hp in header_params {
-                    if !uniq_h.insert(hp.as_str()) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            f.line,
-                            "expected distinct parameter identifiers",
-                        ));
-                    }
-                }
-                if let Some(out_n) = output_name {
-                    if header_params.iter().any(|p| p == out_n) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            f.line,
-                            "result binding must differ from parameters",
-                        ));
-                    }
-                }
-                if let Some(htp) = header_typed_params {
-                    for p in htp {
-                        let pty = self.resolve_type(mod_key, &p.ty, f.line)?;
+        let mut seen_plain_sigs: BTreeSet<Vec<Type>> = BTreeSet::new();
+        for arm in &f.arms {
+            let mut all_typed_vars = arm.guard.is_none();
+            let mut plain_sig = Vec::with_capacity(arm.params.len());
+            let mut param_names = BTreeSet::new();
+
+            for p in &arm.params {
+                match p {
+                    DecArmParam::TypedVar { name, ty } => {
+                        if !param_names.insert(name.as_str()) {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::TypeError,
+                                arm.line,
+                                format!("duplicate parameter {name} in arm of {}", f.name),
+                            ));
+                        }
+                        let pty = self.resolve_type(mod_key, ty, arm.line)?;
                         if !is_qext && pty.is_qext() {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::QExtLeakageForbidden,
-                                f.line,
+                                arm.line,
                                 format!(
-                                    "native function {} cannot accept QExt parameter {}: {pty}",
-                                    f.name, p.name
+                                    "native function {} cannot accept QExt parameter {name}: {pty}",
+                                    f.name
+                                ),
+                            ));
+                        }
+                        plain_sig.push(pty);
+                    }
+                    DecArmParam::TypedPattern { ty, .. } => {
+                        all_typed_vars = false;
+                        let pty = self.resolve_type(mod_key, ty, arm.line)?;
+                        if !is_qext && pty.is_qext() {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::QExtLeakageForbidden,
+                                arm.line,
+                                format!(
+                                    "native function {} cannot accept QExt pattern parameter: {pty}",
+                                    f.name
                                 ),
                             ));
                         }
                     }
-                }
-                if let Some(hrt) = header_return_type {
-                    let rty = self.resolve_type(mod_key, hrt, f.line)?;
-                    if !is_qext && rty.is_qext() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::QExtLeakageForbidden,
-                            f.line,
-                            format!("native function {} cannot return QExt type {rty}", f.name),
-                        ));
-                    }
-                }
-
-                let mut seen_plain_sigs: BTreeSet<Vec<Type>> = BTreeSet::new();
-                for arm in arms {
-                    if arm.params.len() != header_params.len() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            arm.line,
-                            format!(
-                                "arm parameter count ({}) does not match Dec header ({})",
-                                arm.params.len(),
-                                header_params.len()
-                            ),
-                        ));
-                    }
-                    let mut all_typed_vars = arm.guard.is_none();
-                    let mut plain_sig = Vec::with_capacity(arm.params.len());
-                    for (idx, p) in arm.params.iter().enumerate() {
-                        match p {
-                            DecArmParam::TypedVar { ty, name } => {
-                                if self.compat() == CompatMode::V1 && name != &header_params[idx] {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::TypeError,
-                                        arm.line,
-                                        "signature bindings must match the Dec declaration",
-                                    ));
-                                }
-                                let pty = self.resolve_type(mod_key, ty, arm.line)?;
-                                if !is_qext && pty.is_qext() {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::QExtLeakageForbidden,
-                                        arm.line,
-                                        format!(
-                                            "native function {} cannot accept QExt parameter {name}: {pty}",
-                                            f.name
-                                        ),
-                                    ));
-                                }
-                                plain_sig.push(pty);
-                            }
-                            DecArmParam::TypedPattern { ty, .. } => {
-                                all_typed_vars = false;
-                                let pty = self.resolve_type(mod_key, ty, arm.line)?;
-                                if !is_qext && pty.is_qext() {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::QExtLeakageForbidden,
-                                        arm.line,
-                                        format!(
-                                            "native function {} cannot accept QExt pattern parameter: {pty}",
-                                            f.name
-                                        ),
-                                    ));
-                                }
-                            }
-                            DecArmParam::Pattern(_) => {
-                                all_typed_vars = false;
-                            }
-                        }
-                    }
-                    if self.compat() == CompatMode::V1 && arm.output_name != *output_name {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            arm.line,
-                            "signature bindings must match the Dec declaration",
-                        ));
-                    }
-                    let ret_ty = self.resolve_type(mod_key, &arm.return_type, arm.line)?;
-                    if !is_qext && ret_ty.is_qext() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::QExtLeakageForbidden,
-                            arm.line,
-                            format!(
-                                "native function {} cannot return QExt type {ret_ty}",
-                                f.name
-                            ),
-                        ));
-                    }
-                    if is_qext && ret_ty != Type::Unit && !ret_ty.is_qext() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::QExtLeakageForbidden,
-                            arm.line,
-                            format!(
-                                "quarantine Q_ext function {} must return QExt<T> or (), got {ret_ty}",
-                                f.name
-                            ),
-                        ));
-                    }
-                    if all_typed_vars && !seen_plain_sigs.insert(plain_sig) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            arm.line,
-                            "duplicate input signature; return type cannot resolve dispatch",
-                        ));
+                    DecArmParam::Pattern(_) => {
+                        all_typed_vars = false;
                     }
                 }
             }
-            DecFnKind::SingleArm {
-                params,
-                return_type,
-                ..
-            } => {
-                let mut uniq = BTreeSet::new();
-                for p in params {
-                    if !uniq.insert(p.name.as_str()) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            f.line,
-                            format!("duplicate parameter {}", p.name),
-                        ));
-                    }
-                    let pty = self.resolve_type(mod_key, &p.ty, f.line)?;
-                    if !is_qext && pty.is_qext() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::QExtLeakageForbidden,
-                            f.line,
-                            format!(
-                                "native function {} cannot accept QExt parameter {}: {pty}",
-                                f.name, p.name
-                            ),
-                        ));
-                    }
-                }
-                let ret_ty = self.resolve_type(mod_key, return_type, f.line)?;
-                if !is_qext && ret_ty.is_qext() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::QExtLeakageForbidden,
-                        f.line,
-                        format!("native function {} cannot return QExt type {ret_ty}", f.name),
-                    ));
-                }
-                if is_qext && ret_ty != Type::Unit && !ret_ty.is_qext() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::QExtLeakageForbidden,
-                        f.line,
-                        format!(
-                            "quarantine Q_ext function {} must return QExt<T> or (), got {ret_ty}",
-                            f.name
-                        ),
-                    ));
-                }
+
+            let ret_ty = self.resolve_type(mod_key, &arm.return_type, arm.line)?;
+            if !is_qext && ret_ty.is_qext() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::QExtLeakageForbidden,
+                    arm.line,
+                    format!("native function {} cannot return QExt type {ret_ty}", f.name),
+                ));
+            }
+            if is_qext && ret_ty != Type::Unit && !ret_ty.is_qext() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::QExtLeakageForbidden,
+                    arm.line,
+                    format!(
+                        "quarantine Q_ext function {} must return QExt<T> or (), got {ret_ty}",
+                        f.name
+                    ),
+                ));
+            }
+            if all_typed_vars && !seen_plain_sigs.insert(plain_sig) {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::TypeError,
+                    arm.line,
+                    "duplicate input signature; return type cannot resolve dispatch",
+                ));
             }
         }
 
@@ -758,12 +605,10 @@ impl<'a> Checker<'a> {
                 Effect::PureNative
             },
             in_main: false,
+            in_const: true,
+            in_prepare: false,
             in_qext_sink: false,
-            qext_outer_scope_depth: 0,
-            qext_outer_loop_depth: 0,
-            loop_depth: 0,
             expected_return: Type::Unit,
-            observer_local_floor: 0,
         };
         let scopes: Vec<BTreeMap<String, VarBinding>> = Vec::new();
         let val_ty = self.check_expr(&c.value, &scopes, &ctx)?;
@@ -776,13 +621,7 @@ impl<'a> Checker<'a> {
                     format!("QExt type forbidden on native const {}", c.name),
                 ));
             }
-            if !types_compatible_with_annotation(&val_ty, &expected) {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::TypeError,
-                    c.line,
-                    format!("const {} declared as {expected}, got {val_ty}", c.name),
-                ));
-            }
+            enforce_annotation_compatibility(&val_ty, &expected, c.line, &format!("const {}", c.name))?;
             expected
         } else {
             val_ty
@@ -836,12 +675,10 @@ impl<'a> Checker<'a> {
                 module_key: mod_key,
                 effect: Effect::PureNative,
                 in_main: false,
+                in_const: false,
+                in_prepare: true,
                 in_qext_sink: false,
-                qext_outer_scope_depth: 0,
-                qext_outer_loop_depth: 0,
-                loop_depth: 0,
                 expected_return: Type::Unit,
-                observer_local_floor: 0,
             };
             let scopes = Vec::new();
             let space_ty = self.check_expr(&ch.space, &scopes, &ctx)?;
@@ -880,12 +717,10 @@ impl<'a> Checker<'a> {
                 module_key: mod_key,
                 effect: Effect::PureNative,
                 in_main: false,
+                in_const: false,
+                in_prepare: true,
                 in_qext_sink: false,
-                qext_outer_scope_depth: 0,
-                qext_outer_loop_depth: 0,
-                loop_depth: 0,
                 expected_return: Type::Unit,
-                observer_local_floor: 0,
             };
             let mut scopes: Vec<BTreeMap<String, VarBinding>> = vec![BTreeMap::new()];
             for stmt in &prep.lets {
@@ -950,12 +785,10 @@ impl<'a> Checker<'a> {
                             module_key: mod_key.clone(),
                             effect: Effect::ReadOnlyObserver,
                             in_main: false,
+                            in_const: false,
+                            in_prepare: false,
                             in_qext_sink: false,
-                            qext_outer_scope_depth: 0,
-                            qext_outer_loop_depth: 0,
-                            loop_depth: 0,
                             expected_return: Type::Unit,
-                            observer_local_floor: 0,
                         };
                         let scopes = Vec::new();
                         let r_ty = self.check_expr(region, &scopes, &ctx)?;
@@ -987,8 +820,6 @@ impl<'a> Checker<'a> {
                             param_name.clone(),
                             VarBinding {
                                 ty: Type::ReadOnly(Box::new(Type::ChamberView)),
-                                mutable: false,
-                                initialized: true,
                             },
                         );
                         let mut scopes = vec![param_scope, BTreeMap::new()];
@@ -996,17 +827,15 @@ impl<'a> Checker<'a> {
                             module_key: mod_key.clone(),
                             effect: Effect::ReadOnlyObserver,
                             in_main: false,
+                            in_const: false,
+                            in_prepare: false,
                             in_qext_sink: false,
-                            qext_outer_scope_depth: 0,
-                            qext_outer_loop_depth: 0,
-                            loop_depth: 0,
                             expected_return: ret_ty.clone(),
-                            observer_local_floor: 1,
                         };
                         for stmt in body {
                             self.check_stmt(stmt, &mut scopes, &mut ctx)?;
                         }
-                        if ret_ty != Type::Unit && !self.definitely_returns(body) {
+                        if ret_ty != Type::Unit && !definitely_returns(body) {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 *line,
@@ -1020,26 +849,32 @@ impl<'a> Checker<'a> {
         Ok(())
     }
 
-    fn infer_arm_param_types(
-        &self,
-        mod_key: &str,
-        arm: &DecArm,
-        header_typed: Option<&[crate::ast::TypedParam]>,
-    ) -> DecResult<Vec<Type>> {
-        let mut out = Vec::with_capacity(arm.params.len());
-        for (idx, p) in arm.params.iter().enumerate() {
-            let inferred = match p {
-                DecArmParam::TypedVar { ty, .. } => self.resolve_type(mod_key, ty, arm.line)?,
-                DecArmParam::TypedPattern { ty, .. } => self.resolve_type(mod_key, ty, arm.line)?,
-                DecArmParam::Pattern(pat) => {
-                    if let Some(t) = self.infer_pattern_type(mod_key, pat, arm.line)? {
-                        t
-                    } else if let Some(ht) = header_typed {
-                        self.resolve_type(mod_key, &ht[idx].ty, arm.line)?
-                    } else {
-                        Type::Unknown
-                    }
+    fn slot_hints_for_arity(&self, entry: &FnEntry, arity: usize) -> DecResult<Vec<Option<Type>>> {
+        let mut hints = vec![None; arity];
+        for arm in &entry.decl.arms {
+            if arm.params.len() != arity {
+                continue;
+            }
+            let tys = self.infer_arm_param_types(&entry.module_key, arm)?;
+            for (i, t) in tys.into_iter().enumerate() {
+                if t != Type::Unknown && hints[i].is_none() {
+                    hints[i] = Some(t);
                 }
+            }
+        }
+        Ok(hints)
+    }
+
+    fn infer_arm_param_types(&self, mod_key: &str, arm: &DecArm) -> DecResult<Vec<Type>> {
+        let mut out = Vec::with_capacity(arm.params.len());
+        for p in &arm.params {
+            let inferred = match p {
+                DecArmParam::TypedVar { ty, .. } | DecArmParam::TypedPattern { ty, .. } => {
+                    self.resolve_type(mod_key, ty, arm.line)?
+                }
+                DecArmParam::Pattern(pat) => self
+                    .infer_pattern_type(mod_key, pat, arm.line)?
+                    .unwrap_or(Type::Unknown),
             };
             out.push(inferred);
         }
@@ -1054,9 +889,11 @@ impl<'a> Checker<'a> {
     ) -> DecResult<Option<Type>> {
         match pat {
             Pattern::Wildcard | Pattern::Binding(_) => Ok(None),
+            Pattern::NullLit => Ok(Some(Type::Null)),
             Pattern::IntLit(_) => Ok(Some(Type::Int)),
             Pattern::BoolLit(_) => Ok(Some(Type::Bool)),
             Pattern::StrLit(_) => Ok(Some(Type::Str)),
+            Pattern::BytesLit(_) => Ok(Some(Type::Bytes)),
             Pattern::TritLit(_) => Ok(Some(Type::T1)),
             Pattern::RatioLit(_) => Ok(Some(Type::Ratio)),
             Pattern::Addr8Lit(_) => Ok(Some(Type::Addr8)),
@@ -1088,208 +925,87 @@ impl<'a> Checker<'a> {
         effect: Effect,
     ) -> DecResult<()> {
         let is_main = entry.module_key == "<entry>" && entry.decl.name == "main" && !entry.is_qext;
-        match &entry.decl.kind {
-            DecFnKind::MultiArm {
-                header_typed_params,
-                arms,
-                ..
-            } => {
-                // Collect slot types across all arms so `_` wildcards inherit known slot types.
-                let mut slot_hints: Vec<Option<Type>> = vec![
-                    None;
-                    arms.first().map_or(0, |a| a.params.len())
-                ];
-                if let Some(htp) = header_typed_params {
-                    for (i, p) in htp.iter().enumerate() {
-                        slot_hints[i] = Some(self.resolve_type(&entry.module_key, &p.ty, entry.decl.line)?);
-                    }
-                }
-                for arm in arms {
-                    let tys = self.infer_arm_param_types(
-                        &entry.module_key,
-                        arm,
-                        header_typed_params.as_deref(),
-                    )?;
-                    for (i, t) in tys.into_iter().enumerate() {
-                        if t != Type::Unknown && slot_hints[i].is_none() {
-                            slot_hints[i] = Some(t);
-                        }
-                    }
-                }
 
-                for arm in arms {
-                    let arm_tys = self.infer_arm_param_types(
-                        &entry.module_key,
-                        arm,
-                        header_typed_params.as_deref(),
-                    )?;
-                    if let Some(ov) = override_arg_types {
-                        if ov.len() != arm_tys.len()
-                            || !ov.iter().zip(&arm_tys).all(|(a, p)| {
-                                *p == Type::Unknown
-                                    || a.unwrap_read_only() == p.unwrap_read_only()
-                            })
-                        {
-                            continue;
-                        }
+        for arm in &entry.decl.arms {
+            let slot_hints = self.slot_hints_for_arity(entry, arm.params.len())?;
+            let arm_tys = self.infer_arm_param_types(&entry.module_key, arm)?;
+            if let Some(ov) = override_arg_types {
+                if ov.len() != arm_tys.len()
+                    || !ov.iter().zip(&arm_tys).all(|(a, p)| {
+                        *p == Type::Unknown
+                            || types_compatible_with_annotation(
+                                a.unwrap_read_only(),
+                                p.unwrap_read_only(),
+                            )
+                    })
+                {
+                    continue;
+                }
+            }
+
+            let ret_ty = self.resolve_type(&entry.module_key, &arm.return_type, arm.line)?;
+            let mut scope = BTreeMap::new();
+            for (idx, param) in arm.params.iter().enumerate() {
+                let mut resolved_ty = if let Some(ov) = override_arg_types {
+                    ov[idx].clone()
+                } else if arm_tys[idx] != Type::Unknown {
+                    arm_tys[idx].clone()
+                } else {
+                    slot_hints[idx].clone().unwrap_or(Type::Int)
+                };
+                if arm_tys[idx].is_read_only() {
+                    resolved_ty = resolved_ty.wrap_read_only();
+                }
+                match param {
+                    DecArmParam::TypedVar { name, .. } => {
+                        scope.insert(name.clone(), VarBinding { ty: resolved_ty });
                     }
-                    let ret_ty = self.resolve_type(&entry.module_key, &arm.return_type, arm.line)?;
-                    let mut scope = BTreeMap::new();
-                    for (idx, param) in arm.params.iter().enumerate() {
-                        let mut resolved_ty = if let Some(ov) = override_arg_types {
-                            ov[idx].clone()
-                        } else if arm_tys[idx] != Type::Unknown {
-                            arm_tys[idx].clone()
-                        } else {
-                            slot_hints[idx].clone().unwrap_or(Type::Int)
-                        };
-                        if arm_tys[idx].is_read_only() {
-                            resolved_ty = resolved_ty.wrap_read_only();
-                        }
-                        match param {
-                            DecArmParam::TypedVar { name, .. } => {
-                                let param_mutable = !resolved_ty.is_read_only();
-                                scope.insert(
-                                    name.clone(),
-                                    VarBinding {
-                                        ty: resolved_ty,
-                                        mutable: param_mutable,
-                                        initialized: true,
-                                    },
-                                );
-                            }
-                            DecArmParam::TypedPattern { pattern, .. }
-                            | DecArmParam::Pattern(pattern) => {
-                                self.check_pattern(
-                                    pattern,
-                                    &resolved_ty,
-                                    &entry.module_key,
-                                    &mut scope,
-                                    arm.line,
-                                )?;
-                            }
-                        }
-                    }
-                    if let Some(ref out_name) = arm.output_name {
-                        scope.insert(
-                            out_name.clone(),
-                            VarBinding {
-                                ty: ret_ty.clone(),
-                                mutable: true,
-                                initialized: false,
-                            },
-                        );
-                    }
-                    let mut scopes = vec![scope];
-                    // P0-A: `in_main` is ONLY true when `effect == Effect::PureNative`!
-                    let mut ctx = CheckContext {
-                        module_key: entry.module_key.clone(),
-                        effect,
-                        in_main: is_main
-                            && arm.params.is_empty()
-                            && effect == Effect::PureNative,
-                        in_qext_sink: false,
-                        qext_outer_scope_depth: 0,
-                        qext_outer_loop_depth: 0,
-                        loop_depth: 0,
-                        expected_return: ret_ty.clone(),
-                        observer_local_floor: 0,
-                    };
-                    if let Some(ref guard) = arm.guard {
-                        let g_ty = self.check_expr(guard, &scopes, &ctx)?;
-                        if g_ty != Type::Bool {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                guard.line,
-                                format!("Dec arm guard must be bool, got {g_ty}"),
-                            ));
-                        }
-                    }
-                    let mut returned = false;
-                    for stmt in &arm.body {
-                        if returned && self.compat() == CompatMode::V1 {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                stmt.line,
-                                "unreachable statement after return",
-                            ));
-                        }
-                        self.check_stmt(stmt, &mut scopes, &mut ctx)?;
-                        if matches!(stmt.kind, StmtKind::Return(_)) {
-                            returned = true;
-                        }
-                    }
-                    let output_assigned = arm
-                        .output_name
-                        .as_ref()
-                        .and_then(|n| scopes[0].get(n))
-                        .is_some_and(|b| b.initialized);
-                    if ret_ty != Type::Unit
-                        && !returned
-                        && !self.definitely_returns(&arm.body)
-                        && !output_assigned
-                    {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
+                    DecArmParam::TypedPattern { pattern, .. } | DecArmParam::Pattern(pattern) => {
+                        self.check_pattern(
+                            pattern,
+                            &resolved_ty,
+                            &entry.module_key,
+                            &mut scope,
                             arm.line,
-                            "result is never assigned",
-                        ));
+                        )?;
                     }
                 }
             }
-            DecFnKind::SingleArm {
-                params,
-                return_type,
-                body,
-            } => {
-                let param_types: Vec<Type> = params
-                    .iter()
-                    .map(|p| self.resolve_type(&entry.module_key, &p.ty, entry.decl.line))
-                    .collect::<DecResult<_>>()?;
-                let ret_ty = self.resolve_type(&entry.module_key, return_type, entry.decl.line)?;
-                let mut param_scope = BTreeMap::new();
-                for (idx, p) in params.iter().enumerate() {
-                    let mut actual_ty = override_arg_types
-                        .map(|ov| ov[idx].clone())
-                        .unwrap_or_else(|| param_types[idx].clone());
-                    if param_types[idx].is_read_only() {
-                        actual_ty = actual_ty.wrap_read_only();
-                    }
-                    param_scope.insert(
-                        p.name.clone(),
-                        VarBinding {
-                            ty: actual_ty,
-                            mutable: false,
-                            initialized: true,
-                        },
-                    );
-                }
-                let mut scopes = vec![param_scope, BTreeMap::new()];
-                // P0-A: `in_main` is ONLY true when `effect == Effect::PureNative`!
-                let mut ctx = CheckContext {
-                    module_key: entry.module_key.clone(),
-                    effect,
-                    in_main: is_main && params.is_empty() && effect == Effect::PureNative,
-                    in_qext_sink: false,
-                    qext_outer_scope_depth: 0,
-                    qext_outer_loop_depth: 0,
-                    loop_depth: 0,
-                    expected_return: ret_ty.clone(),
-                    observer_local_floor: 1,
-                };
-                for stmt in body {
-                    self.check_stmt(stmt, &mut scopes, &mut ctx)?;
-                }
-                if ret_ty != Type::Unit && !self.definitely_returns(body) {
+
+            let mut scopes = vec![scope, BTreeMap::new()];
+            let mut ctx = CheckContext {
+                module_key: entry.module_key.clone(),
+                effect,
+                in_main: is_main && arm.params.is_empty() && effect == Effect::PureNative,
+                in_const: false,
+                in_prepare: false,
+                in_qext_sink: false,
+                expected_return: ret_ty.clone(),
+            };
+
+            if let Some(ref guard) = arm.guard {
+                let g_ty = self.check_expr(guard, &scopes, &ctx)?;
+                if g_ty != Type::Bool {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::TypeError,
-                        entry.decl.line,
-                        format!(
-                            "function {} missing return of type {ret_ty}",
-                            entry.decl.name
-                        ),
+                        guard.line,
+                        format!("dec arm 'where' guard must be bool, got {g_ty}"),
                     ));
                 }
+            }
+
+            for stmt in &arm.body {
+                self.check_stmt(stmt, &mut scopes, &mut ctx)?;
+            }
+            if ret_ty != Type::Unit && !definitely_returns(&arm.body) {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::TypeError,
+                    arm.line,
+                    format!(
+                        "function {} arm missing return value of type {ret_ty}",
+                        entry.decl.name
+                    ),
+                ));
             }
         }
         Ok(())
@@ -1311,10 +1027,18 @@ impl<'a> Checker<'a> {
                     name.clone(),
                     VarBinding {
                         ty: expected.clone(),
-                        mutable: false,
-                        initialized: true,
                     },
                 );
+                Ok(())
+            }
+            Pattern::NullLit => {
+                if *target != Type::Null {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("null pattern does not match {target}"),
+                    ));
+                }
                 Ok(())
             }
             Pattern::IntLit(_) => {
@@ -1343,6 +1067,16 @@ impl<'a> Checker<'a> {
                         DiagnosticCode::TypeError,
                         line,
                         format!("string pattern does not match {target}"),
+                    ));
+                }
+                Ok(())
+            }
+            Pattern::BytesLit(_) => {
+                if *target != Type::Bytes {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("bytes pattern does not match {target}"),
                     ));
                 }
                 Ok(())
@@ -1558,7 +1292,7 @@ impl<'a> Checker<'a> {
         ctx: &mut CheckContext,
     ) -> DecResult<()> {
         match &stmt.kind {
-            StmtKind::Let { name, ty, value } => {
+            StmtKind::Let { pattern, ty, value } => {
                 let expected_ann = match ty {
                     Some(t) => {
                         let expected = self.resolve_type(&ctx.module_key, t, stmt.line)?;
@@ -1566,7 +1300,7 @@ impl<'a> Checker<'a> {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::QExtLeakageForbidden,
                                 stmt.line,
-                                format!("QExt type annotation forbidden on native let {name}"),
+                                "QExt type annotation forbidden on native let binding",
                             ));
                         }
                         if let Type::Map(ref k, _) = expected {
@@ -1585,13 +1319,7 @@ impl<'a> Checker<'a> {
                 let val_ty = self.check_expr(value, scopes, ctx)?;
                 let final_ty = match expected_ann {
                     Some(expected) => {
-                        if !types_compatible_with_annotation(&val_ty, &expected) {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ImplicitCoercionForbidden,
-                                stmt.line,
-                                format!("let {name} declared as {expected}, got {val_ty}"),
-                            ));
-                        }
+                        enforce_annotation_compatibility(&val_ty, &expected, stmt.line, "let")?;
                         expected
                     }
                     None => {
@@ -1599,7 +1327,7 @@ impl<'a> Checker<'a> {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 stmt.line,
-                                format!("empty collection {name} requires an explicit type annotation"),
+                                "empty collection requires an explicit type annotation (e.g. `let xs: [int] = []`)",
                             ));
                         }
                         val_ty
@@ -1609,348 +1337,52 @@ impl<'a> Checker<'a> {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::QExtLeakageForbidden,
                         stmt.line,
-                        format!("QExt value cannot bind to native let {name}"),
+                        "QExt value cannot bind to native let",
                     ));
                 }
-                let cur = scopes.last_mut().expect("scope stack non-empty");
-                if cur.contains_key(name) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        format!("duplicate local declaration {name}"),
-                    ));
-                }
-                cur.insert(
-                    name.clone(),
-                    VarBinding {
-                        ty: final_ty,
-                        mutable: false,
-                        initialized: true,
-                    },
-                );
-                Ok(())
-            }
-            StmtKind::Mut { name, ty, value } => {
-                let expected_ann = match ty {
-                    Some(t) => {
-                        let expected = self.resolve_type(&ctx.module_key, t, stmt.line)?;
-                        if ctx.effect != Effect::QExt && expected.is_qext() {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::QExtLeakageForbidden,
-                                stmt.line,
-                                format!("QExt type annotation forbidden on native mut {name}"),
-                            ));
-                        }
-                        if let Type::Map(ref k, _) = expected {
-                            if !k.is_map_key() {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::TypeError,
-                                    stmt.line,
-                                    format!("unsupported map key type {k}"),
-                                ));
-                            }
-                        }
-                        Some(expected)
-                    }
-                    None => None,
-                };
-                let val_ty = self.check_expr(value, scopes, ctx)?;
-                let final_ty = match expected_ann {
-                    Some(expected) => {
-                        if !types_compatible_with_annotation(&val_ty, &expected) {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ImplicitCoercionForbidden,
-                                stmt.line,
-                                format!("mut {name} declared as {expected}, got {val_ty}"),
-                            ));
-                        }
-                        expected
-                    }
-                    None => {
-                        if contains_unknown(&val_ty) {
+
+                match pattern {
+                    LetPattern::Single(name) => {
+                        let cur = scopes.last_mut().expect("scope stack non-empty");
+                        if cur.contains_key(name) {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 stmt.line,
-                                format!("empty collection {name} requires an explicit type annotation"),
+                                format!("duplicate local declaration {name}"),
                             ));
                         }
-                        val_ty
+                        cur.insert(name.clone(), VarBinding { ty: final_ty });
                     }
-                };
-                if ctx.effect != Effect::QExt && final_ty.is_qext() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::QExtLeakageForbidden,
-                        stmt.line,
-                        format!("QExt value cannot bind to native mut {name}"),
-                    ));
-                }
-                let cur = scopes.last_mut().expect("scope stack non-empty");
-                if cur.contains_key(name) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        format!("duplicate local declaration {name}"),
-                    ));
-                }
-                cur.insert(
-                    name.clone(),
-                    VarBinding {
-                        ty: final_ty,
-                        mutable: true,
-                        initialized: true,
-                    },
-                );
-                Ok(())
-            }
-            StmtKind::TypedLocal { ty, name, value } => {
-                let expected = self.resolve_type(&ctx.module_key, ty, stmt.line)?;
-                if ctx.effect != Effect::QExt && expected.is_qext() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::QExtLeakageForbidden,
-                        stmt.line,
-                        format!("QExt value cannot bind to native local {name}"),
-                    ));
-                }
-                let cur = scopes.last().expect("scope stack non-empty");
-                if cur.contains_key(name) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        format!("duplicate local declaration {name}"),
-                    ));
-                }
-                let val_ty = self.check_expr(value, scopes, ctx)?;
-                if !types_compatible_with_annotation(&val_ty, &expected) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ImplicitCoercionForbidden,
-                        stmt.line,
-                        format!("assignment to {name} requires {expected}, got {val_ty}"),
-                    ));
-                }
-                scopes.last_mut().unwrap().insert(
-                    name.clone(),
-                    VarBinding {
-                        ty: expected,
-                        mutable: true,
-                        initialized: true,
-                    },
-                );
-                Ok(())
-            }
-            StmtKind::Assign { target, value } => {
-                let val_ty = self.check_expr(value, scopes, ctx)?;
-                match target {
-                    AssignTarget::Ident(name) => {
-                        let found = find_var_scope_index(scopes, name);
-                        let (scope_idx, binding_ty, mutable) = match found {
-                            Some(idx) => {
-                                let b = &scopes[idx][name];
-                                (idx, b.ty.clone(), b.mutable)
-                            }
-                            None => {
+                    LetPattern::Tuple(names) => {
+                        let is_ro = final_ty.is_read_only();
+                        let elem_tys = match final_ty.unwrap_read_only() {
+                            Type::Tuple(ts) if ts.len() == names.len() => ts.clone(),
+                            other => {
                                 return Err(Diagnostic::at_line(
                                     DiagnosticCode::TypeError,
                                     stmt.line,
-                                    format!("declare local {name} with an explicit type"),
+                                    format!(
+                                        "cannot destructure {other} into {}-element tuple",
+                                        names.len()
+                                    ),
                                 ));
                             }
                         };
-                        if ctx.in_qext_sink && scope_idx < ctx.qext_outer_scope_depth {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::QExtLeakageForbidden,
-                                stmt.line,
-                                format!(
-                                    "cannot write outer native binding {name} from inside one-way quarantine Q_ext sink"
-                                ),
-                            ));
-                        }
-                        if ctx.effect == Effect::ReadOnlyObserver
-                            && (binding_ty.is_read_only() || scope_idx < ctx.observer_local_floor)
-                        {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ObserverMutationForbidden,
-                                stmt.line,
-                                format!("observer cannot mutate read-only or outer binding {name}"),
-                            ));
-                        }
-                        if !mutable {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                stmt.line,
-                                format!("cannot assign to immutable binding {name}"),
-                            ));
-                        }
-                        if !types_compatible_with_annotation(&val_ty, &binding_ty) {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ImplicitCoercionForbidden,
-                                stmt.line,
-                                format!("assignment to {name} requires {binding_ty}, got {val_ty}"),
-                            ));
-                        }
-                        scopes[scope_idx].get_mut(name).unwrap().initialized = true;
-                        Ok(())
-                    }
-                    AssignTarget::Field { base, name } => {
-                        let base_ty = self.check_expr(base, scopes, ctx)?;
-                        if base_ty.is_read_only()
-                            || matches!(base_ty.unwrap_read_only(), Type::ChamberView)
-                        {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ObserverMutationForbidden,
-                                stmt.line,
-                                format!("cannot mutate field .{name} on read-only view ({base_ty})"),
-                            ));
-                        }
-                        if let ExprKind::Ident(ref vname) = base.kind {
-                            if let Some(idx) = find_var_scope_index(scopes, vname) {
-                                if ctx.in_qext_sink && idx < ctx.qext_outer_scope_depth {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::QExtLeakageForbidden,
-                                        stmt.line,
-                                        format!("cannot mutate outer struct {vname}.{name} inside quarantine Q_ext sink"),
-                                    ));
-                                }
-                                if ctx.effect == Effect::ReadOnlyObserver
-                                    && idx < ctx.observer_local_floor
-                                {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::ObserverMutationForbidden,
-                                        stmt.line,
-                                        format!("observer cannot mutate outer struct {vname}.{name}"),
-                                    ));
-                                }
-                                let b = &scopes[idx][vname];
-                                if let Type::Struct {
-                                    module,
-                                    name: sname,
-                                } = &b.ty
-                                {
-                                    if !b.mutable {
-                                        return Err(Diagnostic::at_line(
-                                            DiagnosticCode::TypeError,
-                                            stmt.line,
-                                            format!("cannot mutate field .{name} of immutable binding {vname}"),
-                                        ));
-                                    }
-                                    let field_ty = self
-                                        .resolve_struct_field(module, sname, name, stmt.line)?;
-                                    if !types_compatible_with_annotation(&val_ty, &field_ty) {
-                                        return Err(Diagnostic::at_line(
-                                            DiagnosticCode::ImplicitCoercionForbidden,
-                                            stmt.line,
-                                            format!(
-                                                "field {sname}.{name} expects {field_ty}, got {val_ty}"
-                                            ),
-                                        ));
-                                    }
-                                    return Ok(());
-                                }
+                        let cur = scopes.last_mut().expect("scope stack non-empty");
+                        for (n, et) in names.iter().zip(elem_tys) {
+                            if cur.contains_key(n) {
+                                return Err(Diagnostic::at_line(
+                                    DiagnosticCode::TypeError,
+                                    stmt.line,
+                                    format!("duplicate local declaration {n}"),
+                                ));
                             }
+                            let bound_ty = if is_ro { et.wrap_read_only() } else { et };
+                            cur.insert(n.clone(), VarBinding { ty: bound_ty });
                         }
-                        if ctx.effect == Effect::ReadOnlyObserver {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ObserverMutationForbidden,
-                                stmt.line,
-                                format!("cannot mutate field .{name} in read-only observer"),
-                            ));
-                        }
-                        Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            stmt.line,
-                            format!("field .{name} on {base_ty} is immutable"),
-                        ))
-                    }
-                    AssignTarget::Index { base, index } => {
-                        let base_ty = self.check_expr(base, scopes, ctx)?;
-                        let idx_ty = self.check_expr(index, scopes, ctx)?;
-                        if base_ty.is_read_only()
-                            || matches!(base_ty.unwrap_read_only(), Type::ChamberView)
-                        {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ObserverMutationForbidden,
-                                stmt.line,
-                                format!("cannot mutate element of read-only view ({base_ty})"),
-                            ));
-                        }
-                        if let ExprKind::Ident(ref vname) = base.kind {
-                            if let Some(idx) = find_var_scope_index(scopes, vname) {
-                                if ctx.in_qext_sink && idx < ctx.qext_outer_scope_depth {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::QExtLeakageForbidden,
-                                        stmt.line,
-                                        "cannot mutate outer collection inside quarantine Q_ext sink",
-                                    ));
-                                }
-                                if ctx.effect == Effect::ReadOnlyObserver
-                                    && idx < ctx.observer_local_floor
-                                {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::ObserverMutationForbidden,
-                                        stmt.line,
-                                        format!("observer cannot mutate outer collection {vname}"),
-                                    ));
-                                }
-                                let b = &scopes[idx][vname];
-                                if !b.mutable {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::TypeError,
-                                        stmt.line,
-                                        format!("cannot index-assign immutable binding {vname}"),
-                                    ));
-                                }
-                                match &b.ty {
-                                    Type::List(elem_ty) => {
-                                        if idx_ty != Type::Int {
-                                            return Err(Diagnostic::at_line(
-                                                DiagnosticCode::TypeError,
-                                                stmt.line,
-                                                format!("list index must be int, got {idx_ty}"),
-                                            ));
-                                        }
-                                        if !types_compatible_with_annotation(&val_ty, elem_ty) {
-                                            return Err(Diagnostic::at_line(
-                                                DiagnosticCode::ImplicitCoercionForbidden,
-                                                stmt.line,
-                                                format!("list element requires {elem_ty}, got {val_ty}"),
-                                            ));
-                                        }
-                                        return Ok(());
-                                    }
-                                    Type::Map(k_ty, v_ty) => {
-                                        if idx_ty != **k_ty {
-                                            return Err(Diagnostic::at_line(
-                                                DiagnosticCode::ImplicitCoercionForbidden,
-                                                stmt.line,
-                                                format!("map key requires {k_ty}, got {idx_ty}"),
-                                            ));
-                                        }
-                                        if !types_compatible_with_annotation(&val_ty, v_ty) {
-                                            return Err(Diagnostic::at_line(
-                                                DiagnosticCode::ImplicitCoercionForbidden,
-                                                stmt.line,
-                                                format!("map value requires {v_ty}, got {val_ty}"),
-                                            ));
-                                        }
-                                        return Ok(());
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                        if ctx.effect == Effect::ReadOnlyObserver {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ObserverMutationForbidden,
-                                stmt.line,
-                                "cannot mutate indexed value in read-only observer",
-                            ));
-                        }
-                        Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            stmt.line,
-                            format!("cannot index-assign value of type {base_ty}"),
-                        ))
                     }
                 }
+                Ok(())
             }
             StmtKind::Assert(expr) => {
                 let ty = self.check_expr(expr, scopes, ctx)?;
@@ -1988,322 +1420,11 @@ impl<'a> Checker<'a> {
                     Some(e) => self.check_expr(e, scopes, ctx)?,
                     None => Type::Unit,
                 };
-                if !types_compatible_with_annotation(&actual, &ctx.expected_return) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        format!(
-                            "return type mismatch: expected {}, got {actual}",
-                            ctx.expected_return
-                        ),
-                    ));
-                }
-                Ok(())
-            }
-            StmtKind::If {
-                cond,
-                then_body,
-                elifs,
-                else_body,
-            } => {
-                let c_ty = self.check_expr(cond, scopes, ctx)?;
-                let cond_ok = c_ty == Type::Bool
-                    || (ctx.effect == Effect::QExt && c_ty == Type::QExt(Box::new(Type::Bool)));
-                if !cond_ok {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        format!("if condition must be bool, got {c_ty}"),
-                    ));
-                }
-                scopes.push(BTreeMap::new());
-                for s in then_body {
-                    self.check_stmt(s, scopes, ctx)?;
-                }
-                scopes.pop();
-                for (ec, eb) in elifs {
-                    let et = self.check_expr(ec, scopes, ctx)?;
-                    let ok = et == Type::Bool
-                        || (ctx.effect == Effect::QExt && et == Type::QExt(Box::new(Type::Bool)));
-                    if !ok {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            ec.line,
-                            format!("elif condition must be bool, got {et}"),
-                        ));
-                    }
-                    scopes.push(BTreeMap::new());
-                    for s in eb {
-                        self.check_stmt(s, scopes, ctx)?;
-                    }
-                    scopes.pop();
-                }
-                if !else_body.is_empty() {
-                    scopes.push(BTreeMap::new());
-                    for s in else_body {
-                        self.check_stmt(s, scopes, ctx)?;
-                    }
-                    scopes.pop();
-                }
-                Ok(())
-            }
-            StmtKind::Match { scrutinee, arms } => {
-                let scrut_ty = self.check_expr(scrutinee, scopes, ctx)?;
-                let mut covered_variants: BTreeSet<String> = BTreeSet::new();
-                let mut has_irrefutable_wildcard = false;
-
-                for arm in arms {
-                    let mut arm_scope = BTreeMap::new();
-                    self.check_pattern(
-                        &arm.pattern,
-                        &scrut_ty,
-                        &ctx.module_key,
-                        &mut arm_scope,
-                        arm.line,
-                    )?;
-                    scopes.push(arm_scope);
-                    if let Some(ref g) = arm.guard {
-                        let g_ty = self.check_expr(g, scopes, ctx)?;
-                        if g_ty != Type::Bool {
-                            scopes.pop();
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                g.line,
-                                format!("match arm guard must be bool, got {g_ty}"),
-                            ));
-                        }
-                    } else {
-                        match &arm.pattern {
-                            Pattern::Wildcard | Pattern::Binding(_) => {
-                                has_irrefutable_wildcard = true;
-                            }
-                            Pattern::EnumVariant { path, bindings } => {
-                                if bindings.iter().all(is_irrefutable_pattern) {
-                                    if let Some(vname) = path.last() {
-                                        covered_variants.insert(vname.clone());
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    for s in &arm.body {
-                        self.check_stmt(s, scopes, ctx)?;
-                    }
-                    scopes.pop();
-                }
-
-                // Compile-time exhaustiveness checking for enum scrutinees!
-                if let Type::Enum { module, name } = scrut_ty.unwrap_read_only() {
-                    if !has_irrefutable_wildcard {
-                        if let Some(edef) = self.enums.get(&(module.clone(), name.clone())) {
-                            let missing: Vec<&str> = edef
-                                .variants
-                                .iter()
-                                .map(|(vn, _)| vn.as_str())
-                                .filter(|vn| !covered_variants.contains(*vn))
-                                .collect();
-                            if !missing.is_empty() {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::TypeError,
-                                    stmt.line,
-                                    format!(
-                                        "non-exhaustive match on enum {name}: missing variant(s) {}",
-                                        missing.join(", ")
-                                    ),
-                                ));
-                            }
-                        }
-                    }
-                }
-                Ok(())
-            }
-            StmtKind::For { target, iter, body } => {
-                let it_ty = self.check_expr(iter, scopes, ctx)?;
-                let mut loop_scope = BTreeMap::new();
-                match (target, it_ty) {
-                    (ForTarget::Single(var), Type::Range) => {
-                        loop_scope.insert(
-                            var.clone(),
-                            VarBinding {
-                                ty: Type::Int,
-                                mutable: false,
-                                initialized: true,
-                            },
-                        );
-                    }
-                    (ForTarget::Single(var), Type::List(inner)) => {
-                        loop_scope.insert(
-                            var.clone(),
-                            VarBinding {
-                                ty: *inner,
-                                mutable: false,
-                                initialized: true,
-                            },
-                        );
-                    }
-                    (ForTarget::Single(var), Type::Map(k, _)) => {
-                        loop_scope.insert(
-                            var.clone(),
-                            VarBinding {
-                                ty: *k,
-                                mutable: false,
-                                initialized: true,
-                            },
-                        );
-                    }
-                    (ForTarget::Tuple(vars), Type::Map(k, v)) if vars.len() == 2 => {
-                        loop_scope.insert(
-                            vars[0].clone(),
-                            VarBinding {
-                                ty: *k,
-                                mutable: false,
-                                initialized: true,
-                            },
-                        );
-                        loop_scope.insert(
-                            vars[1].clone(),
-                            VarBinding {
-                                ty: *v,
-                                mutable: false,
-                                initialized: true,
-                            },
-                        );
-                    }
-                    (ForTarget::Tuple(vars), Type::List(inner)) => match *inner {
-                        Type::Tuple(elems) if elems.len() == vars.len() => {
-                            for (vn, et) in vars.iter().zip(elems) {
-                                loop_scope.insert(
-                                    vn.clone(),
-                                    VarBinding {
-                                        ty: et,
-                                        mutable: false,
-                                        initialized: true,
-                                    },
-                                );
-                            }
-                        }
-                        other => {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                stmt.line,
-                                format!("cannot tuple-destructure list element type {other}"),
-                            ));
-                        }
-                    },
-                    (ForTarget::Single(var), Type::ReadOnly(inner)) => match *inner {
-                        Type::List(elem) => {
-                            loop_scope.insert(
-                                var.clone(),
-                                VarBinding {
-                                    ty: elem.wrap_read_only(),
-                                    mutable: false,
-                                    initialized: true,
-                                },
-                            );
-                        }
-                        Type::Map(k, _) => {
-                            loop_scope.insert(
-                                var.clone(),
-                                VarBinding {
-                                    ty: k.wrap_read_only(),
-                                    mutable: false,
-                                    initialized: true,
-                                },
-                            );
-                        }
-                        other => {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                stmt.line,
-                                format!("cannot iterate over ReadOnly<{other}>"),
-                            ));
-                        }
-                    },
-                    (ForTarget::Tuple(vars), Type::ReadOnly(inner)) if vars.len() == 2 => {
-                        match *inner {
-                            Type::Map(k, v) => {
-                                loop_scope.insert(
-                                    vars[0].clone(),
-                                    VarBinding {
-                                        ty: k.wrap_read_only(),
-                                        mutable: false,
-                                        initialized: true,
-                                    },
-                                );
-                                loop_scope.insert(
-                                    vars[1].clone(),
-                                    VarBinding {
-                                        ty: v.wrap_read_only(),
-                                        mutable: false,
-                                        initialized: true,
-                                    },
-                                );
-                            }
-                            other => {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::TypeError,
-                                    stmt.line,
-                                    format!("cannot tuple-iterate over ReadOnly<{other}>"),
-                                ));
-                            }
-                        }
-                    }
-                    (_, other) => {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            stmt.line,
-                            format!("for loop target incompatible with iterable type {other}"),
-                        ));
-                    }
-                }
-                scopes.push(loop_scope);
-                ctx.loop_depth += 1;
-                for s in body {
-                    self.check_stmt(s, scopes, ctx)?;
-                }
-                ctx.loop_depth -= 1;
-                scopes.pop();
-                Ok(())
-            }
-            StmtKind::While { cond, body } => {
-                let c_ty = self.check_expr(cond, scopes, ctx)?;
-                if c_ty != Type::Bool {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        format!("while condition must be bool, got {c_ty}"),
-                    ));
-                }
-                scopes.push(BTreeMap::new());
-                ctx.loop_depth += 1;
-                for s in body {
-                    self.check_stmt(s, scopes, ctx)?;
-                }
-                ctx.loop_depth -= 1;
-                scopes.pop();
-                Ok(())
-            }
-            StmtKind::Break | StmtKind::Continue => {
-                if ctx.loop_depth == 0 {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        stmt.line,
-                        "break/continue outside of loop",
-                    ));
-                }
-                if ctx.in_qext_sink && ctx.loop_depth <= ctx.qext_outer_loop_depth {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::QExtLeakageForbidden,
-                        stmt.line,
-                        "break/continue cannot escape a one-way quarantine Q_ext: sink block into an enclosing native loop",
-                    ));
-                }
+                enforce_return_compatibility(&actual, &ctx.expected_return, stmt.line)?;
                 Ok(())
             }
             StmtKind::Pass => Ok(()),
             StmtKind::QuarantineBlock { body } => {
-                // P0-A: explicitly reject ReadOnlyObserver BEFORE checking in_main!
                 if ctx.effect == Effect::ReadOnlyObserver {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::QExtLeakageForbidden,
@@ -2315,19 +1436,15 @@ impl<'a> Checker<'a> {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::QExtLeakageForbidden,
                         stmt.line,
-                        "quarantine Q_ext: sink is only permitted in Dec main() or quarantine Q_ext functions",
+                        "quarantine Q_ext: sink is only permitted in dec main() or quarantine Q_ext functions",
                     ));
                 }
                 let saved_effect = ctx.effect;
                 let saved_in_sink = ctx.in_qext_sink;
-                let saved_outer_scope = ctx.qext_outer_scope_depth;
-                let saved_outer_loop = ctx.qext_outer_loop_depth;
 
                 ctx.effect = Effect::QExt;
                 if !saved_in_sink && saved_effect != Effect::QExt {
                     ctx.in_qext_sink = true;
-                    ctx.qext_outer_scope_depth = scopes.len();
-                    ctx.qext_outer_loop_depth = ctx.loop_depth;
                 }
                 scopes.push(BTreeMap::new());
                 let res = (|| {
@@ -2340,8 +1457,6 @@ impl<'a> Checker<'a> {
 
                 ctx.effect = saved_effect;
                 ctx.in_qext_sink = saved_in_sink;
-                ctx.qext_outer_scope_depth = saved_outer_scope;
-                ctx.qext_outer_loop_depth = saved_outer_loop;
                 res
             }
             StmtKind::ExprStmt(expr) => {
@@ -2358,9 +1473,11 @@ impl<'a> Checker<'a> {
         ctx: &CheckContext,
     ) -> DecResult<Type> {
         match &expr.kind {
+            ExprKind::NullLit => Ok(Type::Null),
             ExprKind::IntLit(_) => Ok(Type::Int),
             ExprKind::BoolLit(_) => Ok(Type::Bool),
             ExprKind::StrLit(_) => Ok(Type::Str),
+            ExprKind::BytesLit(_) => Ok(Type::Bytes),
             ExprKind::RatioLit(_) => Ok(Type::Ratio),
             ExprKind::Addr8Lit(_) => Ok(Type::Addr8),
             ExprKind::SupportLit(_) => Ok(Type::Support),
@@ -2368,22 +1485,6 @@ impl<'a> Checker<'a> {
             ExprKind::Ident(name) => {
                 if let Some(idx) = find_var_scope_index(scopes, name) {
                     let b = &scopes[idx][name];
-                    if !b.initialized {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            expr.line,
-                            format!("undefined or uninitialized name {name}"),
-                        ));
-                    }
-                    if ctx.in_qext_sink && idx < ctx.qext_outer_scope_depth && b.mutable {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::QExtLeakageForbidden,
-                            expr.line,
-                            format!(
-                                "quarantine Q_ext: sink may only read immutable (let/frozen) native bindings, not mutable {name}"
-                            ),
-                        ));
-                    }
                     if ctx.effect != Effect::QExt && b.ty.is_qext() {
                         return Err(Diagnostic::at_line(
                             DiagnosticCode::QExtLeakageForbidden,
@@ -2403,7 +1504,6 @@ impl<'a> Checker<'a> {
                     }
                     return Ok(c.ty.clone());
                 }
-                // Check enclosing base module const if inside quarantine submodule
                 let base = self.base_module_of(&ctx.module_key).to_string();
                 if base != ctx.module_key {
                     if let Some(c) = self.consts.get(&(base.clone(), name.clone())) {
@@ -2433,7 +1533,9 @@ impl<'a> Checker<'a> {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::QExtLeakageForbidden,
                                 expr.line,
-                                format!("QExt const {name} cannot be referenced outside quarantine Q_ext"),
+                                format!(
+                                    "QExt const {name} cannot be referenced outside quarantine Q_ext"
+                                ),
                             ));
                         }
                     }
@@ -2441,11 +1543,10 @@ impl<'a> Checker<'a> {
                 Err(Diagnostic::at_line(
                     DiagnosticCode::TypeError,
                     expr.line,
-                    format!("undefined or uninitialized name {name}"),
+                    format!("undefined name {name}"),
                 ))
             }
             ExprKind::Path(segs) => {
-                // 1. Check unit enum variant `Enum::Variant` or `mod::Enum::Variant`
                 if segs.len() == 2 || segs.len() == 3 {
                     if let Ok((edef, payload_tys)) =
                         self.resolve_enum_variant(&ctx.module_key, segs, expr.line)
@@ -2467,7 +1568,6 @@ impl<'a> Checker<'a> {
                         });
                     }
                 }
-                // 2. Sibling or local quarantine submodule const (`P2-3`)
                 if segs.len() == 2 {
                     let ns = &segs[0];
                     let item = &segs[1];
@@ -2502,7 +1602,6 @@ impl<'a> Checker<'a> {
                         }
                     }
                 } else if segs.len() == 3 {
-                    // 3. Cross-module 3-segment `quarantine Q_ext` const (`mod::QMod::CONST`, `P0-1`)
                     if let Some(qsub) =
                         self.resolve_qext_submodule_3seg(&ctx.module_key, &segs[0], &segs[1])
                     {
@@ -2526,57 +1625,6 @@ impl<'a> Checker<'a> {
                     expr.line,
                     format!("undefined path {}", segs.join("::")),
                 ))
-            }
-            ExprKind::StructLit { path, fields } => {
-                let sdef = self
-                    .resolve_struct_path(&ctx.module_key, path, expr.line)?
-                    .clone();
-                if fields.len() != sdef.fields.len() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        expr.line,
-                        format!(
-                            "struct {} expects {} field(s), got {}",
-                            sdef.name,
-                            sdef.fields.len(),
-                            fields.len()
-                        ),
-                    ));
-                }
-                let mut seen = BTreeSet::new();
-                for (fname, fexpr) in fields {
-                    if !seen.insert(fname.as_str()) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            expr.line,
-                            format!("duplicate field {fname} in struct {} literal", sdef.name),
-                        ));
-                    }
-                    let expected = sdef
-                        .fields
-                        .iter()
-                        .find(|(n, _)| n == fname)
-                        .map(|(_, t)| t.clone())
-                        .ok_or_else(|| {
-                            Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("unknown field {fname} on struct {}", sdef.name),
-                            )
-                        })?;
-                    let actual = self.check_expr(fexpr, scopes, ctx)?;
-                    if !types_compatible_with_annotation(&actual, &expected) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ImplicitCoercionForbidden,
-                            fexpr.line,
-                            format!("field {}.{} expects {expected}, got {actual}", sdef.name, fname),
-                        ));
-                    }
-                }
-                Ok(Type::Struct {
-                    module: sdef.module,
-                    name: sdef.name,
-                })
             }
             ExprKind::MapLit(entries) => {
                 if entries.is_empty() {
@@ -2618,22 +1666,40 @@ impl<'a> Checker<'a> {
                 }
                 Ok(Type::Map(Box::new(first_k), Box::new(first_v)))
             }
-            ExprKind::List(items) => {
+            ExprKind::SeqLit(items) => {
                 if items.is_empty() {
                     return Ok(Type::List(Box::new(Type::Unknown)));
                 }
                 let first = self.check_expr(&items[0], scopes, ctx)?;
+                if ctx.effect != Effect::QExt && first.is_qext() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::QExtLeakageForbidden,
+                        items[0].line,
+                        "QExt elements are forbidden in native sequence literals",
+                    ));
+                }
                 for it in &items[1..] {
                     let ty = self.check_expr(it, scopes, ctx)?;
                     if ty != first {
+                        if let (Type::Array(a, n), Type::Array(b, m)) = (&first, &ty) {
+                            if a == b && n != m {
+                                return Err(Diagnostic::at_line(
+                                    DiagnosticCode::ShapeMismatch,
+                                    it.line,
+                                    format!(
+                                        "ragged nested array literal: expected {first}, got {ty}"
+                                    ),
+                                ));
+                            }
+                        }
                         return Err(Diagnostic::at_line(
                             DiagnosticCode::ImplicitCoercionForbidden,
                             it.line,
-                            format!("heterogeneous list elements: expected {first}, got {ty}"),
+                            format!("heterogeneous sequence elements: expected {first}, got {ty}"),
                         ));
                     }
                 }
-                Ok(Type::List(Box::new(first)))
+                Ok(Type::Array(Box::new(first), items.len()))
             }
             ExprKind::Tuple(elems) => {
                 if elems.is_empty() {
@@ -2742,249 +1808,62 @@ impl<'a> Checker<'a> {
             }
             ExprKind::Unary { op, operand } => {
                 let ty = self.check_expr(operand, scopes, ctx)?;
-                match op {
-                    UnaryOp::Not => {
-                        if ty == Type::Bool {
-                            Ok(Type::Bool)
-                        } else if ctx.effect == Effect::QExt
-                            && ty == Type::QExt(Box::new(Type::Bool))
-                        {
-                            Ok(Type::QExt(Box::new(Type::Bool)))
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("invalid unary `not` on {ty}"),
-                            ))
-                        }
-                    }
-                    UnaryOp::Pos | UnaryOp::Neg => {
-                        if ty.is_numeric_v1() {
-                            Ok(ty)
-                        } else if ctx.effect == Effect::QExt
-                            && ty == Type::QExt(Box::new(Type::Ratio))
-                        {
-                            Ok(ty)
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("invalid unary arithmetic on {ty}"),
-                            ))
-                        }
-                    }
-                    UnaryOp::Boundary => match ty.unwrap_read_only() {
-                        Type::Box3 | Type::SimResult => Ok(Type::Str),
-                        Type::Window | Type::Range => Ok(Type::Tuple(vec![Type::Int, Type::Int])),
-                        other => Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            expr.line,
-                            format!("boundary operator ∂ unsupported on {other}"),
-                        )),
-                    },
-                }
+                self.check_unary_ty(*op, &ty, expr.line, ctx)
+            }
+            ExprKind::Adverb { op, operand } => {
+                let ty = self.check_expr(operand, scopes, ctx)?;
+                self.check_adverb_ty(*op, &ty, expr.line, ctx)
             }
             ExprKind::Binary { op, left, right } => {
                 let lt = self.check_expr(left, scopes, ctx)?;
                 let rt = self.check_expr(right, scopes, ctx)?;
-                let l_inner = lt.unwrap_read_only();
-                let r_inner = rt.unwrap_read_only();
-                if l_inner != r_inner {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::ImplicitCoercionForbidden,
-                        expr.line,
-                        format!(
-                            "implicit numeric/type coercion is forbidden: {lt} {:?} {rt}",
-                            op
-                        ),
-                    ));
-                }
-                let ty = l_inner.clone();
-                match op {
-                    BinaryOp::And | BinaryOp::Or => {
-                        if ty == Type::Bool {
-                            Ok(Type::Bool)
-                        } else if ctx.effect == Effect::QExt
-                            && ty == Type::QExt(Box::new(Type::Bool))
-                        {
-                            Ok(Type::QExt(Box::new(Type::Bool)))
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("Boolean operation requires bool operands, got {ty}"),
-                            ))
-                        }
-                    }
-                    BinaryOp::Eq | BinaryOp::NotEq => {
-                        if ty.is_qext() {
-                            if ctx.effect != Effect::QExt {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::QExtLeakageForbidden,
-                                    expr.line,
-                                    "cannot compare QExt values outside quarantine Q_ext",
-                                ));
-                            }
-                            Ok(Type::QExt(Box::new(Type::Bool)))
-                        } else {
-                            Ok(Type::Bool)
-                        }
-                    }
-                    BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq => {
-                        if ty.is_numeric_v1() {
-                            Ok(Type::Bool)
-                        } else if ctx.effect == Effect::QExt
-                            && ty == Type::QExt(Box::new(Type::Ratio))
-                        {
-                            Ok(Type::QExt(Box::new(Type::Bool)))
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("ordering requires a numeric type, got {ty}"),
-                            ))
-                        }
-                    }
-                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
-                        if ty.is_numeric_v1() {
-                            Ok(ty)
-                        } else if ctx.effect == Effect::QExt
-                            && ty == Type::QExt(Box::new(Type::Ratio))
-                        {
-                            Ok(ty)
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("arithmetic requires matching explicit numeric types, got {ty}"),
-                            ))
-                        }
-                    }
-                    BinaryOp::Div => {
-                        if ty.is_numeric_v1() {
-                            Ok(Type::Ratio)
-                        } else if ctx.effect == Effect::QExt
-                            && ty == Type::QExt(Box::new(Type::Ratio))
-                        {
-                            Ok(Type::QExt(Box::new(Type::Ratio)))
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("division requires numeric type, got {ty}"),
-                            ))
-                        }
-                    }
-                    BinaryOp::FloorDiv | BinaryOp::Mod => {
-                        if ty == Type::Int || ty == Type::T32 {
-                            Ok(ty)
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("quotient/remainder require int or t32, got {ty}"),
-                            ))
-                        }
-                    }
-                    BinaryOp::BitAnd
-                    | BinaryOp::BitOr
-                    | BinaryOp::BitXor
-                    | BinaryOp::Shl
-                    | BinaryOp::Shr => {
-                        if self.compat() == CompatMode::V1 {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                "bitwise operators are not in --compat v1",
-                            ));
-                        }
-                        if ty == Type::Int {
-                            Ok(Type::Int)
-                        } else {
-                            Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                expr.line,
-                                format!("bitwise ops require int, got {ty}"),
-                            ))
-                        }
-                    }
-                }
+                self.check_binary_ty(*op, &lt, &rt, expr.line, ctx)
             }
-            ExprKind::Ternary { cond, yes, no } => {
-                let c_ty = self.check_expr(cond, scopes, ctx)?;
-                let y_ty = self.check_expr(yes, scopes, ctx)?;
-                let n_ty = self.check_expr(no, scopes, ctx)?;
-                if c_ty != Type::Bool || y_ty != n_ty {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        expr.line,
-                        format!(
-                            "conditional requires bool condition and matching result types (got {c_ty}, {y_ty}, {n_ty})"
-                        ),
-                    ));
-                }
-                Ok(y_ty)
+            ExprKind::Pipe { input, stage } => {
+                let in_ty = self.check_expr(input, scopes, ctx)?;
+                self.check_pipe_stage(&in_ty, stage, expr.line, scopes, ctx)
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                self.check_match_expr(scrutinee, arms, expr.line, scopes, ctx)
             }
             ExprKind::Field { base, name } => {
                 let base_ty = self.check_expr(base, scopes, ctx)?;
-                let is_ro = base_ty.is_read_only();
-                let inner = base_ty.unwrap_read_only();
-                let field_ty = if let Type::Struct {
-                    module,
-                    name: sname,
-                } = inner
-                {
-                    self.resolve_struct_field(module, sname, name, expr.line)?
-                } else {
-                    resolve_builtin_field_type(inner, name, expr.line)?
-                };
-                if is_ro
-                    && matches!(
-                        field_ty,
-                        Type::List(_)
-                            | Type::Map(_, _)
-                            | Type::Struct { .. }
-                            | Type::ChamberView
-                            | Type::SimResult
-                    )
-                {
-                    Ok(field_ty.wrap_read_only())
-                } else {
-                    Ok(field_ty)
-                }
+                self.check_field_ty(&base_ty, name, expr.line)
             }
             ExprKind::Index { base, index } => {
                 let base_ty = self.check_expr(base, scopes, ctx)?;
                 let idx_ty = self.check_expr(index, scopes, ctx)?;
                 let is_ro = base_ty.is_read_only();
                 match base_ty.unwrap_read_only() {
-                    Type::List(elem) => {
-                        if idx_ty != Type::Int {
+                    Type::Array(elem, _) | Type::List(elem) => {
+                        if *idx_ty.unwrap_read_only() != Type::Int {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 expr.line,
-                                format!("list index must be int, got {idx_ty}"),
+                                format!("sequence index must be int, got {idx_ty}"),
                             ));
                         }
-                        if is_ro {
-                            Ok((**elem).clone().wrap_read_only())
-                        } else {
-                            Ok((**elem).clone())
+                        Ok(wrap_ro_if_needed((**elem).clone(), is_ro))
+                    }
+                    Type::Bytes => {
+                        if *idx_ty.unwrap_read_only() != Type::Int {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::TypeError,
+                                expr.line,
+                                format!("bytes index must be int, got {idx_ty}"),
+                            ));
                         }
+                        Ok(Type::B8)
                     }
                     Type::Map(k_ty, v_ty) => {
-                        if idx_ty != **k_ty {
+                        if !types_compatible_with_annotation(idx_ty.unwrap_read_only(), k_ty) {
                             return Err(Diagnostic::at_line(
                                 DiagnosticCode::ImplicitCoercionForbidden,
                                 expr.line,
                                 format!("map key expects {k_ty}, got {idx_ty}"),
                             ));
                         }
-                        if is_ro {
-                            Ok((**v_ty).clone().wrap_read_only())
-                        } else {
-                            Ok((**v_ty).clone())
-                        }
+                        Ok(wrap_ro_if_needed((**v_ty).clone(), is_ro))
                     }
                     other => Err(Diagnostic::at_line(
                         DiagnosticCode::TypeError,
@@ -2995,6 +1874,674 @@ impl<'a> Checker<'a> {
             }
             ExprKind::Call { callee, args } => self.check_call(callee, args, expr.line, scopes, ctx),
         }
+    }
+
+    fn check_unary_ty(
+        &self,
+        op: UnaryOp,
+        ty: &Type,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let inner = ty.unwrap_read_only();
+        if op == UnaryOp::Boundary {
+            return match inner {
+                Type::Box3 | Type::SimResult => Ok(Type::Str),
+                Type::Window | Type::Range => Ok(Type::Tuple(vec![Type::Int, Type::Int])),
+                Type::Array(elem, n) if elem.unwrap_read_only().is_numeric() => {
+                    if *n < 2 {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::ShapeMismatch,
+                            line,
+                            format!("discrete boundary ∂ on [{elem}; {n}] requires length >= 2"),
+                        ));
+                    }
+                    Ok(Type::Array(
+                        Box::new(elem.unwrap_read_only().clone()),
+                        *n - 1,
+                    ))
+                }
+                Type::List(elem) if elem.unwrap_read_only().is_numeric() => {
+                    Ok(Type::List(Box::new(elem.unwrap_read_only().clone())))
+                }
+                other => Err(Diagnostic::at_line(
+                    DiagnosticCode::TypeError,
+                    line,
+                    format!("boundary operator ∂ unsupported on {other}"),
+                )),
+            };
+        }
+
+        match inner {
+            Type::Array(elem, n) => {
+                let out = self.check_unary_ty(op, elem, line, ctx)?;
+                Ok(Type::Array(Box::new(out), *n))
+            }
+            Type::List(elem) => {
+                let out = self.check_unary_ty(op, elem, line, ctx)?;
+                Ok(Type::List(Box::new(out)))
+            }
+            _ => match op {
+                UnaryOp::Not => {
+                    if *inner == Type::Bool {
+                        Ok(Type::Bool)
+                    } else if ctx.effect == Effect::QExt
+                        && *inner == Type::QExt(Box::new(Type::Bool))
+                    {
+                        Ok(Type::QExt(Box::new(Type::Bool)))
+                    } else {
+                        Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("invalid unary `not` on {ty}"),
+                        ))
+                    }
+                }
+                UnaryOp::Pos | UnaryOp::Neg => {
+                    if inner.is_numeric() {
+                        Ok(inner.clone())
+                    } else if ctx.effect == Effect::QExt
+                        && *inner == Type::QExt(Box::new(Type::Ratio))
+                    {
+                        Ok(inner.clone())
+                    } else {
+                        Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("invalid unary arithmetic on {ty}"),
+                        ))
+                    }
+                }
+                UnaryOp::BitNot => {
+                    if inner.is_bitwise() {
+                        Ok(inner.clone())
+                    } else {
+                        Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("bitwise `~` requires b8, b64, or q4, got {ty}"),
+                        ))
+                    }
+                }
+                UnaryOp::Boundary => unreachable!(),
+            },
+        }
+    }
+
+    fn check_adverb_ty(
+        &self,
+        op: AdverbOp,
+        ty: &Type,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let (elem_ty, fixed_len) = match ty.unwrap_read_only() {
+            Type::Array(e, n) => (e.unwrap_read_only().clone(), Some(*n)),
+            Type::List(e) => (e.unwrap_read_only().clone(), None),
+            Type::Range => (Type::Int, None),
+            other => {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::TypeError,
+                    line,
+                    format!("adverb {op:?} requires an array, slice, or range, got {other}"),
+                ));
+            }
+        };
+
+        let is_scan = matches!(
+            op,
+            AdverbOp::ScanAdd | AdverbOp::ScanMul | AdverbOp::ScanMin | AdverbOp::ScanMax
+        );
+        let wrap_scan = |scalar_ty: Type| match fixed_len {
+            Some(n) => Type::Array(Box::new(scalar_ty), n),
+            None => Type::List(Box::new(scalar_ty)),
+        };
+
+        let reduced = match op {
+            AdverbOp::FoldAdd | AdverbOp::ScanAdd => {
+                if matches!(elem_ty, Type::Int | Type::Ratio)
+                    || (ctx.effect == Effect::QExt && elem_ty == Type::QExt(Box::new(Type::Ratio)))
+                {
+                    elem_ty
+                } else if let Type::Array(sub, m) = &elem_ty {
+                    if matches!(sub.as_ref(), Type::Int | Type::Ratio) {
+                        Type::Array(sub.clone(), *m)
+                    } else {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("additive fold/scan unsupported on element type {elem_ty}"),
+                        ));
+                    }
+                } else {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("additive fold/scan requires int or ratio elements, got {elem_ty}"),
+                    ));
+                }
+            }
+            AdverbOp::FoldMul | AdverbOp::ScanMul => {
+                if elem_ty.is_numeric()
+                    || (ctx.effect == Effect::QExt && elem_ty == Type::QExt(Box::new(Type::Ratio)))
+                {
+                    elem_ty
+                } else {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("multiplicative fold/scan requires numeric elements, got {elem_ty}"),
+                    ));
+                }
+            }
+            AdverbOp::FoldMin | AdverbOp::FoldMax | AdverbOp::ScanMin | AdverbOp::ScanMax => {
+                if elem_ty.is_ordered()
+                    || (ctx.effect == Effect::QExt && elem_ty == Type::QExt(Box::new(Type::Ratio)))
+                {
+                    elem_ty
+                } else {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("min/max fold/scan requires ordered elements, got {elem_ty}"),
+                    ));
+                }
+            }
+            AdverbOp::FoldAnd | AdverbOp::FoldOr => {
+                if elem_ty == Type::Bool || elem_ty.is_bitwise() {
+                    elem_ty
+                } else {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("&/ and |/ require bool or bit elements, got {elem_ty}"),
+                    ));
+                }
+            }
+            AdverbOp::FoldSuperpose => {
+                if matches!(elem_ty, Type::T1 | Type::Int) {
+                    elem_ty
+                } else {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("superpose/ requires t1 or int elements, got {elem_ty}"),
+                    ));
+                }
+            }
+        };
+
+        Ok(if is_scan { wrap_scan(reduced) } else { reduced })
+    }
+
+    fn check_binary_ty(
+        &self,
+        op: BinaryOp,
+        lt: &Type,
+        rt: &Type,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let l_inner = lt.unwrap_read_only();
+        let r_inner = rt.unwrap_read_only();
+
+        // 1. Mask Sieve `mask ?> xs` -> `[T]`
+        if op == BinaryOp::Sieve {
+            let m_len = match l_inner {
+                Type::Array(e, n) if **e == Type::Bool => Some(*n),
+                Type::List(e) if **e == Type::Bool => None,
+                other => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("sieve `?>` left-hand mask must be [bool; N] or [bool], got {other}"),
+                    ));
+                }
+            };
+            let (elem_ty, x_len) = match r_inner {
+                Type::Array(e, n) => ((**e).clone(), Some(*n)),
+                Type::List(e) => ((**e).clone(), None),
+                Type::Range => (Type::Int, None),
+                other => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("sieve `?>` right-hand operand must be a sequence, got {other}"),
+                    ));
+                }
+            };
+            if let (Some(n), Some(m)) = (m_len, x_len) {
+                if n != m {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ShapeMismatch,
+                        line,
+                        format!("sieve `?>` shape mismatch: mask length {n} != sequence length {m}"),
+                    ));
+                }
+            }
+            let out_elem = wrap_ro_if_needed(elem_ty, rt.is_read_only());
+            return Ok(Type::List(Box::new(out_elem)));
+        }
+
+        // 2. Explicit Outer Products `+:` and `*:`
+        if matches!(op, BinaryOp::OuterAdd | BinaryOp::OuterMul) {
+            let scalar_op = if op == BinaryOp::OuterAdd {
+                BinaryOp::Add
+            } else {
+                BinaryOp::Mul
+            };
+            return match (l_inner, r_inner) {
+                (Type::Array(a, m), Type::Array(b, n)) => {
+                    let cell = self.check_binary_ty(scalar_op, a, b, line, ctx)?;
+                    Ok(Type::Array(Box::new(Type::Array(Box::new(cell), *n)), *m))
+                }
+                (Type::Array(a, _) | Type::List(a), Type::Array(b, _) | Type::List(b)) => {
+                    let cell = self.check_binary_ty(scalar_op, a, b, line, ctx)?;
+                    Ok(Type::List(Box::new(Type::List(Box::new(cell)))))
+                }
+                _ => Err(Diagnostic::at_line(
+                    DiagnosticCode::TypeError,
+                    line,
+                    format!("outer product {op:?} requires two sequences, got {lt} and {rt}"),
+                )),
+            };
+        }
+
+        // 3. Whole-sequence structural `==` / `!=` when both operands have equal positive rank!
+        let l_rank = sequence_rank(l_inner);
+        let r_rank = sequence_rank(r_inner);
+        if matches!(op, BinaryOp::Eq | BinaryOp::NotEq) && l_rank > 0 && l_rank == r_rank {
+            return check_same_rank_sequence_eq(l_inner, r_inner, line, ctx);
+        }
+
+        // 4. Static Rank Lifting across arrays/slices + scalar broadcast!
+        if l_rank > 0 || r_rank > 0 {
+            if l_rank > r_rank {
+                return match l_inner {
+                    Type::Array(a, n) => {
+                        let out = self.check_binary_ty(op, a, r_inner, line, ctx)?;
+                        Ok(Type::Array(Box::new(out), *n))
+                    }
+                    Type::List(a) => {
+                        let out = self.check_binary_ty(op, a, r_inner, line, ctx)?;
+                        Ok(Type::List(Box::new(out)))
+                    }
+                    _ => unreachable!(),
+                };
+            }
+            if r_rank > l_rank {
+                return match r_inner {
+                    Type::Array(b, n) => {
+                        let out = self.check_binary_ty(op, l_inner, b, line, ctx)?;
+                        Ok(Type::Array(Box::new(out), *n))
+                    }
+                    Type::List(b) => {
+                        let out = self.check_binary_ty(op, l_inner, b, line, ctx)?;
+                        Ok(Type::List(Box::new(out)))
+                    }
+                    _ => unreachable!(),
+                };
+            }
+            // Equal positive rank (`l_rank == r_rank > 0`):
+            return match (l_inner, r_inner) {
+                (Type::Array(a, n), Type::Array(b, m)) => {
+                    if n != m {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::ShapeMismatch,
+                            line,
+                            format!(
+                                "shape mismatch in rank-lifted {op:?}: {l_inner} vs {r_inner}"
+                            ),
+                        ));
+                    }
+                    let out = self.check_binary_ty(op, a, b, line, ctx)?;
+                    Ok(Type::Array(Box::new(out), *n))
+                }
+                (Type::Array(a, _) | Type::List(a), Type::Array(b, _) | Type::List(b)) => {
+                    let out = self.check_binary_ty(op, a, b, line, ctx)?;
+                    Ok(Type::List(Box::new(out)))
+                }
+                _ => unreachable!(),
+            };
+        }
+
+        // 5. Scalar binary operations:
+        // 5a. Ternary phase-gating `x * role` (`role: t1`)
+        if op == BinaryOp::Mul {
+            match (l_inner, r_inner) {
+                (Type::Int, Type::T1) | (Type::T1, Type::Int) => return Ok(Type::Int),
+                (Type::Ratio, Type::T1) | (Type::T1, Type::Ratio) => return Ok(Type::Ratio),
+                _ => {}
+            }
+        }
+        // 5b. Bit shifts `(b8 | b64 | q4) << int`
+        if matches!(op, BinaryOp::Shl | BinaryOp::Shr) {
+            if l_inner.is_bitwise() && *r_inner == Type::Int {
+                return Ok(l_inner.clone());
+            }
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::TypeError,
+                line,
+                format!(
+                    "bit shift requires (b8 | b64 | q4, int), got ({l_inner}, {r_inner})"
+                ),
+            ));
+        }
+
+        if l_inner != r_inner {
+            return Err(Diagnostic::at_line(
+                DiagnosticCode::ImplicitCoercionForbidden,
+                line,
+                format!(
+                    "implicit numeric/type coercion is forbidden: {lt} {op:?} {rt}"
+                ),
+            ));
+        }
+
+        let ty = l_inner.clone();
+        match op {
+            BinaryOp::And | BinaryOp::Or => {
+                if ty == Type::Bool {
+                    Ok(Type::Bool)
+                } else if ctx.effect == Effect::QExt && ty == Type::QExt(Box::new(Type::Bool)) {
+                    Ok(Type::QExt(Box::new(Type::Bool)))
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("Boolean operation requires bool operands, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::Eq | BinaryOp::NotEq => {
+                if ty.is_qext() {
+                    if ctx.effect != Effect::QExt {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::QExtLeakageForbidden,
+                            line,
+                            "cannot compare QExt values outside quarantine Q_ext",
+                        ));
+                    }
+                    Ok(Type::QExt(Box::new(Type::Bool)))
+                } else {
+                    Ok(Type::Bool)
+                }
+            }
+            BinaryOp::Lt | BinaryOp::LtEq | BinaryOp::Gt | BinaryOp::GtEq => {
+                if ty.is_ordered() {
+                    Ok(Type::Bool)
+                } else if ctx.effect == Effect::QExt && ty == Type::QExt(Box::new(Type::Ratio)) {
+                    Ok(Type::QExt(Box::new(Type::Bool)))
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("ordering requires an ordered type, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::Cmp3 => {
+                if ty.is_ordered() {
+                    Ok(Type::T1)
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("three-way comparison `<=>` requires an ordered type, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::Min | BinaryOp::Max => {
+                if ty.is_ordered() {
+                    Ok(ty)
+                } else if ctx.effect == Effect::QExt && ty == Type::QExt(Box::new(Type::Ratio)) {
+                    Ok(ty)
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("min/max requires an ordered type, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
+                if ty.is_numeric() {
+                    Ok(ty)
+                } else if ctx.effect == Effect::QExt && ty == Type::QExt(Box::new(Type::Ratio)) {
+                    Ok(ty)
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("arithmetic requires t1, int, or ratio, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::Div => {
+                if ty.is_numeric() {
+                    Ok(Type::Ratio)
+                } else if ctx.effect == Effect::QExt && ty == Type::QExt(Box::new(Type::Ratio)) {
+                    Ok(Type::QExt(Box::new(Type::Ratio)))
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("division requires t1, int, or ratio, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::FloorDiv | BinaryOp::Mod => {
+                if ty == Type::Int {
+                    Ok(Type::Int)
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("quotient/remainder require int, got {ty}"),
+                    ))
+                }
+            }
+            BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor => {
+                if ty.is_bitwise() {
+                    Ok(ty)
+                } else {
+                    Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!(
+                            "bitwise ops apply to b8, b64, or q4 (not balanced-ternary {ty}; use b64(x) or b64_bits(x))"
+                        ),
+                    ))
+                }
+            }
+            BinaryOp::Shl | BinaryOp::Shr | BinaryOp::Sieve | BinaryOp::OuterAdd | BinaryOp::OuterMul => {
+                unreachable!()
+            }
+        }
+    }
+
+    fn check_pipe_stage(
+        &mut self,
+        in_ty: &Type,
+        stage: &PipeStage,
+        line: usize,
+        scopes: &[BTreeMap<String, VarBinding>],
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        match stage {
+            PipeStage::Adverb(op) => self.check_adverb_ty(*op, in_ty, line, ctx),
+            PipeStage::Boundary => self.check_unary_ty(UnaryOp::Boundary, in_ty, line, ctx),
+            PipeStage::Section { op, rhs } => {
+                let r_ty = self.check_expr(rhs, scopes, ctx)?;
+                // Normalize Range input to `[int]` if piped into arithmetic/comparison section
+                let norm_in = if *in_ty.unwrap_read_only() == Type::Range {
+                    Type::List(Box::new(Type::Int))
+                } else {
+                    in_ty.clone()
+                };
+                self.check_binary_ty(*op, &norm_in, &r_ty, line, ctx)
+            }
+            PipeStage::Call { callee, extra_args } => {
+                self.check_call_with_prepended_input(Some(in_ty.clone()), callee, extra_args, line, scopes, ctx)
+            }
+        }
+    }
+
+    fn check_match_expr(
+        &mut self,
+        scrutinee: &Expr,
+        arms: &[MatchExprArm],
+        line: usize,
+        scopes: &[BTreeMap<String, VarBinding>],
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let scrut_ty = self.check_expr(scrutinee, scopes, ctx)?;
+        let mut covered_variants: BTreeSet<String> = BTreeSet::new();
+        let mut covered_bools = [false; 2];
+        let mut covered_trits = [false; 3]; // -1, 0, +1
+        let mut has_irrefutable = false;
+        let mut result_ty: Option<Type> = None;
+
+        for arm in arms {
+            let mut arm_scope = BTreeMap::new();
+            self.check_pattern(
+                &arm.pattern,
+                &scrut_ty,
+                &ctx.module_key,
+                &mut arm_scope,
+                arm.line,
+            )?;
+            let mut arm_scopes = scopes.to_vec();
+            arm_scopes.push(arm_scope);
+
+            if let Some(ref g) = arm.guard {
+                let g_ty = self.check_expr(g, &arm_scopes, ctx)?;
+                if g_ty != Type::Bool {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        g.line,
+                        format!("match arm 'where' guard must be bool, got {g_ty}"),
+                    ));
+                }
+            } else {
+                match &arm.pattern {
+                    Pattern::Wildcard | Pattern::Binding(_) => {
+                        has_irrefutable = true;
+                    }
+                    Pattern::NullLit => {
+                        has_irrefutable = true;
+                    }
+                    Pattern::BoolLit(b) => {
+                        covered_bools[usize::from(*b)] = true;
+                    }
+                    Pattern::TritLit(t) => match t.value() {
+                        -1 => covered_trits[0] = true,
+                        0 => covered_trits[1] = true,
+                        1 => covered_trits[2] = true,
+                        _ => {}
+                    },
+                    Pattern::EnumVariant { path, bindings } => {
+                        if bindings.iter().all(is_irrefutable_pattern) {
+                            if let Some(vname) = path.last() {
+                                covered_variants.insert(vname.clone());
+                            }
+                        }
+                    }
+                    Pattern::Tuple(_) if is_irrefutable_pattern(&arm.pattern) => {
+                        has_irrefutable = true;
+                    }
+                    _ => {}
+                }
+            }
+
+            let body_ty = self.check_expr(&arm.body, &arm_scopes, ctx)?;
+            if let Some(ref prev) = result_ty {
+                result_ty = Some(unify_branch_types(prev, &body_ty, arm.line)?);
+            } else {
+                result_ty = Some(body_ty);
+            }
+        }
+
+        if !has_irrefutable {
+            match scrut_ty.unwrap_read_only() {
+                Type::Enum { module, name } => {
+                    if let Some(edef) = self.enums.get(&(module.clone(), name.clone())) {
+                        let missing: Vec<&str> = edef
+                            .variants
+                            .iter()
+                            .map(|(vn, _)| vn.as_str())
+                            .filter(|vn| !covered_variants.contains(*vn))
+                            .collect();
+                        if !missing.is_empty() {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::TypeError,
+                                line,
+                                format!(
+                                    "non-exhaustive match on enum {name}: missing variant(s) {}",
+                                    missing.join(", ")
+                                ),
+                            ));
+                        }
+                    }
+                }
+                Type::Bool => {
+                    if !covered_bools.iter().all(|&c| c) {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            "non-exhaustive match on bool: cover both true and false (or `_`)",
+                        ));
+                    }
+                }
+                Type::T1 => {
+                    if !covered_trits.iter().all(|&c| c) {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            "non-exhaustive match on t1: cover -1t, 0t, and +1t (or `_`)",
+                        ));
+                    }
+                }
+                other => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!(
+                            "non-exhaustive match on {other}: add a fallback `_ -> ...` arm"
+                        ),
+                    ));
+                }
+            }
+        }
+
+        Ok(result_ty.unwrap_or(Type::Unit))
+    }
+
+    fn check_field_ty(&self, base_ty: &Type, name: &str, line: usize) -> DecResult<Type> {
+        let is_ro = base_ty.is_read_only();
+        let inner = base_ty.unwrap_read_only();
+        // Struct-field projection across arrays and slices (`bins.t0`)!
+        if let Type::Array(elem, n) = inner {
+            let elem_field = self.check_field_ty(elem, name, line)?;
+            let projected = Type::Array(Box::new(elem_field), *n);
+            return Ok(wrap_ro_if_needed(projected, is_ro));
+        }
+        if let Type::List(elem) = inner {
+            let elem_field = self.check_field_ty(elem, name, line)?;
+            let projected = Type::List(Box::new(elem_field));
+            return Ok(wrap_ro_if_needed(projected, is_ro));
+        }
+
+        let field_ty = if let Type::Struct {
+            module,
+            name: sname,
+        } = inner
+        {
+            self.resolve_struct_field(module, sname, name, line)?
+        } else {
+            resolve_builtin_field_type(inner, name, line)?
+        };
+        Ok(wrap_ro_if_needed(field_ty, is_ro))
     }
 
     fn resolve_struct_field(
@@ -3029,60 +2576,122 @@ impl<'a> Checker<'a> {
     fn check_call(
         &mut self,
         callee: &Expr,
-        args: &[CallArg],
+        args: &[Expr],
         line: usize,
         scopes: &[BTreeMap<String, VarBinding>],
         ctx: &CheckContext,
     ) -> DecResult<Type> {
-        let mut evaluated_args: Vec<(Option<String>, Type)> = Vec::with_capacity(args.len());
-        for a in args {
-            let ty = self.check_expr(&a.value, scopes, ctx)?;
-            evaluated_args.push((a.name.clone(), ty));
-        }
+        self.check_call_with_prepended_input(None, callee, args, line, scopes, ctx)
+    }
 
-        // Polymorphic v2 collection builtins `len(...)` and `contains(m, k)`
-        if let ExprKind::Ident(ref name) = callee.kind {
-            if self.compat() == CompatMode::V2 && name == "len" && evaluated_args.len() == 1 {
-                if evaluated_args[0].0.is_none() {
-                    match evaluated_args[0].1.unwrap_read_only() {
-                        Type::Str | Type::List(_) | Type::Map(_, _) => return Ok(Type::Int),
-                        _ => {}
-                    }
-                }
+    fn check_call_with_prepended_input(
+        &mut self,
+        prepended: Option<Type>,
+        callee: &Expr,
+        args: &[Expr],
+        line: usize,
+        scopes: &[BTreeMap<String, VarBinding>],
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let simple_name = match &callee.kind {
+            ExprKind::Ident(n) => Some(n.as_str()),
+            ExprKind::Path(segs) if segs.len() == 3 && segs[0] == "aod" && segs[1] == "core" => {
+                Some(segs[2].as_str())
             }
-            if self.compat() == CompatMode::V2 && name == "contains" && evaluated_args.len() == 2 {
-                if evaluated_args[0].0.is_none() && evaluated_args[1].0.is_none() {
-                    if let Type::Map(k_ty, _) = evaluated_args[0].1.unwrap_read_only() {
-                        if evaluated_args[1].1.unwrap_read_only() == &**k_ty {
-                            return Ok(Type::Bool);
-                        }
+            _ => None,
+        };
+
+        // 1. Higher-order pure combinators (`walk`, `settle`, `fold`, `scan`, `each`)
+        //    Note: 4-arg `fold(trace, trace, str, str)` falls through to `aod::witness::fold`!
+        let total_arity = usize::from(prepended.is_some()) + args.len();
+        if let Some(cname) = simple_name {
+            match (cname, total_arity) {
+                ("walk", 3) | ("settle", 3) => {
+                    let is_settle = cname == "settle";
+                    let (init_ty, count_expr, fn_expr) = if let Some(in_ty) = prepended {
+                        (in_ty, &args[0], &args[1])
+                    } else {
+                        let s0 = self.check_expr(&args[0], scopes, ctx)?;
+                        (s0, &args[1], &args[2])
+                    };
+                    let cnt_ty = self.check_expr(count_expr, scopes, ctx)?;
+                    if *cnt_ty.unwrap_read_only() != Type::Int {
                         return Err(Diagnostic::at_line(
-                            DiagnosticCode::ImplicitCoercionForbidden,
+                            DiagnosticCode::TypeError,
                             line,
-                            format!(
-                                "contains(map, key) expects key type {k_ty}, got {}",
-                                evaluated_args[1].1
-                            ),
+                            format!("{cname} count/fuel must be int, got {cnt_ty}"),
                         ));
                     }
+                    let state_ty = self.check_step_combinator_fn(
+                        &init_ty,
+                        fn_expr,
+                        is_settle,
+                        line,
+                        ctx,
+                    )?;
+                    return Ok(state_ty);
                 }
+                ("fold", 3) | ("scan", 3) => {
+                    let is_scan = cname == "scan";
+                    let (seq_ty, init_expr, fn_expr) = if let Some(in_ty) = prepended {
+                        (in_ty, &args[0], &args[1])
+                    } else {
+                        let st = self.check_expr(&args[0], scopes, ctx)?;
+                        (st, &args[1], &args[2])
+                    };
+                    let (elem_ty, fixed_len) = extract_seq_elem_and_len(&seq_ty, cname, line)?;
+                    let init_ty = self.check_expr(init_expr, scopes, ctx)?;
+                    let acc_ty = self.check_fold_combinator_fn(&init_ty, &elem_ty, fn_expr, line, ctx)?;
+                    return Ok(if is_scan {
+                        match fixed_len {
+                            Some(n) => Type::Array(Box::new(acc_ty), n),
+                            None => Type::List(Box::new(acc_ty)),
+                        }
+                    } else {
+                        acc_ty
+                    });
+                }
+                ("each", 2) => {
+                    let (seq_ty, fn_expr) = if let Some(in_ty) = prepended {
+                        (in_ty, &args[0])
+                    } else {
+                        let st = self.check_expr(&args[0], scopes, ctx)?;
+                        (st, &args[1])
+                    };
+                    let (elem_ty, fixed_len) = extract_seq_elem_and_len(&seq_ty, "each", line)?;
+                    let out_elem = self.check_unary_fn_expr(&elem_ty, fn_expr, line, ctx)?;
+                    return Ok(match fixed_len {
+                        Some(n) => Type::Array(Box::new(out_elem), n),
+                        None => Type::List(Box::new(out_elem)),
+                    });
+                }
+                _ => {}
             }
         }
 
-        // Check enum payload constructor `Enum::Variant(args...)` or `mod::Enum::Variant(args...)`
+        // Evaluate regular positional argument types
+        let mut arg_tys = Vec::with_capacity(total_arity);
+        if let Some(in_ty) = prepended {
+            arg_tys.push(in_ty);
+        }
+        for a in args {
+            arg_tys.push(self.check_expr(a, scopes, ctx)?);
+        }
+
+        // 2. Polymorphic selection & sequence builtins
+        if let Some(cname) = simple_name {
+            if let Some(poly_ret) = self.try_check_polymorphic_builtin(cname, &arg_tys, line, ctx)? {
+                return Ok(poly_ret);
+            }
+        }
+
+        // 3. Enum payload constructor `Enum::Variant(args...)` or `mod::Enum::Variant(args...)`
         if let ExprKind::Path(ref segs) = callee.kind {
             if segs.len() == 2 || segs.len() == 3 {
                 if let Ok((edef, payload_tys)) =
                     self.resolve_enum_variant(&ctx.module_key, segs, line)
                 {
-                    if evaluated_args.iter().any(|(n, _)| n.is_some()) {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            line,
-                            "enum variant constructors take positional arguments",
-                        ));
-                    }
-                    if evaluated_args.len() != payload_tys.len() {
+                    if arg_tys.len() != payload_tys.len() {
                         return Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
                             line,
@@ -3090,37 +2699,17 @@ impl<'a> Checker<'a> {
                                 "variant {} expects {} argument(s), got {}",
                                 segs.join("::"),
                                 payload_tys.len(),
-                                evaluated_args.len()
+                                arg_tys.len()
                             ),
                         ));
                     }
-                    for ((_, actual), expected) in evaluated_args.iter().zip(payload_tys) {
-                        if !types_compatible_with_annotation(actual, expected) {
-                            if actual.is_read_only()
-                                && !expected.is_read_only()
-                                && types_compatible_with_annotation(
-                                    actual.unwrap_read_only(),
-                                    expected,
-                                )
-                            {
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ObserverMutationForbidden,
-                                    line,
-                                    format!(
-                                        "cannot strip ReadOnly from {actual} in enum variant {}",
-                                        segs.join("::")
-                                    ),
-                                ));
-                            }
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ImplicitCoercionForbidden,
-                                line,
-                                format!(
-                                    "variant {} expects {expected}, got {actual}",
-                                    segs.join("::")
-                                ),
-                            ));
-                        }
+                    for (actual, expected) in arg_tys.iter().zip(payload_tys) {
+                        enforce_struct_or_enum_field_arg(
+                            actual,
+                            expected,
+                            line,
+                            &format!("enum variant {}", segs.join("::")),
+                        )?;
                     }
                     return Ok(Type::Enum {
                         module: edef.module.clone(),
@@ -3130,7 +2719,7 @@ impl<'a> Checker<'a> {
             }
         }
 
-        // Check struct constructor call `Foo(1, 2)` or `Foo(x: 1, y: 2)`
+        // 4. Positional struct constructor `Foo(e1, e2, ...)` or `mod::Foo(...)`
         let struct_path_opt: Option<Vec<String>> = match &callee.kind {
             ExprKind::Ident(n) => Some(vec![n.clone()]),
             ExprKind::Path(segs) => Some(segs.clone()),
@@ -3138,39 +2727,25 @@ impl<'a> Checker<'a> {
         };
         if let Some(ref sp) = struct_path_opt {
             if let Ok(sdef) = self.resolve_struct_path(&ctx.module_key, sp, line).cloned() {
-                let param_defs: Vec<crate::ast::TypedParam> = sdef
-                    .fields
-                    .iter()
-                    .map(|(n, _)| crate::ast::TypedParam {
-                        name: n.clone(),
-                        ty: TypeExpr::Unit,
-                    })
-                    .collect();
-                let ordered = resolve_single_arm_args(&param_defs, &evaluated_args, line)?;
-                for ((fname, fty), actual) in sdef.fields.iter().zip(ordered) {
-                    if !types_compatible_with_annotation(&actual, fty) {
-                        if actual.is_read_only()
-                            && !fty.is_read_only()
-                            && types_compatible_with_annotation(actual.unwrap_read_only(), fty)
-                        {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::ObserverMutationForbidden,
-                                line,
-                                format!(
-                                    "cannot strip ReadOnly from {actual} in struct {} field {fname}",
-                                    sdef.name
-                                ),
-                            ));
-                        }
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::ImplicitCoercionForbidden,
-                            line,
-                            format!(
-                                "struct {} field {fname} expects {fty}, got {actual}",
-                                sdef.name
-                            ),
-                        ));
-                    }
+                if arg_tys.len() != sdef.fields.len() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!(
+                            "struct {} expects {} positional argument(s), got {}",
+                            sdef.name,
+                            sdef.fields.len(),
+                            arg_tys.len()
+                        ),
+                    ));
+                }
+                for ((fname, fty), actual) in sdef.fields.iter().zip(&arg_tys) {
+                    enforce_struct_or_enum_field_arg(
+                        actual,
+                        fty,
+                        line,
+                        &format!("struct {} field {fname}", sdef.name),
+                    )?;
                 }
                 return Ok(Type::Struct {
                     module: sdef.module,
@@ -3179,14 +2754,364 @@ impl<'a> Checker<'a> {
             }
         }
 
-        enum CallTarget {
-            Builtin(String),
-            UserFn(FnEntry),
+        // 5. Resolve Builtin or UserFn target and dispatch (with automatic rank-lift fallback!)
+        let target = self.resolve_call_target(callee, line, ctx)?;
+        self.dispatch_call_target(&target, &arg_tys, line, ctx)
+    }
+
+    fn try_check_polymorphic_builtin(
+        &self,
+        name: &str,
+        arg_tys: &[Type],
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Option<Type>> {
+        match (name, arg_tys) {
+            ("mux", [role, on_neg, on_zero, on_pos]) => {
+                return Ok(Some(check_mux_types(role, on_neg, on_zero, on_pos, line)?));
+            }
+            ("select", [cond, on_true, on_false]) => {
+                return Ok(Some(check_select_types(cond, on_true, on_false, line, ctx)?));
+            }
+            ("gate", [cond, val]) => {
+                return Ok(Some(check_gate_types(cond, val, line)?));
+            }
+            ("argmin" | "argmax", [xs]) => {
+                let elem = match xs.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e) => e.unwrap_read_only(),
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("{name} expects a sequence, got {other}"),
+                        ));
+                    }
+                };
+                if !elem.is_ordered() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("{name} requires ordered elements, got {elem}"),
+                    ));
+                }
+                return Ok(Some(Type::Int));
+            }
+            ("len", [xs]) => match xs.unwrap_read_only() {
+                Type::Str | Type::Bytes | Type::Array(_, _) | Type::List(_) | Type::Map(_, _) => {
+                    return Ok(Some(Type::Int));
+                }
+                _ => {}
+            },
+            ("contains", [container, key]) => match container.unwrap_read_only() {
+                Type::Map(k_ty, _) => {
+                    if types_compatible_with_annotation(key.unwrap_read_only(), k_ty) {
+                        return Ok(Some(Type::Bool));
+                    }
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ImplicitCoercionForbidden,
+                        line,
+                        format!("contains(map, key) expects key type {k_ty}, got {key}"),
+                    ));
+                }
+                Type::Array(e_ty, _) | Type::List(e_ty) => {
+                    if types_compatible_with_annotation(key.unwrap_read_only(), e_ty) {
+                        return Ok(Some(Type::Bool));
+                    }
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ImplicitCoercionForbidden,
+                        line,
+                        format!("contains(seq, item) expects element type {e_ty}, got {key}"),
+                    ));
+                }
+                _ => {}
+            },
+            ("bytes", [arg]) => {
+                if let Type::Array(elem, _) = arg.unwrap_read_only() {
+                    if **elem == Type::B8 {
+                        return Ok(Some(Type::Bytes));
+                    }
+                }
+            }
+            ("push", [xs, elem]) => {
+                let inner_e = match xs.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e) => (**e).clone(),
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("push expects [T] or [T; N], got {other}"),
+                        ));
+                    }
+                };
+                let resolved_e = if inner_e == Type::Unknown {
+                    elem.clone()
+                } else {
+                    enforce_annotation_compatibility(elem, &inner_e, line, "push")?;
+                    inner_e
+                };
+                return Ok(Some(Type::List(Box::new(resolved_e))));
+            }
+            ("concat", [a, b]) => {
+                let ea = match a.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e) => (**e).clone(),
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("concat expects sequence first argument, got {other}"),
+                        ));
+                    }
+                };
+                let eb = match b.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e) => (**e).clone(),
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("concat expects sequence second argument, got {other}"),
+                        ));
+                    }
+                };
+                let out_e = if ea == Type::Unknown {
+                    eb
+                } else if eb == Type::Unknown {
+                    ea
+                } else {
+                    enforce_annotation_compatibility(&eb, &ea, line, "concat")?;
+                    ea
+                };
+                return Ok(Some(Type::List(Box::new(out_e))));
+            }
+            ("slice", [xs, start, end]) => {
+                if *start.unwrap_read_only() != Type::Int || *end.unwrap_read_only() != Type::Int {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        "slice(xs, start, end) requires int bounds",
+                    ));
+                }
+                let e = match xs.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e) => (**e).clone(),
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("slice expects [T] or [T; N], got {other}"),
+                        ));
+                    }
+                };
+                return Ok(Some(Type::List(Box::new(e))));
+            }
+            ("set_at", [xs, idx, val]) => {
+                if xs.is_read_only() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ObserverMutationForbidden,
+                        line,
+                        format!("cannot call set_at on read-only sequence {xs}"),
+                    ));
+                }
+                if *idx.unwrap_read_only() != Type::Int {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("set_at index must be int, got {idx}"),
+                    ));
+                }
+                return match xs {
+                    Type::Array(e, n) => {
+                        enforce_annotation_compatibility(val, e, line, "set_at")?;
+                        Ok(Some(Type::Array(e.clone(), *n)))
+                    }
+                    Type::List(e) => {
+                        enforce_annotation_compatibility(val, e, line, "set_at")?;
+                        Ok(Some(Type::List(e.clone())))
+                    }
+                    other => Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("set_at expects [T; N] or [T], got {other}"),
+                    )),
+                };
+            }
+            ("map_put", [m, k, v]) => {
+                if m.is_read_only() {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ObserverMutationForbidden,
+                        line,
+                        format!("cannot call map_put on read-only map {m}"),
+                    ));
+                }
+                return match m {
+                    Type::Map(kt, vt) => {
+                        let out_k = if **kt == Type::Unknown {
+                            if !k.is_map_key() {
+                                return Err(Diagnostic::at_line(
+                                    DiagnosticCode::TypeError,
+                                    line,
+                                    format!("unsupported map key type {k}"),
+                                ));
+                            }
+                            k.clone()
+                        } else {
+                            enforce_annotation_compatibility(k, kt, line, "map_put key")?;
+                            (**kt).clone()
+                        };
+                        let out_v = if **vt == Type::Unknown {
+                            v.clone()
+                        } else {
+                            enforce_annotation_compatibility(v, vt, line, "map_put value")?;
+                            (**vt).clone()
+                        };
+                        Ok(Some(Type::Map(Box::new(out_k), Box::new(out_v))))
+                    }
+                    other => Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!("map_put expects map[K, V], got {other}"),
+                    )),
+                };
+            }
+            _ => {}
+        }
+        Ok(None)
+    }
+
+    fn check_step_combinator_fn(
+        &mut self,
+        init_ty: &Type,
+        fn_expr: &Expr,
+        is_settle: bool,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let target = self.resolve_call_target(fn_expr, line, ctx)?;
+        // Try 2-arg `(state, tick: int)` first, then 1-arg `(state)`.
+        // Also allow `init_ty` `[T; N]` to decay to `[T]` if `step_fn` expects `[T]`!
+        let mut candidates = vec![init_ty.clone()];
+        let decayed = decay_top_array_to_list(init_ty);
+        if decayed != *init_ty {
+            candidates.push(decayed);
         }
 
-        let base_mod = self.base_module_of(&ctx.module_key).to_string();
+        let mut last_err = None;
+        for cand_s in candidates {
+            let try_two = self.dispatch_call_target(
+                &target,
+                &[cand_s.clone(), Type::Int],
+                line,
+                ctx,
+            );
+            if let Ok(ret) = try_two {
+                let unified = if ret == cand_s {
+                    cand_s
+                } else if types_compatible_with_annotation(&ret, &cand_s) {
+                    cand_s
+                } else if types_compatible_with_annotation(&cand_s, &ret) {
+                    ret
+                } else {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!(
+                            "{} step function state mismatch: takes {cand_s}, returns {ret}",
+                            if is_settle { "settle" } else { "walk" }
+                        ),
+                    ));
+                };
+                return Ok(unified);
+            }
+            let try_one =
+                self.dispatch_call_target(&target, std::slice::from_ref(&cand_s), line, ctx);
+            match try_one {
+                Ok(ret) => {
+                    let unified = if ret == cand_s {
+                        cand_s
+                    } else if types_compatible_with_annotation(&ret, &cand_s) {
+                        cand_s
+                    } else if types_compatible_with_annotation(&cand_s, &ret) {
+                        ret
+                    } else {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!(
+                                "{} step function state mismatch: takes {cand_s}, returns {ret}",
+                                if is_settle { "settle" } else { "walk" }
+                            ),
+                        ));
+                    };
+                    return Ok(unified);
+                }
+                Err(e) => last_err = Some(e),
+            }
+        }
+        Err(last_err.unwrap_or_else(|| {
+            Diagnostic::at_line(
+                DiagnosticCode::TypeError,
+                line,
+                "invalid step function in walk/settle",
+            )
+        }))
+    }
 
-        let target = match &callee.kind {
+    fn check_fold_combinator_fn(
+        &mut self,
+        init_ty: &Type,
+        elem_ty: &Type,
+        fn_expr: &Expr,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let target = self.resolve_call_target(fn_expr, line, ctx)?;
+        let mut candidates = vec![init_ty.clone()];
+        let decayed = decay_top_array_to_list(init_ty);
+        if decayed != *init_ty {
+            candidates.push(decayed);
+        }
+        let mut last_err = None;
+        for cand_acc in candidates {
+            match self.dispatch_call_target(&target, &[cand_acc.clone(), elem_ty.clone()], line, ctx)
+            {
+                Ok(ret) => {
+                    if types_compatible_with_annotation(&ret, &cand_acc) {
+                        return Ok(cand_acc);
+                    }
+                    if types_compatible_with_annotation(&cand_acc, &ret) {
+                        return Ok(ret);
+                    }
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        line,
+                        format!(
+                            "fold/scan accumulator mismatch: initialized with {cand_acc}, step returned {ret}"
+                        ),
+                    ));
+                }
+                Err(e) => last_err = Some(e),
+            }
+        }
+        Err(last_err.unwrap())
+    }
+
+    fn check_unary_fn_expr(
+        &mut self,
+        elem_ty: &Type,
+        fn_expr: &Expr,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let target = self.resolve_call_target(fn_expr, line, ctx)?;
+        self.dispatch_call_target(&target, std::slice::from_ref(elem_ty), line, ctx)
+    }
+
+    fn resolve_call_target(
+        &self,
+        callee: &Expr,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<CallTarget> {
+        let base_mod = self.base_module_of(&ctx.module_key).to_string();
+        match &callee.kind {
             ExprKind::Ident(name) => {
                 if matches!(
                     name.as_str(),
@@ -3212,47 +3137,66 @@ impl<'a> Checker<'a> {
                     if let Some(ImportedSymbol::Builtin(canon)) =
                         self.imports_for(&ctx.module_key).get(name).cloned()
                     {
-                        CallTarget::Builtin(canon)
+                        Ok(CallTarget::Builtin(canon))
                     } else {
-                        return Err(Diagnostic::at_line(
+                        Err(Diagnostic::at_line(
                             DiagnosticCode::QExtLeakageForbidden,
                             line,
                             format!(
                                 "{name} must be explicitly imported from aod::qext (`use aod::qext::{name}` or `aod::qext::{name}`)"
                             ),
-                        ));
+                        ))
+                    }
+                } else if matches!(
+                    name.as_str(),
+                    "cli_args" | "read_file_bytes" | "write_executable_elf"
+                ) {
+                    if let Some(ImportedSymbol::Builtin(canon)) =
+                        self.imports_for(&ctx.module_key).get(name).cloned()
+                    {
+                        Ok(CallTarget::Builtin(canon))
+                    } else {
+                        Err(Diagnostic::at_line(
+                            DiagnosticCode::SysIoForbidden,
+                            line,
+                            format!(
+                                "{name} belongs to capability-gated aod::sys and must be explicitly imported (`use aod::sys::{name}`)"
+                            ),
+                        ))
                     }
                 } else if let Some(entry) = self
                     .functions
                     .get(&(ctx.module_key.clone(), name.clone()))
                     .cloned()
                 {
-                    CallTarget::UserFn(entry)
+                    Ok(CallTarget::UserFn(entry))
                 } else if base_mod != ctx.module_key
                     && self
                         .functions
                         .contains_key(&(base_mod.clone(), name.clone()))
                 {
-                    CallTarget::UserFn(self.functions[&(base_mod, name.clone())].clone())
+                    Ok(CallTarget::UserFn(
+                        self.functions[&(base_mod, name.clone())].clone(),
+                    ))
                 } else if let Some(ImportedSymbol::ModuleItem { module, item }) =
                     self.imports_for(&ctx.module_key).get(name).cloned()
                 {
                     if let Some(entry) = self.functions.get(&(module.clone(), item.clone())).cloned()
                     {
-                        CallTarget::UserFn(entry)
+                        Ok(CallTarget::UserFn(entry))
                     } else {
-                        return Err(Diagnostic::at_line(
+                        Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
                             line,
                             format!("imported symbol {module}::{item} is not a function"),
-                        ));
+                        ))
                     }
                 } else if let Some(ImportedSymbol::Builtin(canon)) =
                     self.imports_for(&ctx.module_key).get(name).cloned()
                 {
-                    CallTarget::Builtin(canon)
+                    Ok(CallTarget::Builtin(canon))
                 } else if !lookup_builtin(name).is_empty() {
-                    CallTarget::Builtin(name.clone())
+                    Ok(CallTarget::Builtin(name.clone()))
                 } else {
                     let mut found_qext = None;
                     for (m, qm) in &self.qext_modules {
@@ -3274,13 +3218,13 @@ impl<'a> Checker<'a> {
                                 ),
                             ));
                         }
-                        CallTarget::UserFn(e)
+                        Ok(CallTarget::UserFn(e))
                     } else {
-                        return Err(Diagnostic::at_line(
+                        Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
                             line,
                             format!("undefined function {name}"),
-                        ));
+                        ))
                     }
                 }
             }
@@ -3290,34 +3234,33 @@ impl<'a> Checker<'a> {
                     let sym = &segs[2];
                     if let Some(allowed) = builtin_namespace_items(ns) {
                         if allowed.contains(&sym.as_str()) {
-                            CallTarget::Builtin(canonical_builtin_name(ns, sym))
+                            Ok(CallTarget::Builtin(canonical_builtin_name(ns, sym)))
                         } else {
-                            return Err(Diagnostic::at_line(
+                            Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 line,
                                 format!("unknown function {}", segs.join("::")),
-                            ));
+                            ))
                         }
                     } else {
-                        return Err(Diagnostic::at_line(
+                        Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
                             line,
                             format!("unknown namespace {}", ns.join("::")),
-                        ));
+                        ))
                     }
                 } else if segs.len() == 2 {
                     let ns = &segs[0];
                     let sym = &segs[1];
-                    // P2-3: resolve sibling or local quarantine Q_ext submodule `ModA::fn`!
                     if let Some(qsub) = self.resolve_qext_submodule(&ctx.module_key, ns) {
                         if let Some(entry) = self.functions.get(&(qsub, sym.clone())).cloned() {
-                            CallTarget::UserFn(entry)
+                            Ok(CallTarget::UserFn(entry))
                         } else {
-                            return Err(Diagnostic::at_line(
+                            Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 line,
                                 format!("undefined function {ns}::{sym}"),
-                            ));
+                            ))
                         }
                     } else if let Some(ImportedSymbol::ModuleNamespace(mod_key)) =
                         self.imports_for(&ctx.module_key).get(ns).cloned()
@@ -3327,73 +3270,207 @@ impl<'a> Checker<'a> {
                             if builtin_namespace_items(&ns_vec)
                                 .is_some_and(|list| list.contains(&sym.as_str()))
                             {
-                                CallTarget::Builtin(canonical_builtin_name(&ns_vec, sym))
+                                Ok(CallTarget::Builtin(canonical_builtin_name(&ns_vec, sym)))
                             } else {
-                                return Err(Diagnostic::at_line(
+                                Err(Diagnostic::at_line(
                                     DiagnosticCode::TypeError,
                                     line,
                                     format!("unknown builtin {mod_key}::{sym}"),
-                                ));
+                                ))
                             }
                         } else if let Some(entry) =
                             self.functions.get(&(mod_key.clone(), sym.clone())).cloned()
                         {
-                            CallTarget::UserFn(entry)
+                            Ok(CallTarget::UserFn(entry))
                         } else {
-                            return Err(Diagnostic::at_line(
+                            Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 line,
                                 format!("undefined function {mod_key}::{sym}"),
-                            ));
+                            ))
                         }
                     } else {
-                        return Err(Diagnostic::at_line(
+                        Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
                             line,
                             format!("undefined function path {}", segs.join("::")),
-                        ));
+                        ))
                     }
                 } else if segs.len() == 3 {
-                    // P0-1: 3-segment cross-module `quarantine Q_ext` call (`mod::QMod::fn(...)`)
                     if let Some(qsub) =
                         self.resolve_qext_submodule_3seg(&ctx.module_key, &segs[0], &segs[1])
                     {
                         if let Some(entry) = self.functions.get(&(qsub, segs[2].clone())).cloned() {
-                            CallTarget::UserFn(entry)
+                            Ok(CallTarget::UserFn(entry))
                         } else {
-                            return Err(Diagnostic::at_line(
+                            Err(Diagnostic::at_line(
                                 DiagnosticCode::TypeError,
                                 line,
                                 format!("undefined function {}", segs.join("::")),
-                            ));
+                            ))
                         }
                     } else {
-                        return Err(Diagnostic::at_line(
+                        Err(Diagnostic::at_line(
                             DiagnosticCode::TypeError,
                             line,
                             format!("unsupported call path {}", segs.join("::")),
-                        ));
+                        ))
                     }
                 } else {
-                    return Err(Diagnostic::at_line(
+                    Err(Diagnostic::at_line(
                         DiagnosticCode::TypeError,
                         line,
                         format!("unsupported call path {}", segs.join("::")),
-                    ));
+                    ))
                 }
             }
-            _ => {
-                return Err(Diagnostic::at_line(
-                    DiagnosticCode::TypeError,
-                    line,
-                    "calls require a direct function name or module path",
-                ));
-            }
-        };
+            _ => Err(Diagnostic::at_line(
+                DiagnosticCode::TypeError,
+                line,
+                "calls require a direct function name or module path",
+            )),
+        }
+    }
 
+    fn dispatch_call_target(
+        &mut self,
+        target: &CallTarget,
+        raw_arg_tys: &[Type],
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        match self.dispatch_call_target_direct(target, raw_arg_tys, line, ctx) {
+            Ok(ret) => Ok(ret),
+            Err(direct_err) => {
+                // Do not rank-lift over firewall or shape-mismatch errors!
+                if matches!(
+                    direct_err.code,
+                    DiagnosticCode::QExtLeakageForbidden
+                        | DiagnosticCode::ObserverMutationForbidden
+                        | DiagnosticCode::SysIoForbidden
+                        | DiagnosticCode::ShapeMismatch
+                ) {
+                    return Err(direct_err);
+                }
+                // Automatic rank-lift fallback for unary & binary pure scalar functions!
+                if raw_arg_tys.len() == 1 {
+                    match raw_arg_tys[0].unwrap_read_only() {
+                        Type::Array(e, n) => {
+                            let elem_arg = wrap_ro_if_needed((**e).clone(), raw_arg_tys[0].is_read_only());
+                            if let Ok(out) = self.dispatch_call_target(target, &[elem_arg], line, ctx) {
+                                return Ok(Type::Array(Box::new(out), *n));
+                            }
+                        }
+                        Type::List(e) => {
+                            let elem_arg = wrap_ro_if_needed((**e).clone(), raw_arg_tys[0].is_read_only());
+                            if let Ok(out) = self.dispatch_call_target(target, &[elem_arg], line, ctx) {
+                                return Ok(Type::List(Box::new(out)));
+                            }
+                        }
+                        Type::Range => {
+                            if let Ok(out) = self.dispatch_call_target(target, &[Type::Int], line, ctx) {
+                                return Ok(Type::List(Box::new(out)));
+                            }
+                        }
+                        _ => {}
+                    }
+                } else if raw_arg_tys.len() == 2 {
+                    let l = raw_arg_tys[0].unwrap_read_only();
+                    let r = raw_arg_tys[1].unwrap_read_only();
+                    let lr = sequence_rank(l);
+                    let rr = sequence_rank(r);
+                    if lr > 0 || rr > 0 {
+                        return self.rank_lift_binary_call(target, &raw_arg_tys[0], &raw_arg_tys[1], line, ctx)
+                            .map_err(|e| {
+                                if e.code == DiagnosticCode::ShapeMismatch {
+                                    e
+                                } else {
+                                    direct_err
+                                }
+                            });
+                    }
+                }
+                Err(direct_err)
+            }
+        }
+    }
+
+    fn rank_lift_binary_call(
+        &mut self,
+        target: &CallTarget,
+        lt: &Type,
+        rt: &Type,
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
+        let l = lt.unwrap_read_only();
+        let r = rt.unwrap_read_only();
+        let lr = sequence_rank(l);
+        let rr = sequence_rank(r);
+        if lr > rr {
+            return match l {
+                Type::Array(a, n) => {
+                    let a_ro = wrap_ro_if_needed((**a).clone(), lt.is_read_only());
+                    let out = self.dispatch_call_target(target, &[a_ro, rt.clone()], line, ctx)?;
+                    Ok(Type::Array(Box::new(out), *n))
+                }
+                Type::List(a) => {
+                    let a_ro = wrap_ro_if_needed((**a).clone(), lt.is_read_only());
+                    let out = self.dispatch_call_target(target, &[a_ro, rt.clone()], line, ctx)?;
+                    Ok(Type::List(Box::new(out)))
+                }
+                _ => unreachable!(),
+            };
+        }
+        if rr > lr {
+            return match r {
+                Type::Array(b, n) => {
+                    let b_ro = wrap_ro_if_needed((**b).clone(), rt.is_read_only());
+                    let out = self.dispatch_call_target(target, &[lt.clone(), b_ro], line, ctx)?;
+                    Ok(Type::Array(Box::new(out), *n))
+                }
+                Type::List(b) => {
+                    let b_ro = wrap_ro_if_needed((**b).clone(), rt.is_read_only());
+                    let out = self.dispatch_call_target(target, &[lt.clone(), b_ro], line, ctx)?;
+                    Ok(Type::List(Box::new(out)))
+                }
+                _ => unreachable!(),
+            };
+        }
+        match (l, r) {
+            (Type::Array(a, n), Type::Array(b, m)) => {
+                if n != m {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ShapeMismatch,
+                        line,
+                        format!("shape mismatch in rank-lifted call: {l} vs {r}"),
+                    ));
+                }
+                let a_ro = wrap_ro_if_needed((**a).clone(), lt.is_read_only());
+                let b_ro = wrap_ro_if_needed((**b).clone(), rt.is_read_only());
+                let out = self.dispatch_call_target(target, &[a_ro, b_ro], line, ctx)?;
+                Ok(Type::Array(Box::new(out), *n))
+            }
+            (Type::Array(a, _) | Type::List(a), Type::Array(b, _) | Type::List(b)) => {
+                let a_ro = wrap_ro_if_needed((**a).clone(), lt.is_read_only());
+                let b_ro = wrap_ro_if_needed((**b).clone(), rt.is_read_only());
+                let out = self.dispatch_call_target(target, &[a_ro, b_ro], line, ctx)?;
+                Ok(Type::List(Box::new(out)))
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn dispatch_call_target_direct(
+        &mut self,
+        target: &CallTarget,
+        raw_arg_tys: &[Type],
+        line: usize,
+        ctx: &CheckContext,
+    ) -> DecResult<Type> {
         match target {
             CallTarget::Builtin(canon) => {
-                let sigs = lookup_builtin(&canon);
+                let sigs = lookup_builtin(canon);
                 if sigs.is_empty() {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::TypeError,
@@ -3401,30 +3478,52 @@ impl<'a> Checker<'a> {
                         format!("undefined builtin {canon}"),
                     ));
                 }
-                if evaluated_args.iter().any(|(n, _)| n.is_some()) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        line,
-                        format!("builtin {canon} takes positional arguments"),
-                    ));
-                }
-                let arg_tys: Vec<Type> = evaluated_args
+                let arg_tys: Vec<Type> = raw_arg_tys
                     .iter()
-                    .map(|(_, t)| t.unwrap_read_only().clone())
+                    .map(|t| t.unwrap_read_only().clone())
                     .collect();
 
                 if sigs.iter().all(|s| s.effect == Effect::QExt) && ctx.effect != Effect::QExt {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::QExtLeakageForbidden,
                         line,
-                        format!("builtin {canon} is quarantined in aod::qext and forbidden outside quarantine Q_ext"),
+                        format!(
+                            "builtin {canon} is quarantined in aod::qext and forbidden outside quarantine Q_ext"
+                        ),
                     ));
+                }
+                if sigs.iter().all(|s| s.effect == Effect::SysIo) {
+                    if ctx.effect == Effect::ReadOnlyObserver {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::ObserverMutationForbidden,
+                            line,
+                            format!("aod::sys capability {canon} is forbidden inside read-only observer"),
+                        ));
+                    }
+                    if ctx.effect == Effect::QExt {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::QExtLeakageForbidden,
+                            line,
+                            format!("aod::sys capability {canon} is forbidden inside quarantine Q_ext"),
+                        ));
+                    }
+                    if ctx.in_const || ctx.in_prepare {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::SysIoForbidden,
+                            line,
+                            format!("aod::sys capability {canon} is forbidden in const/prepare declarations"),
+                        ));
+                    }
                 }
 
                 let matching: Vec<_> = sigs
                     .into_iter()
                     .filter(|s| {
-                        (self.compat() == CompatMode::V2 || s.v1_allowed) && s.params == arg_tys
+                        s.params.len() == arg_tys.len()
+                            && arg_tys
+                                .iter()
+                                .zip(&s.params)
+                                .all(|(a, p)| types_compatible_with_annotation(a, p))
                     })
                     .collect();
                 if matching.len() != 1 {
@@ -3460,181 +3559,119 @@ impl<'a> Checker<'a> {
                         ),
                     ));
                 }
-                match &entry.decl.kind {
-                    DecFnKind::MultiArm {
-                        header_typed_params,
-                        arms,
-                        ..
-                    } => {
-                        if evaluated_args.iter().any(|(n, _)| n.is_some()) {
-                            return Err(Diagnostic::at_line(
-                                DiagnosticCode::TypeError,
-                                line,
-                                "multi-arm Dec calls use positional arguments",
-                            ));
-                        }
-                        let raw_arg_tys: Vec<Type> =
-                            evaluated_args.iter().map(|(_, t)| t.clone()).collect();
-                        let mut matched_ret: Option<Type> = None;
-                        let mut blocked_by_readonly = false;
-                        let mut needs_ro_recheck = false;
-                        for arm in arms {
-                            let arm_tys = self.infer_arm_param_types(
-                                &entry.module_key,
-                                arm,
-                                header_typed_params.as_deref(),
-                            )?;
-                            if arm_tys.len() != raw_arg_tys.len() {
-                                continue;
+
+                let mut matched_ret: Option<Type> = None;
+                let mut blocked_by_readonly = false;
+                let mut shape_err: Option<Diagnostic> = None;
+                let mut needs_ro_recheck = false;
+
+                for arm in &entry.decl.arms {
+                    let arm_tys = self.infer_arm_param_types(&entry.module_key, arm)?;
+                    if arm_tys.len() != raw_arg_tys.len() {
+                        continue;
+                    }
+                    let mut arm_matches = true;
+                    let mut arm_stripped_readonly = false;
+                    for (p, a) in arm_tys.iter().zip(raw_arg_tys) {
+                        if *p == Type::Unknown {
+                            if a.is_read_only() {
+                                needs_ro_recheck = true;
                             }
-                            let mut arm_matches = true;
-                            let mut arm_stripped_readonly = false;
-                            for (p, a) in arm_tys.iter().zip(&raw_arg_tys) {
-                                if *p == Type::Unknown {
-                                    if a.is_read_only() {
-                                        needs_ro_recheck = true;
-                                    }
-                                    continue;
-                                }
-                                if types_compatible_with_annotation(a, p)
-                                    || (p.is_read_only()
-                                        && types_compatible_with_annotation(a, p.unwrap_read_only()))
-                                {
-                                    continue;
-                                }
-                                if ctx.effect == Effect::ReadOnlyObserver
-                                    && types_compatible_with_annotation(
-                                        a.unwrap_read_only(),
-                                        p.unwrap_read_only(),
-                                    )
-                                {
-                                    continue;
-                                }
-                                if a.is_read_only()
-                                    && !p.is_read_only()
-                                    && types_compatible_with_annotation(a.unwrap_read_only(), p)
-                                {
-                                    arm_stripped_readonly = true;
-                                }
+                            continue;
+                        }
+                        if let (Type::Array(ae, an), Type::Array(pe, pn)) =
+                            (a.unwrap_read_only(), p.unwrap_read_only())
+                        {
+                            if ae == pe && an != pn {
+                                shape_err = Some(Diagnostic::at_line(
+                                    DiagnosticCode::ShapeMismatch,
+                                    line,
+                                    format!(
+                                        "argument shape mismatch in call to {}: expected {p}, got {a}",
+                                        entry.decl.name
+                                    ),
+                                ));
                                 arm_matches = false;
                                 break;
                             }
-                            if arm_matches {
-                                let rty = self.resolve_type(
-                                    &entry.module_key,
-                                    &arm.return_type,
-                                    arm.line,
-                                )?;
-                                if let Some(ref prev) = matched_ret {
-                                    if prev != &rty {
-                                        return Err(Diagnostic::at_line(
-                                            DiagnosticCode::TypeError,
-                                            line,
-                                            format!(
-                                                "ambiguous return types ({prev} vs {rty}) across matching pattern arms of {}",
-                                                entry.decl.name
-                                            ),
-                                        ));
-                                    }
-                                } else {
-                                    matched_ret = Some(rty);
-                                }
-                            } else if arm_stripped_readonly {
-                                blocked_by_readonly = true;
-                            }
                         }
-                        let ret_ty = match matched_ret {
-                            Some(r) => r,
-                            None if blocked_by_readonly => {
+                        if types_compatible_with_annotation(a, p)
+                            || (p.is_read_only()
+                                && types_compatible_with_annotation(a, p.unwrap_read_only()))
+                        {
+                            continue;
+                        }
+                        if ctx.effect == Effect::ReadOnlyObserver
+                            && types_compatible_with_annotation(
+                                a.unwrap_read_only(),
+                                p.unwrap_read_only(),
+                            )
+                        {
+                            continue;
+                        }
+                        if a.is_read_only()
+                            && !p.is_read_only()
+                            && types_compatible_with_annotation(a.unwrap_read_only(), p)
+                        {
+                            arm_stripped_readonly = true;
+                        }
+                        arm_matches = false;
+                        break;
+                    }
+                    if arm_matches {
+                        let rty = self.resolve_type(&entry.module_key, &arm.return_type, arm.line)?;
+                        if let Some(ref prev) = matched_ret {
+                            if prev != &rty {
                                 return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ObserverMutationForbidden,
+                                    DiagnosticCode::TypeError,
                                     line,
                                     format!(
-                                        "cannot pass ReadOnly value to non-ReadOnly parameter of {}",
+                                        "ambiguous return types ({prev} vs {rty}) across matching arms of {}",
                                         entry.decl.name
                                     ),
                                 ));
                             }
-                            None => {
-                                let sig_str = raw_arg_tys
-                                    .iter()
-                                    .map(ToString::to_string)
-                                    .collect::<Vec<_>>()
-                                    .join(", ");
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::TypeError,
-                                    line,
-                                    format!("unlisted signature {}({sig_str})", entry.decl.name),
-                                ));
-                            }
-                        };
-
-                        if matches!(ctx.effect, Effect::ReadOnlyObserver | Effect::QExt) {
-                            self.check_transitive_effect(&entry, &raw_arg_tys, ctx.effect)?;
-                        } else if needs_ro_recheck {
-                            self.check_transitive_effect(&entry, &raw_arg_tys, Effect::PureNative)?;
+                        } else {
+                            matched_ret = Some(rty);
                         }
-                        Ok(ret_ty)
-                    }
-                    DecFnKind::SingleArm {
-                        params,
-                        return_type,
-                        ..
-                    } => {
-                        let ordered_arg_tys =
-                            resolve_single_arm_args(params, &evaluated_args, line)?;
-                        for (idx, p) in params.iter().enumerate() {
-                            let expected =
-                                self.resolve_type(&entry.module_key, &p.ty, entry.decl.line)?;
-                            let actual = &ordered_arg_tys[idx];
-                            let compatible = if types_compatible_with_annotation(actual, &expected)
-                                || (expected.is_read_only()
-                                    && types_compatible_with_annotation(
-                                        actual,
-                                        expected.unwrap_read_only(),
-                                    ))
-                            {
-                                true
-                            } else {
-                                ctx.effect == Effect::ReadOnlyObserver
-                                    && types_compatible_with_annotation(
-                                        actual.unwrap_read_only(),
-                                        expected.unwrap_read_only(),
-                                    )
-                            };
-                            if !compatible {
-                                if actual.is_read_only()
-                                    && !expected.is_read_only()
-                                    && types_compatible_with_annotation(
-                                        actual.unwrap_read_only(),
-                                        &expected,
-                                    )
-                                {
-                                    return Err(Diagnostic::at_line(
-                                        DiagnosticCode::ObserverMutationForbidden,
-                                        line,
-                                        format!(
-                                            "cannot pass ReadOnly value {actual} to non-ReadOnly parameter {} of {}",
-                                            p.name, entry.decl.name
-                                        ),
-                                    ));
-                                }
-                                return Err(Diagnostic::at_line(
-                                    DiagnosticCode::ImplicitCoercionForbidden,
-                                    line,
-                                    format!(
-                                        "argument {} of {} expects {expected}, got {actual}",
-                                        p.name, entry.decl.name
-                                    ),
-                                ));
-                            }
-                        }
-                        if matches!(ctx.effect, Effect::ReadOnlyObserver | Effect::QExt) {
-                            self.check_transitive_effect(&entry, &ordered_arg_tys, ctx.effect)?;
-                        }
-                        self.resolve_type(&entry.module_key, return_type, entry.decl.line)
+                    } else if arm_stripped_readonly {
+                        blocked_by_readonly = true;
                     }
                 }
+
+                let ret_ty = match matched_ret {
+                    Some(r) => r,
+                    None if blocked_by_readonly => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::ObserverMutationForbidden,
+                            line,
+                            format!(
+                                "cannot pass ReadOnly value to non-ReadOnly parameter of {}",
+                                entry.decl.name
+                            ),
+                        ));
+                    }
+                    None if shape_err.is_some() => return Err(shape_err.unwrap()),
+                    None => {
+                        let sig_str = raw_arg_tys
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("unlisted signature {}({sig_str})", entry.decl.name),
+                        ));
+                    }
+                };
+
+                if matches!(ctx.effect, Effect::ReadOnlyObserver | Effect::QExt) {
+                    self.check_transitive_effect(entry, raw_arg_tys, ctx.effect)?;
+                } else if needs_ro_recheck {
+                    self.check_transitive_effect(entry, raw_arg_tys, Effect::PureNative)?;
+                }
+                Ok(ret_ty)
             }
         }
     }
@@ -3656,90 +3693,378 @@ impl<'a> Checker<'a> {
         }
         self.check_fn_entry(entry, Some(arg_tys), effect)
     }
+}
 
-    fn definitely_returns(&self, stmts: &[Stmt]) -> bool {
-        for s in stmts {
-            match &s.kind {
-                StmtKind::Return(_) => return true,
-                StmtKind::If {
-                    then_body,
-                    elifs,
-                    else_body,
-                    ..
-                } => {
-                    if !else_body.is_empty()
-                        && self.definitely_returns(then_body)
-                        && elifs.iter().all(|(_, b)| self.definitely_returns(b))
-                        && self.definitely_returns(else_body)
-                    {
-                        return true;
-                    }
-                }
-                StmtKind::Match { arms, .. } => {
-                    if self.match_is_syntactically_exhaustive(arms)
-                        && arms.iter().all(|a| self.definitely_returns(&a.body))
-                    {
-                        return true;
-                    }
-                }
-                _ => {}
-            }
-        }
-        false
-    }
-
-    fn match_is_syntactically_exhaustive(&self, arms: &[MatchArm]) -> bool {
-        let mut enum_covered: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-        for arm in arms {
-            if arm.guard.is_some() {
-                continue;
-            }
-            match &arm.pattern {
-                Pattern::Wildcard | Pattern::Binding(_) => return true,
-                Pattern::EnumVariant { path, bindings }
-                    if bindings.iter().all(is_irrefutable_pattern) =>
-                {
-                    if path.len() >= 2 {
-                        let ename = path[path.len() - 2].clone();
-                        let vname = path[path.len() - 1].clone();
-                        enum_covered.entry(ename).or_default().insert(vname);
-                    }
-                }
-                _ => {}
-            }
-        }
-        for (ename, covered) in enum_covered {
-            for edef in self.enums.values() {
-                if edef.name == ename
-                    && edef.variants.iter().all(|(vn, _)| covered.contains(vn))
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
+fn definitely_returns(stmts: &[Stmt]) -> bool {
+    stmts.iter().any(|s| matches!(s.kind, StmtKind::Return(_)))
 }
 
 fn is_irrefutable_pattern(pat: &Pattern) -> bool {
     match pat {
-        Pattern::Wildcard | Pattern::Binding(_) => true,
+        Pattern::Wildcard | Pattern::Binding(_) | Pattern::NullLit => true,
         Pattern::Tuple(ps) => ps.iter().all(is_irrefutable_pattern),
         _ => false,
     }
 }
 
-fn types_compatible_with_annotation(actual: &Type, expected: &Type) -> bool {
+fn sequence_rank(ty: &Type) -> usize {
+    match ty.unwrap_read_only() {
+        Type::Array(inner, _) | Type::List(inner) => 1 + sequence_rank(inner),
+        _ => 0,
+    }
+}
+
+fn decay_top_array_to_list(ty: &Type) -> Type {
+    match ty {
+        Type::Array(inner, _) => Type::List(Box::new(decay_top_array_to_list(inner))),
+        other => other.clone(),
+    }
+}
+
+fn extract_seq_elem_and_len(
+    seq_ty: &Type,
+    cname: &str,
+    line: usize,
+) -> DecResult<(Type, Option<usize>)> {
+    let is_ro = seq_ty.is_read_only();
+    match seq_ty.unwrap_read_only() {
+        Type::Array(e, n) => Ok((wrap_ro_if_needed((**e).clone(), is_ro), Some(*n))),
+        Type::List(e) => Ok((wrap_ro_if_needed((**e).clone(), is_ro), None)),
+        Type::Range => Ok((Type::Int, None)),
+        other => Err(Diagnostic::at_line(
+            DiagnosticCode::TypeError,
+            line,
+            format!("{cname} expects a sequence or range, got {other}"),
+        )),
+    }
+}
+
+fn wrap_ro_if_needed(ty: Type, is_ro: bool) -> Type {
+    if is_ro
+        && matches!(
+            ty,
+            Type::Array(_, _)
+                | Type::List(_)
+                | Type::Map(_, _)
+                | Type::Struct { .. }
+                | Type::ChamberView
+                | Type::SimResult
+        )
+    {
+        ty.wrap_read_only()
+    } else {
+        ty
+    }
+}
+
+fn check_same_rank_sequence_eq(
+    l: &Type,
+    r: &Type,
+    line: usize,
+    ctx: &CheckContext,
+) -> DecResult<Type> {
+    match (l, r) {
+        (Type::Array(a, n), Type::Array(b, m)) => {
+            if n != m {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::ShapeMismatch,
+                    line,
+                    format!("array equality shape mismatch: {l} vs {r}"),
+                ));
+            }
+            check_same_rank_sequence_eq_elem(a, b, line, ctx)
+        }
+        (Type::Array(a, _) | Type::List(a), Type::Array(b, _) | Type::List(b)) => {
+            check_same_rank_sequence_eq_elem(a, b, line, ctx)
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn check_same_rank_sequence_eq_elem(
+    a: &Type,
+    b: &Type,
+    line: usize,
+    ctx: &CheckContext,
+) -> DecResult<Type> {
+    let ar = sequence_rank(a);
+    let br = sequence_rank(b);
+    if ar > 0 && ar == br {
+        return check_same_rank_sequence_eq(a, b, line, ctx);
+    }
+    if *a == Type::Unknown || *b == Type::Unknown || a == b {
+        if a.is_qext() || b.is_qext() {
+            if ctx.effect != Effect::QExt {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::QExtLeakageForbidden,
+                    line,
+                    "cannot compare QExt sequences outside quarantine Q_ext",
+                ));
+            }
+            Ok(Type::QExt(Box::new(Type::Bool)))
+        } else {
+            Ok(Type::Bool)
+        }
+    } else {
+        Err(Diagnostic::at_line(
+            DiagnosticCode::ImplicitCoercionForbidden,
+            line,
+            format!("cannot compare sequences of mismatched element types {a} and {b}"),
+        ))
+    }
+}
+
+fn unify_branch_types(a: &Type, b: &Type, line: usize) -> DecResult<Type> {
+    if a == b {
+        return Ok(a.clone());
+    }
+    if types_compatible_with_annotation(a, b) {
+        return Ok(b.clone());
+    }
+    if types_compatible_with_annotation(b, a) {
+        return Ok(a.clone());
+    }
+    if let (Type::Array(ae, an), Type::Array(be, bn)) = (a, b) {
+        if ae == be && an != bn {
+            // Two match arms returning different fixed lengths `[T; N]` vs `[T; M]` unify cleanly to `[T]`!
+            return Ok(Type::List(ae.clone()));
+        }
+    }
+    Err(Diagnostic::at_line(
+        DiagnosticCode::ImplicitCoercionForbidden,
+        line,
+        format!("branch result types must match, got {a} vs {b}"),
+    ))
+}
+
+fn check_mux_types(
+    role: &Type,
+    on_neg: &Type,
+    on_zero: &Type,
+    on_pos: &Type,
+    line: usize,
+) -> DecResult<Type> {
+    let r = role.unwrap_read_only();
+    match r {
+        Type::T1 => {
+            let u1 = unify_branch_types(on_neg, on_zero, line)?;
+            unify_branch_types(&u1, on_pos, line)
+        }
+        Type::Array(e, n) if **e == Type::T1 => {
+            let b_neg = extract_broadcast_branch(on_neg, Some(*n), line)?;
+            let b_zero = extract_broadcast_branch(on_zero, Some(*n), line)?;
+            let b_pos = extract_broadcast_branch(on_pos, Some(*n), line)?;
+            let u1 = unify_branch_types(&b_neg, &b_zero, line)?;
+            let u2 = unify_branch_types(&u1, &b_pos, line)?;
+            Ok(Type::Array(Box::new(u2), *n))
+        }
+        Type::List(e) if **e == Type::T1 => {
+            let b_neg = extract_broadcast_branch(on_neg, None, line)?;
+            let b_zero = extract_broadcast_branch(on_zero, None, line)?;
+            let b_pos = extract_broadcast_branch(on_pos, None, line)?;
+            let u1 = unify_branch_types(&b_neg, &b_zero, line)?;
+            let u2 = unify_branch_types(&u1, &b_pos, line)?;
+            Ok(Type::List(Box::new(u2)))
+        }
+        other => Err(Diagnostic::at_line(
+            DiagnosticCode::TypeError,
+            line,
+            format!("mux selector must be t1, [t1; N], or [t1], got {other}"),
+        )),
+    }
+}
+
+fn check_select_types(
+    cond: &Type,
+    on_true: &Type,
+    on_false: &Type,
+    line: usize,
+    ctx: &CheckContext,
+) -> DecResult<Type> {
+    let c = cond.unwrap_read_only();
+    match c {
+        Type::Bool => unify_branch_types(on_true, on_false, line),
+        Type::QExt(inner) if ctx.effect == Effect::QExt && **inner == Type::Bool => {
+            unify_branch_types(on_true, on_false, line)
+        }
+        Type::Array(e, n) if **e == Type::Bool => {
+            let bt = extract_broadcast_branch(on_true, Some(*n), line)?;
+            let bf = extract_broadcast_branch(on_false, Some(*n), line)?;
+            let u = unify_branch_types(&bt, &bf, line)?;
+            Ok(Type::Array(Box::new(u), *n))
+        }
+        Type::List(e) if **e == Type::Bool => {
+            let bt = extract_broadcast_branch(on_true, None, line)?;
+            let bf = extract_broadcast_branch(on_false, None, line)?;
+            let u = unify_branch_types(&bt, &bf, line)?;
+            Ok(Type::List(Box::new(u)))
+        }
+        other => Err(Diagnostic::at_line(
+            DiagnosticCode::TypeError,
+            line,
+            format!("select condition must be bool, [bool; N], or [bool], got {other}"),
+        )),
+    }
+}
+
+fn check_gate_types(cond: &Type, val: &Type, line: usize) -> DecResult<Type> {
+    let c = cond.unwrap_read_only();
+    let v = val.unwrap_read_only();
+    match (c, v) {
+        (Type::Bool, t) if t.is_numeric() => Ok(t.clone()),
+        (Type::Bool, Type::Array(e, n)) if e.is_numeric() => Ok(Type::Array(e.clone(), *n)),
+        (Type::Bool, Type::List(e)) if e.is_numeric() => Ok(Type::List(e.clone())),
+        (Type::Array(ce, n), t) if **ce == Type::Bool && t.is_numeric() => {
+            Ok(Type::Array(Box::new(t.clone()), *n))
+        }
+        (Type::Array(ce, n), Type::Array(ve, m)) if **ce == Type::Bool && ve.is_numeric() => {
+            if n != m {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::ShapeMismatch,
+                    line,
+                    format!("gate shape mismatch: [{ce}; {n}] vs [{ve}; {m}]"),
+                ));
+            }
+            Ok(Type::Array(ve.clone(), *n))
+        }
+        (Type::List(ce), t) if **ce == Type::Bool && t.is_numeric() => {
+            Ok(Type::List(Box::new(t.clone())))
+        }
+        (Type::List(ce) | Type::Array(ce, _), Type::List(ve) | Type::Array(ve, _))
+            if **ce == Type::Bool && ve.is_numeric() =>
+        {
+            Ok(Type::List(ve.clone()))
+        }
+        _ => Err(Diagnostic::at_line(
+            DiagnosticCode::TypeError,
+            line,
+            format!("gate(cond, val) requires bool mask and numeric value, got ({cond}, {val})"),
+        )),
+    }
+}
+
+fn extract_broadcast_branch(branch: &Type, expected_len: Option<usize>, line: usize) -> DecResult<Type> {
+    match (branch.unwrap_read_only(), expected_len) {
+        (Type::Array(e, m), Some(n)) => {
+            if *m != n {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::ShapeMismatch,
+                    line,
+                    format!("selector branch shape mismatch: expected length {n}, got {m}"),
+                ));
+            }
+            Ok((**e).clone())
+        }
+        (Type::Array(e, _), None) | (Type::List(e), _) => Ok((**e).clone()),
+        (scalar, _) => Ok(scalar.clone()),
+    }
+}
+
+pub fn types_compatible_with_annotation(actual: &Type, expected: &Type) -> bool {
     if actual == expected {
         return true;
     }
     match (actual, expected) {
         (Type::List(a), Type::List(_)) if **a == Type::Unknown => true,
+        (Type::Array(a, n), Type::Array(e, m)) => {
+            n == m && types_compatible_with_annotation(a, e)
+        }
+        (Type::Array(a, _), Type::List(e)) => types_compatible_with_annotation(a, e),
+        (Type::List(a), Type::List(e)) => types_compatible_with_annotation(a, e),
         (Type::Map(ak, av), Type::Map(_, _))
             if **ak == Type::Unknown && **av == Type::Unknown =>
         {
             true
         }
+        (Type::Tuple(as_), Type::Tuple(es)) if as_.len() == es.len() => as_
+            .iter()
+            .zip(es)
+            .all(|(a, e)| types_compatible_with_annotation(a, e)),
+        _ => false,
+    }
+}
+
+fn enforce_annotation_compatibility(
+    actual: &Type,
+    expected: &Type,
+    line: usize,
+    ctx_label: &str,
+) -> DecResult<()> {
+    if types_compatible_with_annotation(actual, expected) {
+        return Ok(());
+    }
+    if is_shape_mismatch(actual, expected) {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::ShapeMismatch,
+            line,
+            format!("{ctx_label} shape mismatch: expected {expected}, got {actual}"),
+        ));
+    }
+    Err(Diagnostic::at_line(
+        DiagnosticCode::ImplicitCoercionForbidden,
+        line,
+        format!("{ctx_label} declared as {expected}, got {actual}"),
+    ))
+}
+
+fn enforce_return_compatibility(actual: &Type, expected: &Type, line: usize) -> DecResult<()> {
+    if types_compatible_with_annotation(actual, expected) {
+        return Ok(());
+    }
+    if is_shape_mismatch(actual, expected) {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::ShapeMismatch,
+            line,
+            format!("return shape mismatch: expected {expected}, got {actual}"),
+        ));
+    }
+    Err(Diagnostic::at_line(
+        DiagnosticCode::TypeError,
+        line,
+        format!("return type mismatch: expected {expected}, got {actual}"),
+    ))
+}
+
+fn enforce_struct_or_enum_field_arg(
+    actual: &Type,
+    expected: &Type,
+    line: usize,
+    label: &str,
+) -> DecResult<()> {
+    if types_compatible_with_annotation(actual, expected) {
+        return Ok(());
+    }
+    if actual.is_read_only()
+        && !expected.is_read_only()
+        && types_compatible_with_annotation(actual.unwrap_read_only(), expected)
+    {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::ObserverMutationForbidden,
+            line,
+            format!("cannot strip ReadOnly from {actual} in {label}"),
+        ));
+    }
+    if is_shape_mismatch(actual, expected) {
+        return Err(Diagnostic::at_line(
+            DiagnosticCode::ShapeMismatch,
+            line,
+            format!("{label} shape mismatch: expects {expected}, got {actual}"),
+        ));
+    }
+    Err(Diagnostic::at_line(
+        DiagnosticCode::ImplicitCoercionForbidden,
+        line,
+        format!("{label} expects {expected}, got {actual}"),
+    ))
+}
+
+fn is_shape_mismatch(a: &Type, b: &Type) -> bool {
+    match (a.unwrap_read_only(), b.unwrap_read_only()) {
+        (Type::Array(ae, an), Type::Array(be, bn)) => {
+            (an != bn && (ae == be || is_shape_mismatch(ae, be)))
+                || (an == bn && is_shape_mismatch(ae, be))
+        }
+        (Type::List(ae), Type::Array(be, _)) if ae == be => true,
         _ => false,
     }
 }
@@ -3747,77 +4072,13 @@ fn types_compatible_with_annotation(actual: &Type, expected: &Type) -> bool {
 fn contains_unknown(ty: &Type) -> bool {
     match ty {
         Type::Unknown => true,
-        Type::List(inner) | Type::ReadOnly(inner) | Type::QExt(inner) => contains_unknown(inner),
+        Type::Array(inner, _) | Type::List(inner) | Type::ReadOnly(inner) | Type::QExt(inner) => {
+            contains_unknown(inner)
+        }
         Type::Map(k, v) => contains_unknown(k) || contains_unknown(v),
         Type::Tuple(elems) => elems.iter().any(contains_unknown),
         _ => false,
     }
-}
-
-fn resolve_single_arm_args(
-    params: &[crate::ast::TypedParam],
-    args: &[(Option<String>, Type)],
-    line: usize,
-) -> DecResult<Vec<Type>> {
-    if args.len() != params.len() {
-        return Err(Diagnostic::at_line(
-            DiagnosticCode::TypeError,
-            line,
-            format!("expected {} arguments, got {}", params.len(), args.len()),
-        ));
-    }
-    let mut slots: Vec<Option<Type>> = vec![None; params.len()];
-    let mut pos_idx = 0usize;
-    let mut saw_named = false;
-    for (name_opt, ty) in args {
-        match name_opt {
-            None => {
-                if saw_named {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        line,
-                        "positional argument cannot follow named argument",
-                    ));
-                }
-                slots[pos_idx] = Some(ty.clone());
-                pos_idx += 1;
-            }
-            Some(name) => {
-                saw_named = true;
-                let idx = params
-                    .iter()
-                    .position(|p| &p.name == name)
-                    .ok_or_else(|| {
-                        Diagnostic::at_line(
-                            DiagnosticCode::TypeError,
-                            line,
-                            format!("unknown named argument {name}"),
-                        )
-                    })?;
-                if slots[idx].is_some() {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::TypeError,
-                        line,
-                        format!("duplicate argument for parameter {name}"),
-                    ));
-                }
-                slots[idx] = Some(ty.clone());
-            }
-        }
-    }
-    slots
-        .into_iter()
-        .enumerate()
-        .map(|(i, s)| {
-            s.ok_or_else(|| {
-                Diagnostic::at_line(
-                    DiagnosticCode::TypeError,
-                    line,
-                    format!("missing argument for parameter {}", params[i].name),
-                )
-            })
-        })
-        .collect()
 }
 
 fn find_var_scope_index(scopes: &[BTreeMap<String, VarBinding>], name: &str) -> Option<usize> {
@@ -3829,7 +4090,7 @@ fn find_var_scope_index(scopes: &[BTreeMap<String, VarBinding>], name: &str) -> 
     None
 }
 
-fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecResult<Type> {
+pub fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecResult<Type> {
     match (base, field) {
         (Type::SimResult, "model_status")
         | (Type::SimResult, "chamber_name")

@@ -4,7 +4,7 @@ use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
 use aod_core::ternary::Addr8;
 
-use crate::ast::TritLiteral;
+use crate::ast::{AdverbOp, TritLiteral};
 use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -15,22 +15,16 @@ pub enum TokenKind {
     Newline,
     Eof,
 
-    // Hard keywords (contextual words like window/shedding/base/next/region/capture/clock/etc. remain Ident!)
+    // Hard keywords (contextual words like over/ticks/with/space/walls/clock/inject/etc. remain Ident!)
     Dec,
+    Where,
+    Null,
     Let,
-    Mut,
     Const,
     Return,
     Emit,
     Assert,
-    If,
-    Elif,
-    Else,
-    For,
     In,
-    While,
-    Break,
-    Continue,
     And,
     Or,
     Not,
@@ -51,6 +45,7 @@ pub enum TokenKind {
     Ident(String),
     IntLit(BigInt),
     StrLit(String),
+    BytesLit(Vec<u8>),
     RatioLit(Ratio),
     Addr8Lit(Addr8),
     SupportLit(SupportForm),
@@ -61,14 +56,16 @@ pub enum TokenKind {
     RParen,
     LBracket,
     RBracket,
-    LBrace,
-    RBrace,
     Comma,
+    Semicolon,
     Colon,
     ColonColon,
     Dot,
     DotDot,
     Arrow,
+    PipeGt,
+    Sieve,
+    Cmp3,
     Eq,
     EqEq,
     NotEq,
@@ -82,12 +79,16 @@ pub enum TokenKind {
     Slash,
     SlashSlash,
     Percent,
+    OuterAdd,
+    OuterMul,
     Amp,
     Pipe,
     Caret,
+    Tilde,
     Shl,
     Shr,
     BoundaryOp,
+    Adverb(AdverbOp),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -105,47 +106,70 @@ fn is_ident_cont(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }
 
-fn map_keyword(s: &str) -> TokenKind {
+fn map_keyword_or_reject(s: &str, line: usize, col: usize) -> DecResult<TokenKind> {
     match s {
-        "Dec" => TokenKind::Dec,
-        "let" => TokenKind::Let,
-        "mut" => TokenKind::Mut,
-        "const" => TokenKind::Const,
-        "return" => TokenKind::Return,
-        "emit" => TokenKind::Emit,
-        "assert" => TokenKind::Assert,
-        "if" => TokenKind::If,
-        "elif" => TokenKind::Elif,
-        "else" => TokenKind::Else,
-        "for" => TokenKind::For,
-        "in" => TokenKind::In,
-        "while" => TokenKind::While,
-        "break" => TokenKind::Break,
-        "continue" => TokenKind::Continue,
-        "and" => TokenKind::And,
-        "or" => TokenKind::Or,
-        "not" => TokenKind::Not,
-        "true" => TokenKind::True,
-        "false" => TokenKind::False,
-        "use" => TokenKind::Use,
-        "chamber" => TokenKind::Chamber,
-        "prepare" => TokenKind::Prepare,
-        "observe" => TokenKind::Observe,
-        "simulate" => TokenKind::Simulate,
-        "quarantine" => TokenKind::Quarantine,
-        "pass" => TokenKind::Pass,
-        "struct" => TokenKind::Struct,
-        "enum" => TokenKind::Enum,
-        "match" => TokenKind::Match,
-        _ => TokenKind::Ident(s.to_string()),
+        "dec" => Ok(TokenKind::Dec),
+        "Dec" => Err(Diagnostic::at(
+            DiagnosticCode::ParseError,
+            line,
+            col,
+            "uppercase 'Dec' is removed; use lowercase 'dec <name>:' with indented '(params) -> Ret:' arms",
+        )),
+        "if" | "elif" | "else" => Err(Diagnostic::at(
+            DiagnosticCode::ParseError,
+            line,
+            col,
+            format!(
+                "imperative '{s}' is removed; use 'dec' signature arms, 'where' guards, 'select', 'mux', or 'match'"
+            ),
+        )),
+        "for" | "while" | "break" | "continue" => Err(Diagnostic::at(
+            DiagnosticCode::ParseError,
+            line,
+            col,
+            format!(
+                "imperative loop keyword '{s}' is removed; use rank lifting, '|>', 'walk', or 'settle'"
+            ),
+        )),
+        "mut" => Err(Diagnostic::at(
+            DiagnosticCode::ParseError,
+            line,
+            col,
+            "mutable bindings ('mut') are removed; use immutable 'let', 'walk', or 'settle'",
+        )),
+        "where" => Ok(TokenKind::Where),
+        "null" => Ok(TokenKind::Null),
+        "let" => Ok(TokenKind::Let),
+        "const" => Ok(TokenKind::Const),
+        "return" => Ok(TokenKind::Return),
+        "emit" => Ok(TokenKind::Emit),
+        "assert" => Ok(TokenKind::Assert),
+        "in" => Ok(TokenKind::In),
+        "and" => Ok(TokenKind::And),
+        "or" => Ok(TokenKind::Or),
+        "not" => Ok(TokenKind::Not),
+        "true" => Ok(TokenKind::True),
+        "false" => Ok(TokenKind::False),
+        "use" => Ok(TokenKind::Use),
+        "chamber" => Ok(TokenKind::Chamber),
+        "prepare" => Ok(TokenKind::Prepare),
+        "observe" => Ok(TokenKind::Observe),
+        "simulate" => Ok(TokenKind::Simulate),
+        "quarantine" => Ok(TokenKind::Quarantine),
+        "pass" => Ok(TokenKind::Pass),
+        "struct" => Ok(TokenKind::Struct),
+        "enum" => Ok(TokenKind::Enum),
+        "match" => Ok(TokenKind::Match),
+        _ => Ok(TokenKind::Ident(s.to_string())),
     }
 }
 
-/// Tokenize Dec v1 / v2 source code with:
-/// - Aggregate delimiter depth line joining (`[(0, 6], (4, 8]]` works cleanly, `P1-1`).
+/// Tokenize clean-break Dec source code with:
+/// - Aggregate delimiter depth line joining (`[(0, 6], (4, 8]]` works cleanly).
 /// - Strict float rejection vs `..` range (`24..40` lexes cleanly; `1.5`, `5.`, `.5`, `1e3` reject).
-/// - Dedicated exact literals: `RatioLit` (`1/3r`), `Addr8Lit` (`00_8`, `00|-`, `0o00`),
-///   `SupportLit` (`3:3:6`, `1:2:9_yro`), `TritLit` (`0_H`, `0_D`), prefix `∂`.
+/// - Dedicated exact literals: `IntLit` (decimal + `0x` + `0b`), `BytesLit` (`b"..."`),
+///   `RatioLit` (`1/3r`), `Addr8Lit` (`00_8`, `00|-`, `0o00`), `SupportLit` (`3:3:6`, `1:2:9_yro`),
+///   `TritLit` (`0t`, `1t`, `0_H`, `0_D`), prefix `∂`, `<=>`, `?>`, `|>`, `+:`, `*:`, and adverbs.
 pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut indent_stack: Vec<usize> = vec![0];
@@ -232,6 +256,18 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
 
             emitted_on_line = true;
 
+            // Raw ASCII bytes literal: `b"..."` or `b'...'`
+            if c == 'b' && matches!(chars.get(pos + 1), Some('"' | '\'')) {
+                let (bs, next_pos) = scan_bytes(&chars, pos + 1, line_no)?;
+                tokens.push(Token {
+                    kind: TokenKind::BytesLit(bs),
+                    line: line_no,
+                    col,
+                });
+                pos = next_pos;
+                continue;
+            }
+
             // String literals
             if c == '"' || c == '\'' {
                 let (s, next_pos) = scan_string(&chars, pos, line_no)?;
@@ -271,7 +307,7 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                         DiagnosticCode::FloatLiteralForbidden,
                         line_no,
                         col,
-                        "floating-point literals are forbidden in Dec; use exact ratio or aod::qext::ext_decimal",
+                        "floating-point literals are forbidden in Dec; use exact ratio (e.g. 1/2r) or aod::qext::ext_decimal",
                     ));
                 }
                 tokens.push(Token {
@@ -283,7 +319,7 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                 continue;
             }
 
-            // Numeric / RatioLit / Addr8Lit / SupportLit / TritLit
+            // Numeric / Hex / Bin / RatioLit / Addr8Lit / SupportLit / TritLit
             if c.is_ascii_digit() {
                 let (tok_kind, next_pos) = scan_number_like(&chars, pos, line_no)?;
                 tokens.push(Token {
@@ -295,7 +331,7 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                 continue;
             }
 
-            // Identifiers & keywords
+            // Identifiers, keywords, and word-based adverbs (`min/`, `max/`, `superpose/`, `min\`, `max\`)
             if is_ident_start(c) {
                 let start = pos;
                 pos += 1;
@@ -303,31 +339,104 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                     pos += 1;
                 }
                 let word: String = chars[start..pos].iter().collect();
+                match (word.as_str(), chars.get(pos).copied()) {
+                    ("min", Some('/')) => {
+                        pos += 1;
+                        tokens.push(Token {
+                            kind: TokenKind::Adverb(AdverbOp::FoldMin),
+                            line: line_no,
+                            col,
+                        });
+                        continue;
+                    }
+                    ("min", Some('\\')) => {
+                        pos += 1;
+                        tokens.push(Token {
+                            kind: TokenKind::Adverb(AdverbOp::ScanMin),
+                            line: line_no,
+                            col,
+                        });
+                        continue;
+                    }
+                    ("max", Some('/')) => {
+                        pos += 1;
+                        tokens.push(Token {
+                            kind: TokenKind::Adverb(AdverbOp::FoldMax),
+                            line: line_no,
+                            col,
+                        });
+                        continue;
+                    }
+                    ("max", Some('\\')) => {
+                        pos += 1;
+                        tokens.push(Token {
+                            kind: TokenKind::Adverb(AdverbOp::ScanMax),
+                            line: line_no,
+                            col,
+                        });
+                        continue;
+                    }
+                    ("superpose", Some('/')) => {
+                        pos += 1;
+                        tokens.push(Token {
+                            kind: TokenKind::Adverb(AdverbOp::FoldSuperpose),
+                            line: line_no,
+                            col,
+                        });
+                        continue;
+                    }
+                    _ => {}
+                }
+                let kind = map_keyword_or_reject(&word, line_no, col)?;
                 tokens.push(Token {
-                    kind: map_keyword(&word),
+                    kind,
                     line: line_no,
                     col,
                 });
                 continue;
             }
 
+            // Hard-reject `{` and `}` in clean-break Dec!
+            if c == '{' || c == '}' {
+                return Err(Diagnostic::at(
+                    DiagnosticCode::ParseError,
+                    line_no,
+                    col,
+                    format!(
+                        "brace delimiter {c:?} is removed; use indentation for blocks and 'map[(k, v)]' for maps"
+                    ),
+                ));
+            }
+
             // Multi-char & single-char operators/delimiters
             let next = chars.get(pos + 1).copied();
-            let (kind, advance) = match (c, next) {
-                (':', Some(':')) => (TokenKind::ColonColon, 2),
-                ('-', Some('>')) => (TokenKind::Arrow, 2),
-                ('=', Some('=')) => (TokenKind::EqEq, 2),
-                ('!', Some('=')) => (TokenKind::NotEq, 2),
-                ('<', Some('=')) => (TokenKind::LtEq, 2),
-                ('>', Some('=')) => (TokenKind::GtEq, 2),
-                ('<', Some('<')) => (TokenKind::Shl, 2),
-                ('>', Some('>')) => (TokenKind::Shr, 2),
-                ('/', Some('/')) => (TokenKind::SlashSlash, 2),
-                ('(', _) => {
+            let next2 = chars.get(pos + 2).copied();
+            let (kind, advance) = match (c, next, next2) {
+                ('<', Some('='), Some('>')) => (TokenKind::Cmp3, 3),
+                (':', Some(':'), _) => (TokenKind::ColonColon, 2),
+                ('-', Some('>'), _) => (TokenKind::Arrow, 2),
+                ('|', Some('>'), _) => (TokenKind::PipeGt, 2),
+                ('|', Some('/'), _) => (TokenKind::Adverb(AdverbOp::FoldOr), 2),
+                ('?', Some('>'), _) => (TokenKind::Sieve, 2),
+                ('=', Some('='), _) => (TokenKind::EqEq, 2),
+                ('!', Some('='), _) => (TokenKind::NotEq, 2),
+                ('<', Some('='), _) => (TokenKind::LtEq, 2),
+                ('>', Some('='), _) => (TokenKind::GtEq, 2),
+                ('<', Some('<'), _) => (TokenKind::Shl, 2),
+                ('>', Some('>'), _) => (TokenKind::Shr, 2),
+                ('/', Some('/'), _) => (TokenKind::SlashSlash, 2),
+                ('+', Some(':'), _) => (TokenKind::OuterAdd, 2),
+                ('*', Some(':'), _) => (TokenKind::OuterMul, 2),
+                ('+', Some('/'), _) => (TokenKind::Adverb(AdverbOp::FoldAdd), 2),
+                ('*', Some('/'), _) => (TokenKind::Adverb(AdverbOp::FoldMul), 2),
+                ('&', Some('/'), _) => (TokenKind::Adverb(AdverbOp::FoldAnd), 2),
+                ('+', Some('\\'), _) => (TokenKind::Adverb(AdverbOp::ScanAdd), 2),
+                ('*', Some('\\'), _) => (TokenKind::Adverb(AdverbOp::ScanMul), 2),
+                ('(', _, _) => {
                     delim_depth += 1;
                     (TokenKind::LParen, 1)
                 }
-                (')', _) => {
+                (')', _, _) => {
                     if delim_depth == 0 {
                         return Err(Diagnostic::at(
                             DiagnosticCode::LexError,
@@ -339,11 +448,11 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                     delim_depth -= 1;
                     (TokenKind::RParen, 1)
                 }
-                ('[', _) => {
+                ('[', _, _) => {
                     delim_depth += 1;
                     (TokenKind::LBracket, 1)
                 }
-                (']', _) => {
+                (']', _, _) => {
                     if delim_depth == 0 {
                         return Err(Diagnostic::at(
                             DiagnosticCode::LexError,
@@ -355,35 +464,21 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
                     delim_depth -= 1;
                     (TokenKind::RBracket, 1)
                 }
-                ('{', _) => {
-                    delim_depth += 1;
-                    (TokenKind::LBrace, 1)
-                }
-                ('}', _) => {
-                    if delim_depth == 0 {
-                        return Err(Diagnostic::at(
-                            DiagnosticCode::LexError,
-                            line_no,
-                            col,
-                            "unmatched '}'",
-                        ));
-                    }
-                    delim_depth -= 1;
-                    (TokenKind::RBrace, 1)
-                }
-                (',', _) => (TokenKind::Comma, 1),
-                (':', _) => (TokenKind::Colon, 1),
-                ('=', _) => (TokenKind::Eq, 1),
-                ('<', _) => (TokenKind::Lt, 1),
-                ('>', _) => (TokenKind::Gt, 1),
-                ('+', _) => (TokenKind::Plus, 1),
-                ('-', _) => (TokenKind::Minus, 1),
-                ('*', _) => (TokenKind::Star, 1),
-                ('/', _) => (TokenKind::Slash, 1),
-                ('%', _) => (TokenKind::Percent, 1),
-                ('&', _) => (TokenKind::Amp, 1),
-                ('|', _) => (TokenKind::Pipe, 1),
-                ('^', _) => (TokenKind::Caret, 1),
+                (',', _, _) => (TokenKind::Comma, 1),
+                (';', _, _) => (TokenKind::Semicolon, 1),
+                (':', _, _) => (TokenKind::Colon, 1),
+                ('=', _, _) => (TokenKind::Eq, 1),
+                ('<', _, _) => (TokenKind::Lt, 1),
+                ('>', _, _) => (TokenKind::Gt, 1),
+                ('+', _, _) => (TokenKind::Plus, 1),
+                ('-', _, _) => (TokenKind::Minus, 1),
+                ('*', _, _) => (TokenKind::Star, 1),
+                ('/', _, _) => (TokenKind::Slash, 1),
+                ('%', _, _) => (TokenKind::Percent, 1),
+                ('&', _, _) => (TokenKind::Amp, 1),
+                ('|', _, _) => (TokenKind::Pipe, 1),
+                ('^', _, _) => (TokenKind::Caret, 1),
+                ('~', _, _) => (TokenKind::Tilde, 1),
                 _ => {
                     return Err(Diagnostic::at(
                         DiagnosticCode::LexError,
@@ -432,6 +527,104 @@ pub fn tokenize(source: &str) -> DecResult<Vec<Token>> {
         col: 1,
     });
     Ok(tokens)
+}
+
+fn scan_bytes(chars: &[char], quote_pos: usize, line: usize) -> DecResult<(Vec<u8>, usize)> {
+    let quote = chars[quote_pos];
+    let mut pos = quote_pos + 1;
+    let mut out = Vec::new();
+    while pos < chars.len() {
+        let c = chars[pos];
+        if c == quote {
+            return Ok((out, pos + 1));
+        }
+        if c == '\\' {
+            pos += 1;
+            if pos >= chars.len() {
+                return Err(Diagnostic::at(
+                    DiagnosticCode::LexError,
+                    line,
+                    pos + 1,
+                    "unterminated bytes escape",
+                ));
+            }
+            match chars[pos] {
+                'n' => {
+                    out.push(b'\n');
+                    pos += 1;
+                }
+                'r' => {
+                    out.push(b'\r');
+                    pos += 1;
+                }
+                't' => {
+                    out.push(b'\t');
+                    pos += 1;
+                }
+                '0' => {
+                    out.push(0);
+                    pos += 1;
+                }
+                '\\' => {
+                    out.push(b'\\');
+                    pos += 1;
+                }
+                '"' => {
+                    out.push(b'"');
+                    pos += 1;
+                }
+                '\'' => {
+                    out.push(b'\'');
+                    pos += 1;
+                }
+                'x' => {
+                    if pos + 2 >= chars.len() {
+                        return Err(Diagnostic::at(
+                            DiagnosticCode::LexError,
+                            line,
+                            pos + 1,
+                            "incomplete \\xHH escape in bytes literal",
+                        ));
+                    }
+                    let hex: String = chars[pos + 1..pos + 3].iter().collect();
+                    let val = u8::from_str_radix(&hex, 16).map_err(|_| {
+                        Diagnostic::at(
+                            DiagnosticCode::LexError,
+                            line,
+                            pos + 1,
+                            format!("invalid hex escape \\x{hex} in bytes literal"),
+                        )
+                    })?;
+                    out.push(val);
+                    pos += 3;
+                }
+                other => {
+                    return Err(Diagnostic::at(
+                        DiagnosticCode::LexError,
+                        line,
+                        pos + 1,
+                        format!("unsupported bytes escape \\{other}"),
+                    ));
+                }
+            }
+        } else if c.is_ascii() {
+            out.push(c as u8);
+            pos += 1;
+        } else {
+            return Err(Diagnostic::at(
+                DiagnosticCode::LexError,
+                line,
+                pos + 1,
+                "bytes literal must contain ASCII characters or \\xHH escapes",
+            ));
+        }
+    }
+    Err(Diagnostic::at(
+        DiagnosticCode::LexError,
+        line,
+        quote_pos + 1,
+        "unterminated bytes literal",
+    ))
 }
 
 fn scan_string(chars: &[char], start: usize, line: usize) -> DecResult<(String, usize)> {
@@ -554,19 +747,99 @@ fn scan_string(chars: &[char], start: usize, line: usize) -> DecResult<(String, 
     ))
 }
 
+fn scan_radix_int(
+    chars: &[char],
+    start: usize,
+    radix: u32,
+    line: usize,
+    col: usize,
+) -> DecResult<(TokenKind, usize)> {
+    let mut pos = start + 2;
+    if pos >= chars.len() || chars[pos] == '_' {
+        return Err(Diagnostic::at(
+            DiagnosticCode::LexError,
+            line,
+            col,
+            format!("invalid base-{radix} integer literal"),
+        ));
+    }
+    let mut acc = BigInt::zero();
+    let base = BigInt::from_u64(radix as u64);
+    let mut saw_digit = false;
+    let mut prev_underscore = false;
+
+    while pos < chars.len() {
+        let ch = chars[pos];
+        if ch == '_' {
+            if prev_underscore {
+                return Err(Diagnostic::at(
+                    DiagnosticCode::LexError,
+                    line,
+                    pos + 1,
+                    "consecutive underscores in numeric literal",
+                ));
+            }
+            prev_underscore = true;
+            pos += 1;
+            continue;
+        }
+        if let Some(d) = ch.to_digit(radix) {
+            saw_digit = true;
+            prev_underscore = false;
+            acc = &(&acc * &base) + &BigInt::from_u64(d as u64);
+            pos += 1;
+        } else if ch == '.' && chars.get(pos + 1) != Some(&'.') {
+            return Err(Diagnostic::at(
+                DiagnosticCode::FloatLiteralForbidden,
+                line,
+                pos + 1,
+                "floating-point literals are forbidden in Dec",
+            ));
+        } else if is_ident_cont(ch) {
+            return Err(Diagnostic::at(
+                DiagnosticCode::LexError,
+                line,
+                pos + 1,
+                format!("invalid digit {ch:?} in base-{radix} literal"),
+            ));
+        } else {
+            break;
+        }
+    }
+
+    if !saw_digit || prev_underscore {
+        return Err(Diagnostic::at(
+            DiagnosticCode::LexError,
+            line,
+            col,
+            format!("malformed base-{radix} integer literal"),
+        ));
+    }
+    Ok((TokenKind::IntLit(acc), pos))
+}
+
 fn scan_number_like(chars: &[char], start: usize, line: usize) -> DecResult<(TokenKind, usize)> {
     let col = start + 1;
 
-    // 1. Octal anchor 0o[0-9]+
-    if chars[start] == '0' && chars.get(start + 1) == Some(&'o') {
-        let mut pos = start + 2;
-        while pos < chars.len() && chars[pos].is_ascii_digit() {
-            pos += 1;
+    // 1a. Hex integer `0x...` / `0X...` and Binary integer `0b...` / `0B...`
+    if chars[start] == '0' {
+        match chars.get(start + 1).copied() {
+            Some('x' | 'X') => return scan_radix_int(chars, start, 16, line, col),
+            Some('b' | 'B') => return scan_radix_int(chars, start, 2, line, col),
+            Some('o') => {
+                // 1b. Octal anchor 0o[0-9]+
+                let mut pos = start + 2;
+                while pos < chars.len() && chars[pos].is_ascii_digit() {
+                    pos += 1;
+                }
+                let text: String = chars[start..pos].iter().collect();
+                let addr = Addr8::parse(&text).map_err(|e| {
+                    Diagnostic::at(DiagnosticCode::InvalidOctalAnchor, line, col, e.to_string())
+                })?;
+                return Ok((TokenKind::Addr8Lit(addr), pos));
+            }
+            _ => {}
         }
-        let text: String = chars[start..pos].iter().collect();
-        let addr = Addr8::parse(&text)
-            .map_err(|e| Diagnostic::at(DiagnosticCode::InvalidOctalAnchor, line, col, e.to_string()))?;
-        return Ok((TokenKind::Addr8Lit(addr), pos));
     }
 
     // Scan leading digits (allowing internal underscores only when not followed by _8/_H/_D)
@@ -575,13 +848,11 @@ fn scan_number_like(chars: &[char], start: usize, line: usize) -> DecResult<(Tok
         if chars[pos].is_ascii_digit() {
             pos += 1;
         } else if chars[pos] == '_' {
-            // Stop before _8, _H, _D suffixes!
             let next = chars.get(pos + 1).copied();
             let after_next = chars.get(pos + 2).copied();
             if matches!(next, Some('8' | 'H' | 'D')) && !after_next.is_some_and(is_ident_cont) {
                 break;
             }
-            // Also check trailing underscore followed by digit
             if next.is_some_and(|ch| ch.is_ascii_digit()) {
                 pos += 1;
             } else {
@@ -628,7 +899,7 @@ fn scan_number_like(chars: &[char], start: usize, line: usize) -> DecResult<(Tok
     if chars.get(pos) == Some(&'t') && !chars.get(pos + 1).copied().is_some_and(is_ident_cont) {
         return match first_seg.as_str() {
             "0" => Ok((TokenKind::TritLit(TritLiteral::Zero), pos + 1)),
-            "1" => Ok((TokenKind::TritLit(TritLiteral::One), pos + 1)),
+            "1" => Ok((TokenKind::TritLit(TritLiteral::PosOne), pos + 1)),
             _ => Err(Diagnostic::at(
                 DiagnosticCode::InvalidTritLiteral,
                 line,
@@ -696,16 +967,14 @@ fn scan_number_like(chars: &[char], start: usize, line: usize) -> DecResult<(Tok
         }
     }
 
-    // 6. Float rejection vs `..` range (`P1-1`)
-    if chars.get(pos) == Some(&'.') {
-        if chars.get(pos + 1) != Some(&'.') {
-            return Err(Diagnostic::at(
-                DiagnosticCode::FloatLiteralForbidden,
-                line,
-                col,
-                "floating-point literals are forbidden in Dec; use exact ratio (e.g. 1/2r) or aod::qext::ext_decimal",
-            ));
-        }
+    // 6. Float rejection vs `..` range
+    if chars.get(pos) == Some(&'.') && chars.get(pos + 1) != Some(&'.') {
+        return Err(Diagnostic::at(
+            DiagnosticCode::FloatLiteralForbidden,
+            line,
+            col,
+            "floating-point literals are forbidden in Dec; use exact ratio (e.g. 1/2r) or aod::qext::ext_decimal",
+        ));
     }
     if matches!(chars.get(pos), Some('e' | 'E')) {
         let next = chars.get(pos + 1).copied();
@@ -720,6 +989,16 @@ fn scan_number_like(chars: &[char], start: usize, line: usize) -> DecResult<(Tok
                 "scientific-notation float literals are forbidden in Dec",
             ));
         }
+    }
+
+    // Reject trailing unknown alpha suffix attached directly to digits (e.g. `123abc`)
+    if chars.get(pos).copied().is_some_and(is_ident_cont) {
+        return Err(Diagnostic::at(
+            DiagnosticCode::LexError,
+            line,
+            pos + 1,
+            format!("unexpected suffix {:?} on integer literal", chars[pos]),
+        ));
     }
 
     // Plain exact integer

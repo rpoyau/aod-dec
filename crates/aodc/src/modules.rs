@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use aod_core::sha256::Sha256;
 
 use crate::ast::{Item, Program, UseDecl};
-use crate::diagnostics::{CompatMode, DecResult, Diagnostic, DiagnosticCode};
+use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::parser::parse_source;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -25,7 +25,6 @@ pub struct BundledModule {
 /// post-order topological `module_load_order` for `const` initialization, `P0-1`).
 #[derive(Clone, Debug)]
 pub struct LoadedUnit {
-    pub compat: CompatMode,
     pub entry_source: String,
     pub entry_sha256: String,
     pub entry_program: Program,
@@ -52,13 +51,56 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
     match namespace[1].as_str() {
         "core" => Some(&[
             "t1",
-            "t32",
             "q4",
+            "b8",
+            "b64",
+            "b64_bits",
+            "u64_int",
             "int",
             "ratio",
-            "pack",
-            "unpack",
+            "bytes",
+            "str_bytes",
+            "u16_le_bytes",
+            "u32_le_bytes",
+            "i32_le_bytes",
+            "i64_le_bytes",
+            "b64_le_bytes",
+            "push_byte",
+            "concat_bytes",
+            "slice_bytes",
+            "sha256_bytes",
+            "hex_bytes",
+            "pack_ratio",
+            "unpack_ratio",
             "neg",
+            "abs",
+            "sgn",
+            "min",
+            "max",
+            "pow",
+            "gcd",
+            "lcm",
+            "trit_shl",
+            "trit_shr",
+            "superpose_cancel",
+            "popcnt",
+            "is_hamming1",
+            "mux",
+            "select",
+            "gate",
+            "argmin",
+            "argmax",
+            "walk",
+            "settle",
+            "fold",
+            "scan",
+            "each",
+            "range_seq",
+            "push",
+            "concat",
+            "slice",
+            "set_at",
+            "map_put",
             "addr8",
             "support",
             "support_pi",
@@ -92,13 +134,18 @@ pub fn builtin_namespace_items(namespace: &[String]) -> Option<&'static [&'stati
             "qext_round_half_even",
             "qext_format_fixed",
         ]),
+        "sys" => Some(&["cli_args", "read_file_bytes", "write_executable_elf"]),
         _ => None,
     }
 }
 
 pub fn canonical_builtin_name(namespace: &[String], item: &str) -> String {
-    if namespace.len() == 2 && namespace[0] == "aod" && namespace[1] == "qext" {
-        format!("aod::qext::{item}")
+    if namespace.len() == 2 && namespace[0] == "aod" {
+        match namespace[1].as_str() {
+            "qext" => format!("aod::qext::{item}"),
+            "sys" => format!("aod::sys::{item}"),
+            _ => item.to_string(),
+        }
     } else {
         item.to_string()
     }
@@ -154,12 +201,8 @@ pub fn resolve_stdlib_root(options: &LoadOptions, base_dir: Option<&Path>) -> Op
 }
 
 /// Load a source file (or in-memory source with optional base directory) with default `LoadOptions`.
-pub fn load_from_source(
-    entry_source: &str,
-    base_dir: Option<&Path>,
-    compat: CompatMode,
-) -> DecResult<LoadedUnit> {
-    load_from_source_with_options(entry_source, base_dir, compat, &LoadOptions::default())
+pub fn load_from_source(entry_source: &str, base_dir: Option<&Path>) -> DecResult<LoadedUnit> {
+    load_from_source_with_options(entry_source, base_dir, &LoadOptions::default())
 }
 
 /// Load a source file (or in-memory source with optional base directory and explicit `LoadOptions`)
@@ -167,15 +210,13 @@ pub fn load_from_source(
 pub fn load_from_source_with_options(
     entry_source: &str,
     base_dir: Option<&Path>,
-    compat: CompatMode,
     options: &LoadOptions,
 ) -> DecResult<LoadedUnit> {
-    let entry_program = parse_source(entry_source, compat)?;
+    let entry_program = parse_source(entry_source)?;
     let entry_sha256 = Sha256::digest_hex(entry_source.as_bytes());
     let stdlib_root = resolve_stdlib_root(options, base_dir);
 
     let mut loader = ModuleLoader {
-        compat,
         base_dir: base_dir.map(Path::to_path_buf),
         stdlib_root,
         embedded: None,
@@ -190,7 +231,6 @@ pub fn load_from_source_with_options(
     let entry_imports = loader.resolve_program_uses(&entry_program, "<entry>", base_dir)?;
 
     Ok(LoadedUnit {
-        compat,
         entry_source: entry_source.to_string(),
         entry_sha256,
         entry_program,
@@ -203,11 +243,10 @@ pub fn load_from_source_with_options(
 }
 
 /// Load a `LoadedUnit` strictly hermetically from embedded `entry_source` + `bundled_modules`
-/// (ZERO ambient filesystem reads, ZERO `AOD_STDLIB_DIR` inspection, `P0-2`, `P1-2`).
+/// (ZERO ambient filesystem reads, ZERO `AOD_STDLIB_DIR` inspection).
 pub fn load_hermetic(
     entry_source: &str,
     bundled_modules: &BTreeMap<String, BundledModule>,
-    compat: CompatMode,
 ) -> DecResult<LoadedUnit> {
     for (name, m) in bundled_modules {
         let actual = Sha256::digest_hex(m.source.as_bytes());
@@ -218,11 +257,10 @@ pub fn load_hermetic(
             ));
         }
     }
-    let entry_program = parse_source(entry_source, compat)?;
+    let entry_program = parse_source(entry_source)?;
     let entry_sha256 = Sha256::digest_hex(entry_source.as_bytes());
 
     let mut loader = ModuleLoader {
-        compat,
         base_dir: None,
         stdlib_root: None,
         embedded: Some(bundled_modules.clone()),
@@ -237,7 +275,6 @@ pub fn load_hermetic(
     let entry_imports = loader.resolve_program_uses(&entry_program, "<entry>", None)?;
 
     Ok(LoadedUnit {
-        compat,
         entry_source: entry_source.to_string(),
         entry_sha256,
         entry_program,
@@ -250,7 +287,6 @@ pub fn load_hermetic(
 }
 
 struct ModuleLoader {
-    compat: CompatMode,
     base_dir: Option<PathBuf>,
     stdlib_root: Option<PathBuf>,
     embedded: Option<BTreeMap<String, BundledModule>>,
@@ -293,7 +329,7 @@ impl ModuleLoader {
             ));
         }
 
-        // Built-in `aod::*` namespace (preserved untouched)
+        // Built-in `aod::*` namespace
         if u.path[0] == "aod" {
             if let Some(items) = &u.items {
                 let allowed = builtin_namespace_items(&u.path).ok_or_else(|| {
@@ -391,7 +427,6 @@ impl ModuleLoader {
                 ImportedSymbol::ModuleNamespace(mod_key),
             );
         } else {
-            // Try loading full path as module first; if absent, treat last segment as item in parent module.
             let full_key = u.path.join("::");
             if self.module_exists(&full_key, &u.path, current_dir) {
                 self.load_user_module(&full_key, &u.path, current_mod, current_dir, u.line)?;
@@ -423,7 +458,6 @@ impl ModuleLoader {
     }
 
     fn module_exists(&self, mod_key: &str, segs: &[String], current_dir: Option<&Path>) -> bool {
-        // P0-2: Check embedded hermetic bundle FIRST for ALL modules (including `stdlib::*`).
         if let Some(emb) = &self.embedded {
             return emb.contains_key(mod_key);
         }
@@ -439,7 +473,6 @@ impl ModuleLoader {
             return None;
         }
 
-        // Pure `.dec` stdlib namespace (`use stdlib::...`) resolves strictly under `stdlib_root` (`P0-2`)
         if segs[0] == "stdlib" {
             if segs.len() < 2 {
                 return None;
@@ -507,7 +540,6 @@ impl ModuleLoader {
             return Ok(());
         }
 
-        // P0-2: Always inspect hermetic embedded bundle FIRST (zero filesystem / env reads in `exec`).
         let (source, next_dir) = if let Some(emb) = &self.embedded {
             let m = emb.get(mod_key).ok_or_else(|| {
                 Diagnostic::at_line(
@@ -539,13 +571,12 @@ impl ModuleLoader {
         };
 
         let sha = Sha256::digest_hex(source.as_bytes());
-        let program = parse_source(&source, self.compat)?;
+        let program = parse_source(&source)?;
 
         self.visiting.push(mod_key.to_string());
         let mod_imports = self.resolve_program_uses(&program, mod_key, next_dir.as_deref())?;
         self.visiting.pop();
 
-        // Post-order DFS exit (`P0-1`): dependencies strictly precede dependents!
         self.visited.insert(mod_key.to_string());
         self.module_load_order.push(mod_key.to_string());
         self.bundled_modules.insert(

@@ -30,7 +30,7 @@ use aod_llvm::{CodegenPlan, OrcJitSession};
 
 use crate::checker::check_unit;
 use crate::codegen::lower_to_llvm_ir_with_plan;
-use crate::diagnostics::{CompatMode, Diagnostic};
+use crate::diagnostics::Diagnostic;
 use crate::eval::{Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::modules::{load_from_source_with_options, LoadOptions};
 
@@ -1586,7 +1586,7 @@ fn verify_positive_3mode(
     load_opts: &LoadOptions,
     errors: &mut Vec<String>,
 ) {
-    let loaded = match load_from_source_with_options(src, base_dir, CompatMode::V2, load_opts) {
+    let loaded = match load_from_source_with_options(src, base_dir, load_opts) {
         Ok(u) => u,
         Err(e) => {
             errors.push(format!("{label}: load failed: {e}"));
@@ -1694,7 +1694,7 @@ fn verify_negative_3mode(
         errors.push(format!("{label}: negative expectation must be non-empty"));
         return;
     }
-    let check_res = load_from_source_with_options(src, base_dir, CompatMode::V2, load_opts)
+    let check_res = load_from_source_with_options(src, base_dir, load_opts)
         .and_then(|u| check_unit(u, true));
     match check_res {
         Err(diag) => {
@@ -1710,7 +1710,7 @@ fn verify_negative_3mode(
                 let _ = std::fs::remove_file(&out_exe);
             }
             // Also confirm build/jit entrypoints reject without writing output file
-            let check_again = load_from_source_with_options(src, base_dir, CompatMode::V2, load_opts)
+            let check_again = load_from_source_with_options(src, base_dir, load_opts)
                 .and_then(|u| check_unit(u, true));
             if check_again.is_ok() || out_exe.exists() {
                 errors.push(format!(
@@ -1976,7 +1976,7 @@ fn run_fixture_lines(
             return None;
         }
     };
-    let loaded = match load_from_source_with_options(&src, fixture_path.parent(), CompatMode::V2, load_opts) {
+    let loaded = match load_from_source_with_options(&src, fixture_path.parent(), load_opts) {
         Ok(u) => u,
         Err(e) => {
             errors.push(format!("Pass 6 load failed on {}: {e}", fixture_path.display()));

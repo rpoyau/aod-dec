@@ -1,12 +1,6 @@
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum CompatMode {
-    V1,
-    V2,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum DiagnosticCode {
     LexError,
     ParseError,
@@ -18,9 +12,11 @@ pub enum DiagnosticCode {
     EvenSupportForbidsYro,
     ZeroDenominator,
     TypeError,
+    ShapeMismatch,
     ImplicitCoercionForbidden,
     ObserverMutationForbidden,
     QExtLeakageForbidden,
+    SysIoForbidden,
     ModuleNotFound,
     ModuleCycleError,
     IrVerificationError,

@@ -1179,6 +1179,30 @@ impl TritInt {
         }
         Ok(Self::from_little_endian_u32_bits(&out))
     }
+
+    /// Lane-wise Complete-State balanced-ternary superposition (`+1` and `-1` cancel to `0`).
+    pub fn superpose_cancel(&self, other: &Self) -> Self {
+        match (self, other) {
+            (Self::Inline(wa), Self::Inline(wb)) => {
+                Self::Inline(swar_superpose_complete(*wa, *wb).0)
+            }
+            _ => {
+                let a = self.to_big_trit();
+                let b = other.to_big_trit();
+                let len = a.limbs.len().max(b.limbs.len());
+                let mut limbs = Vec::with_capacity(len);
+                for i in 0..len {
+                    let la = a.limbs.get(i).copied().unwrap_or(0);
+                    let lb = b.limbs.get(i).copied().unwrap_or(0);
+                    limbs.push(swar_superpose_complete(la, lb).0);
+                }
+                while limbs.last() == Some(&0) {
+                    limbs.pop();
+                }
+                Self::from_big_trit(BigTrit { limbs })
+            }
+        }
+    }
 }
 
 impl Ord for TritInt {
