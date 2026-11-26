@@ -47,6 +47,7 @@ pub use aod_llvm::{
     HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession, PerfCapability,
     ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
 };
+pub use aod_rt::ns_fs::{MemFsProvider, RtMountSpec, RtNamespace};
 pub use crate::dec_audit::{
     audit_dec_source_with_options, failed_read_audit_report, lex_live_walk, verify_frg_identity,
     verify_sheddic_route, DecAuditReport, HookAuditResult, LiveWalkSummary, DEC_AUDIT_SCHEMA,
@@ -187,9 +188,31 @@ pub fn run_file_with_parallel_observers_capturing(
     options: &LoadOptions,
     parallel_observers: bool,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
+    run_file_with_ns_capturing(
+        path,
+        fuel,
+        max_depth,
+        options,
+        parallel_observers,
+        RtNamespace::empty(),
+        Vec::new(),
+    )
+}
+
+pub fn run_file_with_ns_capturing(
+    path: &Path,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+    parallel_observers: bool,
+    rt_ns: RtNamespace,
+    cli_args: Vec<Vec<u8>>,
+) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
     let checked = check_file_with_options(path, options)?;
     Ok(Evaluator::new(&checked, fuel, max_depth)?
         .with_parallel_observers(parallel_observers)
+        .with_rt_namespace(rt_ns)
+        .with_cli_args(cli_args)
         .run_main_capturing())
 }
 
@@ -416,6 +439,31 @@ pub fn jit_file_with_profile_and_parallel_captured(
     options: &LoadOptions,
     parallel_observers: bool,
 ) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
+    jit_file_with_ns_captured(
+        path,
+        fallback_opt,
+        fuel,
+        max_depth,
+        profile_path,
+        options,
+        parallel_observers,
+        RtNamespace::empty(),
+        Vec::new(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn jit_file_with_ns_captured(
+    path: &Path,
+    fallback_opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    profile_path: Option<&Path>,
+    options: &LoadOptions,
+    parallel_observers: bool,
+    rt_ns: RtNamespace,
+    cli_args: Vec<Vec<u8>>,
+) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
     let checked = check_file_with_options(path, options)?;
     let fallback_plan = CodegenPlan::for_opt_level(fallback_opt);
 
@@ -437,7 +485,8 @@ pub fn jit_file_with_profile_and_parallel_captured(
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &chosen_plan)?;
     let session = OrcJitSession::compile_with_plan(&raw_ir, &chosen_plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
-    let (stdout, res) = session.run_captured(fuel as i64, max_depth as i32);
+    let (stdout, res) =
+        session.run_captured_with_ns(fuel as i64, max_depth as i32, rt_ns, cli_args);
     Ok((stdout, res, chosen_plan, note))
 }
 
@@ -847,15 +896,44 @@ pub fn bootstrap_verify_with_stage2_out(
     })?;
     let stage1_sha256 = Sha256::digest_hex(&stage1_bytes_raw);
 
-    // 2. Stage 1 -> Stage 2
+    // 2. Stage 1 -> Stage 2 (strictly mounted via Plan 9 /src ro + /out rw!)
+    let src_canon = std::fs::canonicalize(&resolved_src).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::ModuleNotFound,
+            format!("failed canonicalizing {}: {e}", resolved_src.display()),
+        )
+    })?;
+    let src_parent = src_canon.parent().ok_or_else(|| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            "self-host compiler source has no parent directory",
+        )
+    })?;
+    let src_fname = src_canon
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                "self-host compiler filename must be valid UTF-8",
+            )
+        })?;
+    let stage1_mount_ro = format!("ro:{}:/src", src_parent.display());
+    let stage1_mount_rw = format!("rw:{}:/out", work_dir.display());
+    let stage1_ns_src = format!("/src/{src_fname}");
+
     let s1_out = Command::new(&stage1_exe)
         .args([
             "--fuel",
             "100000000",
             "--max-depth",
             "512",
-            &resolved_src.to_string_lossy(),
-            &stage2_exe.to_string_lossy(),
+            "--mount",
+            &stage1_mount_ro,
+            "--mount",
+            &stage1_mount_rw,
+            &stage1_ns_src,
+            "/out/aodc_stage2",
         ])
         .output()
         .map_err(|e| {

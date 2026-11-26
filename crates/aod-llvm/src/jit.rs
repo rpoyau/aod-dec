@@ -246,7 +246,26 @@ impl OrcJitSession {
     }
 
     pub fn run_captured(&self, fuel: i64, max_depth: i32) -> (String, Result<(), String>) {
+        self.run_captured_with_ns(
+            fuel,
+            max_depth,
+            aod_rt::ns_fs::RtNamespace::empty(),
+            Vec::new(),
+        )
+    }
+
+    pub fn run_captured_with_ns(
+        &self,
+        fuel: i64,
+        max_depth: i32,
+        rt_ns: aod_rt::ns_fs::RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+    ) -> (String, Result<(), String>) {
         let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
+        ctx.set_rt_namespace(rt_ns);
+        if !cli_args.is_empty() {
+            ctx.set_cli_args(cli_args);
+        }
         self.execute(&mut ctx);
         let stdout = ctx.stdout_string();
         if ctx.failed() {

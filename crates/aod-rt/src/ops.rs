@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
-use std::path::Path;
 
 use aod_core::bigint::BigInt;
 use aod_core::ledger::{probability, SadarPromotion};
@@ -56,6 +55,7 @@ pub struct RtState {
     pub sim_builders: Vec<SimBuilder>,
     pub emits: Vec<String>,
     pub cli_args: Vec<Vec<u8>>,
+    pub rt_ns: crate::ns_fs::RtNamespace,
     pub error: Option<String>,
     pub capture_stdout: bool,
 }
@@ -68,6 +68,7 @@ impl RtState {
             sim_builders: Vec::new(),
             emits: Vec::new(),
             cli_args: Vec::new(),
+            rt_ns: crate::ns_fs::RtNamespace::empty(),
             error: None,
             capture_stdout,
         }
@@ -381,60 +382,16 @@ impl RtState {
     }
 
     pub fn op_sys_read_file_bytes(&mut self, path_h: u64) -> Result<u64, String> {
-        let raw_path = self.get_bytes(path_h)?;
-        if raw_path.is_empty() || raw_path.contains(&0) {
-            return Err("invalid empty or NUL-containing file path".to_string());
-        }
-        let path_str = std::str::from_utf8(raw_path)
-            .map_err(|_| "file path must be valid UTF-8".to_string())?;
-        let meta = std::fs::metadata(path_str)
-            .map_err(|e| format!("failed to stat {path_str:?}: {e}"))?;
-        if meta.len() > (MAX_SYS_IO_BYTES as u64) {
-            return Err(format!(
-                "file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
-            ));
-        }
-        let data = std::fs::read(path_str)
-            .map_err(|e| format!("failed to read {path_str:?}: {e}"))?;
-        if data.len() > MAX_SYS_IO_BYTES {
-            return Err(format!(
-                "file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
-            ));
-        }
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        let data = self.rt_ns.read_file_bytes(&raw_path)?;
         self.arena.insert(RtValue::Bytes(std::sync::Arc::new(data)))
     }
 
     pub fn op_sys_write_executable_elf(&mut self, path_h: u64, img_h: u64) -> Result<BigInt, String> {
         let path_bytes = self.get_bytes(path_h)?.to_vec();
         let img = self.get_bytes(img_h)?.to_vec();
-        if path_bytes.is_empty() || path_bytes.contains(&0) {
-            return Err("invalid empty or NUL-containing output ELF path".to_string());
-        }
-        if img.len() < 64 || &img[0..4] != b"\x7FELF" {
-            return Err("write_executable_elf requires a valid ELF64 header (\\x7FELF)".to_string());
-        }
-        if img.len() > MAX_SYS_IO_BYTES {
-            return Err(format!(
-                "ELF image exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"
-            ));
-        }
-        let path_str = std::str::from_utf8(&path_bytes)
-            .map_err(|_| "output ELF path must be valid UTF-8".to_string())?;
-        let target = Path::new(path_str);
-        if let Ok(meta) = std::fs::symlink_metadata(target) {
-            if meta.file_type().is_symlink() {
-                return Err(format!("refusing to overwrite symlink {path_str:?}"));
-            }
-        }
-        std::fs::write(target, &img)
-            .map_err(|e| format!("failed to write ELF {path_str:?}: {e}"))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(target, std::fs::Permissions::from_mode(0o755))
-                .map_err(|e| format!("failed to chmod +x {path_str:?}: {e}"))?;
-        }
-        Ok(BigInt::from_u64(img.len() as u64))
+        let written = self.rt_ns.write_executable_elf(&path_bytes, &img)?;
+        Ok(BigInt::from_u64(written as u64))
     }
 
     pub fn op_map_get(&self, map_h: u64, key_h: u64) -> Result<RtValue, String> {

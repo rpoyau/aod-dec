@@ -113,6 +113,17 @@ impl OwnedRtContext {
         }
     }
 
+    pub fn set_rt_namespace(&mut self, rt_ns: crate::ns_fs::RtNamespace) {
+        if !self.raw.inner.is_null() {
+            let state = unsafe { &mut *self.raw.inner };
+            state.rt_ns = rt_ns;
+        }
+    }
+
+    pub fn rt_namespace(&self) -> &crate::ns_fs::RtNamespace {
+        &self.state().rt_ns
+    }
+
     pub fn as_mut_ptr(&mut self) -> *mut AodRtContext {
         &mut self.raw
     }
@@ -277,6 +288,8 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
         let mut fuel = DEFAULT_NATIVE_FUEL;
         let mut max_depth = DEFAULT_NATIVE_MAX_DEPTH;
+        let mut mount_specs: Vec<crate::ns_fs::RtMountSpec> = Vec::new();
+        let mut unconfined = false;
         let mut positional: Vec<Vec<u8>> = Vec::new();
         if argc > 0 && !argv.is_null() {
             let args = unsafe { std::slice::from_raw_parts(argv, argc as usize) };
@@ -302,6 +315,22 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                     "--" => {
                         after_ddash = true;
                         i += 1;
+                    }
+                    "--unconfined" => {
+                        unconfined = true;
+                        i += 1;
+                    }
+                    "--mount" => {
+                        let next = args
+                            .get(i + 1)
+                            .copied()
+                            .filter(|p| !p.is_null())
+                            .ok_or_else(|| "missing spec after --mount".to_string())?;
+                        let val_s = unsafe { CStr::from_ptr(next) }
+                            .to_str()
+                            .map_err(|_| "invalid UTF-8 after --mount".to_string())?;
+                        mount_specs.push(crate::ns_fs::RtMountSpec::parse_cli(val_s)?);
+                        i += 2;
                     }
                     "--fuel" => {
                         let next = args
@@ -349,7 +378,7 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                     }
                     other if other.starts_with('-') => {
                         return Err(format!(
-                            "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>)"
+                            "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>, --mount <spec>, --unconfined)"
                         ));
                     }
                     _ => {
@@ -359,10 +388,22 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                 }
             }
         }
+        if unconfined && !mount_specs.is_empty() {
+            return Err("--unconfined cannot be combined with --mount".to_string());
+        }
+        let mut rt_ns = if unconfined {
+            crate::ns_fs::RtNamespace::unconfined_host()
+        } else {
+            crate::ns_fs::RtNamespace::empty()
+        };
+        for spec in &mount_specs {
+            rt_ns.apply_spec(spec)?;
+        }
         unsafe {
             aod_rt_ctx_init(ctx, fuel, max_depth, 0);
             if !(*ctx).inner.is_null() {
                 (*(*ctx).inner).cli_args = positional;
+                (*(*ctx).inner).rt_ns = rt_ns;
             }
         }
         Ok(())

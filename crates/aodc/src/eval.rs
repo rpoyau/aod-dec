@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
 use std::sync::Arc;
 
 use aod_core::bigint::BigInt;
@@ -17,9 +16,10 @@ use aod_core::wavelet::{
     StageEventWitness, Wavelet, WaveletRole, WaveletSpec,
 };
 use aod_core::witness::{Coupling, Fusion, SeatState, Trace};
+use aod_rt::ns_fs::RtNamespace;
 use aod_rt::ops::{
     checked_trit_pow, decode_hex_32, exact_unpack_t9_bits, exact_verify_frg_cross_return,
-    exact_verify_sheddic_route, exact_verify_sheddic_route_int, MAX_SYS_IO_BYTES,
+    exact_verify_sheddic_route, exact_verify_sheddic_route_int,
 };
 use aod_rt::value::{
     model_status_variant_and_tag, recipient_stage_variant_and_tag, render_bytes_literal,
@@ -384,6 +384,7 @@ pub struct Evaluator<'a> {
     depth: usize,
     emits: Vec<String>,
     cli_args: Vec<Vec<u8>>,
+    rt_ns: RtNamespace,
     parallel_observers: bool,
 }
 
@@ -406,6 +407,7 @@ impl<'a> Evaluator<'a> {
             depth: 0,
             emits: Vec::new(),
             cli_args: Vec::new(),
+            rt_ns: RtNamespace::empty(),
             parallel_observers: false,
         };
         ev.register_builtin_enums();
@@ -429,6 +431,11 @@ impl<'a> Evaluator<'a> {
 
     pub fn with_cli_args(mut self, cli_args: Vec<Vec<u8>>) -> Self {
         self.cli_args = cli_args;
+        self
+    }
+
+    pub fn with_rt_namespace(mut self, rt_ns: RtNamespace) -> Self {
+        self.rt_ns = rt_ns;
         self
     }
 
@@ -2559,109 +2566,18 @@ impl<'a> Evaluator<'a> {
                 self.cli_args.iter().cloned().map(Value::Bytes).collect(),
             )),
             ("aod::sys::read_file_bytes", [Value::Bytes(path_bytes)]) => {
-                if path_bytes.is_empty() || path_bytes.contains(&0) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "invalid empty or NUL-containing path in read_file_bytes",
-                    ));
-                }
-                let path_str = std::str::from_utf8(path_bytes).map_err(|_| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "file path must be valid UTF-8",
-                    )
-                })?;
-                let meta = std::fs::metadata(path_str).map_err(|e| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("failed to stat {path_str:?}: {e}"),
-                    )
-                })?;
-                if meta.len() > (MAX_SYS_IO_BYTES as u64) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"),
-                    ));
-                }
-                let data = std::fs::read(path_str).map_err(|e| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("failed to read {path_str:?}: {e}"),
-                    )
-                })?;
-                if data.len() > MAX_SYS_IO_BYTES {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"),
-                    ));
-                }
+                let data = self
+                    .rt_ns
+                    .read_file_bytes(path_bytes)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
                 Ok(Value::Bytes(data))
             }
             ("aod::sys::write_executable_elf", [Value::Bytes(path_bytes), Value::Bytes(img)]) => {
-                if path_bytes.is_empty() || path_bytes.contains(&0) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "invalid empty or NUL-containing output ELF path",
-                    ));
-                }
-                if img.len() < 64 || &img[0..4] != b"\x7FELF" {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "write_executable_elf requires a valid ELF64 header (\\x7FELF)",
-                    ));
-                }
-                if img.len() > MAX_SYS_IO_BYTES {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("ELF image exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"),
-                    ));
-                }
-                let path_str = std::str::from_utf8(path_bytes).map_err(|_| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "output ELF path must be valid UTF-8",
-                    )
-                })?;
-                let target = Path::new(path_str);
-                if let Ok(meta) = std::fs::symlink_metadata(target) {
-                    if meta.file_type().is_symlink() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::RuntimeError,
-                            line,
-                            format!("refusing to overwrite symlink {path_str:?}"),
-                        ));
-                    }
-                }
-                std::fs::write(target, img).map_err(|e| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("failed to write ELF {path_str:?}: {e}"),
-                    )
-                })?;
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    std::fs::set_permissions(target, std::fs::Permissions::from_mode(0o755))
-                        .map_err(|e| {
-                            Diagnostic::at_line(
-                                DiagnosticCode::RuntimeError,
-                                line,
-                                format!("failed to chmod +x {path_str:?}: {e}"),
-                            )
-                        })?;
-                }
-                Ok(Value::Int(BigInt::from_u64(img.len() as u64)))
+                let written = self
+                    .rt_ns
+                    .write_executable_elf(path_bytes, img)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Int(BigInt::from_u64(written as u64)))
             }
             _ => Err(Diagnostic::at_line(
                 DiagnosticCode::RuntimeError,
@@ -2963,6 +2879,7 @@ impl<'a> Evaluator<'a> {
                                     depth: parent_depth,
                                     emits: Vec::new(),
                                     cli_args: Vec::new(),
+                                    rt_ns: RtNamespace::empty(),
                                     parallel_observers: false,
                                 };
                                 let mut pscope = BTreeMap::new();

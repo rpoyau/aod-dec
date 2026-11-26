@@ -12,12 +12,12 @@ use aodc::{
     build_aot_file_with_options, check_file_with_options, check_v1_file, collect_guarded_roots,
     compile_file_to_ir_with_options, compile_v1_file_to_ir, emit_llvm_file_with_options,
     eval_operation, exec_ir_file_with_budget_capturing, format_source, format_x100,
-    jit_file_with_profile_and_parallel_captured, learn_file_with_options,
-    migrate_source_formatted, read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes,
-    run_dec_tests_with_compat, run_file_with_parallel_observers_capturing, run_manual_data,
-    run_v1_file_capturing, validate_runtime_output_path, verify_manual_dir, verify_s2_dir,
-    verify_s4_convergence_dir, write_report_atomic, CompatMode, LoadOptions, ManualDataOptions,
-    ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_MIGRATE_SOURCE_BYTES, MAX_S4_INPUT_BYTES,
+    jit_file_with_ns_captured, learn_file_with_options, migrate_source_formatted,
+    read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_compat,
+    run_file_with_ns_capturing, run_manual_data, run_v1_file_capturing,
+    validate_runtime_output_path, verify_manual_dir, verify_s2_dir, verify_s4_convergence_dir,
+    write_report_atomic, CompatMode, LoadOptions, ManualDataOptions, ManualVerifyOptions, OptLevel,
+    PdfAuditOptions, RtMountSpec, RtNamespace, MAX_MIGRATE_SOURCE_BYTES, MAX_S4_INPUT_BYTES,
 };
 
 struct CliErr {
@@ -304,8 +304,71 @@ fn flush_emits_and_result(
     }
 }
 
+fn extract_ns_and_prog_args(
+    args: &[String],
+) -> Result<(RtNamespace, Vec<String>, Vec<String>), String> {
+    let mut before_ddash = Vec::new();
+    let mut after_ddash = Vec::new();
+    let mut saw_ddash = false;
+    for a in args {
+        if saw_ddash {
+            after_ddash.push(a.clone());
+        } else if a == "--" {
+            saw_ddash = true;
+        } else {
+            before_ddash.push(a.clone());
+        }
+    }
+
+    let mut specs = Vec::new();
+    let mut unconfined = false;
+    let mut filtered = Vec::new();
+    let mut i = 0usize;
+    while i < before_ddash.len() {
+        match before_ddash[i].as_str() {
+            "--unconfined" => {
+                unconfined = true;
+                i += 1;
+            }
+            "--mount" => {
+                let raw = before_ddash
+                    .get(i + 1)
+                    .ok_or_else(|| "missing spec after --mount".to_string())?;
+                specs.push(RtMountSpec::parse_cli(raw)?);
+                i += 2;
+            }
+            _ => {
+                filtered.push(before_ddash[i].clone());
+                i += 1;
+            }
+        }
+    }
+
+    if unconfined && !specs.is_empty() {
+        return Err("--unconfined cannot be combined with --mount".to_string());
+    }
+    let mut rt_ns = if unconfined {
+        RtNamespace::unconfined_host()
+    } else {
+        RtNamespace::empty()
+    };
+    for spec in &specs {
+        rt_ns.apply_spec(spec)?;
+    }
+    Ok((rt_ns, filtered, after_ddash))
+}
+
+fn build_prog_cli_args(prog_name: &str, prog_tail: &[String]) -> Vec<Vec<u8>> {
+    let mut out = Vec::with_capacity(1 + prog_tail.len());
+    out.push(prog_name.as_bytes().to_vec());
+    for a in prog_tail {
+        out.push(a.as_bytes().to_vec());
+    }
+    out
+}
+
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v3] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v3] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v3] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc migrate [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc test [--compat v1|v3] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v3] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v3] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--mount <spec>] [--unconfined] [--parallel-observers] <source.dec> [-- <args>...]\n  aodc compile [--compat v1|v3] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--mount <spec>] [--unconfined] [--parallel-observers] <source.dec> [-- <args>...]\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc migrate [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc test [--compat v1|v3] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -345,21 +408,25 @@ fn main() -> ExitCode {
             .map_err(CliErr::fail),
         "run" => extract_compat_flag(sub_args)
             .and_then(|(compat, rem)| {
+                let (rt_ns, rem2, prog_tail) = extract_ns_and_prog_args(&rem)?;
                 let opts =
-                    parse_options(&rem, false, true, false, false, true, false, false, true)?;
+                    parse_options(&rem2, false, true, false, false, true, false, false, true)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let src_path = Path::new(&opts.rest[0]);
+                let cli_args = build_prog_cli_args(&opts.rest[0], &prog_tail);
                 let (emits, outcome) = match compat {
                     CompatMode::V1 => run_v1_file_capturing(src_path, opts.fuel, opts.max_depth)
                         .map_err(|e| e.to_string())?,
-                    CompatMode::V3 => run_file_with_parallel_observers_capturing(
+                    CompatMode::V3 => run_file_with_ns_capturing(
                         src_path,
                         opts.fuel,
                         opts.max_depth,
                         &opts.load,
                         opts.parallel_observers,
+                        rt_ns,
+                        cli_args,
                     )
                     .map_err(|e| e.to_string())?,
                 };
@@ -440,23 +507,27 @@ fn main() -> ExitCode {
                     .map_err(|e| e.to_string())
             })
             .map_err(CliErr::fail),
-        "jit" => parse_options(sub_args, true, true, false, false, true, true, false, true)
-            .and_then(|opts| {
+        "jit" => extract_ns_and_prog_args(sub_args)
+            .and_then(|(rt_ns, rem, prog_tail)| {
+                let opts =
+                    parse_options(&rem, true, true, false, false, true, true, false, true)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let profile_path = opts.profile.as_deref().map(Path::new);
-                let (stdout, res, _plan, fallback_note) =
-                    jit_file_with_profile_and_parallel_captured(
-                        Path::new(&opts.rest[0]),
-                        opts.opt,
-                        opts.fuel,
-                        opts.max_depth,
-                        profile_path,
-                        &opts.load,
-                        opts.parallel_observers,
-                    )
-                    .map_err(|e| e.to_string())?;
+                let cli_args = build_prog_cli_args(&opts.rest[0], &prog_tail);
+                let (stdout, res, _plan, fallback_note) = jit_file_with_ns_captured(
+                    Path::new(&opts.rest[0]),
+                    opts.opt,
+                    opts.fuel,
+                    opts.max_depth,
+                    profile_path,
+                    &opts.load,
+                    opts.parallel_observers,
+                    rt_ns,
+                    cli_args,
+                )
+                .map_err(|e| e.to_string())?;
                 if let Some(note) = fallback_note {
                     eprintln!("aodc: profile fallback to baseline: {note}");
                 }
