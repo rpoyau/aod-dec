@@ -1,6 +1,6 @@
 {
   "carrier_count": 2,
-  "final_state_hash": "ecaa97d8719459d69913923f9653f1c2a6df208a34bfe9a5f3d43145e376d4c5",
+  "final_state_hash": "75d25f3f9b5c1e84b14f983040fd3540198dfb1ee81febe85d7f84e75bef90cd",
   "fixture": "manual_examples/06_unbiased_chamber_sandbox.dec",
   "model_status": "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED",
   "observer_back_reaction_bytes_changed": 0,

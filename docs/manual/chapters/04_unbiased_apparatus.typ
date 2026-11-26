@@ -6,17 +6,22 @@
 #aod-paragraph("Setup.")
 Dec provides first-class declarative apparatus blocks (`chamber`, `prepare`, `observe`, `simulate`)
 backed by a shared deterministic sandbox engine in `crates/aod-rt/src/sim.rs`. Both the Exact Reference VM
-and compiled native binaries invoke the exact same sandbox stepper so tick transitions, carrier shedding,
-hinge saturation (#mainsection("main:sec:afc-stokes-seed"), #mainequation("main:eq:hinge-saturation")),
-pending overhang (#mainequation("main:eq:burden-overhang")), closure residual
-(#mainequation("main:eq:closure-residual")), and final state hashing (#aod-cite("nist-fips-180-4")) stay
-byte-identical across all five execution modes.
+and compiled native binaries invoke the exact same sandbox stepper so tick transitions, moving-boundary
+flux (`boundary_step`, #mainequation("main:eq:moving-boundary")), contact-window expiry (`contact_ttl`),
+carrier shedding, resonant routing, composite outer fusion (`fuse_on_resonance`), hinge saturation
+(#mainsection("main:sec:afc-stokes-seed"), #mainequation("main:eq:hinge-saturation")), pending overhang
+(#mainequation("main:eq:burden-overhang")), closure residual (#mainequation("main:eq:closure-residual")),
+and witness-complete final state hashing (#aod-cite("nist-fips-180-4")) stay byte-identical across all
+six execution paths (`VM`, `DecIR v3`, `AOT -O0/-O2`, `JIT -O0/-O2`).
 
 #aod-noteblock("Model Provenance")[
-  Every `SimResult` emitted by the sandbox engine carries the explicit status string
-  `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED`. The chamber apparatus is a declared computational testbed
-  for observer isolation and deterministic replay (#mainsection("main:sec:awareness-learning")); it makes zero
-  unproven physical claims and contains zero hardcoded physical outcome targets.
+  `rpoyau/aod-dec` is an experimental downstream reference engine maintained independently until upstream
+  integration sign-off. Every `SimResult` emitted by the sandbox engine carries the explicit status string
+  `DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED` and hashes every individual `ShedWitness` field (route,
+  cut coordinate, emit boundary, burden ratio, and post-shed parent `Trace` SHA-256 digests) alongside
+  retained carrier traces, couplings, resonances, expired contact windows, and fusions in `state_json`
+  (#mainsection("main:sec:awareness-learning")). It makes zero unproven physical claims and contains zero
+  hardcoded physical outcome targets.
 ]
 
 #aod-paragraph("Derivation.")

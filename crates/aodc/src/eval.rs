@@ -34,8 +34,8 @@ use crate::checker::CheckedUnit;
 use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::modules::{builtin_namespace_items, canonical_builtin_name, ImportedSymbol};
 use crate::sim::{
-    BlindMotifSpectrum, BoxRegion, CarrierState, ChamberSnapshot, ChamberState,
-    DeclarativeObserver, ReferenceClock, SensorCurrentSummary, SimRunResult,
+    BlindMotifSpectrum, BoxRegion, CarrierState, ChamberDynamicsConfig, ChamberSnapshot,
+    ChamberState, DeclarativeObserver, ReferenceClock, SensorCurrentSummary, SimRunResult,
 };
 use crate::types::{
     builtin_enum_variants, builtin_ns_exports_enum, Type, BUILTIN_MOD, MODEL_STATUS_VARIANTS,
@@ -2859,7 +2859,59 @@ impl<'a> Evaluator<'a> {
             }
         }
 
-        let mut state = ChamberState::new(&chamber.name, space, chamber.walls, carriers, clocks);
+        let boundary_step = if let Some(ref bs_expr) = chamber.boundary_step {
+            match self.eval_expr(bs_expr, mod_key, &empty_scopes)? {
+                Value::Tuple(elems) if elems.len() == 3 => [
+                    extract_i64(elems[0].clone(), bs_expr.line)?,
+                    extract_i64(elems[1].clone(), bs_expr.line)?,
+                    extract_i64(elems[2].clone(), bs_expr.line)?,
+                ],
+                _ => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        bs_expr.line,
+                        "chamber boundary_step must evaluate to (int, int, int)",
+                    ));
+                }
+            }
+        } else {
+            [0, 0, 0]
+        };
+        let contact_ttl = if let Some(ref ttl_expr) = chamber.contact_ttl {
+            let ttl_i = extract_i64(self.eval_expr(ttl_expr, mod_key, &empty_scopes)?, ttl_expr.line)?;
+            if ttl_i < 0 {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    ttl_expr.line,
+                    format!("chamber contact_ttl must be >= 0, got {ttl_i}"),
+                ));
+            }
+            Some(ttl_i as u64)
+        } else {
+            None
+        };
+        let fuse_on_resonance = if let Some(ref fus_expr) = chamber.fuse_on_resonance {
+            match self.eval_expr(fus_expr, mod_key, &empty_scopes)? {
+                Value::Bool(b) => b,
+                _ => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        fus_expr.line,
+                        "chamber fuse_on_resonance must evaluate to bool",
+                    ));
+                }
+            }
+        } else {
+            false
+        };
+        let dynamics = ChamberDynamicsConfig {
+            boundary_step,
+            contact_ttl,
+            fuse_on_resonance,
+        };
+
+        let mut state = ChamberState::new(&chamber.name, space, chamber.walls, carriers, clocks)
+            .with_dynamics(dynamics);
         let mut procedural_outputs: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let use_parallel = self.parallel_observers && proc_probes.len() > 1;
 
@@ -2986,7 +3038,14 @@ impl<'a> Evaluator<'a> {
             }
         }
 
+        let state_json = state.to_json().to_compact_ascii_json();
         let final_hash = state.state_hash();
+        let active_carrier_count = state.active_carrier_count();
+        let shedding_witnesses_json = state.shedding_witnesses_json();
+        let resonance_count = state.resonances.len();
+        let expired_contact_count = state.expired_contacts.len();
+        let fusion_count = state.fusions.len();
+        let moving_flux_total = state.moving_flux_total();
         let final_snapshot = state.snapshot();
 
         let mut support_counts = BTreeMap::new();
@@ -3016,10 +3075,17 @@ impl<'a> Evaluator<'a> {
             chamber_name: state.chamber_name,
             ticks: state.tick,
             final_state_hash: final_hash,
+            state_json,
             carrier_count: state.carriers.len(),
+            active_carrier_count,
             shedding_event_count: state.shedding_events.len(),
+            shedding_witnesses_json,
             wavelet_event_count: state.wavelet_events.len(),
             boundary_crossings: state.boundary_crossings,
+            resonance_count,
+            expired_contact_count,
+            fusion_count,
+            moving_flux_total,
             blind_motif_spectrum: BlindMotifSpectrum {
                 support_counts,
                 total_returns,
@@ -3820,12 +3886,19 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
             (Value::SimResult(s), "boundary_bytes") => Ok(Value::Bytes(
                 s.final_snapshot.space.boundary_descriptor().into_bytes(),
             )),
+            (Value::SimResult(s), "state_json") => Ok(Value::Bytes(s.state_json.into_bytes())),
+            (Value::SimResult(s), "shedding_witnesses_json") => {
+                Ok(Value::Bytes(s.shedding_witnesses_json.into_bytes()))
+            }
             (Value::Box3(b), "boundary_bytes") => {
                 Ok(Value::Bytes(b.boundary_descriptor().into_bytes()))
             }
             (Value::SimResult(s), "ticks") => Ok(Value::Int(BigInt::from_u64(s.ticks))),
             (Value::SimResult(s), "carrier_count") => {
                 Ok(Value::Int(BigInt::from_u64(s.carrier_count as u64)))
+            }
+            (Value::SimResult(s), "active_carrier_count") => {
+                Ok(Value::Int(BigInt::from_u64(s.active_carrier_count as u64)))
             }
             (Value::SimResult(s), "shedding_event_count") => {
                 Ok(Value::Int(BigInt::from_u64(s.shedding_event_count as u64)))
@@ -3836,6 +3909,16 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
             (Value::SimResult(s), "boundary_crossings") => {
                 Ok(Value::Int(BigInt::from_u64(s.boundary_crossings)))
             }
+            (Value::SimResult(s), "resonance_count") => {
+                Ok(Value::Int(BigInt::from_u64(s.resonance_count as u64)))
+            }
+            (Value::SimResult(s), "expired_contact_count") => {
+                Ok(Value::Int(BigInt::from_u64(s.expired_contact_count as u64)))
+            }
+            (Value::SimResult(s), "fusion_count") => {
+                Ok(Value::Int(BigInt::from_u64(s.fusion_count as u64)))
+            }
+            (Value::SimResult(s), "moving_flux_total") => Ok(Value::Int(s.moving_flux_total)),
             (Value::SimResult(s), "total_returns") => {
                 Ok(Value::Int(BigInt::from_u64(s.blind_motif_spectrum.total_returns)))
             }
@@ -3865,9 +3948,15 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
             (Value::ChamberView(snap), "chamber_name" | "chamber_name_bytes") => {
                 Ok(Value::Bytes(snap.chamber_name.into_bytes()))
             }
+            (Value::ChamberView(snap), "shedding_witnesses_json") => {
+                Ok(Value::Bytes(snap.shedding_witnesses_json.into_bytes()))
+            }
             (Value::ChamberView(snap), "tick") => Ok(Value::Int(BigInt::from_u64(snap.tick))),
             (Value::ChamberView(snap), "carrier_count") => {
                 Ok(Value::Int(BigInt::from_u64(snap.carriers.len() as u64)))
+            }
+            (Value::ChamberView(snap), "active_carrier_count") => {
+                Ok(Value::Int(BigInt::from_u64(snap.active_carrier_count as u64)))
             }
             (Value::ChamberView(snap), "boundary_crossings") => {
                 Ok(Value::Int(BigInt::from_u64(snap.boundary_crossings)))
@@ -3880,6 +3969,15 @@ fn eval_field(base: Value, field: &str, line: usize) -> DecResult<Value> {
             ))),
             (Value::ChamberView(snap), "clock_count") => {
                 Ok(Value::Int(BigInt::from_u64(snap.clocks.len() as u64)))
+            }
+            (Value::ChamberView(snap), "resonance_count") => {
+                Ok(Value::Int(BigInt::from_u64(snap.resonance_count as u64)))
+            }
+            (Value::ChamberView(snap), "expired_contact_count") => {
+                Ok(Value::Int(BigInt::from_u64(snap.expired_contact_count as u64)))
+            }
+            (Value::ChamberView(snap), "fusion_count") => {
+                Ok(Value::Int(BigInt::from_u64(snap.fusion_count as u64)))
             }
             (Value::ChamberView(snap), "carriers") => Ok(Value::List(
                 snap.carriers

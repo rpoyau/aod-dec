@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use aod_core::bigint::BigInt;
 use aod_core::error::CoreResult;
@@ -10,7 +10,7 @@ use aod_core::ternary::{Q4, T1};
 use aod_core::wavelet::{
     native_cadence_ratio, ShedRoute, ShedWitness, SingleContactStageAssociation,
 };
-use aod_core::witness::Trace;
+use aod_core::witness::{Coupling, EventKind, Fusion, Trace};
 
 /// Explicit provenance status tag required on every sandbox simulation record (`P0-2`).
 pub const MODEL_STATUS: &str = "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED";
@@ -144,6 +144,29 @@ impl BoxRegion {
             && pos[1] < self.y.1
             && pos[2] >= self.z.0
             && pos[2] < self.z.1
+    }
+
+    pub fn bounds_array(&self) -> [[i64; 2]; 3] {
+        [
+            [self.x.0, self.x.1],
+            [self.y.0, self.y.1],
+            [self.z.0, self.z.1],
+        ]
+    }
+
+    pub fn clamp_pos(&self, pos: [i64; 3]) -> [i64; 3] {
+        fn clamp_axis(v: i64, bounds: (i64, i64)) -> i64 {
+            if bounds.1 <= bounds.0 {
+                bounds.0
+            } else {
+                v.clamp(bounds.0, bounds.1 - 1)
+            }
+        }
+        [
+            clamp_axis(pos[0], self.x),
+            clamp_axis(pos[1], self.y),
+            clamp_axis(pos[2], self.z),
+        ]
     }
 
     pub fn boundary_descriptor(&self) -> String {
@@ -354,6 +377,248 @@ impl WaveletEventRecord {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ChamberDynamicsConfig {
+    pub boundary_step: [i64; 3],
+    pub contact_ttl: Option<u64>,
+    pub fuse_on_resonance: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoundaryMotionRecord {
+    pub tick: u64,
+    pub prev_bounds: [[i64; 2]; 3],
+    pub next_bounds: [[i64; 2]; 3],
+    pub cross_flux: BigInt,
+    pub sweep_flux: BigInt,
+    pub shedding_flux: BigInt,
+    pub net_moving_flux: BigInt,
+}
+
+impl BoundaryMotionRecord {
+    pub fn to_json(&self) -> JsonValue {
+        let mut map = BTreeMap::new();
+        map.insert("cross_flux".to_string(), JsonValue::Int(self.cross_flux.clone()));
+        map.insert(
+            "net_moving_flux".to_string(),
+            JsonValue::Int(self.net_moving_flux.clone()),
+        );
+        map.insert(
+            "next_bounds".to_string(),
+            JsonValue::Array(
+                self.next_bounds
+                    .iter()
+                    .map(|&[lo, hi]| {
+                        JsonValue::Array(vec![JsonValue::from_i64(lo), JsonValue::from_i64(hi)])
+                    })
+                    .collect(),
+            ),
+        );
+        map.insert(
+            "prev_bounds".to_string(),
+            JsonValue::Array(
+                self.prev_bounds
+                    .iter()
+                    .map(|&[lo, hi]| {
+                        JsonValue::Array(vec![JsonValue::from_i64(lo), JsonValue::from_i64(hi)])
+                    })
+                    .collect(),
+            ),
+        );
+        map.insert(
+            "shedding_flux".to_string(),
+            JsonValue::Int(self.shedding_flux.clone()),
+        );
+        map.insert("sweep_flux".to_string(), JsonValue::Int(self.sweep_flux.clone()));
+        map.insert(
+            "tick".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.tick)),
+        );
+        JsonValue::Object(map)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActiveContactWindow {
+    pub left_id: u64,
+    pub right_id: u64,
+    pub open_tick: u64,
+    pub last_contact_tick: u64,
+    pub last_bound: (usize, usize),
+    pub coupling: Coupling,
+}
+
+impl ActiveContactWindow {
+    pub fn to_json(&self) -> JsonValue {
+        let mut map = BTreeMap::new();
+        map.insert("coupling".to_string(), self.coupling.to_render_json());
+        map.insert(
+            "last_bound".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::from_usize(self.last_bound.0),
+                JsonValue::from_usize(self.last_bound.1),
+            ]),
+        );
+        map.insert(
+            "last_contact_tick".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.last_contact_tick)),
+        );
+        map.insert(
+            "left_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.left_id)),
+        );
+        map.insert(
+            "open_tick".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.open_tick)),
+        );
+        map.insert(
+            "right_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.right_id)),
+        );
+        JsonValue::Object(map)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpiredContactRecord {
+    pub left_id: u64,
+    pub right_id: u64,
+    pub window: (i64, i64),
+    pub bound_contacts: usize,
+    pub stage_only: bool,
+    pub expired_at_tick: u64,
+}
+
+impl ExpiredContactRecord {
+    pub fn to_json(&self) -> JsonValue {
+        let mut map = BTreeMap::new();
+        map.insert(
+            "bound_contacts".to_string(),
+            JsonValue::from_usize(self.bound_contacts),
+        );
+        map.insert(
+            "expired_at_tick".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.expired_at_tick)),
+        );
+        map.insert(
+            "left_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.left_id)),
+        );
+        map.insert(
+            "right_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.right_id)),
+        );
+        map.insert("stage_only".to_string(), JsonValue::Bool(self.stage_only));
+        map.insert(
+            "window".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::from_i64(self.window.0),
+                JsonValue::from_i64(self.window.1),
+            ]),
+        );
+        JsonValue::Object(map)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResonanceRecord {
+    pub tick: u64,
+    pub left_id: u64,
+    pub right_id: u64,
+    pub bound_contacts: usize,
+    pub cadence: Ratio,
+    pub lag: BigInt,
+    pub drift: BigInt,
+    pub left_digest: String,
+    pub right_digest: String,
+}
+
+impl ResonanceRecord {
+    pub fn to_json(&self) -> JsonValue {
+        let mut map = BTreeMap::new();
+        map.insert(
+            "bound_contacts".to_string(),
+            JsonValue::from_usize(self.bound_contacts),
+        );
+        map.insert(
+            "cadence".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::from_str_val(self.cadence.num().to_decimal_string()),
+                JsonValue::from_str_val(self.cadence.den().to_decimal_string()),
+            ]),
+        );
+        map.insert("drift".to_string(), JsonValue::Int(self.drift.clone()));
+        map.insert("lag".to_string(), JsonValue::Int(self.lag.clone()));
+        map.insert(
+            "left_digest".to_string(),
+            JsonValue::from_str_val(self.left_digest.clone()),
+        );
+        map.insert(
+            "left_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.left_id)),
+        );
+        map.insert(
+            "right_digest".to_string(),
+            JsonValue::from_str_val(self.right_digest.clone()),
+        );
+        map.insert(
+            "right_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.right_id)),
+        );
+        map.insert(
+            "tick".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.tick)),
+        );
+        JsonValue::Object(map)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FusionEventRecord {
+    pub tick: u64,
+    pub outer_carrier_id: u64,
+    pub left_parent_id: u64,
+    pub right_parent_id: u64,
+    pub outer_scope: String,
+    pub proposal_digest: String,
+    pub outer_closure_digest: String,
+}
+
+impl FusionEventRecord {
+    pub fn to_json(&self) -> JsonValue {
+        let mut map = BTreeMap::new();
+        map.insert(
+            "left_parent_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.left_parent_id)),
+        );
+        map.insert(
+            "outer_carrier_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.outer_carrier_id)),
+        );
+        map.insert(
+            "outer_closure_digest".to_string(),
+            JsonValue::from_str_val(self.outer_closure_digest.clone()),
+        );
+        map.insert(
+            "outer_scope".to_string(),
+            JsonValue::from_str_val(self.outer_scope.clone()),
+        );
+        map.insert(
+            "proposal_digest".to_string(),
+            JsonValue::from_str_val(self.proposal_digest.clone()),
+        );
+        map.insert(
+            "right_parent_id".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.right_parent_id)),
+        );
+        map.insert(
+            "tick".to_string(),
+            JsonValue::Int(BigInt::from_u64(self.tick)),
+        );
+        JsonValue::Object(map)
+    }
+}
+
 /// Immutable post-tick snapshot passed strictly read-only (`&ChamberSnapshot`) to observers.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChamberSnapshot {
@@ -366,6 +631,11 @@ pub struct ChamberSnapshot {
     pub shedding_events_this_tick: Vec<ShedWitness>,
     pub wavelet_events_this_tick: Vec<WaveletEventRecord>,
     pub boundary_crossings: u64,
+    pub active_carrier_count: usize,
+    pub resonance_count: usize,
+    pub expired_contact_count: usize,
+    pub fusion_count: usize,
+    pub shedding_witnesses_json: String,
 }
 
 /// Explicit deterministic zero-RNG exact sandbox chamber (`P0-2`).
@@ -378,12 +648,18 @@ pub struct ChamberState {
     pub chamber_name: String,
     pub space: BoxRegion,
     pub walls: WallPolicy,
+    pub dynamics: ChamberDynamicsConfig,
     pub tick: u64,
     pub carriers: Vec<CarrierState>,
     pub clocks: Vec<ReferenceClock>,
     pub shedding_events: Vec<ShedWitness>,
     pub wavelet_events: Vec<WaveletEventRecord>,
     pub boundary_crossings: u64,
+    pub boundary_motions: Vec<BoundaryMotionRecord>,
+    pub active_contacts: BTreeMap<(u64, u64), ActiveContactWindow>,
+    pub expired_contacts: Vec<ExpiredContactRecord>,
+    pub resonances: Vec<ResonanceRecord>,
+    pub fusions: Vec<FusionEventRecord>,
     last_tick_shedding: Vec<ShedWitness>,
     last_tick_wavelets: Vec<WaveletEventRecord>,
 }
@@ -401,15 +677,48 @@ impl ChamberState {
             chamber_name: chamber_name.into(),
             space,
             walls,
+            dynamics: ChamberDynamicsConfig::default(),
             tick: 0,
             carriers,
             clocks,
             shedding_events: Vec::new(),
             wavelet_events: Vec::new(),
             boundary_crossings: 0,
+            boundary_motions: Vec::new(),
+            active_contacts: BTreeMap::new(),
+            expired_contacts: Vec::new(),
+            resonances: Vec::new(),
+            fusions: Vec::new(),
             last_tick_shedding: Vec::new(),
             last_tick_wavelets: Vec::new(),
         }
+    }
+
+    pub fn with_dynamics(mut self, dynamics: ChamberDynamicsConfig) -> Self {
+        self.dynamics = dynamics;
+        self
+    }
+
+    pub fn active_carrier_count(&self) -> usize {
+        self.carriers.iter().filter(|c| c.active).count()
+    }
+
+    pub fn shedding_witnesses_json(&self) -> String {
+        JsonValue::Array(
+            self.shedding_events
+                .iter()
+                .map(ShedWitness::to_json)
+                .collect(),
+        )
+        .to_compact_ascii_json()
+    }
+
+    pub fn moving_flux_total(&self) -> BigInt {
+        let mut acc = BigInt::zero();
+        for rec in &self.boundary_motions {
+            acc = &acc + &rec.net_moving_flux;
+        }
+        acc
     }
 
     /// Execute one deterministic exact sandbox tick with ZERO RNG and ZERO observer inputs.
@@ -418,7 +727,65 @@ impl ChamberState {
         self.last_tick_shedding.clear();
         self.last_tick_wavelets.clear();
 
+        let prev_space = self.space;
+        let mut cross_flux = BigInt::zero();
+        let mut sweep_flux = BigInt::zero();
+        let mut shedding_flux = BigInt::zero();
+
+        // 0. Moving Boundary (`eq:moving-boundary` eq. 94) when `boundary_step != [0, 0, 0]`.
+        if self.dynamics.boundary_step != [0, 0, 0] {
+            let [dx, dy, dz] = self.dynamics.boundary_step;
+            let next_space = BoxRegion {
+                x: (prev_space.x.0.saturating_add(dx), prev_space.x.1.saturating_add(dx)),
+                y: (prev_space.y.0.saturating_add(dy), prev_space.y.1.saturating_add(dy)),
+                z: (prev_space.z.0.saturating_add(dz), prev_space.z.1.saturating_add(dz)),
+            };
+            self.space = next_space;
+            let emit_boundary = self.space.boundary_descriptor();
+            for carrier in &mut self.carriers {
+                if !carrier.active {
+                    continue;
+                }
+                if prev_space.contains(carrier.pos) && !next_space.contains(carrier.pos) {
+                    let pi = carrier.support.pi()?;
+                    sweep_flux = &sweep_flux + &pi;
+                    self.boundary_crossings += 1;
+                    match self.walls {
+                        WallPolicy::Open => {
+                            carrier.active = false;
+                            let post_state = carrier
+                                .trace
+                                .trace_prefix_json(carrier.trace.events.len())
+                                .sha256_hex();
+                            let witness = ShedWitness::new(
+                                format!("carrier:{}", carrier.id),
+                                emit_boundary.clone(),
+                                format!(
+                                    "sweep_wall_tick_{}@[{},{},{}]",
+                                    self.tick, carrier.pos[0], carrier.pos[1], carrier.pos[2]
+                                ),
+                                self.tick as i64,
+                                ShedRoute::Open,
+                                Ratio::from_int(pi),
+                                post_state,
+                            )?;
+                            self.shedding_events.push(witness.clone());
+                            self.last_tick_shedding.push(witness);
+                            carrier.shed_count += 1;
+                        }
+                        WallPolicy::Closed => {
+                            carrier.pos = next_space.clamp_pos(carrier.pos);
+                            carrier.dir = carrier.dir.reflect();
+                            carrier.orient = carrier.orient.checked_neg();
+                            carrier.hinge_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. Advance active carriers by `dir`; apply Open/Closed wall policy.
+        let emit_boundary = self.space.boundary_descriptor();
         for carrier in &mut self.carriers {
             if !carrier.active {
                 continue;
@@ -432,10 +799,31 @@ impl ChamberState {
             if self.space.contains(next) {
                 carrier.pos = next;
             } else {
+                let pi = carrier.support.pi()?;
+                cross_flux = &cross_flux + &pi;
                 self.boundary_crossings += 1;
                 match self.walls {
                     WallPolicy::Open => {
                         carrier.active = false;
+                        let post_state = carrier
+                            .trace
+                            .trace_prefix_json(carrier.trace.events.len())
+                            .sha256_hex();
+                        let witness = ShedWitness::new(
+                            format!("carrier:{}", carrier.id),
+                            emit_boundary.clone(),
+                            format!(
+                                "open_wall_tick_{}@[{},{},{}]",
+                                self.tick, next[0], next[1], next[2]
+                            ),
+                            self.tick as i64,
+                            ShedRoute::Open,
+                            Ratio::from_int(pi),
+                            post_state,
+                        )?;
+                        self.shedding_events.push(witness.clone());
+                        self.last_tick_shedding.push(witness);
+                        carrier.shed_count += 1;
                     }
                     WallPolicy::Closed => {
                         carrier.dir = carrier.dir.reflect();
@@ -475,10 +863,13 @@ impl ChamberState {
                 }
                 _ => {
                     let start = carrier.trace.start;
-                    carrier.trace = carrier
-                        .trace
-                        .step(start, carrier.orient.checked_neg())?
-                        .close()?;
+                    let seg_begin = carrier.trace.closures.last().map_or(0, |c| c.end);
+                    let return_orient = carrier.trace.events[seg_begin..]
+                        .iter()
+                        .find(|ev| ev.kind == EventKind::Step)
+                        .and_then(|ev| T1::new(-ev.orientation).ok())
+                        .unwrap_or_else(|| carrier.orient.checked_neg());
+                    carrier.trace = carrier.trace.step(start, return_orient)?.close()?;
                     carrier.q4 = start;
                     carrier.return_count += 1;
                     carrier.dwell_blocked = false;
@@ -487,7 +878,27 @@ impl ChamberState {
             }
         }
 
-        // 3. Cell coincidence detection -> dwell blocking + exact SupportForm::shedding_audit.
+        // Refresh active contact windows that remain within `contact_ttl` so carriers that
+        // coincided earlier and close at `phase_step == 2` bind certified return contacts cleanly.
+        let id_to_idx: BTreeMap<u64, usize> = self
+            .carriers
+            .iter()
+            .enumerate()
+            .map(|(idx, c)| (c.id, idx))
+            .collect();
+        let ttl_limit = self.dynamics.contact_ttl.unwrap_or(u64::MAX);
+        for (&(left_id, right_id), win) in &mut self.active_contacts {
+            if self.tick.saturating_sub(win.last_contact_tick) <= ttl_limit {
+                if let (Some(&i0), Some(&i1)) =
+                    (id_to_idx.get(&left_id), id_to_idx.get(&right_id))
+                {
+                    refresh_active_contact_window(win, &self.carriers[i0], &self.carriers[i1])?;
+                }
+            }
+        }
+
+        // 3. Cell coincidence detection -> coupling windows, resonance, real parent trace digests
+        //    on ShedWitness, dwell blocking, and optional composite Fusion.
         let mut by_cell: BTreeMap<[i64; 3], Vec<usize>> = BTreeMap::new();
         for (idx, c) in self.carriers.iter().enumerate() {
             if c.active {
@@ -495,6 +906,7 @@ impl ChamberState {
             }
         }
 
+        let mut coincident_pairs_this_tick: BTreeSet<(u64, u64)> = BTreeSet::new();
         let one = BigInt::one();
         let c3 = BigInt::from_i64(3);
         for (pos, indices) in by_cell {
@@ -513,19 +925,127 @@ impl ChamberState {
                 }
                 combined_p_d = &combined_p_d + &p_d;
             }
+
+            let mut cell_resonant = false;
+            for p in 0..indices.len() {
+                for q in (p + 1)..indices.len() {
+                    let (idx_l, idx_r) =
+                        if self.carriers[indices[p]].id <= self.carriers[indices[q]].id {
+                            (indices[p], indices[q])
+                        } else {
+                            (indices[q], indices[p])
+                        };
+                    let c_left = &self.carriers[idx_l];
+                    let c_right = &self.carriers[idx_r];
+                    let pair_key = (c_left.id, c_right.id);
+                    coincident_pairs_this_tick.insert(pair_key);
+
+                    if !c_left.trace.events.is_empty()
+                        && c_left.trace.events.len() == c_right.trace.events.len()
+                        && c_left.trace.scope == c_right.trace.scope
+                        && c_left.trace.lineage != c_right.trace.lineage
+                    {
+                        if let Some(win) = self.active_contacts.get_mut(&pair_key) {
+                            win.last_contact_tick = self.tick;
+                            refresh_active_contact_window(win, c_left, c_right)?;
+                        } else {
+                            let window_label = format!(
+                                "contact:{}:{}:open_{}",
+                                pair_key.0, pair_key.1, self.tick
+                            );
+                            let cpl = Coupling::new(&c_left.trace, &c_right.trace, window_label)?;
+                            let mut win = ActiveContactWindow {
+                                left_id: pair_key.0,
+                                right_id: pair_key.1,
+                                open_tick: self.tick,
+                                last_contact_tick: self.tick,
+                                last_bound: (0, 0),
+                                coupling: cpl,
+                            };
+                            refresh_active_contact_window(&mut win, c_left, c_right)?;
+                            self.active_contacts.insert(pair_key, win);
+                        }
+                    }
+
+                    if let Some(win) = self.active_contacts.get(&pair_key) {
+                        if win.coupling.contacts.len() >= 2 {
+                            let cadence = win.coupling.cadence()?;
+                            let lag = win.coupling.lag()?;
+                            let drift = win.coupling.drift()?;
+                            if drift.is_zero() {
+                                cell_resonant = true;
+                                let left_digest = win
+                                    .coupling
+                                    .left
+                                    .closures
+                                    .last()
+                                    .map(|c| c.digest.clone())
+                                    .unwrap_or_else(|| {
+                                        win.coupling
+                                            .left
+                                            .trace_prefix_json(win.coupling.left.events.len())
+                                            .sha256_hex()
+                                    });
+                                let right_digest = win
+                                    .coupling
+                                    .right
+                                    .closures
+                                    .last()
+                                    .map(|c| c.digest.clone())
+                                    .unwrap_or_else(|| {
+                                        win.coupling
+                                            .right
+                                            .trace_prefix_json(win.coupling.right.events.len())
+                                            .sha256_hex()
+                                    });
+                                self.resonances.push(ResonanceRecord {
+                                    tick: self.tick,
+                                    left_id: pair_key.0,
+                                    right_id: pair_key.1,
+                                    bound_contacts: win.coupling.contacts.len(),
+                                    cadence,
+                                    lag,
+                                    drift,
+                                    left_digest,
+                                    right_digest,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
             let audit = SupportForm::shedding_audit(&combined_p_d, &baseline_c_close)?;
             if audit.x_shedding.is_positive() {
                 let first_id = self.carriers[indices[0]].id;
                 let parent_id = format!("carrier:{first_id}");
+                let route = if cell_resonant {
+                    ShedRoute::Endo
+                } else {
+                    ShedRoute::Exo
+                };
+                let post_shed_state = indices
+                    .iter()
+                    .map(|&idx| {
+                        let c = &self.carriers[idx];
+                        c.trace.trace_prefix_json(c.trace.events.len()).sha256_hex()
+                    })
+                    .collect::<Vec<_>>()
+                    .join(":");
+                let cut_coordinate = format!(
+                    "cell_[{},{},{}]_tick_{}",
+                    pos[0], pos[1], pos[2], self.tick
+                );
                 let witness = ShedWitness::new(
                     parent_id.clone(),
                     self.space.boundary_descriptor(),
-                    "sandbox_tick",
+                    cut_coordinate,
                     self.tick as i64,
-                    ShedRoute::Exo,
+                    route,
                     Ratio::from_int(audit.x_shedding.clone()),
-                    format!("post_shed_tick_{}", self.tick),
+                    post_shed_state,
                 )?;
+                shedding_flux = &shedding_flux + &audit.x_shedding;
                 let wave_ev = WaveletEventRecord {
                     tick: self.tick,
                     parent_id,
@@ -543,7 +1063,96 @@ impl ChamberState {
                 }
             }
 
-            if indices.len() == 2 {
+            let mut fused_this_cell = false;
+            if self.dynamics.fuse_on_resonance && indices.len() == 2 {
+                let i0 = indices[0];
+                let i1 = indices[1];
+                let c0_closed = !self.carriers[i0].trace.events.is_empty()
+                    && self.carriers[i0].trace.closures.last().map(|c| c.end)
+                        == Some(self.carriers[i0].trace.events.len());
+                let c1_closed = !self.carriers[i1].trace.events.is_empty()
+                    && self.carriers[i1].trace.closures.last().map(|c| c.end)
+                        == Some(self.carriers[i1].trace.events.len());
+                if c0_closed
+                    && c1_closed
+                    && self.carriers[i0].orient == self.carriers[i1].orient.checked_neg()
+                    && self.carriers[i0].trace.lineage != self.carriers[i1].trace.lineage
+                    && self.carriers[i0].trace.scope == self.carriers[i1].trace.scope
+                {
+                    let c0_id = self.carriers[i0].id;
+                    let c1_id = self.carriers[i1].id;
+                    let c0_q4 = self.carriers[i0].q4;
+                    let c0_dir = self.carriers[i0].dir;
+                    let c0_support = self.carriers[i0].support.clone();
+                    let max_shells = self.carriers[i0].shells.max(self.carriers[i1].shells);
+                    let outer_scope = if self.carriers[i0].trace.scope == self.chamber_name {
+                        format!("{}::outer", self.chamber_name)
+                    } else {
+                        format!("{}::outer", self.carriers[i0].trace.scope)
+                    };
+                    let outer_lineage = format!("fused:{}_{}_t{}", c0_id, c1_id, self.tick);
+                    let fus = Fusion::fold(
+                        &self.carriers[i0].trace,
+                        &self.carriers[i1].trace,
+                        outer_scope.clone(),
+                        outer_lineage,
+                    )?;
+                    let mut outer_t = fus.outer(c0_q4)?;
+                    let n0 = c0_q4.neighbors()[0];
+                    outer_t = outer_t
+                        .step(n0, T1::POS)?
+                        .hinge()?
+                        .step(c0_q4, T1::NEG)?
+                        .close()?;
+                    let fused_trace = fus.fuse(&outer_t)?;
+                    let outer_closure_digest = fused_trace
+                        .closures
+                        .last()
+                        .expect("closed outer trace")
+                        .digest
+                        .clone();
+                    let proposal_digest = fus.digest.clone();
+
+                    self.carriers[i0].active = false;
+                    self.carriers[i1].active = false;
+
+                    let outer_carrier_id = self
+                        .carriers
+                        .iter()
+                        .map(|c| c.id)
+                        .max()
+                        .map_or(0, |m| m + 1)
+                        .max(self.carriers.len() as u64);
+                    self.carriers.push(CarrierState {
+                        id: outer_carrier_id,
+                        support: c0_support,
+                        shells: max_shells,
+                        pos,
+                        dir: c0_dir,
+                        orient: T1::POS,
+                        q4: c0_q4,
+                        trace: fused_trace,
+                        dwell_blocked: false,
+                        active: true,
+                        phase_step: 0,
+                        return_count: 1,
+                        hinge_count: 1,
+                        shed_count: 0,
+                    });
+                    self.fusions.push(FusionEventRecord {
+                        tick: self.tick,
+                        outer_carrier_id,
+                        left_parent_id: c0_id,
+                        right_parent_id: c1_id,
+                        outer_scope,
+                        proposal_digest,
+                        outer_closure_digest,
+                    });
+                    fused_this_cell = true;
+                }
+            }
+
+            if !fused_this_cell && indices.len() == 2 {
                 let i0 = indices[0];
                 let i1 = indices[1];
                 if self.carriers[i0].dir == self.carriers[i1].dir.reflect() {
@@ -551,6 +1160,47 @@ impl ChamberState {
                     self.carriers[i1].dir = self.carriers[i1].dir.reflect();
                 }
             }
+        }
+        let _ = coincident_pairs_this_tick;
+
+        // Contact expiry (`contact_ttl`)
+        if let Some(ttl) = self.dynamics.contact_ttl {
+            let cur_tick = self.tick;
+            let mut still_active = BTreeMap::new();
+            let old_contacts = std::mem::take(&mut self.active_contacts);
+            for (pair_key, win) in old_contacts {
+                if cur_tick.saturating_sub(win.last_contact_tick) <= ttl {
+                    still_active.insert(pair_key, win);
+                } else {
+                    let bound_contacts = win.coupling.contacts.len();
+                    self.expired_contacts.push(ExpiredContactRecord {
+                        left_id: win.left_id,
+                        right_id: win.right_id,
+                        window: (
+                            win.open_tick as i64,
+                            win.last_contact_tick.saturating_add(ttl) as i64,
+                        ),
+                        bound_contacts,
+                        stage_only: bound_contacts < 2,
+                        expired_at_tick: cur_tick,
+                    });
+                }
+            }
+            self.active_contacts = still_active;
+        }
+
+        // Moving-boundary flux audit record (`eq:moving-boundary` eq. 94)
+        if self.dynamics.boundary_step != [0, 0, 0] {
+            let net_moving_flux = &(&cross_flux - &sweep_flux) + &shedding_flux;
+            self.boundary_motions.push(BoundaryMotionRecord {
+                tick: self.tick,
+                prev_bounds: prev_space.bounds_array(),
+                next_bounds: self.space.bounds_array(),
+                cross_flux,
+                sweep_flux,
+                shedding_flux,
+                net_moving_flux,
+            });
         }
 
         // 4. Step decoupled reference clocks independently.
@@ -571,14 +1221,32 @@ impl ChamberState {
             shedding_events_this_tick: self.last_tick_shedding.clone(),
             wavelet_events_this_tick: self.last_tick_wavelets.clone(),
             boundary_crossings: self.boundary_crossings,
+            active_carrier_count: self.active_carrier_count(),
+            resonance_count: self.resonances.len(),
+            expired_contact_count: self.expired_contacts.len(),
+            fusion_count: self.fusions.len(),
+            shedding_witnesses_json: self.shedding_witnesses_json(),
         }
     }
 
     pub fn to_json(&self) -> JsonValue {
         let mut map = BTreeMap::new();
         map.insert(
+            "active_carrier_count".to_string(),
+            JsonValue::from_usize(self.active_carrier_count()),
+        );
+        map.insert(
             "boundary_crossings".to_string(),
             JsonValue::from_i64(self.boundary_crossings as i64),
+        );
+        map.insert(
+            "boundary_motions".to_string(),
+            JsonValue::Array(
+                self.boundary_motions
+                    .iter()
+                    .map(BoundaryMotionRecord::to_json)
+                    .collect(),
+            ),
         );
         map.insert(
             "carriers".to_string(),
@@ -593,12 +1261,57 @@ impl ChamberState {
             JsonValue::Array(self.clocks.iter().map(ReferenceClock::to_json).collect()),
         );
         map.insert(
+            "couplings".to_string(),
+            JsonValue::Array(
+                self.active_contacts
+                    .values()
+                    .map(|w| w.coupling.to_render_json())
+                    .collect(),
+            ),
+        );
+        map.insert(
+            "expired_contacts".to_string(),
+            JsonValue::Array(
+                self.expired_contacts
+                    .iter()
+                    .map(ExpiredContactRecord::to_json)
+                    .collect(),
+            ),
+        );
+        map.insert(
+            "fusions".to_string(),
+            JsonValue::Array(
+                self.fusions
+                    .iter()
+                    .map(FusionEventRecord::to_json)
+                    .collect(),
+            ),
+        );
+        map.insert(
             "model_status".to_string(),
             JsonValue::from_str_val(self.model_status.clone()),
         );
         map.insert(
+            "resonances".to_string(),
+            JsonValue::Array(
+                self.resonances
+                    .iter()
+                    .map(ResonanceRecord::to_json)
+                    .collect(),
+            ),
+        );
+        map.insert(
             "shedding_event_count".to_string(),
             JsonValue::from_usize(self.shedding_events.len()),
+        );
+        map.insert(
+            "shedding_events".to_string(),
+            JsonValue::Array(
+                self.shedding_events
+                    .iter()
+                    .map(ShedWitness::to_json)
+                    .collect(),
+            ),
         );
         map.insert("space".to_string(), self.space.to_json());
         map.insert("tick".to_string(), JsonValue::from_i64(self.tick as i64));
@@ -617,6 +1330,35 @@ impl ChamberState {
     pub fn state_hash(&self) -> String {
         self.to_json().sha256_hex()
     }
+}
+
+fn refresh_active_contact_window(
+    win: &mut ActiveContactWindow,
+    c0: &CarrierState,
+    c1: &CarrierState,
+) -> CoreResult<()> {
+    if !c0.active
+        || !c1.active
+        || c0.trace.events.is_empty()
+        || c0.trace.events.len() != c1.trace.events.len()
+        || c0.trace.scope != c1.trace.scope
+        || c0.trace.lineage == c1.trace.lineage
+    {
+        return Ok(());
+    }
+    let prior_contacts = win.coupling.contacts.clone();
+    let mut cpl = Coupling::new(&c0.trace, &c1.trace, win.coupling.window.clone())?;
+    for (a, b) in prior_contacts {
+        cpl = cpl.contact(a, b)?;
+    }
+    if let (Some(cl0), Some(cl1)) = (c0.trace.closures.last(), c1.trace.closures.last()) {
+        if cl0.end > win.last_bound.0 && cl1.end > win.last_bound.1 {
+            cpl = cpl.contact(cl0.end, cl1.end)?;
+            win.last_bound = (cl0.end, cl1.end);
+        }
+    }
+    win.coupling = cpl;
+    Ok(())
 }
 
 fn select_deterministic_slot(
@@ -777,12 +1519,206 @@ pub struct SimRunResult {
     pub chamber_name: String,
     pub ticks: u64,
     pub final_state_hash: String,
+    pub state_json: String,
     pub carrier_count: usize,
+    pub active_carrier_count: usize,
     pub shedding_event_count: usize,
     pub wavelet_event_count: usize,
     pub boundary_crossings: u64,
+    pub shedding_witnesses_json: String,
+    pub resonance_count: usize,
+    pub expired_contact_count: usize,
+    pub fusion_count: usize,
+    pub moving_flux_total: BigInt,
     pub blind_motif_spectrum: BlindMotifSpectrum,
     pub sensor_currents: Vec<SensorCurrentSummary>,
     pub procedural_outputs: BTreeMap<String, Vec<String>>,
     pub final_snapshot: ChamberSnapshot,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::abi::runtime_symbol_table;
+    use crate::ops::RtState;
+    use crate::value::RtValue;
+    use aod_core::json::parse_strict_json;
+
+    fn sup_336() -> SupportForm {
+        SupportForm::parse("3:3:6").unwrap()
+    }
+
+    #[test]
+    fn fixture_06_counts_and_full_shed_witness_serialization_preserved() {
+        let space = BoxRegion {
+            x: (0, 64),
+            y: (0, 64),
+            z: (0, 64),
+        };
+        let c1 = CarrierState::new(1, "SandboxLab", sup_336(), 2, [26, 32, 32], AxisDir::PosX, T1::POS).unwrap();
+        let c2 = CarrierState::new(2, "SandboxLab", sup_336(), 2, [38, 32, 32], AxisDir::NegX, T1::NEG).unwrap();
+        let clk = ReferenceClock::new("ref_clk", 3).unwrap();
+        let mut chamber = ChamberState::new("SandboxLab", space, WallPolicy::Open, vec![c1, c2], vec![clk]);
+        for _ in 0..12 {
+            chamber.step().unwrap();
+        }
+        assert_eq!(chamber.carriers.len(), 2);
+        assert_eq!(chamber.active_carrier_count(), 2);
+        assert_eq!(chamber.shedding_events.len(), 1);
+        assert_eq!(chamber.wavelet_events.len(), 1);
+        let total_returns: u64 = chamber.carriers.iter().map(|c| c.return_count).sum();
+        let total_hinges: u64 = chamber.carriers.iter().map(|c| c.hinge_count).sum();
+        assert_eq!(total_returns, 8);
+        assert_eq!(total_hinges, 8);
+        assert_eq!(chamber.resonances.len(), 0);
+
+        let w = &chamber.shedding_events[0];
+        assert_eq!(w.route, ShedRoute::Exo);
+        assert_eq!(w.cut_coordinate, "cell_[32,32,32]_tick_6");
+        let parts: Vec<&str> = w.post_shed_parent_state.split(':').collect();
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0].len(), 64);
+        assert_eq!(parts[1].len(), 64);
+
+        let wj = w.to_json();
+        let obj = wj.as_object().unwrap();
+        assert_eq!(obj.len(), 7);
+        assert_eq!(obj.get("route").and_then(JsonValue::as_str), Some("exo"));
+
+        let parsed_state = parse_strict_json(&chamber.to_json().to_compact_ascii_json()).unwrap();
+        assert_eq!(parsed_state.as_object().unwrap().len(), 16);
+    }
+
+    #[test]
+    fn moving_boundary_open_wall_and_contact_ttl_expiry() {
+        let space = BoxRegion {
+            x: (0, 8),
+            y: (0, 4),
+            z: (0, 4),
+        };
+        let c1 = CarrierState::new(1, "DynLab", sup_336(), 2, [0, 1, 1], AxisDir::PosX, T1::POS).unwrap();
+        let c2 = CarrierState::new(2, "DynLab", sup_336(), 2, [7, 2, 2], AxisDir::PosX, T1::NEG).unwrap();
+        let mut chamber = ChamberState::new("DynLab", space, WallPolicy::Open, vec![c1, c2], Vec::new())
+            .with_dynamics(ChamberDynamicsConfig {
+                boundary_step: [1, 0, 0],
+                contact_ttl: Some(1),
+                fuse_on_resonance: false,
+            });
+        // Tick 1: space shifts [0,8) -> [1,9); c1 at x=0 is swept (sweep_flux = 30, ShedRoute::Open);
+        // c2 steps 7 -> 8 (still inside [1,9)).
+        chamber.step().unwrap();
+        assert_eq!(chamber.active_carrier_count(), 1);
+        assert_eq!(chamber.boundary_motions.len(), 1);
+        assert_eq!(chamber.boundary_motions[0].sweep_flux, BigInt::from_i64(30));
+        assert_eq!(chamber.boundary_motions[0].net_moving_flux, BigInt::from_i64(-30));
+        assert_eq!(chamber.shedding_events[0].route, ShedRoute::Open);
+
+        // Contact TTL expiry test
+        let space2 = BoxRegion {
+            x: (0, 32),
+            y: (0, 4),
+            z: (0, 4),
+        };
+        let a = CarrierState::new(1, "TtlLab", sup_336(), 2, [10, 1, 1], AxisDir::PosX, T1::POS).unwrap();
+        let b = CarrierState::new(2, "TtlLab", sup_336(), 2, [16, 1, 1], AxisDir::NegX, T1::NEG).unwrap();
+        let mut ttl_chamber = ChamberState::new("TtlLab", space2, WallPolicy::Open, vec![a, b], Vec::new())
+            .with_dynamics(ChamberDynamicsConfig {
+                boundary_step: [0, 0, 0],
+                contact_ttl: Some(1),
+                fuse_on_resonance: false,
+            });
+        // Coincide at tick 3 (x=13), bounce apart on tick 4, expire on tick 5 (5 - 3 = 2 > 1)
+        for _ in 0..6 {
+            ttl_chamber.step().unwrap();
+        }
+        assert_eq!(ttl_chamber.expired_contacts.len(), 1);
+        assert_eq!(ttl_chamber.expired_contacts[0].bound_contacts, 1);
+        assert!(ttl_chamber.expired_contacts[0].stage_only);
+    }
+
+    #[test]
+    fn closed_resonance_endo_shedding_and_composite_fusion_plus_ops_fields() {
+        // Multi-bounce closed box resonance: space [0..5, 0..1, 0..1], carriers at x=1 (+X) & x=3 (-X)
+        let space = BoxRegion {
+            x: (0, 5),
+            y: (0, 1),
+            z: (0, 1),
+        };
+        let c1 = CarrierState::new(1, "ResLab", sup_336(), 2, [1, 0, 0], AxisDir::PosX, T1::POS).unwrap();
+        let c2 = CarrierState::new(2, "ResLab", sup_336(), 2, [3, 0, 0], AxisDir::NegX, T1::NEG).unwrap();
+        let mut chamber = ChamberState::new("ResLab", space, WallPolicy::Closed, vec![c1, c2], Vec::new())
+            .with_dynamics(ChamberDynamicsConfig {
+                boundary_step: [0, 0, 0],
+                contact_ttl: None,
+                fuse_on_resonance: true,
+            });
+        // Tick 1: coincide at x=2 (Exo, not closed yet). Tick 3: close #1 at walls.
+        // Tick 6: coincide at x=2 again with 2 bound contacts -> ResonanceRecord + ShedRoute::Endo + Fusion!
+        // Tick 7..9: fused outer carrier continues cleanly for another closed Q4 cycle!
+        for _ in 0..9 {
+            chamber.step().unwrap();
+        }
+        assert_eq!(chamber.resonances.len(), 1);
+        assert!(chamber.resonances[0].drift.is_zero());
+        assert_eq!(chamber.shedding_events.len(), 2);
+        assert_eq!(chamber.shedding_events[0].route, ShedRoute::Exo);
+        assert_eq!(chamber.shedding_events[1].route, ShedRoute::Endo);
+        assert_eq!(chamber.fusions.len(), 1);
+        assert_eq!(chamber.carriers.len(), 3);
+        assert_eq!(chamber.active_carrier_count(), 1);
+        assert_eq!(chamber.carriers[2].id, 3);
+        assert_eq!(chamber.carriers[2].return_count, 2);
+
+        // Verify RtState op_sim_builder_set_dynamics, finalize_sim_result, op_field_get, & JIT symbol
+        let syms = runtime_symbol_table();
+        assert!(syms.iter().any(|&(name, _)| name == "aod_rt_sim_builder_set_dynamics"));
+
+        let mut rt = RtState::with_default_arena(true);
+        let name_h = rt.arena.insert(RtValue::Str("ResLab".to_string())).unwrap();
+        let box_h = rt.arena.insert(RtValue::Box3(space)).unwrap();
+        let b_h = rt.op_sim_builder_new(name_h, box_h, WallPolicy::Closed.to_code()).unwrap();
+        rt.op_sim_builder_set_dynamics(b_h, &BigInt::zero(), &BigInt::zero(), &BigInt::zero(), -1, 1)
+            .unwrap();
+        let res_h = rt.finalize_sim_result(chamber, Vec::new()).unwrap();
+
+        assert_eq!(
+            rt.op_field_get(res_h, "active_carrier_count").unwrap(),
+            RtValue::Int(BigInt::from_i64(1))
+        );
+        assert_eq!(
+            rt.op_field_get(res_h, "resonance_count").unwrap(),
+            RtValue::Int(BigInt::from_i64(1))
+        );
+        assert_eq!(
+            rt.op_field_get(res_h, "fusion_count").unwrap(),
+            RtValue::Int(BigInt::from_i64(1))
+        );
+        assert_eq!(
+            rt.op_field_get(res_h, "expired_contact_count").unwrap(),
+            RtValue::Int(BigInt::from_i64(0))
+        );
+        assert_eq!(
+            rt.op_field_get(res_h, "moving_flux_total").unwrap(),
+            RtValue::Int(BigInt::zero())
+        );
+        if let RtValue::Bytes(bs) = rt.op_field_get(res_h, "state_json").unwrap() {
+            let parsed = parse_strict_json(std::str::from_utf8(&bs).unwrap()).unwrap();
+            assert_eq!(
+                parsed.get("active_carrier_count").and_then(JsonValue::as_int),
+                Some(&BigInt::from_i64(1))
+            );
+        } else {
+            panic!("expected Bytes for state_json");
+        }
+        let snap_v = rt.op_field_get(res_h, "final_snapshot").unwrap();
+        let snap_h = rt.arena.insert(snap_v).unwrap();
+        assert_eq!(
+            rt.op_field_get(snap_h, "fusion_count").unwrap(),
+            RtValue::Int(BigInt::from_i64(1))
+        );
+        assert!(matches!(
+            rt.op_field_get(snap_h, "shedding_witnesses_json").unwrap(),
+            RtValue::Bytes(_)
+        ));
+    }
 }

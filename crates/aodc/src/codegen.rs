@@ -3739,34 +3739,48 @@ impl FnBuilder {
                 | "final_state_hash"
                 | "final_state_hash_bytes"
                 | "final_state_sha256"
-                | "boundary_bytes",
+                | "boundary_bytes"
+                | "state_json"
+                | "shedding_witnesses_json",
             ) => Ok(Type::Bytes),
             (
                 Type::SimResult,
                 "ticks"
                 | "carrier_count"
+                | "active_carrier_count"
                 | "shedding_event_count"
                 | "wavelet_event_count"
                 | "boundary_crossings"
                 | "total_returns"
                 | "total_hinges"
-                | "total_shedding_events",
+                | "total_shedding_events"
+                | "resonance_count"
+                | "expired_contact_count"
+                | "fusion_count"
+                | "moving_flux_total",
             ) => Ok(Type::Int),
             (Type::SimResult, "final_snapshot") => {
                 Ok(Type::ReadOnly(Box::new(Type::ChamberView)))
             }
             (
                 Type::ChamberView,
-                "model_status_bytes" | "chamber_name" | "chamber_name_bytes",
+                "model_status_bytes"
+                | "chamber_name"
+                | "chamber_name_bytes"
+                | "shedding_witnesses_json",
             ) => Ok(Type::Bytes),
             (
                 Type::ChamberView,
                 "tick"
                 | "carrier_count"
+                | "active_carrier_count"
                 | "boundary_crossings"
                 | "shedding_count"
                 | "wavelet_count"
-                | "clock_count",
+                | "clock_count"
+                | "resonance_count"
+                | "expired_contact_count"
+                | "fusion_count",
             ) => Ok(Type::Int),
             (Type::ChamberView, "carriers") => {
                 Ok(Type::ReadOnly(Box::new(Type::List(Box::new(Type::Int)))))
@@ -9921,6 +9935,55 @@ impl FnBuilder {
         ));
         self.emit_fail_return_check();
 
+        if chamber.boundary_step.is_some()
+            || chamber.contact_ttl.is_some()
+            || chamber.fuse_on_resonance.is_some()
+        {
+            let (dx_reg, dy_reg, dz_reg) = if let Some(ref bs_expr) = chamber.boundary_step {
+                let bs_v = self.emit_expr(cg, bs_expr)?;
+                let dxh = self.fresh_reg();
+                let dyh = self.fresh_reg();
+                let dzh = self.fresh_reg();
+                self.line(&format!(
+                    "  {dxh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 0)",
+                    bs_v.reg
+                ));
+                self.line(&format!(
+                    "  {dyh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 1)",
+                    bs_v.reg
+                ));
+                self.line(&format!(
+                    "  {dzh} = call i64 @aod_rt_tuple_get(ptr %ctx, i64 {}, i64 2)",
+                    bs_v.reg
+                ));
+                self.emit_fail_return_check();
+                let dxv = self.unbox_handle_to_val(&dxh, &Type::Int);
+                let dyv = self.unbox_handle_to_val(&dyh, &Type::Int);
+                let dzv = self.unbox_handle_to_val(&dzh, &Type::Int);
+                (dxv.reg, dyv.reg, dzv.reg)
+            } else {
+                ("0".to_string(), "0".to_string(), "0".to_string())
+            };
+            let (has_ttl, ttl_reg) = if let Some(ref ttl_expr) = chamber.contact_ttl {
+                let tv = self.emit_expr(cg, ttl_expr)?;
+                (1u8, tv.reg)
+            } else {
+                (0u8, "0".to_string())
+            };
+            let fuse_reg = if let Some(ref fus_expr) = chamber.fuse_on_resonance {
+                let fv = self.emit_expr(cg, fus_expr)?;
+                let f8 = self.fresh_reg();
+                self.line(&format!("  {f8} = zext i1 {} to i8", fv.reg));
+                f8
+            } else {
+                "0".to_string()
+            };
+            self.line(&format!(
+                "  call void @aod_rt_sim_builder_set_dynamics(ptr %ctx, i64 {bh}, i64 {dx_reg}, i64 {dy_reg}, i64 {dz_reg}, i8 {has_ttl}, i64 {ttl_reg}, i8 {fuse_reg})"
+            ));
+            self.emit_fail_return_check();
+        }
+
         for st in &prep.lets {
             self.emit_stmt(cg, st)?;
         }
@@ -10547,6 +10610,7 @@ declare i64 @aod_rt_enum_payload(ptr, i64, i64)
 declare i64 @aod_rt_field_get(ptr, i64, ptr, i64)
 
 declare i64 @aod_rt_sim_builder_new(ptr, i64, i64, i8)
+declare void @aod_rt_sim_builder_set_dynamics(ptr, i64, i64, i64, i64, i8, i64, i8)
 declare void @aod_rt_sim_builder_add_clock(ptr, i64, i64, i64)
 declare void @aod_rt_sim_builder_add_carrier(ptr, i64, i64, i64, i64, i64, i8, i8, i64)
 declare void @aod_rt_sim_builder_add_decl_obs(ptr, i64, i8, i64, i64)

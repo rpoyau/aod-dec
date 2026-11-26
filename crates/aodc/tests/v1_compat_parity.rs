@@ -2,7 +2,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use aod_core::sha256::Sha256;
-use aodc::{compile_file_to_ir, exec_ir_str, jit_file_captured, run_file, OptLevel};
+use aodc::{
+    check_v1_file, compile_file_to_ir, compile_v1_file_to_ir, compile_v1_source_to_ir, exec_ir_str,
+    jit_file_captured, run_file, run_v1_file, run_v1_source, OptLevel,
+};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -14,7 +17,7 @@ fn repo_root() -> PathBuf {
 }
 
 #[test]
-fn all_10_frozen_v1_examples_preserve_manifest_hashes_and_reject_legacy_compat() {
+fn all_10_frozen_v1_examples_preserve_manifest_hashes_and_replay_under_compat_v1() {
     let v1_dir = repo_root().join("tests/fixtures/v1_examples");
     let manifest = std::fs::read_to_string(v1_dir.join("MANIFEST.txt")).unwrap();
     let lines: Vec<&str> = manifest.lines().filter(|l| !l.trim().is_empty()).collect();
@@ -42,26 +45,99 @@ fn all_10_frozen_v1_examples_preserve_manifest_hashes_and_reject_legacy_compat()
             expected_out_sha,
             "frozen stdout SHA-256 mismatch for {name}"
         );
+        let expected_stdout = String::from_utf8(out_bytes).unwrap();
 
-        // Legacy uppercase `Dec` is rejected by the clean-break frontend
+        // 1. Default Pure-Wave v3 frontend still rejects legacy uppercase `Dec`
         let err = aodc::check_file(&src_path)
-            .expect_err("clean-break frontend must reject legacy v1 syntax");
+            .expect_err("default clean-break v3 frontend must reject legacy v1 syntax");
         assert!(
             err.message.contains("uppercase 'Dec' is removed")
                 || err.message.contains("removed"),
             "unexpected diagnostic for {name}: {err}"
         );
+
+        // 2. Explicit `--compat v1` check, VM run, and hermetic DecIR v1 exec match byte-for-byte
+        check_v1_file(&src_path)
+            .unwrap_or_else(|e| panic!("check_v1_file failed for {name}: {e}"));
+        let vm_v1 = run_v1_file(&src_path, 10_000_000, 256)
+            .unwrap_or_else(|e| panic!("run_v1_file failed for {name}: {e}"));
+        assert_eq!(
+            vm_v1.to_stdout_string(),
+            expected_stdout,
+            "--compat v1 VM stdout mismatch for {name}"
+        );
+
+        let ir_v1 = compile_v1_file_to_ir(&src_path)
+            .unwrap_or_else(|e| panic!("compile_v1_file_to_ir failed for {name}: {e}"));
+        assert!(ir_v1.contains("\"version\": 1"), "expected DecIR v1 for {name}");
+        let exec_v1 = exec_ir_str(&ir_v1)
+            .unwrap_or_else(|e| panic!("exec_ir_str (v1) failed for {name}: {e}"));
+        assert_eq!(
+            exec_v1.to_stdout_string(),
+            expected_stdout,
+            "DecIR v1 exec stdout mismatch for {name}"
+        );
     }
 
-    // Verify `--compat` flag is rejected on CLI
+    // 3. CLI `aodc test --compat v1 tests/fixtures/v1_examples` passes 10/10
     let bin = env!("CARGO_BIN_EXE_aodc");
-    let out = Command::new(bin)
-        .args(["check", "--compat", "v1", v1_dir.join("weights.dec").to_str().unwrap()])
+    let ok = Command::new(bin)
+        .args(["test", "--compat", "v1", v1_dir.to_str().unwrap()])
         .output()
         .unwrap();
-    assert!(!out.status.success(), "--compat must be rejected");
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("unknown") || stderr.contains("--compat"));
+    assert!(
+        ok.status.success(),
+        "aodc test --compat v1 failed:\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&ok.stdout),
+        String::from_utf8_lossy(&ok.stderr)
+    );
+    assert!(String::from_utf8_lossy(&ok.stdout).contains("10 passed; 0 failed; 10 total"));
+
+    // 4. Invalid `--compat` mode is rejected cleanly, and `--compat v1` rejects v3-only syntax
+    let bad_mode = Command::new(bin)
+        .args(["check", "--compat", "v99", v1_dir.join("weights.dec").to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!bad_mode.status.success(), "unknown --compat mode must fail");
+    assert!(
+        aodc::check_v1_source("dec main() -> int:\n    0\n").is_err(),
+        "--compat v1 must reject v3 lowercase `dec` syntax"
+    );
+
+    // 5. Hostile invalid continuations fail identically in both v1 VM and DecIR v1:
+    //    (a) Hamming-2 step `q4(0) -> q4(3)` in closure.dec
+    let closure_src = std::fs::read_to_string(v1_dir.join("closure.dec")).unwrap();
+    let bad_hamming = closure_src.replacen("step(t, q4(1), t1(1))", "step(t, q4(3), t1(1))", 1);
+    assert!(
+        run_v1_source(&bad_hamming, 10_000_000, 256).is_err(),
+        "Hamming-2 step must fail in v1 VM"
+    );
+    let bad_hamming_ir = compile_v1_source_to_ir(&bad_hamming).unwrap();
+    assert!(exec_ir_str(&bad_hamming_ir).is_err(), "Hamming-2 step must fail in DecIR v1");
+
+    //    (b) `fuse(proposal, c)` before outer trace `c` independently closes in fusion.dec
+    let fusion_src = std::fs::read_to_string(v1_dir.join("fusion.dec")).unwrap();
+    let bad_fusion = fusion_src.replacen("        c = recur(c)\n", "", 1);
+    assert!(
+        run_v1_source(&bad_fusion, 10_000_000, 256).is_err(),
+        "premature fuse must fail in v1 VM"
+    );
+    let bad_fusion_ir = compile_v1_source_to_ir(&bad_fusion).unwrap();
+    assert!(exec_ir_str(&bad_fusion_ir).is_err(), "premature fuse must fail in DecIR v1");
+
+    //    (c) Repeated contact at `(6, 7)` in coupling.dec
+    let coupling_src = std::fs::read_to_string(v1_dir.join("coupling.dec")).unwrap();
+    let bad_contact = coupling_src.replacen(
+        "        pair = contact(pair, 6, 7)\n",
+        "        pair = contact(pair, 6, 7)\n        pair = contact(pair, 6, 7)\n",
+        1,
+    );
+    assert!(
+        run_v1_source(&bad_contact, 10_000_000, 256).is_err(),
+        "repeated contact (6, 7) must fail in v1 VM"
+    );
+    let bad_contact_ir = compile_v1_source_to_ir(&bad_contact).unwrap();
+    assert!(exec_ir_str(&bad_contact_ir).is_err(), "repeated contact (6, 7) must fail in DecIR v1");
 }
 
 #[test]

@@ -2,9 +2,9 @@ name: AOD-DEC Clean-Break & Self-Host CI
 
 on:
   push:
-    branches: ["main", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
+    branches: ["main", "v3/clear-integration-blockers", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
   pull_request:
-    branches: ["main", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
+    branches: ["main", "v3/clear-integration-blockers", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
 
 permissions:
   contents: read
@@ -45,8 +45,9 @@ jobs:
             exit 1
           fi
 
-      - name: Run Clean-Break v3, v2 smoke, first_principles, and Manual fixture suites + fmt --check
+      - name: Run Frozen v1 (--compat v1), Clean-Break v3, v2 smoke, first_principles, and Manual fixture suites + fmt --check
         run: |
+          ./target/release/aodc test --compat v1 tests/fixtures/v1_examples
           ./target/release/aodc test tests/fixtures/v3_examples
           ./target/release/aodc test tests/fixtures/v2_smoke
           ./target/release/aodc test manual_examples

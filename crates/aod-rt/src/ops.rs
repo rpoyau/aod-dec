@@ -23,8 +23,8 @@ use aod_core::witness::{Coupling, Fusion, SeatState, Trace};
 
 use crate::arena::{RtArena, DEFAULT_MAX_ARENA_ENTRIES};
 use crate::sim::{
-    AxisDir, BlindMotifSpectrum, BoxRegion, CarrierState, ChamberState, DeclarativeObserver,
-    ProbeKind, ReferenceClock, SensorCurrentSummary, SimRunResult, WallPolicy,
+    AxisDir, BlindMotifSpectrum, BoxRegion, CarrierState, ChamberDynamicsConfig, ChamberState,
+    DeclarativeObserver, ProbeKind, ReferenceClock, SensorCurrentSummary, SimRunResult, WallPolicy,
 };
 use crate::value::{
     model_status_variant_and_tag, recipient_stage_name, recipient_stage_variant_and_tag,
@@ -40,6 +40,7 @@ pub struct SimBuilder {
     pub chamber_name: String,
     pub space: BoxRegion,
     pub walls: WallPolicy,
+    pub dynamics: ChamberDynamicsConfig,
     pub clocks: Vec<ReferenceClock>,
     pub carriers: Vec<CarrierState>,
     pub decl_observers: Vec<DeclarativeObserver>,
@@ -591,6 +592,14 @@ impl RtState {
             (RtValue::SimResult(s), "final_state_sha256") => Ok(RtValue::Bytes(
                 std::sync::Arc::new(decode_hex_32(&s.final_state_hash)?),
             )),
+            (RtValue::SimResult(s), "state_json" | "state_json_bytes") => {
+                Ok(RtValue::Bytes(std::sync::Arc::new(s.state_json.into_bytes())))
+            }
+            (RtValue::SimResult(s), "shedding_witnesses_json" | "shedding_witnesses_json_bytes") => {
+                Ok(RtValue::Bytes(std::sync::Arc::new(
+                    s.shedding_witnesses_json.into_bytes(),
+                )))
+            }
             (RtValue::SimResult(s), "boundary_bytes") => Ok(RtValue::Bytes(std::sync::Arc::new(
                 s.final_snapshot.space.boundary_descriptor().into_bytes(),
             ))),
@@ -601,6 +610,9 @@ impl RtState {
             (RtValue::SimResult(s), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.carrier_count as u64)))
             }
+            (RtValue::SimResult(s), "active_carrier_count") => {
+                Ok(RtValue::Int(BigInt::from_u64(s.active_carrier_count as u64)))
+            }
             (RtValue::SimResult(s), "shedding_event_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.shedding_event_count as u64)))
             }
@@ -609,6 +621,18 @@ impl RtState {
             }
             (RtValue::SimResult(s), "boundary_crossings") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.boundary_crossings)))
+            }
+            (RtValue::SimResult(s), "resonance_count") => {
+                Ok(RtValue::Int(BigInt::from_u64(s.resonance_count as u64)))
+            }
+            (RtValue::SimResult(s), "expired_contact_count") => {
+                Ok(RtValue::Int(BigInt::from_u64(s.expired_contact_count as u64)))
+            }
+            (RtValue::SimResult(s), "fusion_count") => {
+                Ok(RtValue::Int(BigInt::from_u64(s.fusion_count as u64)))
+            }
+            (RtValue::SimResult(s), "moving_flux_total") => {
+                Ok(RtValue::Int(s.moving_flux_total))
             }
             (RtValue::SimResult(s), "total_returns") => {
                 Ok(RtValue::Int(BigInt::from_u64(s.blind_motif_spectrum.total_returns)))
@@ -639,12 +663,30 @@ impl RtState {
             (RtValue::ChamberView(snap), "chamber_name" | "chamber_name_bytes") => Ok(
                 RtValue::Bytes(std::sync::Arc::new(snap.chamber_name.into_bytes())),
             ),
+            (
+                RtValue::ChamberView(snap),
+                "shedding_witnesses_json" | "shedding_witnesses_json_bytes",
+            ) => Ok(RtValue::Bytes(std::sync::Arc::new(
+                snap.shedding_witnesses_json.into_bytes(),
+            ))),
             (RtValue::ChamberView(snap), "tick") => Ok(RtValue::Int(BigInt::from_u64(snap.tick))),
             (RtValue::ChamberView(snap), "carrier_count") => {
                 Ok(RtValue::Int(BigInt::from_u64(snap.carriers.len() as u64)))
             }
+            (RtValue::ChamberView(snap), "active_carrier_count") => Ok(RtValue::Int(
+                BigInt::from_u64(snap.active_carrier_count as u64),
+            )),
             (RtValue::ChamberView(snap), "boundary_crossings") => {
                 Ok(RtValue::Int(BigInt::from_u64(snap.boundary_crossings)))
+            }
+            (RtValue::ChamberView(snap), "resonance_count") => {
+                Ok(RtValue::Int(BigInt::from_u64(snap.resonance_count as u64)))
+            }
+            (RtValue::ChamberView(snap), "expired_contact_count") => Ok(RtValue::Int(
+                BigInt::from_u64(snap.expired_contact_count as u64),
+            )),
+            (RtValue::ChamberView(snap), "fusion_count") => {
+                Ok(RtValue::Int(BigInt::from_u64(snap.fusion_count as u64)))
             }
             (RtValue::ChamberView(snap), "shedding_count") => Ok(RtValue::Int(BigInt::from_u64(
                 snap.shedding_events_this_tick.len() as u64,
@@ -914,12 +956,45 @@ impl RtState {
             chamber_name,
             space,
             walls,
+            dynamics: ChamberDynamicsConfig::default(),
             clocks: Vec::new(),
             carriers: Vec::new(),
             decl_observers: Vec::new(),
             proc_observers: Vec::new(),
         });
         Ok(self.sim_builders.len() as u64)
+    }
+
+    pub fn op_sim_builder_set_dynamics(
+        &mut self,
+        b_h: u64,
+        dx: &TritInt,
+        dy: &TritInt,
+        dz: &TritInt,
+        contact_ttl: i64,
+        fuse_on_resonance: u8,
+    ) -> Result<(), String> {
+        let dxi = dx
+            .to_i64()
+            .ok_or_else(|| format!("boundary_step dx {dx} out of i64 range"))?;
+        let dyi = dy
+            .to_i64()
+            .ok_or_else(|| format!("boundary_step dy {dy} out of i64 range"))?;
+        let dzi = dz
+            .to_i64()
+            .ok_or_else(|| format!("boundary_step dz {dz} out of i64 range"))?;
+        let ttl = if contact_ttl < 0 {
+            None
+        } else {
+            Some(contact_ttl as u64)
+        };
+        let idx = builder_idx(b_h, self.sim_builders.len())?;
+        self.sim_builders[idx].dynamics = ChamberDynamicsConfig {
+            boundary_step: [dxi, dyi, dzi],
+            contact_ttl: ttl,
+            fuse_on_resonance: fuse_on_resonance != 0,
+        };
+        Ok(())
     }
 
     pub fn op_sim_builder_add_clock(
@@ -1020,8 +1095,15 @@ impl RtState {
         state: ChamberState,
         decl_observers: Vec<DeclarativeObserver>,
     ) -> Result<u64, String> {
-        let final_hash = state.state_hash();
+        let state_json = state.to_json().to_compact_ascii_json();
+        let final_hash = Sha256::digest_hex(state_json.as_bytes());
         let final_snapshot = state.snapshot();
+        let active_carrier_count = state.active_carrier_count();
+        let shedding_witnesses_json = final_snapshot.shedding_witnesses_json.clone();
+        let resonance_count = state.resonances.len();
+        let expired_contact_count = state.expired_contacts.len();
+        let fusion_count = state.fusions.len();
+        let moving_flux_total = state.moving_flux_total();
         let mut support_counts = BTreeMap::new();
         for c in &state.carriers {
             *support_counts.entry(c.support.render()).or_insert(0) += 1;
@@ -1047,10 +1129,17 @@ impl RtState {
             chamber_name: state.chamber_name,
             ticks: state.tick,
             final_state_hash: final_hash,
+            state_json,
             carrier_count: state.carriers.len(),
+            active_carrier_count,
             shedding_event_count: state.shedding_events.len(),
             wavelet_event_count: state.wavelet_events.len(),
             boundary_crossings: state.boundary_crossings,
+            shedding_witnesses_json,
+            resonance_count,
+            expired_contact_count,
+            fusion_count,
+            moving_flux_total,
             blind_motif_spectrum: BlindMotifSpectrum {
                 support_counts,
                 total_returns,

@@ -866,6 +866,9 @@ impl Parser {
         let mut space: Option<Expr> = None;
         let mut walls = WallPolicyAst::Open;
         let mut engine: Option<String> = None;
+        let mut boundary_step: Option<Expr> = None;
+        let mut contact_ttl: Option<Expr> = None;
+        let mut fuse_on_resonance: Option<Expr> = None;
 
         while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
             let fline = self.line();
@@ -925,6 +928,15 @@ impl Parser {
                     };
                     engine = Some(eng);
                 }
+                "boundary_step" => {
+                    boundary_step = Some(self.parse_expr()?);
+                }
+                "contact_ttl" => {
+                    contact_ttl = Some(self.parse_expr()?);
+                }
+                "fuse_on_resonance" => {
+                    fuse_on_resonance = Some(self.parse_expr()?);
+                }
                 other => {
                     return Err(Diagnostic::at_line(
                         DiagnosticCode::ParseError,
@@ -949,6 +961,9 @@ impl Parser {
             space,
             walls,
             engine,
+            boundary_step,
+            contact_ttl,
+            fuse_on_resonance,
             line,
         })
     }

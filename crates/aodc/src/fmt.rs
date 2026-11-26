@@ -201,6 +201,18 @@ fn fmt_chamber(out: &mut String, c: &ChamberDecl, indent: usize) {
         push_indent(out, indent + 1);
         let _ = writeln!(out, "engine = {eng}");
     }
+    if let Some(ref bs) = c.boundary_step {
+        push_indent(out, indent + 1);
+        let _ = writeln!(out, "boundary_step = {}", fmt_expr_at(bs, indent + 1));
+    }
+    if let Some(ref ttl) = c.contact_ttl {
+        push_indent(out, indent + 1);
+        let _ = writeln!(out, "contact_ttl = {}", fmt_expr_at(ttl, indent + 1));
+    }
+    if let Some(ref fus) = c.fuse_on_resonance {
+        push_indent(out, indent + 1);
+        let _ = writeln!(out, "fuse_on_resonance = {}", fmt_expr_at(fus, indent + 1));
+    }
 }
 
 fn fmt_prepare(out: &mut String, p: &PrepareDecl, indent: usize) {

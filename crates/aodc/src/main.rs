@@ -9,14 +9,15 @@ use aod_core::json::{parse_strict_json, JsonValue};
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
     audit_dec_file_with_options, audit_pdf_file, bench_file_with_options,
-    build_aot_file_with_options, check_file_with_options, collect_guarded_roots,
-    compile_file_to_ir_with_options, emit_llvm_file_with_options, eval_operation,
-    exec_ir_file_with_budget_capturing, format_source, format_x100,
+    build_aot_file_with_options, check_file_with_options, check_v1_file, collect_guarded_roots,
+    compile_file_to_ir_with_options, compile_v1_file_to_ir, emit_llvm_file_with_options,
+    eval_operation, exec_ir_file_with_budget_capturing, format_source, format_x100,
     jit_file_with_profile_and_parallel_captured, learn_file_with_options,
-    read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes, run_dec_tests_with_options,
-    run_file_with_parallel_observers_capturing, run_manual_data, validate_runtime_output_path,
-    verify_manual_dir, verify_s2_dir, verify_s4_convergence_dir, write_report_atomic, LoadOptions,
-    ManualDataOptions, ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_S4_INPUT_BYTES,
+    migrate_source_formatted, read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes,
+    run_dec_tests_with_compat, run_file_with_parallel_observers_capturing, run_manual_data,
+    run_v1_file_capturing, validate_runtime_output_path, verify_manual_dir, verify_s2_dir,
+    verify_s4_convergence_dir, write_report_atomic, CompatMode, LoadOptions, ManualDataOptions,
+    ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_MIGRATE_SOURCE_BYTES, MAX_S4_INPUT_BYTES,
 };
 
 struct CliErr {
@@ -46,6 +47,37 @@ impl From<String> for CliErr {
     }
 }
 
+fn extract_compat_flag(args: &[String]) -> Result<(CompatMode, Vec<String>), String> {
+    let mut compat = CompatMode::V3;
+    let mut seen = false;
+    let mut filtered = Vec::with_capacity(args.len());
+    let mut i = 0usize;
+    while i < args.len() {
+        if args[i] == "--compat" {
+            if seen {
+                return Err("duplicate flag --compat".to_string());
+            }
+            let val = args
+                .get(i + 1)
+                .ok_or_else(|| "missing mode after --compat (expected v1 or v3)".to_string())?;
+            compat = CompatMode::parse_cli(val)?;
+            seen = true;
+            i += 2;
+        } else if let Some(val) = args[i].strip_prefix("--compat=") {
+            if seen {
+                return Err("duplicate flag --compat".to_string());
+            }
+            compat = CompatMode::parse_cli(val)?;
+            seen = true;
+            i += 1;
+        } else {
+            filtered.push(args[i].clone());
+            i += 1;
+        }
+    }
+    Ok((compat, filtered))
+}
+
 fn canonicalize_allowing_new_file(path: &Path) -> std::io::Result<PathBuf> {
     if path.exists() {
         return std::fs::canonicalize(path);
@@ -71,6 +103,27 @@ fn ensure_out_differs_from_src(src_path: &Path, out_path: &Path) -> Result<(), S
         canonicalize_allowing_new_file(out_path).map_err(|e| format!("output path error: {e}"))?;
     if canon_src == canon_out {
         return Err("output path must differ from source path".to_string());
+    }
+    Ok(())
+}
+
+fn ensure_not_frozen_guarded_target(target: &Path) -> Result<(), String> {
+    let canon =
+        canonicalize_allowing_new_file(target).map_err(|e| format!("output path error: {e}"))?;
+    for root in aodc::collect_guarded_roots(&canon, &[]) {
+        for rel in [
+            "tests/fixtures/v1_examples",
+            "bindings/aod",
+            "reference/aod-dec-dev",
+            "SOURCE_BINDING.json",
+        ] {
+            let guarded = root.join(rel);
+            if canon == guarded || canon.starts_with(&guarded) {
+                return Err(format!(
+                    "refusing to overwrite frozen provenance artifact under {rel}"
+                ));
+            }
+        }
     }
     Ok(())
 }
@@ -149,8 +202,8 @@ fn parse_options(
     let mut i = 0usize;
     while i < args.len() {
         let a = args[i].as_str();
-        if a == "--compat" {
-            return Err("legacy --compat flag has been removed in clean-break Dec".to_string());
+        if a == "--compat" || a.starts_with("--compat=") {
+            return Err("--compat is only supported on `check`, `run`, `compile`, and `test`".to_string());
         } else if a == "--strict-wave" || a == "--pure-wave" {
             i += 1;
         } else if allow_stdlib && a == "--stdlib" {
@@ -252,7 +305,7 @@ fn flush_emits_and_result(
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--stdlib <dir>] <source.dec>\n  aodc run [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc test [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v3] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v3] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v3] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc migrate [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc test [--compat v1|v3] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -270,35 +323,53 @@ fn main() -> ExitCode {
     let sub_args = &raw_args[1..];
 
     let result: Result<(), CliErr> = match cmd {
-        "check" => parse_options(sub_args, false, false, false, false, true, false, false, false)
-            .and_then(|opts| {
+        "check" => extract_compat_flag(sub_args)
+            .and_then(|(compat, rem)| {
+                let opts =
+                    parse_options(&rem, false, false, false, false, true, false, false, false)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
-                check_file_with_options(Path::new(&opts.rest[0]), &opts.load)
-                    .map_err(|e| e.to_string())?;
+                let src_path = Path::new(&opts.rest[0]);
+                match compat {
+                    CompatMode::V1 => {
+                        check_v1_file(src_path).map_err(|e| e.to_string())?;
+                    }
+                    CompatMode::V3 => {
+                        check_file_with_options(src_path, &opts.load).map_err(|e| e.to_string())?;
+                    }
+                }
                 println!("OK: Dec");
                 Ok(())
             })
             .map_err(CliErr::fail),
-        "run" => parse_options(sub_args, false, true, false, false, true, false, false, true)
-            .and_then(|opts| {
+        "run" => extract_compat_flag(sub_args)
+            .and_then(|(compat, rem)| {
+                let opts =
+                    parse_options(&rem, false, true, false, false, true, false, false, true)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
-                let (emits, outcome) = run_file_with_parallel_observers_capturing(
-                    Path::new(&opts.rest[0]),
-                    opts.fuel,
-                    opts.max_depth,
-                    &opts.load,
-                    opts.parallel_observers,
-                )
-                .map_err(|e| e.to_string())?;
+                let src_path = Path::new(&opts.rest[0]);
+                let (emits, outcome) = match compat {
+                    CompatMode::V1 => run_v1_file_capturing(src_path, opts.fuel, opts.max_depth)
+                        .map_err(|e| e.to_string())?,
+                    CompatMode::V3 => run_file_with_parallel_observers_capturing(
+                        src_path,
+                        opts.fuel,
+                        opts.max_depth,
+                        &opts.load,
+                        opts.parallel_observers,
+                    )
+                    .map_err(|e| e.to_string())?,
+                };
                 flush_emits_and_result(emits, outcome)
             })
             .map_err(CliErr::fail),
-        "compile" => parse_options(sub_args, false, false, true, false, true, false, false, false)
-            .and_then(|opts| {
+        "compile" => extract_compat_flag(sub_args)
+            .and_then(|(compat, rem)| {
+                let opts =
+                    parse_options(&rem, false, false, true, false, true, false, false, false)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
@@ -308,8 +379,13 @@ fn main() -> ExitCode {
                         .ok_or_else(|| "missing -o <out.ir.json>".to_string())?,
                 );
                 ensure_out_differs_from_src(&src_path, &out_path)?;
-                let ir_text = compile_file_to_ir_with_options(&src_path, &opts.load)
-                    .map_err(|e| e.to_string())?;
+                let ir_text = match compat {
+                    CompatMode::V1 => {
+                        compile_v1_file_to_ir(&src_path).map_err(|e| e.to_string())?
+                    }
+                    CompatMode::V3 => compile_file_to_ir_with_options(&src_path, &opts.load)
+                        .map_err(|e| e.to_string())?,
+                };
                 std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
                 Ok(())
             })
@@ -1444,6 +1520,137 @@ fn main() -> ExitCode {
                 })
             }
         }
+        "migrate" => {
+            let mut check_only = false;
+            let mut write_in_place = false;
+            let mut out_path: Option<PathBuf> = None;
+            let mut positional: Vec<String> = Vec::new();
+            let mut idx = 0usize;
+            let mut parse_err: Option<String> = None;
+            while idx < sub_args.len() {
+                match sub_args[idx].as_str() {
+                    "--check" => {
+                        check_only = true;
+                        idx += 1;
+                    }
+                    "--write" | "-w" => {
+                        write_in_place = true;
+                        idx += 1;
+                    }
+                    "-o" | "--output" => {
+                        if out_path.is_some() {
+                            parse_err = Some("duplicate flag -o/--output".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                out_path = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err = Some("missing path after -o/--output".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    other if other.starts_with('-') => {
+                        parse_err =
+                            Some(format!("unknown flag {other:?} for migrate\n{}", usage()));
+                        break;
+                    }
+                    other => {
+                        positional.push(other.to_string());
+                        idx += 1;
+                    }
+                }
+            }
+            let mode_count = usize::from(check_only)
+                + usize::from(write_in_place)
+                + usize::from(out_path.is_some());
+            if parse_err.is_none() && mode_count > 1 {
+                parse_err = Some(
+                    "--check, --write, and -o/--output are mutually exclusive".to_string(),
+                );
+            }
+            if let Some(e) = parse_err {
+                Err(CliErr::usage(e))
+            } else if positional.len() != 1 {
+                Err(CliErr::usage(format!(
+                    "expected exactly one <source.dec>\n{}",
+                    usage()
+                )))
+            } else {
+                let src_path = Path::new(&positional[0]);
+                if write_in_place {
+                    if let Ok(meta) = std::fs::symlink_metadata(src_path) {
+                        if meta.file_type().is_symlink() {
+                            eprintln!("aodc: migrate --write target must not be a symlink");
+                            return ExitCode::from(2);
+                        }
+                    }
+                    if let Err(e) = ensure_not_frozen_guarded_target(src_path) {
+                        eprintln!("aodc: {e}");
+                        return ExitCode::from(2);
+                    }
+                }
+                if let Some(ref op) = out_path {
+                    if let Ok(meta) = std::fs::symlink_metadata(op) {
+                        if meta.file_type().is_symlink() {
+                            eprintln!("aodc: migrate -o/--output target must not be a symlink");
+                            return ExitCode::from(2);
+                        }
+                        if meta.is_dir() {
+                            eprintln!("aodc: migrate -o/--output target is a directory");
+                            return ExitCode::from(2);
+                        }
+                    }
+                    if let Err(e) = ensure_out_differs_from_src(src_path, op) {
+                        eprintln!("aodc: {e}");
+                        return ExitCode::from(2);
+                    }
+                    if let Err(e) = ensure_not_frozen_guarded_target(op) {
+                        eprintln!("aodc: {e}");
+                        return ExitCode::from(2);
+                    }
+                }
+
+                let raw_bytes =
+                    match read_bounded_regular_file(src_path, "source", MAX_MIGRATE_SOURCE_BYTES) {
+                        Ok(b) => b,
+                        Err(e) if e.contains("symlink rejected") => {
+                            eprintln!("aodc: {e}");
+                            return ExitCode::from(2);
+                        }
+                        Err(e) => {
+                            eprintln!("aodc: {e}");
+                            return ExitCode::from(1);
+                        }
+                    };
+                let src_res = String::from_utf8(raw_bytes)
+                    .map_err(|_| CliErr::fail("source: file is not valid UTF-8".to_string()));
+                src_res.and_then(|src| {
+                    let migrated = migrate_source_formatted(&src)
+                        .map_err(|e| CliErr::fail(e.to_string()))?;
+                    if check_only {
+                        if src == migrated {
+                            Ok(())
+                        } else {
+                            Err(CliErr::fail(format!(
+                                "{} requires v3 migration",
+                                src_path.display()
+                            )))
+                        }
+                    } else if let Some(ref op) = out_path {
+                        write_report_atomic(op, migrated.as_bytes()).map_err(CliErr::fail)
+                    } else if write_in_place {
+                        write_report_atomic(src_path, migrated.as_bytes()).map_err(CliErr::fail)
+                    } else {
+                        print!("{migrated}");
+                        Ok(())
+                    }
+                })
+            }
+        }
         "audit-dec" | "audit" => {
             let mut stdlib_dir: Option<PathBuf> = None;
             let mut report_path: Option<PathBuf> = None;
@@ -1455,7 +1662,7 @@ fn main() -> ExitCode {
                 match sub_args[idx].as_str() {
                     "--compat" => {
                         parse_err = Some(
-                            "legacy --compat flag has been removed in clean-break Dec".to_string(),
+                            "--compat is not supported on audit-dec (pure-wave v3 only)".to_string(),
                         );
                         break;
                     }
@@ -1574,14 +1781,15 @@ fn main() -> ExitCode {
                 }
             }
         }
-        "test" => parse_options(sub_args, false, false, false, false, true, false, false, false)
-            .and_then(|opts| {
+        "test" => extract_compat_flag(sub_args)
+            .and_then(|(compat, rem)| {
+                let opts =
+                    parse_options(&rem, false, false, false, false, true, false, false, false)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <file_or_dir>\n{}", usage()));
                 }
-                let cases =
-                    run_dec_tests_with_options(Path::new(&opts.rest[0]), &opts.load)
-                        .map_err(|e| e.to_string())?;
+                let cases = run_dec_tests_with_compat(Path::new(&opts.rest[0]), &opts.load, compat)
+                    .map_err(|e| e.to_string())?;
                 if cases.is_empty() {
                     return Err("no Dec test cases discovered".to_string());
                 }
