@@ -22,9 +22,13 @@ or JIT machine code is emitted (#mainappendix("main:app:closure-role-separation"
 4. *Zero Implicit Coercions, Static Shape Agreement, and Zero Floats Firewall:* mixed-type arithmetic
    (`int + ratio`, `int + b64`), mismatched fixed-array ranks (`[int; 3] + [int; 4]` -> `ShapeMismatch`),
    and float literals fail at compile time.
-5. *Exhaustive Checking and Hermetic `DecIR v3` Verification:* unreachable arms and dead functions are still
-   exhaustively checked, and `aodc exec` rebuilds and verifies embedded source SHA-256 digests without
-   consulting the ambient filesystem or `AOD_STDLIB_DIR`.
+5. *Exhaustive Checking, Hermetic `DecIR v3`/`v4` Verification, and Plan 9 / Inferno Capability Isolation:*
+   unreachable arms and dead functions are exhaustively checked; `aodc exec` rebuilds and verifies embedded
+   source SHA-256 digests and resolved Plan 9 mount tables without consulting the ambient filesystem; `clear`
+   strips `/sys` and `/aod/qext` capabilities unless explicitly mounted; nominal `Struct` and `Enum` types are
+   tagged by cryptographic `UnitId` rather than lexical `/path` strings; and `mount dyn` capability slots verify
+   32-byte `iface_sha256` signature hashes and `DynEffectCaps` subset monotonicity (`impl_caps <= allowed_caps`)
+   before binding any runtime provider.
 
 #aod-paragraph("Derivation.")
 Both 2-segment (`SiMetrology::DELTA_NU_CS`) and 3-segment (`metrology::SiMetrology::DELTA_NU_CS`)

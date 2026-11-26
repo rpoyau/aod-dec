@@ -21,10 +21,10 @@ LLVM 18 FFI, and hardware-probe interface files.
     toprule,
     [*Crate*], [*Safety Policy*], [*Declared Role*],
     midrule,
-    [`aod-core`], [`#![forbid(unsafe_code)]`], [2-bit balanced-ternary `BigTrit`/`BigInt`, Division-Free Ternary Stein GCD `Ratio`, compact 1-word `pack_ratio`, quarantined `QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, FIPS 180-4 SHA-256, strict float-free JSON, M3 wavelets, Manual ledger primitives, S2/S4 exact operations, and `aod.s4.rust.report.v1` builder.],
-    [`aod-rt`], [`unsafe` only in `abi.rs`], [Shared deterministic sandbox chamber with optional parallel read-only observer execution (`aod_rt_sim_run_ex`), Trit-Boxed `0xD000...` spill arena with entry cap, copy-on-write container and `seq_buf` helpers, `aod::sys` ELF64 bootstrap I/O, and panic-safe C ABI (`libaod_rt.a`).],
-    [`aod-llvm`], [`unsafe` only in `ffi`/`aot`/`jit`/`hw_probe`], [`dlopen`-loaded LLVM 18 verifier and optimizer, PIC AOT ELF linker, ORC LLJIT session, CPU discovery, 5 live JIT micro-probes, and zero-float paired bootstrap learner (`CodegenPlan` with `trit_ssa_promotion`, `PROFILE_VERSION = 2`).],
-    [`aodc`], [`#![forbid(unsafe_code)]`], [Clean-break Dec frontend (rank-polymorphic arrays, adverbs, `|>` pipelines, `walk`/`settle`), 5 compile-time firewalls, hermetic `DecIR v3` verifier, Exact VM, Trit-Boxed LLVM 18 lowering, `bootstrap-verify`, zero-LLVM `manual-data`, `manual-verify`, `verify-s2 --s4-report`, `eval-op`, `std`-only `audit-pdf`, and CLI.],
+    [`aod-core`], [`#![forbid(unsafe_code)]`], [2-bit balanced-ternary `BigTrit`/`BigInt`, Division-Free Ternary Stein GCD `Ratio`, compact 1-word `pack_ratio`, quarantined `QExtRatio`, checked `T1`/`T32`/`Q4`/`Addr8`, FIPS 180-4 SHA-256, strict float-free JSON, Plan 9 `cleanname` and Copy-on-Write Ternary Search Tree `Namespace<P>` (`UnitId`), M3 wavelets, Manual ledger primitives, S2/S4 exact operations, and `aod.s4.rust.report.v1` builder.],
+    [`aod-rt`], [`unsafe` only in `abi.rs`], [Shared deterministic sandbox chamber with optional parallel read-only observer execution (`aod_rt_sim_run_ex`), Trit-Boxed `0xD000...` spill arena, default-empty Plan 9 runtime VFS (`RtNamespace`), default-on Linux `pivot_root` + `seccomp-bpf` containerizer (`SandboxedJitWorker`), indirect `mount dyn` capability dispatch, and panic-safe C ABI (`libaod_rt.a`).],
+    [`aod-llvm`], [`unsafe` only in `ffi`/`aot`/`jit`/`hw_probe`], [`dlopen`-loaded LLVM 18 verifier and optimizer, content-addressed `JitCodeCache` (`aod.jit.obj.v1`), PIC AOT ELF linker, container-sandboxed ORC LLJIT session, CPU discovery, 6 live JIT micro-probes, and zero-float paired bootstrap learner (`CodegenPlan`, `PROFILE_VERSION = 2`).],
+    [`aodc`], [`#![forbid(unsafe_code)]`], [Clean-break Dec frontend, Plan 9 / Inferno Context Namespace & cryptographic `UnitId` package system (`--namespace`, `mount dyn`, `DynamicJitHost`), compile-time firewalls, hermetic `DecIR v3`/`v4` verifier, Exact VM, Trit-Boxed LLVM 18 lowering, `bootstrap-verify`, zero-LLVM `manual-data`, `manual-verify`, `verify-s2 --s4-report`, `eval-op`, `std`-only `audit-pdf`, and CLI.],
     bottomrule,
   ),
 )<tab:crate-boundaries>
@@ -32,8 +32,12 @@ LLVM 18 FFI, and hardware-probe interface files.
 #aod-paragraph("Derivation.")
 Compilation flows strictly top-down as shown in #figref("fig:arch-firewalls") and summarized in
 #tabref("tab:crate-boundaries"). Every Dec source program passes exhaustive lexing, indentation-structured
-parsing, module resolution (including `use stdlib::aod::*` and built-in `aod::*`), static shape checking,
-and all five compile-time firewalls before reaching either the Exact Reference VM or LLVM 18 IR emission.
+parsing, Plan 9 Context Namespace resolution (mapping clean `/path` imports, `bind before|after|replace` union
+overlays, and `use stdlib::aod::*` onto cryptographic `UnitId = SHA256(Provider.id, subpath)` identities with
+zero ambient filesystem reads inside `modules.rs`), static shape checking, and all compile-time firewalls before
+reaching either the Exact Reference VM or LLVM 18 IR emission. On Linux, both `aodc jit` and standalone AOT ELF
+binaries execute inside a default-empty Plan 9 namespace isolated by unprivileged kernel namespaces (`pivot_root`
+onto an empty read-only `tmpfs` `/` plus `seccomp-bpf`), exposing only explicitly declared `--mount` capabilities.
 Because `aod-core` is the single mathematical oracle for both the VM and the cold `BigTrit` spills of
 `aod-rt`, native AOT ELF binaries and ORC LLJIT sessions maintain byte-for-byte output parity with the Exact
 Reference VM across every admissible execution path.

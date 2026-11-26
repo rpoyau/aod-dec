@@ -154,6 +154,43 @@ pub fn encode_ir_v4_json(checked: &CheckedUnit) -> JsonValue {
         "namespace_tables".to_string(),
         JsonValue::Object(ns_tables_obj),
     );
+    let mut dyn_slots_arr = Vec::with_capacity(checked.dynamic_slots.len());
+    for slot in &checked.dynamic_slots {
+        let mut sm = BTreeMap::new();
+        sm.insert(
+            "allowed_caps".to_string(),
+            JsonValue::from_str_val(slot.allowed_caps.render_tag()),
+        );
+        sm.insert(
+            "fn_name".to_string(),
+            JsonValue::from_str_val(slot.fn_name.clone()),
+        );
+        sm.insert(
+            "iface_sha256".to_string(),
+            JsonValue::from_str_val(slot.iface_sha256.to_hex()),
+        );
+        sm.insert(
+            "mount_path".to_string(),
+            JsonValue::from_str_val(slot.mount_path.clone()),
+        );
+        sm.insert(
+            "overload_index".to_string(),
+            JsonValue::from_i64(i64::from(slot.overload_index)),
+        );
+        sm.insert(
+            "slot_index".to_string(),
+            JsonValue::from_i64(i64::from(slot.slot_index)),
+        );
+        sm.insert(
+            "unit_key".to_string(),
+            JsonValue::from_str_val(slot.unit_key.clone()),
+        );
+        dyn_slots_arr.push(JsonValue::Object(sm));
+    }
+    root.insert(
+        "dynamic_slots".to_string(),
+        JsonValue::Array(dyn_slots_arr),
+    );
     root.insert(
         "declarations".to_string(),
         JsonValue::Array(declaration_tags(checked)),

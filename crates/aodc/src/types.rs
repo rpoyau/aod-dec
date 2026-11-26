@@ -12,6 +12,62 @@ pub enum Effect {
     SysIo,
 }
 
+/// Exact orthogonal capability bitmask for Inferno `sign`/`load` dynamic slot verification:
+/// - `0`: `PureNative` (safe inside `observe`, `prepare`, `const`, and pure kernels)
+/// - `CAP_CHAMBER_MUT (1)`: mutates apparatus chamber via `simulate`
+/// - `CAP_QEXT (2)`: enters `quarantine Q_ext`
+/// - `CAP_SYS_IO (4)`: invokes `aod::sys` host/namespace I/O
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct DynEffectCaps(pub u8);
+
+impl DynEffectCaps {
+    pub const PURE: Self = Self(0);
+    pub const CHAMBER_MUT: Self = Self(1);
+    pub const QEXT: Self = Self(2);
+    pub const SYS_IO: Self = Self(4);
+
+    pub const fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    pub const fn is_subset_of(self, allowed: Self) -> bool {
+        (self.0 & !allowed.0) == 0
+    }
+
+    pub fn render_tag(self) -> String {
+        if self.0 == 0 {
+            return "pure".to_string();
+        }
+        let mut parts = Vec::new();
+        if (self.0 & Self::CHAMBER_MUT.0) != 0 {
+            parts.push("chamber_mut");
+        }
+        if (self.0 & Self::QEXT.0) != 0 {
+            parts.push("qext");
+        }
+        if (self.0 & Self::SYS_IO.0) != 0 {
+            parts.push("sys_io");
+        }
+        parts.join("+")
+    }
+
+    pub fn parse_tag(s: &str) -> Option<Self> {
+        if s == "pure" {
+            return Some(Self::PURE);
+        }
+        let mut mask = 0u8;
+        for part in s.split('+') {
+            match part {
+                "chamber_mut" => mask |= Self::CHAMBER_MUT.0,
+                "qext" => mask |= Self::QEXT.0,
+                "sys_io" => mask |= Self::SYS_IO.0,
+                _ => return None,
+            }
+        }
+        Some(Self(mask))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Type {
     Unit,
@@ -52,6 +108,55 @@ pub enum Type {
 }
 
 impl Type {
+    /// Deterministic canonical nominal type descriptor hashed by Inferno `sign` (`iface_sha256`).
+    /// Encodes `Struct` and `Enum` with their cryptographic `UnitId` (`module = "u_<64hex>"`),
+    /// preventing nominal type confusion across distinct `Provider.id`s!
+    pub fn canonical_sign_string(&self) -> String {
+        match self {
+            Type::Unit => "unit".to_string(),
+            Type::Null => "null".to_string(),
+            Type::Int => "int".to_string(),
+            Type::Bool => "bool".to_string(),
+            Type::T1 => "t1".to_string(),
+            Type::B8 => "b8".to_string(),
+            Type::B64 => "b64".to_string(),
+            Type::Bytes => "bytes".to_string(),
+            Type::Q4 => "q4".to_string(),
+            Type::Ratio => "ratio".to_string(),
+            Type::Addr8 => "addr8".to_string(),
+            Type::Support => "support".to_string(),
+            Type::Window => "window".to_string(),
+            Type::Range => "range".to_string(),
+            Type::Box3 => "box3".to_string(),
+            Type::Trace => "trace".to_string(),
+            Type::Fusion => "fusion".to_string(),
+            Type::Coupling => "coupling".to_string(),
+            Type::Wavelet => "wavelet".to_string(),
+            Type::ScopeMap => "scopemap".to_string(),
+            Type::ShedWitness => "shedwitness".to_string(),
+            Type::RecipientOutcome => "recipientoutcome".to_string(),
+            Type::CadenceAssociation => "cadenceassociation".to_string(),
+            Type::ChamberView => "chamberview".to_string(),
+            Type::SimResult => "simresult".to_string(),
+            Type::Struct { module, name } => format!("struct<{module}:{name}>"),
+            Type::Enum { module, name } => format!("enum<{module}:{name}>"),
+            Type::Array(inner, n) => format!("array<{};{n}>", inner.canonical_sign_string()),
+            Type::List(inner) => format!("list<{}>", inner.canonical_sign_string()),
+            Type::Map(k, v) => format!(
+                "map<{},{}>",
+                k.canonical_sign_string(),
+                v.canonical_sign_string()
+            ),
+            Type::Tuple(elems) => {
+                let parts: Vec<String> = elems.iter().map(Type::canonical_sign_string).collect();
+                format!("tuple<({})>", parts.join(","))
+            }
+            Type::ReadOnly(inner) => format!("ro<{}>", inner.canonical_sign_string()),
+            Type::QExt(inner) => format!("qext<{}>", inner.canonical_sign_string()),
+            Type::Unknown => "unknown".to_string(),
+        }
+    }
+
     /// Pure-wave Dec has eliminated `Type::Str` completely (`false` for all types).
     pub const fn contains_str(&self) -> bool {
         false

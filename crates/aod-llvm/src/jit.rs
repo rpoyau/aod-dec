@@ -1,21 +1,191 @@
 #![allow(unsafe_code)]
 
-use std::ffi::CString;
-use std::sync::Mutex;
+use std::collections::BTreeMap;
+use std::ffi::{c_char, CString};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
+use aod_core::ns::ContentHash;
 pub use aod_rt::abi::SandboxTier;
 use aod_rt::abi::{runtime_symbol_table, AodRtContext, OwnedRtContext, SandboxedJitWorker};
 
 use crate::ffi::{
     create_host_target_machine, llvm_api, parse_and_verify_module, run_module_passes,
-    take_llvm_error, LLVMJITEvaluatedSymbol, LLVMJITSymbolFlags, LLVMOrcCSymbolMapPair,
-    LLVMOrcDefinitionGeneratorRef, LLVMOrcLLJITRef, LLVM_JIT_SYMBOL_EXPORTED,
+    take_llvm_error, take_llvm_message, LLVMJITEvaluatedSymbol, LLVMJITSymbolFlags,
+    LLVMMemoryBufferRef, LLVMOrcCSymbolMapPair, LLVMOrcDefinitionGeneratorRef, LLVMOrcLLJITRef,
+    LLVM_JIT_SYMBOL_EXPORTED, LLVM_OBJECT_FILE,
 };
 use crate::plan::{CodegenPlan, OptLevel};
 use crate::{LlvmError, LlvmResult};
 
-/// Self-contained in-process LLVM 18 ORC LLJIT session supporting parameterized `CodegenPlan`
-/// and default-on Linux Plan 9 kernel container execution (`SandboxedJitWorker`).
+const MAX_JIT_CACHE_ENTRIES: usize = 256;
+
+static JIT_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+static JIT_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
+static JIT_CODE_CACHE: OnceLock<Mutex<BTreeMap<ContentHash, Arc<[u8]>>>> = OnceLock::new();
+
+fn jit_cache_map() -> &'static Mutex<BTreeMap<ContentHash, Arc<[u8]>>> {
+    JIT_CODE_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+/// Process-wide content-addressed `JitCodeCache` telemetry (`Provider.id` / `(IR, CodegenPlan)` deduplication).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct JitCacheStats {
+    pub hits: u64,
+    pub misses: u64,
+    pub entries: usize,
+}
+
+pub fn jit_cache_stats() -> JitCacheStats {
+    let entries = jit_cache_map().lock().map(|m| m.len()).unwrap_or(0);
+    JitCacheStats {
+        hits: JIT_CACHE_HITS.load(Ordering::Relaxed),
+        misses: JIT_CACHE_MISSES.load(Ordering::Relaxed),
+        entries,
+    }
+}
+
+pub fn clear_jit_cache() {
+    if let Ok(mut guard) = jit_cache_map().lock() {
+        guard.clear();
+    }
+    JIT_CACHE_HITS.store(0, Ordering::Relaxed);
+    JIT_CACHE_MISSES.store(0, Ordering::Relaxed);
+}
+
+/// Compile verified LLVM IR with `plan` into PIC ELF object bytes, deduplicating identical
+/// `(IR, CodegenPlan)` artifacts across the entire process when `use_cache` is `true`.
+fn compile_ir_to_object_bytes(
+    ir_text: &str,
+    plan: &CodegenPlan,
+    use_cache: bool,
+) -> LlvmResult<Arc<[u8]>> {
+    let plan_id = plan.plan_id();
+    let cache_key = ContentHash::digest_domain(
+        b"aod.jit.obj.v1",
+        &[ir_text.as_bytes(), plan_id.as_bytes()],
+    );
+
+    if use_cache {
+        if let Ok(guard) = jit_cache_map().lock() {
+            if let Some(cached) = guard.get(&cache_key) {
+                JIT_CACHE_HITS.fetch_add(1, Ordering::Relaxed);
+                return Ok(Arc::clone(cached));
+            }
+        }
+        JIT_CACHE_MISSES.fetch_add(1, Ordering::Relaxed);
+    }
+
+    let api = llvm_api()?;
+    let ctx = unsafe { (api.context_create)() };
+    if ctx.is_null() {
+        return Err(LlvmError::new("LLVMContextCreate returned null"));
+    }
+
+    let emit_res = (|| -> LlvmResult<Arc<[u8]>> {
+        let module = unsafe { parse_and_verify_module(api, ctx, ir_text)? };
+        let mod_res = (|| -> LlvmResult<Arc<[u8]>> {
+            let (tm, triple_c, dl_c) = unsafe {
+                create_host_target_machine(
+                    api,
+                    plan.opt_level.codegen_opt_level(),
+                    plan.target_cpu_native,
+                )?
+            };
+            let tm_res = (|| -> LlvmResult<Arc<[u8]>> {
+                unsafe {
+                    (api.set_target)(module, triple_c.as_ptr());
+                    (api.set_data_layout)(module, dl_c.as_ptr());
+                    run_module_passes(api, module, tm, plan.opt_level.pass_pipeline())?;
+                }
+                let mut err_msg: *mut c_char = std::ptr::null_mut();
+                let mut obj_buf: LLVMMemoryBufferRef = std::ptr::null_mut();
+                let rc = unsafe {
+                    (api.target_machine_emit_to_mem_buf)(
+                        tm,
+                        module,
+                        LLVM_OBJECT_FILE,
+                        &mut err_msg,
+                        &mut obj_buf,
+                    )
+                };
+                if rc != 0 || obj_buf.is_null() {
+                    let msg = unsafe { take_llvm_message(api, err_msg) };
+                    return Err(LlvmError::new(format!(
+                        "LLVMTargetMachineEmitToMemoryBuffer failed: {msg}"
+                    )));
+                }
+                if !err_msg.is_null() {
+                    let _ = unsafe { take_llvm_message(api, err_msg) };
+                }
+                let ptr = unsafe { (api.get_buffer_start)(obj_buf) } as *const u8;
+                let len = unsafe { (api.get_buffer_size)(obj_buf) };
+                let slice = if len == 0 || ptr.is_null() {
+                    &[][..]
+                } else {
+                    unsafe { std::slice::from_raw_parts(ptr, len) }
+                };
+                let arc_bytes: Arc<[u8]> = Arc::from(slice);
+                unsafe { (api.dispose_memory_buffer)(obj_buf) };
+                Ok(arc_bytes)
+            })();
+            unsafe { (api.dispose_target_machine)(tm) };
+            tm_res
+        })();
+        unsafe { (api.dispose_module)(module) };
+        mod_res
+    })();
+
+    unsafe { (api.context_dispose)(ctx) };
+
+    let obj_bytes = emit_res?;
+    if use_cache {
+        if let Ok(mut guard) = jit_cache_map().lock() {
+            if guard.len() >= MAX_JIT_CACHE_ENTRIES {
+                guard.clear();
+            }
+            guard.insert(cache_key, Arc::clone(&obj_bytes));
+        }
+    }
+    Ok(obj_bytes)
+}
+
+unsafe fn add_object_bytes_to_main_jd(
+    api: &crate::ffi::LlvmApi,
+    jit: LLVMOrcLLJITRef,
+    obj_bytes: &[u8],
+) -> LlvmResult<()> {
+    let main_jd = unsafe { (api.orc_lljit_get_main_jit_dylib)(jit) };
+    if main_jd.is_null() {
+        return Err(LlvmError::new("LLVMOrcLLJITGetMainJITDylib returned null"));
+    }
+    let buf_name = CString::new("aod_jit_obj.o").unwrap();
+    let mem_buf = unsafe {
+        (api.create_mem_buf_copy)(
+            obj_bytes.as_ptr() as *const c_char,
+            obj_bytes.len(),
+            buf_name.as_ptr(),
+        )
+    };
+    if mem_buf.is_null() {
+        return Err(LlvmError::new(
+            "LLVMCreateMemoryBufferWithMemoryRangeCopy(obj) failed",
+        ));
+    }
+    // Note: LLVMOrcLLJITAddObjectFile takes ownership of `mem_buf` unconditionally.
+    let err = unsafe { (api.orc_lljit_add_object_file)(jit, main_jd, mem_buf) };
+    if !err.is_null() {
+        let msg = unsafe { take_llvm_error(api, err) };
+        return Err(LlvmError::new(format!(
+            "LLVMOrcLLJITAddObjectFile failed: {msg}"
+        )));
+    }
+    Ok(())
+}
+
+/// Self-contained in-process LLVM 18 ORC LLJIT session supporting parameterized `CodegenPlan`,
+/// process-wide content-addressed `JitCodeCache`, dynamic Inferno `load` modules, and default-on
+/// Linux Plan 9 kernel container execution (`SandboxedJitWorker`).
 pub struct OrcJitSession {
     jit: LLVMOrcLLJITRef,
     entry_addr: u64,
@@ -29,7 +199,13 @@ impl OrcJitSession {
     }
 
     pub fn compile_with_plan(ir_text: &str, plan: &CodegenPlan) -> LlvmResult<Self> {
-        Self::compile_named_with_plan(ir_text, plan, Some("aod_jit_entry"))
+        Self::compile_named_internal(ir_text, plan, Some("aod_jit_entry"), true)
+    }
+
+    /// Cold-compile bypassing `JitCodeCache` (used strictly by `aodc learn` so candidate compilation
+    /// overhead `cand_compile_ns` is always measured honestly from scratch).
+    pub fn compile_uncached_with_plan(ir_text: &str, plan: &CodegenPlan) -> LlvmResult<Self> {
+        Self::compile_named_internal(ir_text, plan, Some("aod_jit_entry"), false)
     }
 
     /// Compile an IR module with `plan` and optionally resolve a primary entry symbol.
@@ -39,9 +215,18 @@ impl OrcJitSession {
         plan: &CodegenPlan,
         entry_symbol: Option<&str>,
     ) -> LlvmResult<Self> {
+        Self::compile_named_internal(ir_text, plan, entry_symbol, true)
+    }
+
+    fn compile_named_internal(
+        ir_text: &str,
+        plan: &CodegenPlan,
+        entry_symbol: Option<&str>,
+        use_cache: bool,
+    ) -> LlvmResult<Self> {
+        let obj_bytes = compile_ir_to_object_bytes(ir_text, plan, use_cache)?;
         let api = llvm_api()?;
 
-        // 1. Configure TargetMachine -> JITTargetMachineBuilder -> LLJITBuilder (`P0-1` exact ownership!)
         let (jit_tm, _, _) = unsafe {
             create_host_target_machine(
                 api,
@@ -49,9 +234,9 @@ impl OrcJitSession {
                 plan.target_cpu_native,
             )?
         };
-        // `LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine` consumes `jit_tm` (do NOT dispose `jit_tm`!).
         let jtmb = unsafe { (api.orc_jtmb_create_from_tm)(jit_tm) };
         if jtmb.is_null() {
+            unsafe { (api.dispose_target_machine)(jit_tm) };
             return Err(LlvmError::new(
                 "LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine returned null",
             ));
@@ -62,13 +247,11 @@ impl OrcJitSession {
             unsafe { (api.orc_dispose_jtmb)(jtmb) };
             return Err(LlvmError::new("LLVMOrcCreateLLJITBuilder returned null"));
         }
-        // `LLVMOrcLLJITBuilderSetJITTargetMachineBuilder` consumes `jtmb`.
         unsafe {
             (api.orc_lljit_builder_set_jtmb)(builder, jtmb);
         }
 
         let mut jit: LLVMOrcLLJITRef = std::ptr::null_mut();
-        // `LLVMOrcCreateLLJIT` consumes `builder` on BOTH Ok and Err.
         let err = unsafe { (api.orc_create_lljit)(&mut jit, builder) };
         if !err.is_null() || jit.is_null() {
             let msg = unsafe { take_llvm_error(api, err) };
@@ -81,7 +264,6 @@ impl OrcJitSession {
                 return Err(LlvmError::new("LLVMOrcLLJITGetMainJITDylib returned null"));
             }
 
-            // Attach process symbol search generator (resolves memcpy/memset/memmove/libc)
             let prefix = unsafe { (api.orc_lljit_get_global_prefix)(jit) };
             let mut dyn_gen: LLVMOrcDefinitionGeneratorRef = std::ptr::null_mut();
             let err = unsafe {
@@ -102,7 +284,6 @@ impl OrcJitSession {
                 (api.orc_jit_dylib_add_generator)(main_jd, dyn_gen);
             }
 
-            // Register all `aod_rt_*` runtime symbols
             let syms = runtime_symbol_table();
             let mut pairs: Vec<LLVMOrcCSymbolMapPair> = Vec::with_capacity(syms.len());
             for (name, addr) in syms {
@@ -130,65 +311,7 @@ impl OrcJitSession {
                 )));
             }
 
-            // Parse, verify, optimize (with separate owned `pass_tm`), and post-verify IR
-            let ts_ctx = unsafe { (api.orc_create_new_thread_safe_context)() };
-            if ts_ctx.is_null() {
-                return Err(LlvmError::new("LLVMOrcCreateNewThreadSafeContext returned null"));
-            }
-            let ctx = unsafe { (api.orc_thread_safe_context_get_context)(ts_ctx) };
-            let module = match unsafe { parse_and_verify_module(api, ctx, ir_text) } {
-                Ok(m) => m,
-                Err(e) => {
-                    unsafe { (api.orc_dispose_thread_safe_context)(ts_ctx) };
-                    return Err(e);
-                }
-            };
-
-            let opt_res = (|| -> LlvmResult<()> {
-                let triple_ptr = unsafe { (api.orc_lljit_get_triple_string)(jit) };
-                let dl_ptr = unsafe { (api.orc_lljit_get_data_layout_str)(jit) };
-                unsafe {
-                    if !triple_ptr.is_null() {
-                        (api.set_target)(module, triple_ptr);
-                    }
-                    if !dl_ptr.is_null() {
-                        (api.set_data_layout)(module, dl_ptr);
-                    }
-                }
-                let (pass_tm, _, _) = unsafe {
-                    create_host_target_machine(
-                        api,
-                        plan.opt_level.codegen_opt_level(),
-                        plan.target_cpu_native,
-                    )?
-                };
-                let pass_res =
-                    unsafe { run_module_passes(api, module, pass_tm, plan.opt_level.pass_pipeline()) };
-                unsafe { (api.dispose_target_machine)(pass_tm) };
-                pass_res
-            })();
-            if let Err(e) = opt_res {
-                unsafe {
-                    (api.dispose_module)(module);
-                    (api.orc_dispose_thread_safe_context)(ts_ctx);
-                }
-                return Err(e);
-            }
-
-            let tsm = unsafe { (api.orc_create_new_thread_safe_module)(module, ts_ctx) };
-            unsafe { (api.orc_dispose_thread_safe_context)(ts_ctx) };
-            if tsm.is_null() {
-                return Err(LlvmError::new("LLVMOrcCreateNewThreadSafeModule returned null"));
-            }
-
-            let err = unsafe { (api.orc_lljit_add_llvm_ir_module)(jit, main_jd, tsm) };
-            if !err.is_null() {
-                unsafe { (api.orc_dispose_thread_safe_module)(tsm) };
-                let msg = unsafe { take_llvm_error(api, err) };
-                return Err(LlvmError::new(format!(
-                    "LLVMOrcLLJITAddLLVMIRModule failed: {msg}"
-                )));
-            }
+            unsafe { add_object_bytes_to_main_jd(api, jit, &obj_bytes)? };
 
             let addr = if let Some(sym_name) = entry_symbol {
                 let entry_c = CString::new(sym_name)
@@ -231,7 +354,22 @@ impl OrcJitSession {
         self
     }
 
+    /// Dynamically link an additional IR module (e.g. an Inferno `mount dyn` capability provider)
+    /// into this `OrcJitSession` via the content-addressed `JitCodeCache` WITHOUT recompiling `main`,
+    /// evicting any cached pre-`fork` worker so subsequent container runs inherit the new RX pages!
+    pub fn add_module_with_plan(&self, ir_text: &str, plan: &CodegenPlan) -> LlvmResult<()> {
+        let obj_bytes = compile_ir_to_object_bytes(ir_text, plan, true)?;
+        let api = llvm_api()?;
+        unsafe { add_object_bytes_to_main_jd(api, self.jit, &obj_bytes)? };
+        if let Ok(mut guard) = self.default_worker.lock() {
+            let _ = guard.take();
+        }
+        Ok(())
+    }
+
     /// Look up the materialized address of any exported JIT symbol in this session.
+    /// Note: triggering `LLVMOrcLLJITLookup` materializes the object into RX pages; evict any
+    /// pre-materialization worker so a freshly spawned container inherits the finalized pages!
     pub fn lookup_symbol_addr(&self, sym_name: &str) -> LlvmResult<u64> {
         let api = llvm_api()?;
         let cstr = CString::new(sym_name)
@@ -243,6 +381,9 @@ impl OrcJitSession {
             return Err(LlvmError::new(format!(
                 "LLVMOrcLLJITLookup({sym_name}) failed: {msg}"
             )));
+        }
+        if let Ok(mut guard) = self.default_worker.lock() {
+            let _ = guard.take();
         }
         Ok(addr)
     }
@@ -293,6 +434,7 @@ impl OrcJitSession {
         max_depth: i32,
         rt_ns: aod_rt::ns_fs::RtNamespace,
         cli_args: Vec<Vec<u8>>,
+        dyn_vtable: &[u64],
     ) -> (Vec<String>, bool, Option<String>) {
         if self.entry_addr == 0 {
             return (
@@ -305,6 +447,9 @@ impl OrcJitSession {
         if rt_ns.is_unconfined() || !cfg!(target_os = "linux") {
             let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
             ctx.set_rt_namespace(rt_ns);
+            if !dyn_vtable.is_empty() {
+                ctx.set_dyn_vtable(dyn_vtable.iter().map(|&a| a as usize).collect());
+            }
             if !cli_args.is_empty() {
                 ctx.set_cli_args(cli_args);
             }
@@ -316,8 +461,6 @@ impl OrcJitSession {
             );
         }
 
-        // Reuse the persistent container worker for the common empty-namespace case (`bench`/`learn`/`jit`),
-        // or spawn a dedicated ephemeral container projected to custom `--mount` specs!
         if rt_ns.is_empty() {
             let mut guard = match self.default_worker.lock() {
                 Ok(g) => g,
@@ -338,18 +481,17 @@ impl OrcJitSession {
             let outcome = guard
                 .as_mut()
                 .unwrap()
-                .run_once(fuel, max_depth, &cli_args);
+                .run_once_with_dyn(fuel, max_depth, &cli_args, dyn_vtable);
             match outcome {
                 Ok(res) => res,
                 Err(pipe_err) => {
-                    // Evict crashed/killed worker so subsequent calls don't touch a dead pipe.
                     *guard = None;
                     (Vec::new(), true, Some(pipe_err))
                 }
             }
         } else {
             match SandboxedJitWorker::spawn(self.entry_addr, rt_ns) {
-                Ok(mut w) => match w.run_once(fuel, max_depth, &cli_args) {
+                Ok(mut w) => match w.run_once_with_dyn(fuel, max_depth, &cli_args, dyn_vtable) {
                     Ok(res) => res,
                     Err(e) => (Vec::new(), true, Some(e)),
                 },
@@ -359,11 +501,12 @@ impl OrcJitSession {
     }
 
     pub fn run_captured(&self, fuel: i64, max_depth: i32) -> (String, Result<(), String>) {
-        self.run_captured_with_ns(
+        self.run_captured_with_ns_and_dyn(
             fuel,
             max_depth,
             self.default_rt_ns.clone(),
             Vec::new(),
+            &[],
         )
     }
 
@@ -374,8 +517,19 @@ impl OrcJitSession {
         rt_ns: aod_rt::ns_fs::RtNamespace,
         cli_args: Vec<Vec<u8>>,
     ) -> (String, Result<(), String>) {
+        self.run_captured_with_ns_and_dyn(fuel, max_depth, rt_ns, cli_args, &[])
+    }
+
+    pub fn run_captured_with_ns_and_dyn(
+        &self,
+        fuel: i64,
+        max_depth: i32,
+        rt_ns: aod_rt::ns_fs::RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+        dyn_vtable: &[u64],
+    ) -> (String, Result<(), String>) {
         let (emits, failed, err_opt) =
-            self.run_sandboxed_semantic(fuel, max_depth, rt_ns, cli_args);
+            self.run_sandboxed_semantic(fuel, max_depth, rt_ns, cli_args, dyn_vtable);
         let mut stdout = String::new();
         for line in &emits {
             stdout.push_str(line);
@@ -399,6 +553,7 @@ impl OrcJitSession {
             max_depth,
             self.default_rt_ns.clone(),
             Vec::new(),
+            &[],
         )
     }
 }

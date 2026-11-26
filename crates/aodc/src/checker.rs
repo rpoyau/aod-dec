@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use aod_core::ns::{CleanPath, ContentHash};
 use aod_core::ternary::T1;
 
 use crate::ast::{
@@ -13,8 +14,46 @@ use crate::modules::{
 };
 use crate::types::{
     builtin_enum_variants, builtin_ns_exports_enum, is_reserved_builtin_name, lookup_builtin,
-    Effect, Type, BUILTIN_MOD, MODEL_STATUS_VARIANTS, RECIPIENT_STAGE_VARIANTS,
+    DynEffectCaps, Effect, Type, BUILTIN_MOD, MODEL_STATUS_VARIANTS, RECIPIENT_STAGE_VARIANTS,
 };
+
+/// Inferno `sign`-style dynamic capability slot generated for each imported `mount dyn` overload.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DynamicSlotSpec {
+    pub slot_index: u32,
+    pub mount_path: String,
+    pub unit_key: String,
+    pub fn_name: String,
+    pub overload_index: u32,
+    pub param_types: Vec<Type>,
+    pub ret_type: Type,
+    pub allowed_caps: DynEffectCaps,
+    pub iface_sha256: ContentHash,
+}
+
+/// Verified Inferno `sign` signature + effect capabilities of a top-level `<entry>` `dec` overload.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExportedFnSig {
+    pub fn_name: String,
+    pub overload_index: u32,
+    pub param_types: Vec<Type>,
+    pub ret_type: Type,
+    pub caps: DynEffectCaps,
+    pub iface_sha256: ContentHash,
+}
+
+pub fn compute_iface_sha256(fn_name: &str, param_types: &[Type], ret_type: &Type) -> ContentHash {
+    let params_str = param_types
+        .iter()
+        .map(Type::canonical_sign_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    let ret_str = ret_type.canonical_sign_string();
+    ContentHash::digest_domain(
+        b"aod.dyn.sign.v1",
+        &[fn_name.as_bytes(), params_str.as_bytes(), ret_str.as_bytes()],
+    )
+}
 
 #[derive(Clone, Debug)]
 struct VarBinding {
@@ -69,6 +108,10 @@ pub struct CheckedUnit {
     pub const_types: BTreeMap<(String, String), Type>,
     /// Exact resolved types for polymorphic `sum`/`dot`/`any`/`all` and custom `dec Struct:` overloads.
     pub poly_call_types: BTreeMap<(String, usize, String), Type>,
+    /// Ordered runtime indirect-dispatch capability slots for `mount dyn` imports.
+    pub dynamic_slots: Vec<DynamicSlotSpec>,
+    /// Exported Inferno `sign` signatures + capability masks for `<entry>` `dec` overloads.
+    pub exported_fns: Vec<ExportedFnSig>,
 }
 
 /// Exhaustively typecheck every module, struct, enum, function, signature arm, apparatus block,
@@ -127,6 +170,9 @@ pub fn check_unit(unit: LoadedUnit, require_main: bool) -> DecResult<CheckedUnit
         ));
     }
 
+    let dynamic_slots = checker.build_dynamic_slots()?;
+    let exported_fns = checker.build_entry_exported_fns()?;
+
     let const_types: BTreeMap<(String, String), Type> = checker
         .consts
         .into_iter()
@@ -140,6 +186,8 @@ pub fn check_unit(unit: LoadedUnit, require_main: bool) -> DecResult<CheckedUnit
         test_functions,
         const_types,
         poly_call_types,
+        dynamic_slots,
+        exported_fns,
     })
 }
 
@@ -5594,5 +5642,483 @@ pub fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecR
             line,
             format!("no field .{field} on type {base}"),
         )),
+    }
+}
+
+/// Verify a candidate dynamic provider `CheckedUnit` against all `DynamicSlotSpec`s declared
+/// at `mount_path` (`Inferno sign` SHA-256 + `DynEffectCaps` capability subset monotonicity).
+pub fn validate_dynamic_provider_binding(
+    slots: &[DynamicSlotSpec],
+    mount_path: &str,
+    provider: &CheckedUnit,
+) -> DecResult<Vec<(u32, ExportedFnSig)>> {
+    let clean_mount = CleanPath::parse_str(mount_path)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::ModuleNotFound, e.to_string()))?;
+    let matching_slots: Vec<&DynamicSlotSpec> = slots
+        .iter()
+        .filter(|s| s.mount_path == clean_mount.as_str())
+        .collect();
+    if matching_slots.is_empty() {
+        return Err(Diagnostic::new(
+            DiagnosticCode::ModuleNotFound,
+            format!("no `mount dyn` capability slot declared at {clean_mount}"),
+        ));
+    }
+
+    let mut out = Vec::with_capacity(matching_slots.len());
+    for slot in matching_slots {
+        let same_name: Vec<&ExportedFnSig> = provider
+            .exported_fns
+            .iter()
+            .filter(|e| e.fn_name == slot.fn_name)
+            .collect();
+        if same_name.is_empty() {
+            return Err(Diagnostic::new(
+                DiagnosticCode::ModuleNotFound,
+                format!(
+                    "dynamic provider for {clean_mount} does not export required function `{}`",
+                    slot.fn_name
+                ),
+            ));
+        }
+        let Some(matched) = same_name
+            .iter()
+            .find(|e| e.iface_sha256 == slot.iface_sha256)
+        else {
+            return Err(Diagnostic::new(
+                DiagnosticCode::TypeError,
+                format!(
+                    "Inferno sign mismatch at {clean_mount}::{}: expected signature hash {}, provider has {}",
+                    slot.fn_name, slot.iface_sha256, same_name[0].iface_sha256
+                ),
+            ));
+        };
+        if !matched.caps.is_subset_of(slot.allowed_caps) {
+            let excess = DynEffectCaps(matched.caps.0 & !slot.allowed_caps.0);
+            let code = if (excess.0 & DynEffectCaps::SYS_IO.0) != 0 {
+                DiagnosticCode::SysIoForbidden
+            } else if (excess.0 & DynEffectCaps::CHAMBER_MUT.0) != 0 {
+                DiagnosticCode::ObserverMutationForbidden
+            } else {
+                DiagnosticCode::QExtLeakageForbidden
+            };
+            return Err(Diagnostic::new(
+                code,
+                format!(
+                    "dynamic provider for {clean_mount}::{} escalates capabilities from `{}` to `{}`",
+                    slot.fn_name,
+                    slot.allowed_caps.render_tag(),
+                    matched.caps.render_tag()
+                ),
+            ));
+        }
+        out.push((slot.slot_index, (*matched).clone()));
+    }
+    Ok(out)
+}
+
+impl<'a> Checker<'a> {
+    fn extract_fn_overload_sigs(
+        &self,
+        mod_key: &str,
+        f: &DecFnDecl,
+    ) -> DecResult<Vec<(u32, Vec<Type>, Type)>> {
+        let mut slot_hints: BTreeMap<(usize, usize), Type> = BTreeMap::new();
+        for arm in &f.arms {
+            let arity = arm.params.len();
+            for (i, p) in arm.params.iter().enumerate() {
+                if slot_hints.contains_key(&(arity, i)) {
+                    continue;
+                }
+                match p {
+                    DecArmParam::TypedVar { ty, .. } | DecArmParam::TypedPattern { ty, .. } => {
+                        let resolved = self.resolve_type(mod_key, ty, arm.line)?;
+                        if resolved != Type::Unknown {
+                            slot_hints.insert((arity, i), resolved);
+                        }
+                    }
+                    DecArmParam::Pattern(pat) if !matches!(pat, Pattern::IntLit(_)) => {
+                        if let Some(t) = self.infer_sig_pattern_type(mod_key, pat, None) {
+                            if t != Type::Unknown {
+                                slot_hints.insert((arity, i), t);
+                            }
+                        }
+                    }
+                    DecArmParam::Pattern(_) => {}
+                }
+            }
+        }
+        for arm in &f.arms {
+            let arity = arm.params.len();
+            for (i, p) in arm.params.iter().enumerate() {
+                if !slot_hints.contains_key(&(arity, i)) {
+                    if let DecArmParam::Pattern(Pattern::IntLit(_)) = p {
+                        slot_hints.insert((arity, i), Type::Int);
+                    }
+                }
+            }
+        }
+
+        let mut groups: Vec<(Vec<Type>, Type)> = Vec::new();
+        for arm in &f.arms {
+            let arity = arm.params.len();
+            let mut concrete_tys = Vec::with_capacity(arity);
+            for (i, p) in arm.params.iter().enumerate() {
+                let sh = slot_hints.get(&(arity, i));
+                let raw = match p {
+                    DecArmParam::TypedVar { ty, .. } | DecArmParam::TypedPattern { ty, .. } => {
+                        self.resolve_type(mod_key, ty, arm.line)?
+                    }
+                    DecArmParam::Pattern(pat) => self
+                        .infer_sig_pattern_type(mod_key, pat, sh)
+                        .unwrap_or(Type::Unknown),
+                };
+                let t = if raw == Type::Unknown {
+                    sh.cloned().unwrap_or(Type::Int)
+                } else {
+                    raw
+                };
+                concrete_tys.push(t);
+            }
+            let rty = self.resolve_type(mod_key, &arm.return_type, arm.line)?;
+            if !groups.iter().any(|(sig, _)| sig == &concrete_tys) {
+                groups.push((concrete_tys, rty));
+            }
+        }
+
+        Ok(groups
+            .into_iter()
+            .enumerate()
+            .map(|(idx, (ps, r))| (idx as u32, ps, r))
+            .collect())
+    }
+
+    fn infer_sig_pattern_type(
+        &self,
+        mod_key: &str,
+        pat: &Pattern,
+        slot_hint: Option<&Type>,
+    ) -> Option<Type> {
+        match pat {
+            Pattern::Wildcard | Pattern::Binding(_) => None,
+            Pattern::NullLit => Some(Type::Null),
+            Pattern::IntLit(_) => {
+                if let Some(h) = slot_hint {
+                    if *h.unwrap_read_only() == Type::T1 {
+                        return Some(Type::T1);
+                    }
+                }
+                Some(Type::Int)
+            }
+            Pattern::BoolLit(_) => Some(Type::Bool),
+            Pattern::BytesLit(_) => Some(Type::Bytes),
+            Pattern::B8Lit(_) => Some(Type::B8),
+            Pattern::B64Lit(_) => Some(Type::B64),
+            Pattern::Q4Lit(_) => Some(Type::Q4),
+            Pattern::TritLit(_) => Some(Type::T1),
+            Pattern::RatioLit(_) => Some(Type::Ratio),
+            Pattern::Addr8Lit(_) => Some(Type::Addr8),
+            Pattern::SupportLit(_) => Some(Type::Support),
+            Pattern::EnumVariant { path, .. } => {
+                let (em, _) = self.resolve_enum_variant(mod_key, path, 0).ok()?;
+                Some(Type::Enum {
+                    module: em.module.clone(),
+                    name: em.name.clone(),
+                })
+            }
+            Pattern::Tuple(ps) => {
+                let sub_hints: Option<&[Type]> = match slot_hint.map(Type::unwrap_read_only) {
+                    Some(Type::Tuple(ts)) if ts.len() == ps.len() => Some(ts.as_slice()),
+                    _ => None,
+                };
+                let mut ts = Vec::with_capacity(ps.len());
+                for (i, p) in ps.iter().enumerate() {
+                    let sh = sub_hints.map(|s| &s[i]);
+                    ts.push(self.infer_sig_pattern_type(mod_key, p, sh)?);
+                }
+                Some(Type::Tuple(ts))
+            }
+        }
+    }
+
+    fn infer_fn_caps(
+        &self,
+        mod_key: &str,
+        fn_name: &str,
+        visiting: &mut BTreeSet<(String, String)>,
+    ) -> DynEffectCaps {
+        let key = (mod_key.to_string(), fn_name.to_string());
+        if !visiting.insert(key.clone()) {
+            return DynEffectCaps::PURE;
+        }
+        let Some(entry) = self.functions.get(&key) else {
+            return DynEffectCaps::PURE;
+        };
+        let mut caps = if entry.is_qext {
+            DynEffectCaps::QEXT
+        } else {
+            DynEffectCaps::PURE
+        };
+        for arm in &entry.decl.arms {
+            if let Some(ref g) = arm.guard {
+                caps = caps.union(self.scan_expr_caps(mod_key, g, visiting));
+            }
+            for s in &arm.body {
+                caps = caps.union(self.scan_stmt_caps(mod_key, s, visiting));
+            }
+        }
+        caps
+    }
+
+    fn scan_stmt_caps(
+        &self,
+        mod_key: &str,
+        stmt: &Stmt,
+        visiting: &mut BTreeSet<(String, String)>,
+    ) -> DynEffectCaps {
+        match &stmt.kind {
+            StmtKind::Let { value, .. }
+            | StmtKind::Assert(value)
+            | StmtKind::Emit(value)
+            | StmtKind::ExprStmt(value)
+            | StmtKind::Return(Some(value)) => self.scan_expr_caps(mod_key, value, visiting),
+            StmtKind::Return(None) | StmtKind::Pass => DynEffectCaps::PURE,
+            StmtKind::QuarantineBlock { body } => {
+                let mut c = DynEffectCaps::QEXT;
+                for s in body {
+                    c = c.union(self.scan_stmt_caps(mod_key, s, visiting));
+                }
+                c
+            }
+        }
+    }
+
+    fn scan_expr_caps(
+        &self,
+        mod_key: &str,
+        expr: &Expr,
+        visiting: &mut BTreeSet<(String, String)>,
+    ) -> DynEffectCaps {
+        match &expr.kind {
+            ExprKind::Simulate { ticks, .. } => {
+                DynEffectCaps::CHAMBER_MUT.union(self.scan_expr_caps(mod_key, ticks, visiting))
+            }
+            ExprKind::Call { callee, args } => {
+                let mut caps = self.scan_callee_caps(mod_key, callee, visiting);
+                for a in args {
+                    caps = caps.union(self.scan_expr_caps(mod_key, a, visiting));
+                }
+                caps
+            }
+            ExprKind::Pipe { input, stage } => {
+                let mut caps = self.scan_expr_caps(mod_key, input, visiting);
+                match stage.as_ref() {
+                    PipeStage::Adverb(_) | PipeStage::Boundary => {}
+                    PipeStage::Section { rhs, .. } => {
+                        caps = caps.union(self.scan_expr_caps(mod_key, rhs, visiting));
+                    }
+                    PipeStage::Call { callee, extra_args } => {
+                        caps = caps.union(self.scan_callee_caps(mod_key, callee, visiting));
+                        for a in extra_args {
+                            caps = caps.union(self.scan_expr_caps(mod_key, a, visiting));
+                        }
+                    }
+                }
+                caps
+            }
+            ExprKind::Match { scrutinee, arms } => {
+                let mut caps = self.scan_expr_caps(mod_key, scrutinee, visiting);
+                for arm in arms {
+                    if let Some(ref g) = arm.guard {
+                        caps = caps.union(self.scan_expr_caps(mod_key, g, visiting));
+                    }
+                    caps = caps.union(self.scan_expr_caps(mod_key, &arm.body, visiting));
+                }
+                caps
+            }
+            ExprKind::Unary { operand, .. }
+            | ExprKind::Adverb { operand, .. }
+            | ExprKind::Field { base: operand, .. } => {
+                self.scan_expr_caps(mod_key, operand, visiting)
+            }
+            ExprKind::Binary { left, right, .. }
+            | ExprKind::Index {
+                base: left,
+                index: right,
+            }
+            | ExprKind::WindowLit {
+                start: left,
+                end: right,
+            }
+            | ExprKind::Range {
+                start: left,
+                end: right,
+            } => self
+                .scan_expr_caps(mod_key, left, visiting)
+                .union(self.scan_expr_caps(mod_key, right, visiting)),
+            ExprKind::SeqLit(xs) | ExprKind::Tuple(xs) | ExprKind::BoxExpr(xs) => {
+                let mut c = DynEffectCaps::PURE;
+                for x in xs {
+                    c = c.union(self.scan_expr_caps(mod_key, x, visiting));
+                }
+                c
+            }
+            ExprKind::MapLit(entries) => {
+                let mut c = DynEffectCaps::PURE;
+                for (k, v) in entries {
+                    c = c
+                        .union(self.scan_expr_caps(mod_key, k, visiting))
+                        .union(self.scan_expr_caps(mod_key, v, visiting));
+                }
+                c
+            }
+            _ => DynEffectCaps::PURE,
+        }
+    }
+
+    fn scan_callee_caps(
+        &self,
+        mod_key: &str,
+        callee: &Expr,
+        visiting: &mut BTreeSet<(String, String)>,
+    ) -> DynEffectCaps {
+        match &callee.kind {
+            ExprKind::Ident(name) => {
+                self.scan_path_callee_caps(mod_key, std::slice::from_ref(name), visiting)
+            }
+            ExprKind::Path(segs) => self.scan_path_callee_caps(mod_key, segs, visiting),
+            _ => DynEffectCaps::PURE,
+        }
+    }
+
+    fn scan_path_callee_caps(
+        &self,
+        mod_key: &str,
+        segs: &[String],
+        visiting: &mut BTreeSet<(String, String)>,
+    ) -> DynEffectCaps {
+        let base = self.base_module_of(mod_key);
+        if segs.len() == 1 {
+            let name = &segs[0];
+            if matches!(
+                name.as_str(),
+                "cli_args" | "read_file_bytes" | "write_executable_elf"
+            ) {
+                return DynEffectCaps::SYS_IO;
+            }
+            if matches!(
+                name.as_str(),
+                "fold_seq" | "map_seq" | "filter_seq" | "tabulate" | "evolve" | "scan"
+            ) {
+                return DynEffectCaps::PURE;
+            }
+            if self.functions.contains_key(&(mod_key.to_string(), name.clone())) {
+                return self.infer_fn_caps(mod_key, name, visiting);
+            }
+            if base != mod_key && self.functions.contains_key(&(base.to_string(), name.clone())) {
+                return self.infer_fn_caps(base, name, visiting);
+            }
+            match self.imports_for(mod_key).get(name) {
+                Some(ImportedSymbol::Builtin(b)) if b.starts_with("aod::sys::") => {
+                    return DynEffectCaps::SYS_IO;
+                }
+                Some(ImportedSymbol::Builtin(b)) if b.starts_with("aod::qext::") => {
+                    return DynEffectCaps::QEXT;
+                }
+                Some(ImportedSymbol::ModuleItem { module, item }) => {
+                    return self.infer_fn_caps(module, item, visiting);
+                }
+                _ => {}
+            }
+        } else if segs.len() == 2 {
+            if segs[0] == "sys" {
+                return DynEffectCaps::SYS_IO;
+            }
+            if let Some(sub) = self.resolve_qext_submodule(mod_key, &segs[0]) {
+                return DynEffectCaps::QEXT.union(self.infer_fn_caps(&sub, &segs[1], visiting));
+            }
+            if let Some(ImportedSymbol::ModuleNamespace(m)) = self.imports_for(mod_key).get(&segs[0]) {
+                if m == "aod::sys" {
+                    return DynEffectCaps::SYS_IO;
+                }
+                if m == "aod::qext" {
+                    return DynEffectCaps::QEXT;
+                }
+                return self.infer_fn_caps(m, &segs[1], visiting);
+            }
+        } else if segs.len() == 3 && segs[0] == "aod" && segs[1] == "sys" {
+            return DynEffectCaps::SYS_IO;
+        } else if segs.len() == 3 && segs[0] == "aod" && segs[1] == "qext" {
+            return DynEffectCaps::QEXT;
+        }
+        DynEffectCaps::PURE
+    }
+
+    fn build_dynamic_slots(&self) -> DecResult<Vec<DynamicSlotSpec>> {
+        let mut seen = BTreeSet::new();
+        let mut out = Vec::new();
+        for dref in &self.unit.dynamic_imports {
+            let Some(entry) = self
+                .functions
+                .get(&(dref.unit_key.clone(), dref.item.clone()))
+            else {
+                // Non-function imports (e.g. `Struct` or `Enum`) stay nominal by `UnitId`
+                continue;
+            };
+            let overloads = self.extract_fn_overload_sigs(&dref.unit_key, &entry.decl)?;
+            let mut visiting = BTreeSet::new();
+            let allowed_caps = self.infer_fn_caps(&dref.unit_key, &dref.item, &mut visiting);
+            for (ov_idx, param_types, ret_type) in overloads {
+                let dedup_key = (
+                    dref.mount_path.clone(),
+                    dref.unit_key.clone(),
+                    dref.item.clone(),
+                    ov_idx,
+                );
+                if !seen.insert(dedup_key) {
+                    continue;
+                }
+                let iface_sha256 = compute_iface_sha256(&dref.item, &param_types, &ret_type);
+                let slot_index = out.len() as u32;
+                out.push(DynamicSlotSpec {
+                    slot_index,
+                    mount_path: dref.mount_path.clone(),
+                    unit_key: dref.unit_key.clone(),
+                    fn_name: dref.item.clone(),
+                    overload_index: ov_idx,
+                    param_types,
+                    ret_type,
+                    allowed_caps,
+                    iface_sha256,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    fn build_entry_exported_fns(&self) -> DecResult<Vec<ExportedFnSig>> {
+        let mut out = Vec::new();
+        for item in &self.unit.entry_program.items {
+            if let Item::DecFn(f) = item {
+                if f.name == "main" {
+                    continue;
+                }
+                let overloads = self.extract_fn_overload_sigs("<entry>", f)?;
+                let mut visiting = BTreeSet::new();
+                let caps = self.infer_fn_caps("<entry>", &f.name, &mut visiting);
+                for (ov_idx, param_types, ret_type) in overloads {
+                    let iface_sha256 = compute_iface_sha256(&f.name, &param_types, &ret_type);
+                    out.push(ExportedFnSig {
+                        fn_name: f.name.clone(),
+                        overload_index: ov_idx,
+                        param_types,
+                        ret_type,
+                        caps,
+                        iface_sha256,
+                    });
+                }
+            }
+        }
+        Ok(out)
     }
 }

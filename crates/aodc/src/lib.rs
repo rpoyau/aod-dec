@@ -43,12 +43,17 @@ pub use aod_core::s4_report::{
 };
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
-    certify_frg_channel, recommend_candidates, run_all_hw_probes, run_probe_frg_ring_gate,
-    BootstrapCi, CodegenPlan, FrgChannelReport, FrgRingGateReport, HostHardwareInfo, HwPlanHints,
-    HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession, PerfCapability,
-    ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+    certify_frg_channel, clear_jit_cache, jit_cache_stats, recommend_candidates,
+    run_all_hw_probes, run_probe_frg_ring_gate, BootstrapCi, CodegenPlan, FrgChannelReport,
+    FrgRingGateReport, HostHardwareInfo, HwPlanHints, HwProbeReport, JitCacheStats, LearnDecision,
+    LearnSessionReport, OptLevel, OrcJitSession, PerfCapability, ProfileLoadOutcome,
+    RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
 };
 pub use aod_rt::ns_fs::{MemFsProvider, RtMountSpec, RtNamespace};
+pub use crate::checker::{
+    compute_iface_sha256, validate_dynamic_provider_binding, CheckedUnit, DynamicSlotSpec,
+    ExportedFnSig,
+};
 pub use crate::dec_audit::{
     audit_dec_source_with_ns_and_options, audit_dec_source_with_options, failed_read_audit_report,
     lex_live_walk, verify_frg_identity, verify_sheddic_route, DecAuditReport, HookAuditResult,
@@ -72,14 +77,18 @@ pub use crate::report_guard::{
     collect_guarded_roots, read_bounded_regular_file, read_bounded_stdin,
     validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
 };
+pub use crate::types::DynEffectCaps;
 pub use crate::v1_compat::{
     check_v1_file, check_v1_source, compile_v1_file_to_ir, compile_v1_source_to_ir,
     exec_v1_ir_str, exec_v1_ir_str_capturing, is_v1_ir_json, run_v1_file, run_v1_file_capturing,
     run_v1_source, CompatMode, V1_IR_FORMAT, V1_IR_VERSION,
 };
 
-use crate::checker::{check_unit, CheckedUnit};
-use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
+use crate::checker::check_unit;
+use crate::codegen::{
+    dynamic_export_symbol_name, lower_dynamic_provider_to_llvm_ir_with_plan, lower_to_llvm_ir,
+    lower_to_llvm_ir_with_plan,
+};
 use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::eval::{EvalOutput, Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::ir::{dumps_ir, loads_ir};
@@ -116,6 +125,18 @@ pub fn check_source_with_options(source: &str, options: &LoadOptions) -> DecResu
     check_unit(loaded, true)
 }
 
+pub fn check_library_source(source: &str) -> DecResult<CheckedUnit> {
+    check_library_source_with_options(source, &LoadOptions::default())
+}
+
+pub fn check_library_source_with_options(
+    source: &str,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    let loaded = load_from_source_with_options(source, None, options)?;
+    check_unit(loaded, false)
+}
+
 pub fn check_file(path: &Path) -> DecResult<CheckedUnit> {
     check_file_with_options(path, &LoadOptions::default())
 }
@@ -124,10 +145,31 @@ pub fn check_file_with_options(path: &Path, options: &LoadOptions) -> DecResult<
     check_file_with_ns_and_options(path, None, options)
 }
 
+pub fn check_library_file(path: &Path) -> DecResult<CheckedUnit> {
+    check_library_file_with_ns_and_options(path, None, &LoadOptions::default())
+}
+
+pub fn check_library_file_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    check_file_internal(path, bootstrap_ns, options, false)
+}
+
 pub fn check_file_with_ns_and_options(
     path: &Path,
     bootstrap_ns: Option<&Path>,
     options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    check_file_internal(path, bootstrap_ns, options, true)
+}
+
+fn check_file_internal(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+    require_main: bool,
 ) -> DecResult<CheckedUnit> {
     let source = std::fs::read_to_string(path).map_err(|e| {
         Diagnostic::new(
@@ -150,7 +192,7 @@ pub fn check_file_with_ns_and_options(
     } else {
         load_from_source_with_options(&source, base_dir, options)?
     };
-    check_unit(loaded, true)
+    check_unit(loaded, require_main)
 }
 
 pub fn audit_dec_source(source: &str) -> DecAuditReport {
@@ -647,6 +689,117 @@ pub fn jit_file_with_ns_and_bootstrap_captured(
     Ok((stdout, res, chosen_plan, note))
 }
 
+/// Persistent Inferno `sign`/`load` ORC LLJIT host: compiles `main` ONCE, verifies and links
+/// dynamic capability providers (`mount dyn`) on demand via `JitCodeCache`, and dispatches
+/// per-task vtables inside the default-on Linux Plan 9 container with ZERO recompilation of `main`.
+pub struct DynamicJitHost {
+    checked: CheckedUnit,
+    plan: CodegenPlan,
+    session: OrcJitSession,
+    loaded_provider_prefixes: std::collections::BTreeSet<String>,
+    dyn_vtable: Vec<u64>,
+    compile_main_count: u64,
+}
+
+impl DynamicJitHost {
+    pub fn compile(checked: CheckedUnit, opt: OptLevel) -> DecResult<Self> {
+        Self::compile_with_plan(checked, CodegenPlan::for_opt_level(opt))
+    }
+
+    pub fn compile_with_plan(checked: CheckedUnit, plan: CodegenPlan) -> DecResult<Self> {
+        let default_rt_ns = build_rt_ns_from_declared(&checked)?;
+        let raw_ir = lower_to_llvm_ir_with_plan(&checked, &plan)?;
+        let session = OrcJitSession::compile_with_plan(&raw_ir, &plan)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?
+            .with_default_rt_namespace(default_rt_ns);
+        let slot_count = checked.dynamic_slots.len();
+        Ok(Self {
+            checked,
+            plan,
+            session,
+            loaded_provider_prefixes: std::collections::BTreeSet::new(),
+            dyn_vtable: vec![0u64; slot_count],
+            compile_main_count: 1,
+        })
+    }
+
+    pub const fn main_compile_count(&self) -> u64 {
+        self.compile_main_count
+    }
+
+    pub fn dynamic_slots(&self) -> &[DynamicSlotSpec] {
+        &self.checked.dynamic_slots
+    }
+
+    /// Verify `provider` against the `mount dyn` interface at `mount_path` (`iface_sha256` +
+    /// `DynEffectCaps` subset check), link its machine code once via `JitCodeCache`, and update
+    /// the indirect capability vtable WITHOUT recompiling `main`!
+    pub fn bind_dynamic_provider(
+        &mut self,
+        mount_path: &str,
+        provider: &CheckedUnit,
+    ) -> DecResult<()> {
+        let verified = validate_dynamic_provider_binding(
+            &self.checked.dynamic_slots,
+            mount_path,
+            provider,
+        )?;
+        let prefix = format!("aod_dyn_{}", &provider.unit.entry_sha256[..24]);
+        if !self.loaded_provider_prefixes.contains(&prefix) {
+            let dyn_ir =
+                lower_dynamic_provider_to_llvm_ir_with_plan(provider, &prefix, &self.plan)?;
+            self.session
+                .add_module_with_plan(&dyn_ir, &self.plan)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+            self.loaded_provider_prefixes.insert(prefix.clone());
+        }
+
+        for (slot_idx, exp) in verified {
+            let sym_name = dynamic_export_symbol_name(&prefix, &exp.fn_name, exp.overload_index);
+            let addr = self
+                .session
+                .lookup_symbol_addr(&sym_name)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+            if let Some(cell) = self.dyn_vtable.get_mut(slot_idx as usize) {
+                *cell = addr;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn unbind_dynamic_mount(&mut self, mount_path: &str) -> DecResult<()> {
+        let clean = aod_core::ns::CleanPath::parse_str(mount_path)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::ModuleNotFound, e.to_string()))?;
+        for slot in &self.checked.dynamic_slots {
+            if slot.mount_path == clean.as_str() {
+                if let Some(cell) = self.dyn_vtable.get_mut(slot.slot_index as usize) {
+                    *cell = 0;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn run_task_captured(
+        &self,
+        fuel: usize,
+        max_depth: usize,
+        rt_ns: RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+    ) -> DecResult<(String, Result<(), String>)> {
+        let effective_rt_ns = rt_ns
+            .overlay_onto_base_specs(&self.checked.unit.declared_rt_mounts)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+        Ok(self.session.run_captured_with_ns_and_dyn(
+            fuel as i64,
+            max_depth as i32,
+            effective_rt_ns,
+            cli_args,
+            &self.dyn_vtable,
+        ))
+    }
+}
+
 /// Run CPU discovery + 5 live JIT probes + semantically-guarded, honest cost-inclusive learning
 /// session on `path`, optionally persisting the resulting rollback-safe `RetainedProfile` atomically.
 #[allow(clippy::too_many_arguments)]
@@ -683,7 +836,8 @@ pub fn learn_file_with_options(
         |plan| {
             let t0 = Instant::now();
             let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan).map_err(|e| e.to_string())?;
-            let sess = OrcJitSession::compile_with_plan(&raw_ir, plan).map_err(|e| e.to_string())?;
+            let sess = OrcJitSession::compile_uncached_with_plan(&raw_ir, plan)
+                .map_err(|e| e.to_string())?;
             let compile_ns = t0.elapsed().as_nanos().max(1) as u64;
             Ok((sess, compile_ns))
         },

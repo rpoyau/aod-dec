@@ -2,9 +2,9 @@ name: AOD-DEC Clean-Break & Self-Host CI
 
 on:
   push:
-    branches: ["main", "v3/clear-integration-blockers", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
+    branches: ["main", "v4/plan9-inferno-ns", "v3/clear-integration-blockers", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
   pull_request:
-    branches: ["main", "v3/clear-integration-blockers", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
+    branches: ["main", "v4/plan9-inferno-ns", "v3/clear-integration-blockers", "v3/ternary-rank-selfhost", "v2/native-reference-engine", "v2/zero-python-evolution"]
 
 permissions:
   contents: read

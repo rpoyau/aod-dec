@@ -56,6 +56,7 @@ pub struct RtState {
     pub emits: Vec<String>,
     pub cli_args: Vec<Vec<u8>>,
     pub rt_ns: crate::ns_fs::RtNamespace,
+    pub dyn_vtable: Vec<usize>,
     pub error: Option<String>,
     pub capture_stdout: bool,
 }
@@ -69,6 +70,7 @@ impl RtState {
             emits: Vec::new(),
             cli_args: Vec::new(),
             rt_ns: crate::ns_fs::RtNamespace::empty(),
+            dyn_vtable: Vec::new(),
             error: None,
             capture_stdout,
         }

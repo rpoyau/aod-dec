@@ -6,9 +6,12 @@
 #aod-paragraph("Setup.")
 Native execution compiles verified Dec programs into safe textual LLVM 18 IR (`crates/aodc/src/codegen.rs`)
 and hands that IR to `crates/aod-llvm` (`dlopen`-loaded `libLLVM.so.18.1`, #aod-cite("llvm-orc-jit")).
-Both AOT (`aodc build`) and in-process ORC LLJIT (`aodc jit`) verify pre-pass and post-pass modules via
-`LLVMVerifyModule` (`LLVMReturnStatusAction = 2`), keeping standalone AOT ELF executables completely free
-of runtime dependencies on `libLLVM` or `libgmp`.
+Both AOT (`aodc build`) and container-sandboxed ORC LLJIT (`aodc jit`) verify pre-pass and post-pass modules via
+`LLVMVerifyModule` (`LLVMReturnStatusAction = 2`), deduplicate compiled PIC ELF object buffers across the
+process in a content-addressed `JitCodeCache` keyed by `(IR, CodegenPlan)` while keeping `aodc learn` candidate
+timing cold (`compile_uncached_with_plan`), dispatch `mount dyn` capabilities via indirect context vtables
+(`@aod_rt_resolve_dyn_slot`) without recompiling `main`, and execute on Linux inside an unprivileged Plan 9
+`pivot_root` + `seccomp-bpf` container (`SandboxedJitWorker`) with zero runtime dependencies on `libLLVM` or `libgmp`.
 
 #aod-noteblock("Execution Policy Scope")[
   Every hardware probe report (`aodc probe-hw`) and learned execution policy (`aodc learn`) is explicitly

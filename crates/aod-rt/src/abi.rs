@@ -120,6 +120,13 @@ impl OwnedRtContext {
         }
     }
 
+    pub fn set_dyn_vtable(&mut self, vtable: Vec<usize>) {
+        if !self.raw.inner.is_null() {
+            let state = unsafe { &mut *self.raw.inner };
+            state.dyn_vtable = vtable;
+        }
+    }
+
     pub fn rt_namespace(&self) -> &crate::ns_fs::RtNamespace {
         &self.state().rt_ns
     }
@@ -4013,7 +4020,28 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_dot_t1", aod_rt_dot_t1 as *const () as usize),
         ("aod_rt_dot_ratio", aod_rt_dot_ratio as *const () as usize),
         ("aod_rt_dot_qext_ratio", aod_rt_dot_qext_ratio as *const () as usize),
+        ("aod_rt_resolve_dyn_slot", aod_rt_resolve_dyn_slot as *const () as usize),
     ]
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_resolve_dyn_slot(
+    ctx: *mut AodRtContext,
+    slot_idx: i32,
+    default_fn: *const (),
+) -> *const () {
+    if ctx.is_null() || slot_idx < 0 {
+        return default_fn;
+    }
+    let raw = unsafe { &*ctx };
+    if raw.inner.is_null() {
+        return default_fn;
+    }
+    let state = unsafe { &*raw.inner };
+    match state.dyn_vtable.get(slot_idx as usize) {
+        Some(&addr) if addr != 0 => addr as *const (),
+        _ => default_fn,
+    }
 }
 
 // ============================================================================
@@ -4118,13 +4146,23 @@ impl SandboxedJitWorker {
         max_depth: i32,
         cli_args: &[Vec<u8>],
     ) -> Result<(Vec<String>, bool, Option<String>), String> {
+        self.run_once_with_dyn(fuel, max_depth, cli_args, &[])
+    }
+
+    pub fn run_once_with_dyn(
+        &mut self,
+        fuel: i64,
+        max_depth: i32,
+        cli_args: &[Vec<u8>],
+        dyn_vtable: &[u64],
+    ) -> Result<(Vec<String>, bool, Option<String>), String> {
         #[cfg(target_os = "linux")]
         {
-            self.inner.run_once(fuel, max_depth, cli_args)
+            self.inner.run_once(fuel, max_depth, cli_args, dyn_vtable)
         }
         #[cfg(not(target_os = "linux"))]
         {
-            let _ = (fuel, max_depth, cli_args);
+            let _ = (fuel, max_depth, cli_args, dyn_vtable);
             Err("Linux kernel container worker requires target_os = linux".to_string())
         }
     }
@@ -4900,12 +4938,17 @@ mod linux_sandbox {
             fuel: i64,
             max_depth: i32,
             cli_args: &[Vec<u8>],
+            dyn_vtable: &[u64],
         ) -> Result<(Vec<String>, bool, Option<String>), String> {
-            let mut req = Vec::with_capacity(17);
+            let mut req = Vec::with_capacity(21 + dyn_vtable.len() * 8);
             req.push(1u8); // CMD_RUN
             req.extend_from_slice(&fuel.to_le_bytes());
             req.extend_from_slice(&max_depth.to_le_bytes());
             req.extend_from_slice(&(cli_args.len() as u32).to_le_bytes());
+            req.extend_from_slice(&(dyn_vtable.len() as u32).to_le_bytes());
+            for &fn_addr in dyn_vtable {
+                req.extend_from_slice(&fn_addr.to_le_bytes());
+            }
             write_all_fd(self.cmd_write_fd, &req)?;
             for a in cli_args {
                 write_bytes_fd(self.cmd_write_fd, a)?;
@@ -5037,7 +5080,7 @@ mod linux_sandbox {
                 Ok(true) if cmd_tag[0] == 1 => {}
                 _ => break,
             }
-            let mut cmd_hdr = [0u8; 16];
+            let mut cmd_hdr = [0u8; 20];
             match read_exact_fd(cmd_fd, &mut cmd_hdr) {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,
@@ -5045,6 +5088,25 @@ mod linux_sandbox {
             let fuel = i64::from_le_bytes(cmd_hdr[0..8].try_into().unwrap());
             let max_depth = i32::from_le_bytes(cmd_hdr[8..12].try_into().unwrap());
             let args_count = u32::from_le_bytes(cmd_hdr[12..16].try_into().unwrap()) as usize;
+            let vtable_count = u32::from_le_bytes(cmd_hdr[16..20].try_into().unwrap()) as usize;
+            if vtable_count > 65_536 {
+                break;
+            }
+            let mut dyn_vtable = Vec::with_capacity(vtable_count);
+            let mut vt_ok = true;
+            for _ in 0..vtable_count {
+                let mut slot_buf = [0u8; 8];
+                match read_exact_fd(cmd_fd, &mut slot_buf) {
+                    Ok(true) => dyn_vtable.push(u64::from_le_bytes(slot_buf) as usize),
+                    _ => {
+                        vt_ok = false;
+                        break;
+                    }
+                }
+            }
+            if !vt_ok {
+                break;
+            }
             let mut cli_args = Vec::with_capacity(args_count.min(256));
             let mut read_ok = true;
             for _ in 0..args_count {
@@ -5062,6 +5124,9 @@ mod linux_sandbox {
 
             let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
             ctx.set_rt_namespace(rt_ns.clone());
+            if !dyn_vtable.is_empty() {
+                ctx.set_dyn_vtable(dyn_vtable);
+            }
             if !cli_args.is_empty() {
                 ctx.set_cli_args(cli_args);
             }
