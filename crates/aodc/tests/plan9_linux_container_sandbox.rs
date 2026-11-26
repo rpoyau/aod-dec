@@ -138,6 +138,46 @@ fn orc_jit_enforces_linux_plan9_kernel_container_by_default_against_raw_libc_sys
 }
 
 #[test]
+#[cfg(target_os = "linux")]
+fn landlock_seccomp_fallback_tier_blocks_raw_syscalls_and_supports_rt_mounts() {
+    let sess = OrcJitSession::compile(HOSTILE_RAW_SYSCALL_IR, OptLevel::O2)
+        .expect("compile hostile syscall probe");
+    let (tier, stdout_empty, res_empty) = sess
+        .run_captured_landlock_fallback(10_000, 64, RtNamespace::empty(), Vec::new())
+        .expect("spawn Landlock+seccomp fallback worker");
+    assert_eq!(tier, SandboxTier::LinuxLandlockSeccomp);
+    res_empty.expect("Landlock+seccomp probe run");
+    assert_eq!(
+        stdout_empty.lines().collect::<Vec<_>>(),
+        vec!["true", "true", "true", "true", "false", "true"],
+        "unexpected Landlock+seccomp probe output:\n{stdout_empty}"
+    );
+
+    // Also verify `aod::sys::read_file_bytes` with `--mount ro:<dir>:/in` under Landlock+seccomp!
+    let tmp = std::env::temp_dir().join(format!("aod_landlock_mount_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).unwrap();
+    std::fs::write(tmp.join("hello.bin"), b"landlock-ro-ok").unwrap();
+
+    let checked = aodc::check_source(
+        "use aod::sys:\n    read_file_bytes\n\ndec main() -> int:\n    let b = read_file_bytes(b\"/in/hello.bin\")\n    emit len(b)\n    0\n",
+    )
+    .unwrap();
+    let ir = aodc::codegen::lower_to_llvm_ir(&checked).unwrap();
+    let reader_sess = OrcJitSession::compile(&ir, OptLevel::O2).unwrap();
+    let mut ns = RtNamespace::empty();
+    ns.apply_spec(&RtMountSpec::parse_cli(&format!("ro:{}:/in", tmp.display())).unwrap())
+        .unwrap();
+    let (tier2, out_ro, res_ro) = reader_sess
+        .run_captured_landlock_fallback(10_000, 64, ns, Vec::new())
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&tmp);
+    assert_eq!(tier2, SandboxTier::LinuxLandlockSeccomp);
+    res_ro.expect("Landlock+seccomp ro mount read");
+    assert_eq!(out_ro, "14\n0\n");
+}
+
+#[test]
 fn cli_run_jit_and_aot_enforce_default_plan9_sandbox_and_explicit_mounts_3way_parity() {
     let tmp = std::env::temp_dir().join(format!("aod_cli_jail_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&tmp);

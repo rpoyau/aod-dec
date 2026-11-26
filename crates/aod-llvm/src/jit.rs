@@ -556,6 +556,37 @@ impl OrcJitSession {
             &[],
         )
     }
+
+    /// Execute inside an explicit `LinuxLandlockSeccomp` worker (exercising the exact restricted-userns
+    /// fallback tier used on Ubuntu 24.04 AppArmor `apparmor_restrict_unprivileged_userns=1` hosts).
+    pub fn run_captured_landlock_fallback(
+        &self,
+        fuel: i64,
+        max_depth: i32,
+        rt_ns: aod_rt::ns_fs::RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+    ) -> LlvmResult<(SandboxTier, String, Result<(), String>)> {
+        if self.entry_addr == 0 {
+            return Err(LlvmError::new("OrcJitSession has no default entry symbol"));
+        }
+        let mut worker = SandboxedJitWorker::spawn_landlock_fallback(self.entry_addr, rt_ns)
+            .map_err(LlvmError::new)?;
+        let tier = worker.tier();
+        let (emits, failed, err_opt) = worker
+            .run_once_with_dyn(fuel, max_depth, &cli_args, &[])
+            .map_err(LlvmError::new)?;
+        let mut stdout = String::new();
+        for line in &emits {
+            stdout.push_str(line);
+            stdout.push('\n');
+        }
+        let res = if failed {
+            Err(err_opt.unwrap_or_else(|| "runtime error".to_string()))
+        } else {
+            Ok(())
+        };
+        Ok((tier, stdout, res))
+    }
 }
 
 impl Drop for OrcJitSession {

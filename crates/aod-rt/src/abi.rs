@@ -4121,17 +4121,33 @@ impl SandboxedJitWorker {
         entry_addr: u64,
         rt_ns: crate::ns_fs::RtNamespace,
     ) -> Result<Self, String> {
+        Self::spawn_internal(entry_addr, rt_ns, false)
+    }
+
+    pub fn spawn_landlock_fallback(
+        entry_addr: u64,
+        rt_ns: crate::ns_fs::RtNamespace,
+    ) -> Result<Self, String> {
+        Self::spawn_internal(entry_addr, rt_ns, true)
+    }
+
+    fn spawn_internal(
+        entry_addr: u64,
+        rt_ns: crate::ns_fs::RtNamespace,
+        force_landlock_only: bool,
+    ) -> Result<Self, String> {
         if entry_addr == 0 {
             return Err("cannot spawn sandboxed JIT worker with null entry_addr".to_string());
         }
         #[cfg(target_os = "linux")]
         {
-            let (inner, tier) = linux_sandbox::WorkerInner::spawn(entry_addr, rt_ns)?;
+            let (inner, tier) =
+                linux_sandbox::WorkerInner::spawn(entry_addr, rt_ns, force_landlock_only)?;
             Ok(Self { inner, tier })
         }
         #[cfg(not(target_os = "linux"))]
         {
-            let _ = rt_ns;
+            let _ = (rt_ns, force_landlock_only);
             Err("Linux kernel container worker requires target_os = linux".to_string())
         }
     }
@@ -4331,29 +4347,131 @@ mod linux_sandbox {
         fn statvfs(path: *const c_char, buf: *mut StatVfs) -> c_int;
     }
 
-    pub fn enter_sandbox(rt_ns: &mut RtNamespace) -> Result<SandboxTier, String> {
+    static PIVOT_ROOT_CAPABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+    /// Probe once per process (in a disposable child) whether the host kernel and MAC policy
+    /// (e.g. Ubuntu 24.04 AppArmor `kernel.apparmor_restrict_unprivileged_userns=1`) permit the
+    /// full `unshare(CLONE_NEWUSER|CLONE_NEWNS)` + `uid_map` + `mount(tmpfs)` + `pivot_root` chain.
+    ///
+    /// Crucial detail: on Ubuntu 24.04 with `apparmor_restrict_unprivileged_userns=1`, `unshare`
+    /// itself returns `0` and AppArmor then blocks `write("/proc/self/uid_map")` with `EPERM`.
+    /// Probing in a disposable child prevents tainting the real worker/AOT process with an
+    /// unmapped `overflowuid` user namespace before falling back to Landlock + `seccomp-bpf`.
+    pub fn is_pivot_root_capable() -> bool {
+        *PIVOT_ROOT_CAPABLE.get_or_init(probe_pivot_root_capable_once)
+    }
+
+    fn probe_pivot_root_capable_once() -> bool {
         let host_uid = unsafe { getuid() };
         let host_gid = unsafe { getgid() };
         let ns_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS;
 
-        // Only fall back to Landlock+seccomp if `unshare` itself is blocked by an outer container
-        // (before any mount table mutation has occurred!).
-        if unsafe { unshare(ns_flags) } == 0 {
+        let pid = unsafe { fork() };
+        if pid < 0 {
+            return false;
+        }
+        if pid == 0 {
+            unsafe {
+                let _ = prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+                const SYS_CLOSE_RANGE: c_long = 436;
+                if syscall(SYS_CLOSE_RANGE, 3u32, u32::MAX, 0u32) != 0 {
+                    for fd in 3..1024 {
+                        let _ = close(fd);
+                    }
+                }
+                if unshare(ns_flags) != 0 {
+                    _exit(1);
+                }
+            }
+            let _ = std::fs::write("/proc/self/setgroups", b"deny");
+            if std::fs::write("/proc/self/uid_map", format!("0 {host_uid} 1\n")).is_err() {
+                unsafe { _exit(1) };
+            }
+            if std::fs::write("/proc/self/gid_map", format!("0 {host_gid} 1\n")).is_err() {
+                unsafe { _exit(1) };
+            }
+            unsafe {
+                if mount(
+                    c"none".as_ptr(),
+                    c"/".as_ptr(),
+                    std::ptr::null(),
+                    MS_REC | MS_PRIVATE,
+                    std::ptr::null(),
+                ) != 0
+                {
+                    _exit(1);
+                }
+                let tmpfs_opts = c"size=1m,mode=0755";
+                if mount(
+                    c"tmpfs".as_ptr(),
+                    c"/tmp".as_ptr(),
+                    c"tmpfs".as_ptr(),
+                    MS_NOSUID | MS_NODEV,
+                    tmpfs_opts.as_ptr() as *const c_void,
+                ) != 0
+                {
+                    _exit(1);
+                }
+                if mkdir(c"/tmp/.old".as_ptr(), 0o700) != 0 {
+                    _exit(1);
+                }
+                if chdir(c"/tmp".as_ptr()) != 0 {
+                    _exit(1);
+                }
+                if syscall(SYS_PIVOT_ROOT, c".".as_ptr(), c".old".as_ptr()) != 0 {
+                    _exit(1);
+                }
+                if chdir(c"/".as_ptr()) != 0 {
+                    _exit(1);
+                }
+                if umount2(c"/.old".as_ptr(), MNT_DETACH) != 0 {
+                    _exit(1);
+                }
+                _exit(0);
+            }
+        }
+
+        let mut status: c_int = 0;
+        loop {
+            let rc = unsafe { waitpid(pid, &mut status, 0) };
+            if rc >= 0 {
+                break;
+            }
+            if last_errno() != EINTR {
+                return false;
+            }
+        }
+        (status & 0x7f) == 0 && ((status >> 8) & 0xff) == 0
+    }
+
+    pub fn enter_sandbox(rt_ns: &mut RtNamespace) -> Result<SandboxTier, String> {
+        enter_sandbox_with_mode(rt_ns, false)
+    }
+
+    pub fn enter_sandbox_with_mode(
+        rt_ns: &mut RtNamespace,
+        force_landlock_only: bool,
+    ) -> Result<SandboxTier, String> {
+        let host_uid = unsafe { getuid() };
+        let host_gid = unsafe { getgid() };
+        let ns_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS;
+
+        let deny_fs_open = rt_ns.all_host_bind_dirs().is_empty();
+        if !force_landlock_only && is_pivot_root_capable() && unsafe { unshare(ns_flags) } == 0 {
             finish_pivot_root_after_unshare(rt_ns, host_uid, host_gid)?;
             harden_no_new_privs_and_dumpable()?;
-            install_seccomp_denylist()?;
+            install_seccomp_denylist(deny_fs_open)?;
             Ok(SandboxTier::LinuxPlan9PivotRoot)
         } else {
-            let unshare_err = last_errno();
             harden_no_new_privs_and_dumpable()?;
             if let Err((ll_errno, ll_err)) = apply_landlock_fallback(rt_ns) {
                 if ll_errno != 38 && ll_errno != 95 {
                     return Err(format!(
-                        "Linux container sandbox failed (unshare errno={unshare_err}; landlock fallback: {ll_err})"
+                        "Linux container sandbox Landlock fallback failed: {ll_err}"
                     ));
                 }
             }
-            install_seccomp_denylist()?;
+            install_seccomp_denylist(deny_fs_open)?;
             Ok(SandboxTier::LinuxLandlockSeccomp)
         }
     }
@@ -4399,13 +4517,14 @@ mod linux_sandbox {
             return Err(format!("mount(/, MS_PRIVATE) errno={}", last_errno()));
         }
 
-        // 3. Stage fresh rootfs on `/tmp/.aod_sandbox_stage` WITHOUT shadowing sibling `/tmp/*` dirs!
-        let stage_dir = c"/tmp/.aod_sandbox_stage";
+        // 3. Stage fresh rootfs on `/tmp/.aod_sandbox_stage_<uid>` WITHOUT shadowing sibling `/tmp/*` dirs!
+        let stage_path = format!("/tmp/.aod_sandbox_stage_{host_uid}");
+        let stage_dir = CString::new(stage_path.as_bytes()).unwrap();
         let mkdir_rc = unsafe { mkdir(stage_dir.as_ptr(), 0o755) };
         if mkdir_rc != 0 {
             let err = last_errno();
             if err != 17 {
-                return Err(format!("mkdir(/tmp/.aod_sandbox_stage) errno={err}"));
+                return Err(format!("mkdir({stage_path}) errno={err}"));
             }
         }
         let tmpfs_opts = c"size=16m,mode=0755";
@@ -4424,11 +4543,12 @@ mod linux_sandbox {
 
         // 4. Bind-mount ONLY declared Plan 9 mounts into the staged rootfs
         for m in &mounts {
-            bind_one_into_new_root(m)?;
+            bind_one_into_new_root(&stage_path, m)?;
         }
 
-        // 5. pivot_root into `/tmp/.aod_sandbox_stage` and completely detach the host rootfs!
-        if unsafe { mkdir(c"/tmp/.aod_sandbox_stage/.old_root".as_ptr(), 0o700) } != 0 {
+        // 5. pivot_root into `stage_path` and completely detach the host rootfs!
+        let old_root_c = CString::new(format!("{stage_path}/.old_root")).unwrap();
+        if unsafe { mkdir(old_root_c.as_ptr(), 0o700) } != 0 {
             return Err(format!("mkdir(.old_root) errno={}", last_errno()));
         }
         if unsafe { chdir(stage_dir.as_ptr()) } != 0 {
@@ -4452,8 +4572,8 @@ mod linux_sandbox {
         Ok(())
     }
 
-    fn bind_one_into_new_root(m: &PivotBindMount) -> Result<(), String> {
-        let mut cur = String::from("/tmp/.aod_sandbox_stage");
+    fn bind_one_into_new_root(stage_root: &str, m: &PivotBindMount) -> Result<(), String> {
+        let mut cur = String::from(stage_root);
         for seg in m.container_path.trim_start_matches('/').split('/') {
             if seg.is_empty() {
                 continue;
@@ -4637,14 +4757,14 @@ mod linux_sandbox {
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-    fn install_seccomp_denylist() -> Result<(), String> {
+    fn install_seccomp_denylist(deny_fs_open: bool) -> Result<(), String> {
         #[cfg(target_arch = "x86_64")]
         const EXPECTED_ARCH: u32 = 0xC000_003E;
         #[cfg(target_arch = "aarch64")]
         const EXPECTED_ARCH: u32 = 0xC000_00B7;
 
         #[cfg(target_arch = "x86_64")]
-        const DENIED: &[u32] = &[
+        const DENIED_BASE: &[u32] = &[
             41,  // socket
             42,  // connect
             43,  // accept
@@ -4665,8 +4785,18 @@ mod linux_sandbox {
             442, // mount_setattr
         ];
 
+        #[cfg(target_arch = "x86_64")]
+        const DENIED_FS_OPEN: &[u32] = &[
+            2,   // open
+            85,  // creat
+            257, // openat
+            304, // open_by_handle_at
+            428, // open_tree
+            437, // openat2
+        ];
+
         #[cfg(target_arch = "aarch64")]
-        const DENIED: &[u32] = &[
+        const DENIED_BASE: &[u32] = &[
             198, // socket
             199, // socketpair
             200, // bind
@@ -4687,6 +4817,20 @@ mod linux_sandbox {
             442, // mount_setattr
         ];
 
+        #[cfg(target_arch = "aarch64")]
+        const DENIED_FS_OPEN: &[u32] = &[
+            56,  // openat
+            265, // open_by_handle_at
+            428, // open_tree
+            437, // openat2
+        ];
+
+        let mut denied: Vec<u32> = Vec::with_capacity(DENIED_BASE.len() + DENIED_FS_OPEN.len());
+        denied.extend_from_slice(DENIED_BASE);
+        if deny_fs_open {
+            denied.extend_from_slice(DENIED_FS_OPEN);
+        }
+
         #[cfg(target_arch = "x86_64")]
         let has_x32_guard = 1usize;
         #[cfg(not(target_arch = "x86_64"))]
@@ -4700,7 +4844,7 @@ mod linux_sandbox {
         // [..] JEQ bad_nr (jt -> DENY)
         // [total - 2] RET ALLOW
         // [total - 1] RET ERRNO|EPERM (0x0005_0001)
-        let total = 3 + has_x32_guard + DENIED.len() + 2;
+        let total = 3 + has_x32_guard + denied.len() + 2;
         let deny_idx = total - 1;
         let mut insns: Vec<SockFilter> = Vec::with_capacity(total);
 
@@ -4738,7 +4882,7 @@ mod linux_sandbox {
             });
         }
 
-        for &bad_nr in DENIED {
+        for &bad_nr in &denied {
             let cur = insns.len();
             insns.push(SockFilter {
                 code: 0x15,
@@ -4784,7 +4928,7 @@ mod linux_sandbox {
     }
 
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    fn install_seccomp_denylist() -> Result<(), String> {
+    fn install_seccomp_denylist(_deny_fs_open: bool) -> Result<(), String> {
         Ok(())
     }
 
@@ -4868,9 +5012,13 @@ mod linux_sandbox {
         pub fn spawn(
             entry_addr: u64,
             mut rt_ns: RtNamespace,
+            force_landlock_only: bool,
         ) -> Result<(Self, SandboxTier), String> {
             let _ = std::io::stdout().flush();
             let _ = std::io::stderr().flush();
+            if !force_landlock_only {
+                let _ = is_pivot_root_capable();
+            }
 
             let mut cmd_fds = [-1, -1];
             let mut resp_fds = [-1, -1];
@@ -4905,7 +5053,13 @@ mod linux_sandbox {
                     let _ = close(resp_fds[0]);
                     close_other_fds_except(cmd_fds[0], resp_fds[1]);
                 }
-                child_worker_loop(entry_addr, &mut rt_ns, cmd_fds[0], resp_fds[1]);
+                child_worker_loop(
+                    entry_addr,
+                    &mut rt_ns,
+                    cmd_fds[0],
+                    resp_fds[1],
+                    force_landlock_only,
+                );
             }
 
             // ---- PARENT PROCESS ----
@@ -5057,8 +5211,9 @@ mod linux_sandbox {
         rt_ns: &mut RtNamespace,
         cmd_fd: c_int,
         resp_fd: c_int,
+        force_landlock_only: bool,
     ) -> ! {
-        match enter_sandbox(rt_ns) {
+        match enter_sandbox_with_mode(rt_ns, force_landlock_only) {
             Ok(tier) => {
                 if write_all_fd(resp_fd, &[1u8, tier.to_tag()]).is_err() {
                     unsafe { _exit(1) };
