@@ -1395,6 +1395,77 @@ pub unsafe extern "C" fn aod_rt_sys_write_executable_elf(
     }
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_accept_stream(ctx: *mut AodRtContext, path_h: u64) -> i8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let ok = s.op_sys_accept_stream(path_h)?;
+            Ok(i8::from(ok))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_stream_local_addr(ctx: *mut AodRtContext, path_h: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_sys_stream_local_addr(path_h)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_read_stream_line(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    max_raw: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let max_b = s.unpack_dec_int(max_raw)?;
+            s.op_sys_read_stream_line(path_h, &max_b)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_read_stream_frame(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    max_raw: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let max_b = s.unpack_dec_int(max_raw)?;
+            s.op_sys_read_stream_frame(path_h, &max_b)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_write_stream_bytes(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    payload_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.op_sys_write_stream_bytes(path_h, payload_h)?;
+            s.pack_dec_int(n)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_write_stream_frame(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    payload_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.op_sys_write_stream_frame(path_h, payload_h)?;
+            s.pack_dec_int(n)
+        })
+    }
+}
+
 fn rt_values_equal(a: &RtValue, b: &RtValue) -> bool {
     match (a, b) {
         (RtValue::Array(xs) | RtValue::List(xs), RtValue::Array(ys) | RtValue::List(ys)) => {
@@ -3864,6 +3935,12 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_sys_cli_args", aod_rt_sys_cli_args as *const () as usize),
         ("aod_rt_sys_read_file_bytes", aod_rt_sys_read_file_bytes as *const () as usize),
         ("aod_rt_sys_write_executable_elf", aod_rt_sys_write_executable_elf as *const () as usize),
+        ("aod_rt_sys_accept_stream", aod_rt_sys_accept_stream as *const () as usize),
+        ("aod_rt_sys_stream_local_addr", aod_rt_sys_stream_local_addr as *const () as usize),
+        ("aod_rt_sys_read_stream_line", aod_rt_sys_read_stream_line as *const () as usize),
+        ("aod_rt_sys_read_stream_frame", aod_rt_sys_read_stream_frame as *const () as usize),
+        ("aod_rt_sys_write_stream_bytes", aod_rt_sys_write_stream_bytes as *const () as usize),
+        ("aod_rt_sys_write_stream_frame", aod_rt_sys_write_stream_frame as *const () as usize),
         ("aod_rt_handle_eq", aod_rt_handle_eq as *const () as usize),
         ("aod_rt_handle_cmp", aod_rt_handle_cmp as *const () as usize),
         ("aod_rt_val_unit", aod_rt_val_unit as *const () as usize),
@@ -4457,10 +4534,11 @@ mod linux_sandbox {
         let ns_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS;
 
         let deny_fs_open = rt_ns.all_host_bind_dirs().is_empty();
+        let allow_stream_accept = rt_ns.has_stream_listener();
         if !force_landlock_only && is_pivot_root_capable() && unsafe { unshare(ns_flags) } == 0 {
             finish_pivot_root_after_unshare(rt_ns, host_uid, host_gid)?;
             harden_no_new_privs_and_dumpable()?;
-            install_seccomp_denylist(deny_fs_open)?;
+            install_seccomp_denylist(deny_fs_open, allow_stream_accept)?;
             Ok(SandboxTier::LinuxPlan9PivotRoot)
         } else {
             harden_no_new_privs_and_dumpable()?;
@@ -4471,7 +4549,7 @@ mod linux_sandbox {
                     ));
                 }
             }
-            install_seccomp_denylist(deny_fs_open)?;
+            install_seccomp_denylist(deny_fs_open, allow_stream_accept)?;
             Ok(SandboxTier::LinuxLandlockSeccomp)
         }
     }
@@ -4757,7 +4835,10 @@ mod linux_sandbox {
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-    fn install_seccomp_denylist(deny_fs_open: bool) -> Result<(), String> {
+    fn install_seccomp_denylist(
+        deny_fs_open: bool,
+        allow_stream_accept: bool,
+    ) -> Result<(), String> {
         #[cfg(target_arch = "x86_64")]
         const EXPECTED_ARCH: u32 = 0xC000_003E;
         #[cfg(target_arch = "aarch64")]
@@ -4767,7 +4848,6 @@ mod linux_sandbox {
         const DENIED_BASE: &[u32] = &[
             41,  // socket
             42,  // connect
-            43,  // accept
             49,  // bind
             50,  // listen
             53,  // socketpair
@@ -4777,12 +4857,17 @@ mod linux_sandbox {
             161, // chroot
             165, // mount
             166, // umount2
-            288, // accept4
             298, // perf_event_open
             321, // bpf
             322, // execveat
             425, // io_uring_setup
             442, // mount_setattr
+        ];
+
+        #[cfg(target_arch = "x86_64")]
+        const DENIED_NET_ACCEPT: &[u32] = &[
+            43,  // accept
+            288, // accept4
         ];
 
         #[cfg(target_arch = "x86_64")]
@@ -4801,7 +4886,6 @@ mod linux_sandbox {
             199, // socketpair
             200, // bind
             201, // listen
-            202, // accept
             203, // connect
             221, // execve
             117, // ptrace
@@ -4809,12 +4893,17 @@ mod linux_sandbox {
             51,  // chroot
             40,  // mount
             39,  // umount2
-            242, // accept4
             241, // perf_event_open
             280, // bpf
             281, // execveat
             425, // io_uring_setup
             442, // mount_setattr
+        ];
+
+        #[cfg(target_arch = "aarch64")]
+        const DENIED_NET_ACCEPT: &[u32] = &[
+            202, // accept
+            242, // accept4
         ];
 
         #[cfg(target_arch = "aarch64")]
@@ -4825,8 +4914,13 @@ mod linux_sandbox {
             437, // openat2
         ];
 
-        let mut denied: Vec<u32> = Vec::with_capacity(DENIED_BASE.len() + DENIED_FS_OPEN.len());
+        let mut denied: Vec<u32> = Vec::with_capacity(
+            DENIED_BASE.len() + DENIED_NET_ACCEPT.len() + DENIED_FS_OPEN.len(),
+        );
         denied.extend_from_slice(DENIED_BASE);
+        if !allow_stream_accept {
+            denied.extend_from_slice(DENIED_NET_ACCEPT);
+        }
         if deny_fs_open {
             denied.extend_from_slice(DENIED_FS_OPEN);
         }
@@ -4928,7 +5022,10 @@ mod linux_sandbox {
     }
 
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    fn install_seccomp_denylist(_deny_fs_open: bool) -> Result<(), String> {
+    fn install_seccomp_denylist(
+        _deny_fs_open: bool,
+        _allow_stream_accept: bool,
+    ) -> Result<(), String> {
         Ok(())
     }
 
@@ -5047,11 +5144,16 @@ mod linux_sandbox {
 
             if pid == 0 {
                 // ---- CHILD WORKER PROCESS (Single-Threaded, COW RX JIT Pages) ----
+                let mut keep_fds = rt_ns.preserved_raw_fds();
+                keep_fds.push(cmd_fds[0]);
+                keep_fds.push(resp_fds[1]);
+                keep_fds.sort_unstable();
+                keep_fds.dedup();
                 unsafe {
                     let _ = prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
                     let _ = close(cmd_fds[1]);
                     let _ = close(resp_fds[0]);
-                    close_other_fds_except(cmd_fds[0], resp_fds[1]);
+                    close_other_fds_except(&keep_fds);
                 }
                 child_worker_loop(
                     entry_addr,
@@ -5147,29 +5249,32 @@ mod linux_sandbox {
         }
     }
 
-    /// Close every file descriptor `>= 3` except `keep_a` and `keep_b` inside the forked worker
-    /// so sibling `OrcJitSession` pipe endpoints and host FDs never leak into the container!
-    unsafe fn close_other_fds_except(keep_a: c_int, keep_b: c_int) {
+    /// Close every file descriptor `>= 3` except sorted `keep_fds` inside the forked worker
+    /// so sibling `OrcJitSession` pipe endpoints and unmounted host FDs never leak into the container!
+    unsafe fn close_other_fds_except(keep_fds: &[c_int]) {
         const SYS_CLOSE_RANGE: c_long = 436;
-        let lo = keep_a.min(keep_b) as u32;
-        let hi = keep_a.max(keep_b) as u32;
         let mut ok = true;
-        if lo > 3 {
-            if unsafe { syscall(SYS_CLOSE_RANGE, 3u32, lo - 1, 0u32) } != 0 {
+        let mut cur_lo: u32 = 3;
+        for &kfd in keep_fds {
+            if kfd < 3 {
+                continue;
+            }
+            let ku = kfd as u32;
+            if ku > cur_lo {
+                if unsafe { syscall(SYS_CLOSE_RANGE, cur_lo, ku - 1, 0u32) } != 0 {
+                    ok = false;
+                }
+            }
+            cur_lo = ku.saturating_add(1);
+        }
+        if cur_lo <= u32::MAX {
+            if unsafe { syscall(SYS_CLOSE_RANGE, cur_lo, u32::MAX, 0u32) } != 0 {
                 ok = false;
             }
-        }
-        if hi > lo + 1 {
-            if unsafe { syscall(SYS_CLOSE_RANGE, lo + 1, hi - 1, 0u32) } != 0 {
-                ok = false;
-            }
-        }
-        if unsafe { syscall(SYS_CLOSE_RANGE, hi + 1, u32::MAX, 0u32) } != 0 {
-            ok = false;
         }
         if !ok {
             for fd in 3..1024 {
-                if fd != keep_a && fd != keep_b {
+                if keep_fds.binary_search(&fd).is_err() {
                     let _ = unsafe { close(fd) };
                 }
             }

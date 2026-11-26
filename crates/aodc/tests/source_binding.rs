@@ -658,8 +658,8 @@ fn pure_wave_dec_v2_repository_guard() {
     dec_files.sort();
     assert_eq!(
         dec_files.len(),
-        52,
-        "expected exactly 52 clean-break .dec files in repository, found {}",
+        53,
+        "expected exactly 53 clean-break .dec files in repository, found {}",
         dec_files.len()
     );
 
@@ -711,7 +711,7 @@ fn pure_wave_dec_v2_repository_guard() {
             );
         }
     }
-    assert_eq!(positive_count, 45, "expected 45 positive clean-break .dec files");
+    assert_eq!(positive_count, 46, "expected 46 positive clean-break .dec files");
     assert_eq!(negative_count, 7, "expected 7 negative-control clean-break .dec files");
 
     // 2. Scan all inline ```dec and ```dec-fail blocks in docs/manual/**/*.typ

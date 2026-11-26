@@ -758,12 +758,26 @@ pub fn lookup_builtin(canonical_name: &str) -> Vec<BuiltinSig> {
             QExt,
         )],
 
-        // --- Explicit capability-gated `aod::sys` bootstrap I/O (`Effect::SysIo`) ---
+        // --- Explicit capability-gated `aod::sys` bootstrap & stream I/O (`Effect::SysIo`) ---
         "aod::sys::cli_args" => vec![s(Vec::new(), Type::List(Box::new(Type::Bytes)), SysIo)],
         "aod::sys::read_file_bytes" => vec![s(vec![Type::Bytes], Type::Bytes, SysIo)],
         "aod::sys::write_executable_elf" => {
             vec![s(vec![Type::Bytes, Type::Bytes], Type::Int, SysIo)]
         }
+        "aod::sys::accept_stream" => vec![s(vec![Type::Bytes], Type::Bool, SysIo)],
+        "aod::sys::stream_local_addr" => vec![s(vec![Type::Bytes], Type::Bytes, SysIo)],
+        "aod::sys::read_stream_line" => vec![s(
+            vec![Type::Bytes, Type::Int],
+            Type::Tuple(vec![Type::T1, Type::Bytes]),
+            SysIo,
+        )],
+        "aod::sys::read_stream_frame" => vec![s(
+            vec![Type::Bytes, Type::Int],
+            Type::Tuple(vec![Type::T1, Type::Bytes]),
+            SysIo,
+        )],
+        "aod::sys::write_stream_bytes" => vec![s(vec![Type::Bytes, Type::Bytes], Type::Int, SysIo)],
+        "aod::sys::write_stream_frame" => vec![s(vec![Type::Bytes, Type::Bytes], Type::Int, SysIo)],
 
         _ => Vec::new(),
     }

@@ -9934,6 +9934,80 @@ impl FnBuilder {
                     dec_ty: Type::Int,
                 }
             }
+            ("aod::sys::accept_stream", [Type::Bytes]) => {
+                let raw_b = self.fresh_reg();
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {raw_b} = call i8 @aod_rt_sys_accept_stream(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                self.line(&format!("  {r} = icmp ne i8 {raw_b}, 0"));
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bool,
+                }
+            }
+            ("aod::sys::stream_local_addr", [Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_stream_local_addr(ptr %ctx, i64 {})",
+                    vals[0].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Bytes,
+                }
+            }
+            ("aod::sys::read_stream_line", [Type::Bytes, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_read_stream_line(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Tuple(vec![Type::T1, Type::Bytes]),
+                }
+            }
+            ("aod::sys::read_stream_frame", [Type::Bytes, Type::Int]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_read_stream_frame(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Tuple(vec![Type::T1, Type::Bytes]),
+                }
+            }
+            ("aod::sys::write_stream_bytes", [Type::Bytes, Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_write_stream_bytes(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
+            ("aod::sys::write_stream_frame", [Type::Bytes, Type::Bytes]) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sys_write_stream_frame(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Int,
+                }
+            }
 
             _ => return Ok(None),
         };
@@ -10561,6 +10635,12 @@ declare i64 @aod_rt_bytes_push(ptr, i64, i8)
 declare i64 @aod_rt_sys_cli_args(ptr)
 declare i64 @aod_rt_sys_read_file_bytes(ptr, i64)
 declare i64 @aod_rt_sys_write_executable_elf(ptr, i64, i64)
+declare i8 @aod_rt_sys_accept_stream(ptr, i64)
+declare i64 @aod_rt_sys_stream_local_addr(ptr, i64)
+declare i64 @aod_rt_sys_read_stream_line(ptr, i64, i64)
+declare i64 @aod_rt_sys_read_stream_frame(ptr, i64, i64)
+declare i64 @aod_rt_sys_write_stream_bytes(ptr, i64, i64)
+declare i64 @aod_rt_sys_write_stream_frame(ptr, i64, i64)
 
 declare i8 @aod_rt_handle_eq(ptr, i64, i64)
 declare i8 @aod_rt_handle_cmp(ptr, i64, i64)

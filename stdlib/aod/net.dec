@@ -1,0 +1,400 @@
+use aod::core:
+    abs, b8, b64, b64_bits, b64_le_bytes, bytes, concat_bytes, fold, gcd, int, len, max, min, popcnt, push, push_byte, range_seq, ratio, select, signum, slice_bytes, superpose_cancel, t1, u16_le_bytes, verify_frg_cross_return
+
+use aod::ledger::sadar_promote
+
+use stdlib::aod::sectors::awareness_current_update
+
+struct DuonicPulse:
+    channel: int
+    sigma: t1
+    c3_cap: int
+    rd_unclipped: int
+    win_len: int
+    lag: ratio
+
+struct DuonicCurrent:
+    channel: int
+    sigma: t1
+    rho_clipped: int
+    pressure: int
+    overhang: int
+    sadar_flux: ratio
+
+struct CrossReturnReceipt:
+    isolated_mark: int
+    isolated_pulse: int
+    joint_return: int
+    residual: int
+    deficit: int
+
+struct MotorSlot:
+    slot: int
+    admissible: bool
+    base_weight: int
+    retained_current: ratio
+
+struct MotorDecision:
+    selected_slot: int
+    removed_slot: int
+    restored_slot: int
+    changed_by_carriage: bool
+    admissible_count: int
+    slide_prob: ratio
+    actuated_sigma: t1
+    actuated_current: ratio
+
+struct DuonicWirePacket:
+    kind: int
+    cut: int
+    channel: int
+    sigma: t1
+    signals: [t1]
+    current: ratio
+
+dec admit_sensor_pulse:
+    (p: DuonicPulse) -> DuonicCurrent:
+        assert (((p.c3_cap > 0) and (p.rd_unclipped >= 0)) and (p.win_len >= 0))
+        assert (abs(p.lag) <= 1/1r)
+        let rho = min(p.rd_unclipped, p.win_len)
+        let pd = (p.c3_cap * rho)
+        let qd = (p.c3_cap * max(0, (p.rd_unclipped - p.win_len)))
+        let att = (p.lag * ratio(p.sigma))
+        assert (abs(att) <= 1/1r)
+        let fwd = sadar_promote(p.c3_cap, rho, att)
+        let rev = sadar_promote(p.c3_cap, rho, -att)
+        assert ((fwd + rev) == 0/1r)
+        return DuonicCurrent(p.channel, p.sigma, rho, pd, qd, fwd)
+
+dec measure_cross_return:
+    (mark: t1, pulse: t1) -> CrossReturnReceipt:
+        let isolated_mark = int(superpose_cancel(mark, 0t))
+        let isolated_pulse = int(superpose_cancel(0t, pulse))
+        let joint = int(superpose_cancel(mark, pulse))
+        let baseline = (isolated_mark + isolated_pulse)
+        let residual = (joint - baseline)
+        assert verify_frg_cross_return(baseline, joint, residual)
+        return CrossReturnReceipt(isolated_mark, isolated_pulse, joint, residual, -residual)
+
+struct MotorFoldState:
+    pressure: ratio
+    gain: ratio
+    gate_open: int
+    has_winner: bool
+    winner_slot: int
+    winner_weight: int
+    winner_retained: ratio
+    adm_count: int
+    total_weight: int
+
+dec fold_motor_slot:
+    (st: MotorFoldState, m: MotorSlot) where not m.admissible -> MotorFoldState:
+        assert (m.base_weight >= 0)
+        return st
+    (st: MotorFoldState, m: MotorSlot) where not st.has_winner -> MotorFoldState:
+        assert (m.base_weight >= 0)
+        return MotorFoldState(st.pressure, st.gain, st.gate_open, true, m.slot, m.base_weight, m.retained_current, (st.adm_count + 1), (st.total_weight + m.base_weight))
+    (st: MotorFoldState, m: MotorSlot) -> MotorFoldState:
+        assert (m.base_weight >= 0)
+        let gate_r = ratio(st.gate_open, 1)
+        let held = [(gate_r * m.retained_current), (-gate_r * st.winner_retained)]
+        let upd = awareness_current_update(0/1r, st.pressure, 0/1r, 0/1r, st.gain, held, 0/1r)
+        let cand_leads = (upd.selected_slot == 0)
+        return MotorFoldState(st.pressure, st.gain, st.gate_open, true, select(cand_leads, m.slot, st.winner_slot), select(cand_leads, m.base_weight, st.winner_weight), select(cand_leads, m.retained_current, st.winner_retained), (st.adm_count + 1), (st.total_weight + m.base_weight))
+
+dec eval_motor_arm:
+    (slots: [MotorSlot], pressure: ratio, gain: ratio, gate_open: int) -> MotorFoldState:
+        let init = MotorFoldState(pressure, gain, gate_open, false, -1, 0, 0/1r, 0, 0)
+        return fold(slots, init, fold_motor_slot)
+
+dec select_motor_contact:
+    (slots: [MotorSlot], pressure: ratio, gain: ratio) -> MotorDecision:
+        assert ((pressure > 0/1r) and (gain >= 0/1r))
+        let actual = eval_motor_arm(slots, pressure, gain, 1)
+        let removed = eval_motor_arm(slots, pressure, gain, 0)
+        let restored = eval_motor_arm(slots, pressure, gain, 1)
+        assert (actual.winner_slot == restored.winner_slot)
+        let slide_p = select((actual.has_winner and (actual.total_weight > 0)), ratio(actual.winner_weight, actual.total_weight), 0/1r)
+        let win_upd = select(actual.has_winner, awareness_current_update(0/1r, pressure, 0/1r, 0/1r, gain, [actual.winner_retained], 0/1r), awareness_current_update(0/1r, pressure, 0/1r, 0/1r, gain, [0/1r], 0/1r))
+        let act_cur = select(actual.has_winner, win_upd.next_current, 0/1r)
+        return MotorDecision(actual.winner_slot, removed.winner_slot, restored.winner_slot, (actual.winner_slot != removed.winner_slot), actual.adm_count, slide_p, signum(act_cur), act_cur)
+
+dec trit_to_lane:
+    (-1t) -> int:
+        return 2
+    (0t) -> int:
+        return 0
+    (1t) -> int:
+        return 1
+
+dec lane_to_trit:
+    (0: int) -> (bool, t1):
+        return (true, 0t)
+    (1: int) -> (bool, t1):
+        return (true, 1t)
+    (2: int) -> (bool, t1):
+        return (true, -1t)
+    (_: int) -> (bool, t1):
+        return (false, 0t)
+
+struct TritPackAcc:
+    trits: [t1]
+    cur_byte: int
+    out: bytes
+
+dec pack_trit_step:
+    (acc: TritPackAcc, i: int) -> TritPackAcc:
+        let slot = (i % 4)
+        let lane = trit_to_lane(acc.trits[i])
+        let base_b = select((slot == 0), 0, acc.cur_byte)
+        let next_b = (base_b + (lane * select((slot == 0), 1, select((slot == 1), 4, select((slot == 2), 16, 64)))))
+        let commit = ((slot == 3) or ((i + 1) == len(acc.trits)))
+        let next_out = select(commit, push_byte(acc.out, b8(next_b)), acc.out)
+        return TritPackAcc(acc.trits, select(commit, 0, next_b), next_out)
+
+dec pack_trit_lanes:
+    (trits: [t1]) -> bytes:
+        let fin = fold(range_seq(0, len(trits)), TritPackAcc(trits, 0, b""), pack_trit_step)
+        return fin.out
+
+struct TritUnpackAcc:
+    raw: bytes
+    ok: bool
+    items: [t1]
+
+dec unpack_trit_step:
+    (acc: TritUnpackAcc, _: int) where not acc.ok -> TritUnpackAcc:
+        return acc
+    (acc: TritUnpackAcc, i: int) -> TritUnpackAcc:
+        let byte_val = int(acc.raw[(i // 4)])
+        let shift_div = select(((i % 4) == 0), 1, select(((i % 4) == 1), 4, select(((i % 4) == 2), 16, 64)))
+        let lane = ((byte_val // shift_div) % 4)
+        let (valid_lane, tr) = lane_to_trit(lane)
+        return TritUnpackAcc(acc.raw, valid_lane, select(valid_lane, push(acc.items, tr), acc.items))
+
+dec unpack_trit_lanes:
+    (raw: bytes, expected_len: int) -> (bool, [t1]):
+        let empty_trits: [t1] = []
+        let expected_bytes = select((expected_len >= 0), ((expected_len + 3) // 4), -1)
+        return select(((expected_len < 0) or (len(raw) != expected_bytes)), (false, empty_trits), unpack_trit_lanes_checked(raw, expected_len))
+
+dec unpack_trit_lanes_checked:
+    (_: bytes, 0: int) -> (bool, [t1]):
+        let empty_trits: [t1] = []
+        return (true, empty_trits)
+    (raw: bytes, expected_len: int) -> (bool, [t1]):
+        let rem = (expected_len % 4)
+        let last_b = int(raw[(len(raw) - 1)])
+        let pad_div = select((rem == 1), 4, select((rem == 2), 16, 64))
+        let pad_ok = select((rem == 0), true, ((last_b // pad_div) == 0))
+        let init_items: [t1] = []
+        let fin = fold(range_seq(0, expected_len), TritUnpackAcc(raw, pad_ok, init_items), unpack_trit_step)
+        let fallback: [t1] = []
+        return (fin.ok, select(fin.ok, fin.items, fallback))
+
+dec read_b64_le_at:
+    (raw: bytes, off: int) -> b64:
+        let w0 = b64_bits(int(raw[off]))
+        let w1 = (b64_bits(int(raw[(off + 1)])) << 8)
+        let w2 = (b64_bits(int(raw[(off + 2)])) << 16)
+        let w3 = (b64_bits(int(raw[(off + 3)])) << 24)
+        let w4 = (b64_bits(int(raw[(off + 4)])) << 32)
+        let w5 = (b64_bits(int(raw[(off + 5)])) << 40)
+        let w6 = (b64_bits(int(raw[(off + 6)])) << 48)
+        let w7 = (b64_bits(int(raw[(off + 7)])) << 56)
+        return (((((((w0 | w1) | w2) | w3) | w4) | w5) | w6) | w7)
+
+dec decode_trit_word_checked:
+    (w: b64) -> (bool, int):
+        let mask = b64_bits(6148914691236517205)
+        let reserved = ((w & (w >> 1)) & mask)
+        let clean = (popcnt(reserved) == 0)
+        let safe_w = select(clean, w, b64(0))
+        return (clean, int(safe_w))
+
+dec empty_duonic_packet:
+    () -> DuonicWirePacket:
+        let empty_sig: [t1] = []
+        return DuonicWirePacket(0, 0, 0, 0t, empty_sig, 0/1r)
+
+dec encode_duonic_packet:
+    (pkt: DuonicWirePacket) -> bytes:
+        assert ((pkt.kind >= 0) and (pkt.kind <= 255))
+        assert (len(pkt.signals) <= 65535)
+        let hdr0 = push_byte(push_byte(b"DN01", b8(pkt.kind)), b8(trit_to_lane(pkt.sigma)))
+        let hdr1 = concat_bytes(hdr0, u16_le_bytes(len(pkt.signals)))
+        let w_cut = b64_le_bytes(b64(pkt.cut))
+        let w_chan = b64_le_bytes(b64(pkt.channel))
+        let w_num = b64_le_bytes(b64(pkt.current.num))
+        let w_den = b64_le_bytes(b64(pkt.current.den))
+        let words = concat_bytes(concat_bytes(w_cut, w_chan), concat_bytes(w_num, w_den))
+        return concat_bytes(concat_bytes(hdr1, words), pack_trit_lanes(pkt.signals))
+
+dec decode_duonic_packet:
+    (raw: bytes) -> (bool, DuonicWirePacket):
+        return select((len(raw) < 40), (false, empty_duonic_packet()), decode_duonic_packet_body(raw))
+
+dec decode_duonic_packet_body:
+    (raw: bytes) -> (bool, DuonicWirePacket):
+        let magic_ok = (slice_bytes(raw, 0, 4) == b"DN01")
+        let kind_v = int(raw[4])
+        let (sigma_ok, sig_t) = lane_to_trit(int(raw[5]))
+        let sig_count = (int(raw[6]) + (256 * int(raw[7])))
+        let (cut_ok, cut_v) = decode_trit_word_checked(read_b64_le_at(raw, 8))
+        let (chan_ok, chan_v) = decode_trit_word_checked(read_b64_le_at(raw, 16))
+        let (num_ok, num_v) = decode_trit_word_checked(read_b64_le_at(raw, 24))
+        let (den_ok, den_v) = decode_trit_word_checked(read_b64_le_at(raw, 32))
+        let safe_den = select((den_ok and (den_v > 0)), den_v, 1)
+        let safe_num = select(num_ok, num_v, 0)
+        let coprime_ok = ((den_ok and (den_v > 0)) and (gcd(abs(safe_num), safe_den) == 1))
+        let tail = slice_bytes(raw, 40, len(raw))
+        let (trits_ok, sigs) = unpack_trit_lanes(tail, sig_count)
+        let all_ok = ((((((magic_ok and sigma_ok) and cut_ok) and chan_ok) and num_ok) and coprime_ok) and trits_ok)
+        let pkt = select(all_ok, DuonicWirePacket(kind_v, cut_v, chan_v, sig_t, sigs, ratio(safe_num, safe_den)), empty_duonic_packet())
+        return (all_ok, pkt)
+
+dec is_ascii_ws:
+    (b: b8) -> bool:
+        return ((((b == b8(32)) or (b == b8(9))) or (b == b8(10))) or (b == b8(13)))
+
+struct WordSplitAcc:
+    raw: bytes
+    in_word: bool
+    start: int
+    words: [bytes]
+
+dec split_ws_step:
+    (acc: WordSplitAcc, i: int) -> WordSplitAcc:
+        let ws = is_ascii_ws(acc.raw[i])
+        let next_words = select((acc.in_word and ws), push(acc.words, slice_bytes(acc.raw, acc.start, i)), acc.words)
+        let next_start = select((not acc.in_word and not ws), i, acc.start)
+        return WordSplitAcc(acc.raw, not ws, next_start, next_words)
+
+dec split_ascii_words:
+    (line: bytes) -> [bytes]:
+        let init_words: [bytes] = []
+        let fin = fold(range_seq(0, len(line)), WordSplitAcc(line, false, 0, init_words), split_ws_step)
+        return select(fin.in_word, push(fin.words, slice_bytes(line, fin.start, len(line))), fin.words)
+
+struct SepSplitAcc:
+    raw: bytes
+    sep: b8
+    start: int
+    parts: [bytes]
+
+dec split_sep_step:
+    (acc: SepSplitAcc, i: int) -> SepSplitAcc:
+        let hit = (acc.raw[i] == acc.sep)
+        let next_parts = select(hit, push(acc.parts, slice_bytes(acc.raw, acc.start, i)), acc.parts)
+        return SepSplitAcc(acc.raw, acc.sep, select(hit, (i + 1), acc.start), next_parts)
+
+dec split_ascii_byte:
+    (raw: bytes, sep: b8) -> [bytes]:
+        let init_parts: [bytes] = []
+        let fin = fold(range_seq(0, len(raw)), SepSplitAcc(raw, sep, 0, init_parts), split_sep_step)
+        return push(fin.parts, slice_bytes(raw, fin.start, len(raw)))
+
+struct IntParseAcc:
+    raw: bytes
+    ok: bool
+    acc_val: int
+
+dec parse_digit_step:
+    (st: IntParseAcc, _: int) where not st.ok -> IntParseAcc:
+        return st
+    (st: IntParseAcc, i: int) -> IntParseAcc:
+        let c = int(st.raw[i])
+        let is_dig = ((c >= 48) and (c <= 57))
+        let d = (c - 48)
+        let within_cap = (st.acc_val <= 90000000000000)
+        let next_ok = (is_dig and within_cap)
+        return IntParseAcc(st.raw, next_ok, select(next_ok, ((st.acc_val * 10) + d), 0))
+
+dec parse_i64_bytes:
+    (b"") -> (bool, int):
+        return (false, 0)
+    (b"-") -> (bool, int):
+        return (false, 0)
+    (b"+") -> (bool, int):
+        return (false, 0)
+    (tok: bytes) -> (bool, int):
+        let neg_sign = (tok[0] == b8(45))
+        let pos_sign = (tok[0] == b8(43))
+        let start_idx = select((neg_sign or pos_sign), 1, 0)
+        let fin = fold(range_seq(start_idx, len(tok)), IntParseAcc(tok, true, 0), parse_digit_step)
+        let signed = select(neg_sign, -fin.acc_val, fin.acc_val)
+        return (fin.ok, select(fin.ok, signed, 0))
+
+struct CsvParseAcc:
+    ok: bool
+    max_items: int
+    vals: [int]
+
+dec parse_csv_step:
+    (st: CsvParseAcc, _: bytes) where not st.ok -> CsvParseAcc:
+        return st
+    (st: CsvParseAcc, word: bytes) -> CsvParseAcc:
+        let (ok_n, n) = parse_i64_bytes(word)
+        let fits = (len(st.vals) < st.max_items)
+        let ok = (ok_n and fits)
+        return CsvParseAcc(ok, st.max_items, select(ok, push(st.vals, n), st.vals))
+
+dec parse_i64_csv:
+    (b"[]", max_items: int) -> (bool, [int]):
+        let empty_vals: [int] = []
+        return ((max_items >= 0), empty_vals)
+    (b"", _: int) -> (bool, [int]):
+        let empty_vals: [int] = []
+        return (false, empty_vals)
+    (raw: bytes, max_items: int) -> (bool, [int]):
+        let parts = split_ascii_byte(raw, b8(44))
+        let init_vals: [int] = []
+        let fin = fold(parts, CsvParseAcc((max_items >= 0), max_items, init_vals), parse_csv_step)
+        let empty_vals: [int] = []
+        return (fin.ok, select(fin.ok, fin.vals, empty_vals))
+
+struct DigitFmtState:
+    rem: int
+    digits: [b8]
+
+struct RevDigitAcc:
+    rev_digits: [b8]
+    out: bytes
+
+dec rev_digit_fold:
+    (acc: RevDigitAcc, idx: int) -> RevDigitAcc:
+        let pos = ((len(acc.rev_digits) - 1) - idx)
+        return RevDigitAcc(acc.rev_digits, push_byte(acc.out, acc.rev_digits[pos]))
+
+dec format_i64_bytes:
+    (0: int) -> bytes:
+        return b"0"
+    (n: int) -> bytes:
+        let is_neg = (n < 0)
+        let mag = abs(n)
+        let init_d: [b8] = []
+        let settled = fmt_digits_loop(DigitFmtState(mag, init_d))
+        let prefix = select(is_neg, b"-", b"")
+        let fin = fold(range_seq(0, len(settled.digits)), RevDigitAcc(settled.digits, prefix), rev_digit_fold)
+        return fin.out
+
+dec fmt_digits_loop:
+    (init: DigitFmtState) -> DigitFmtState:
+        let fin = fold(range_seq(0, 32), init, fmt_digit_bounded)
+        assert (fin.rem == 0)
+        return fin
+
+dec fmt_digit_bounded:
+    (st: DigitFmtState, _: int) where (st.rem == 0) -> DigitFmtState:
+        return st
+    (st: DigitFmtState, _: int) -> DigitFmtState:
+        return DigitFmtState((st.rem // 10), push(st.digits, b8((48 + (st.rem % 10)))))
+
+dec append_ok_int:
+    (buf: bytes, n: int) -> bytes:
+        return concat_bytes(push_byte(buf, b8(32)), format_i64_bytes(n))
+
+dec format_ok_ints:
+    (vals: [int]) -> bytes:
+        let row = fold(vals, b"OK", append_ok_int)
+        return push_byte(row, b8(10))

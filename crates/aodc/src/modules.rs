@@ -356,7 +356,17 @@ pub fn builtin_tail_items(tail: &str) -> Option<&'static [&'static str]> {
             "qext_render_bytes",
             "qext_format_fixed_bytes",
         ]),
-        "sys" => Some(&["cli_args", "read_file_bytes", "write_executable_elf"]),
+        "sys" => Some(&[
+            "cli_args",
+            "read_file_bytes",
+            "write_executable_elf",
+            "accept_stream",
+            "stream_local_addr",
+            "read_stream_line",
+            "read_stream_frame",
+            "write_stream_bytes",
+            "write_stream_frame",
+        ]),
         _ => None,
     }
 }

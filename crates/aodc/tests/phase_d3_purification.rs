@@ -237,13 +237,13 @@ fn ac02_zero_transitional_v2_and_45_file_6hook_audit_dec_sweep() {
     let v3_files = read_dec_dir("tests/fixtures/v3_examples");
     let self_host_file = vec![root.join("self_host/aodc_self.dec")];
     assert_eq!(fp_files.len(), 7);
-    assert_eq!(stdlib_files.len(), 7);
+    assert_eq!(stdlib_files.len(), 8);
     assert_eq!(manual_files.len(), 11);
     assert_eq!(smoke_files.len(), 5);
     assert_eq!(bench_files.len(), 4);
     assert_eq!(v3_files.len(), 10);
 
-    let all_45: Vec<&PathBuf> = fp_files
+    let all_46: Vec<&PathBuf> = fp_files
         .iter()
         .chain(&stdlib_files)
         .chain(&manual_files)
@@ -252,9 +252,9 @@ fn ac02_zero_transitional_v2_and_45_file_6hook_audit_dec_sweep() {
         .chain(&v3_files)
         .chain(&self_host_file)
         .collect();
-    assert_eq!(all_45.len(), 45);
+    assert_eq!(all_46.len(), 46);
 
-    for p in all_45 {
+    for p in all_46 {
         let raw = fs::read_to_string(p).unwrap();
         if stdlib_files.contains(p) {
             let loaded = aodc::modules::load_from_source_with_options(
