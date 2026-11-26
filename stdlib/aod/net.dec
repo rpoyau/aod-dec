@@ -1,5 +1,5 @@
 use aod::core:
-    abs, b8, b64, b64_bits, b64_le_bytes, bytes, concat_bytes, contains, fold, gcd, int, len, map_get_or, map_keys, map_put, map_remove, max, min, popcnt, push, push_byte, range_seq, ratio, select, set_at, signum, slice_bytes, superpose_cancel, t1, u16_le_bytes, verify_frg_cross_return
+    abs, b8, b64, b64_bits, b64_le_bytes, bytes, concat, concat_bytes, contains, fold, gcd, int, len, max, min, popcnt, push, push_byte, range_seq, ratio, select, set_at, signum, slice, slice_bytes, superpose_cancel, t1, u16_le_bytes, verify_frg_cross_return
 
 use aod::ledger::sadar_promote
 
@@ -431,10 +431,154 @@ struct IssuedAction:
     bound_sources: [int]
     issue_overhang: int
 
+struct KeyIndex:
+    keys: [int]
+    slots: [int]
+
+dec empty_key_index:
+    () -> KeyIndex:
+        let ek: [int] = []
+        let es: [int] = []
+        return KeyIndex(ek, es)
+
+dec key_len:
+    (idx: KeyIndex) -> int:
+        return len(idx.keys)
+
+dec bsearch_advance:
+    (_: [int], n: int, _: int, pos: int, step: int) where ((pos + step) >= n) -> int:
+        return pos
+    (keys: [int], _: int, target: int, pos: int, step: int) -> int:
+        let cand = (pos + step)
+        return select((keys[cand] < target), cand, pos)
+
+dec key_lower_bound:
+    (keys: [int], n: int, target: int) -> int:
+        assert (n < 65536)
+        let p0 = bsearch_advance(keys, n, target, -1, 32768)
+        let p1 = bsearch_advance(keys, n, target, p0, 16384)
+        let p2 = bsearch_advance(keys, n, target, p1, 8192)
+        let p3 = bsearch_advance(keys, n, target, p2, 4096)
+        let p4 = bsearch_advance(keys, n, target, p3, 2048)
+        let p5 = bsearch_advance(keys, n, target, p4, 1024)
+        let p6 = bsearch_advance(keys, n, target, p5, 512)
+        let p7 = bsearch_advance(keys, n, target, p6, 256)
+        let p8 = bsearch_advance(keys, n, target, p7, 128)
+        let p9 = bsearch_advance(keys, n, target, p8, 64)
+        let p10 = bsearch_advance(keys, n, target, p9, 32)
+        let p11 = bsearch_advance(keys, n, target, p10, 16)
+        let p12 = bsearch_advance(keys, n, target, p11, 8)
+        let p13 = bsearch_advance(keys, n, target, p12, 4)
+        let p14 = bsearch_advance(keys, n, target, p13, 2)
+        let p15 = bsearch_advance(keys, n, target, p14, 1)
+        return (p15 + 1)
+
+dec slot_if_key_matches:
+    (_: [int], _: [int], n: int, pos: int, _: int) where (pos >= n) -> int:
+        return -1
+    (keys: [int], slots: [int], _: int, pos: int, target: int) -> int:
+        return select((keys[pos] == target), slots[pos], -1)
+
+dec key_lookup_raw:
+    (keys: [int], slots: [int], n: int, target: int) -> int:
+        let pos = key_lower_bound(keys, n, target)
+        return slot_if_key_matches(keys, slots, n, pos, target)
+
+dec key_bsearch:
+    (idx: KeyIndex, target: int) -> (bool, int):
+        let keys = idx.keys
+        let n = len(keys)
+        let pos = key_lower_bound(keys, n, target)
+        let hit = (slot_if_key_matches(keys, idx.slots, n, pos, target) >= 0)
+        return (hit, pos)
+
+dec key_lookup_slot:
+    (idx: KeyIndex, key: int) -> int:
+        let keys = idx.keys
+        return key_lookup_raw(keys, idx.slots, len(keys), key)
+
+dec key_insert_new:
+    (idx: KeyIndex, key: int, new_slot: int) -> KeyIndex:
+        let (hit, ins_pos) = key_bsearch(idx, key)
+        assert not hit
+        let n = len(idx.keys)
+        let next_keys = concat(push(slice(idx.keys, 0, ins_pos), key), slice(idx.keys, ins_pos, n))
+        let next_slots = concat(push(slice(idx.slots, 0, ins_pos), new_slot), slice(idx.slots, ins_pos, n))
+        return KeyIndex(next_keys, next_slots)
+
+struct SlotFindAcc:
+    slots: [int]
+    target_slot: int
+    found_pos: int
+
+dec find_slot_pos_step:
+    (acc: SlotFindAcc, _: int) where (acc.found_pos >= 0) -> SlotFindAcc:
+        return acc
+    (acc: SlotFindAcc, i: int) -> SlotFindAcc:
+        let match_here = (acc.slots[i] == acc.target_slot)
+        return SlotFindAcc(acc.slots, acc.target_slot, select(match_here, i, -1))
+
+dec remap_last_slot_if_needed:
+    (false: bool, trimmed_slots: [int], _: int, _: int) -> [int]:
+        return trimmed_slots
+    (true: bool, trimmed_slots: [int], dead_slot: int, last_slot: int) -> [int]:
+        let fin = fold(range_seq(0, len(trimmed_slots)), SlotFindAcc(trimmed_slots, last_slot, -1), find_slot_pos_step)
+        assert (fin.found_pos >= 0)
+        return set_at(trimmed_slots, fin.found_pos, dead_slot)
+
+dec key_remove_swap:
+    (idx: KeyIndex, key: int) -> (bool, KeyIndex, int, int):
+        let (hit, pos) = key_bsearch(idx, key)
+        return apply_key_remove_swap(hit, idx, pos)
+
+dec apply_key_remove_swap:
+    (false: bool, idx: KeyIndex, _: int) -> (bool, KeyIndex, int, int):
+        return (false, idx, -1, -1)
+    (true: bool, idx: KeyIndex, rm_pos: int) -> (bool, KeyIndex, int, int):
+        let n = len(idx.keys)
+        let dead_slot = idx.slots[rm_pos]
+        let last_slot = (n - 1)
+        let next_keys = concat(slice(idx.keys, 0, rm_pos), slice(idx.keys, (rm_pos + 1), n))
+        let trimmed_slots = concat(slice(idx.slots, 0, rm_pos), slice(idx.slots, (rm_pos + 1), n))
+        let next_slots = remap_last_slot_if_needed((dead_slot < last_slot), trimmed_slots, dead_slot, last_slot)
+        return (true, KeyIndex(next_keys, next_slots), dead_slot, last_slot)
+
+struct IntTable:
+    index: KeyIndex
+    vals: [int]
+
+dec empty_int_table:
+    () -> IntTable:
+        let ev: [int] = []
+        return IntTable(empty_key_index(), ev)
+
+dec int_table_get_or:
+    (tbl: IntTable, key: int, fallback: int) -> int:
+        let slot = key_lookup_slot(tbl.index, key)
+        return select_int_slot((slot >= 0), tbl.vals, slot, fallback)
+
+dec select_int_slot:
+    (false: bool, _: [int], _: int, fallback: int) -> int:
+        return fallback
+    (true: bool, vals: [int], slot: int, _: int) -> int:
+        return vals[slot]
+
+dec int_table_put:
+    (tbl: IntTable, key: int, val: int) -> IntTable:
+        let slot = key_lookup_slot(tbl.index, key)
+        return upsert_int_slot((slot >= 0), tbl, key, slot, val)
+
+dec upsert_int_slot:
+    (true: bool, tbl: IntTable, _: int, slot: int, val: int) -> IntTable:
+        return IntTable(tbl.index, set_at(tbl.vals, slot, val))
+    (false: bool, tbl: IntTable, key: int, _: int, val: int) -> IntTable:
+        let new_slot = len(tbl.vals)
+        return IntTable(key_insert_new(tbl.index, key, new_slot), push(tbl.vals, val))
+
 struct ClosureMemory:
     next_action_id: int
     next_event_id: int
-    source_prefixes: map[int, int]
+    source_prefixes: IntTable
     motor_prefixes: [int]
     has_pending: bool
     pending_action: IssuedAction
@@ -450,10 +594,15 @@ struct RetainedRelation:
     residual_r: ratio
     closures_n: int
 
+struct RelationBank:
+    index: KeyIndex
+    items: [RetainedRelation]
+
 struct OperativeNet:
     x: PresentCoords
     mc: ClosureMemory
-    r: map[int, RetainedRelation]
+    r: [RetainedRelation]
+    r_index: KeyIndex
 
 struct DuonicInitSpec:
     motor_count: int
@@ -493,6 +642,11 @@ dec empty_motor_frame:
         let empty_ops: [int] = []
         return DuonicMotorFrame(false, 0, 0, 0, -1, -1, -1, false, empty_ops, 0t, 0/1r, 0/1r)
 
+dec empty_relation_bank:
+    () -> RelationBank:
+        let er: [RetainedRelation] = []
+        return RelationBank(empty_key_index(), er)
+
 dec append_zero_ratio:
     (acc: [ratio], _: int) -> [ratio]:
         return push(acc, 0/1r)
@@ -517,11 +671,10 @@ dec operative_net_init:
         let m_pref = fold(range_seq(0, motor_count), init_mp, append_zero_int)
         let empty_src: [int] = []
         let x0 = PresentCoords(self_id, 0, motor_count, c3_cap, win_len, max_relations, 1/1r, 1/1r, mindful_reflex, currents, empty_src, adm, 0, 0, 0/1r)
-        let sp0: map[int, int] = map[]
         let win0: [IssuedAction] = []
-        let mc0 = ClosureMemory(1, 1, sp0, m_pref, false, empty_issued_action(), win0)
-        let r0: map[int, RetainedRelation] = map[]
-        return OperativeNet(x0, mc0, r0)
+        let mc0 = ClosureMemory(1, 1, empty_int_table(), m_pref, false, empty_issued_action(), win0)
+        let r0: [RetainedRelation] = []
+        return OperativeNet(x0, mc0, r0, empty_key_index())
 
 dec present_projection:
     (net: OperativeNet) -> PresentCoords:
@@ -531,32 +684,57 @@ dec edge_lineage_key:
     (source_i: int, motor_slot: int, motor_count: int) -> int:
         return ((source_i * motor_count) + motor_slot)
 
+dec rel_bank_remove_key:
+    (bank: RelationBank, key: int) -> RelationBank:
+        let (hit, next_idx, dead_slot, last_slot) = key_remove_swap(bank.index, key)
+        return apply_rel_swap_remove(hit, bank, next_idx, dead_slot, last_slot)
+
+dec apply_rel_swap_remove:
+    (false: bool, bank: RelationBank, _: KeyIndex, _: int, _: int) -> RelationBank:
+        return bank
+    (true: bool, bank: RelationBank, next_idx: KeyIndex, dead_slot: int, last_slot: int) -> RelationBank:
+        let moved = bank.items[last_slot]
+        let trunc = slice(bank.items, 0, last_slot)
+        let next_items = select((dead_slot < last_slot), set_at(trunc, dead_slot, moved), trunc)
+        return RelationBank(next_idx, next_items)
+
+dec rel_bank_put:
+    (bank: RelationBank, key: int, rel: RetainedRelation) -> RelationBank:
+        let slot = key_lookup_slot(bank.index, key)
+        return apply_rel_bank_put((slot >= 0), bank, key, slot, rel)
+
+dec apply_rel_bank_put:
+    (true: bool, bank: RelationBank, _: int, slot: int, rel: RetainedRelation) -> RelationBank:
+        return RelationBank(bank.index, set_at(bank.items, slot, rel))
+    (false: bool, bank: RelationBank, key: int, _: int, rel: RetainedRelation) -> RelationBank:
+        let new_slot = len(bank.items)
+        return RelationBank(key_insert_new(bank.index, key, new_slot), push(bank.items, rel))
+
 struct RemoveSourceAcc:
-    r: map[int, RetainedRelation]
+    bank: RelationBank
     source_i: int
     motor_count: int
 
 dec remove_source_slot_step:
     (acc: RemoveSourceAcc, m: int) -> RemoveSourceAcc:
         let k = edge_lineage_key(acc.source_i, m, acc.motor_count)
-        return RemoveSourceAcc(map_remove(acc.r, k), acc.source_i, acc.motor_count)
+        return RemoveSourceAcc(rel_bank_remove_key(acc.bank, k), acc.source_i, acc.motor_count)
 
-dec remove_source_map:
-    (r: map[int, RetainedRelation], source_i: int, motor_count: int) -> map[int, RetainedRelation]:
-        let fin = fold(range_seq(0, motor_count), RemoveSourceAcc(r, source_i, motor_count), remove_source_slot_step)
-        return fin.r
+dec remove_source_bank:
+    (bank: RelationBank, source_i: int, motor_count: int) -> RelationBank:
+        return fold(range_seq(0, motor_count), RemoveSourceAcc(bank, source_i, motor_count), remove_source_slot_step).bank
 
 dec remove_source_relations:
     (net: OperativeNet, source_i: int) -> OperativeNet:
-        return OperativeNet(net.x, net.mc, remove_source_map(net.r, source_i, net.x.motor_count))
+        let next_b = remove_source_bank(RelationBank(net.r_index, net.r), source_i, net.x.motor_count)
+        return OperativeNet(net.x, net.mc, next_b.items, next_b.index)
 
 dec retained_relation_count:
     (net: OperativeNet) -> int:
-        return len(map_keys(net.r))
+        return len(net.r)
 
 struct ExtractSourceAcc:
-    r: map[int, RetainedRelation]
-    keys: [int]
+    bank: RelationBank
     source_i: int
     motor_count: int
     items: [RetainedRelation]
@@ -564,15 +742,19 @@ struct ExtractSourceAcc:
 dec extract_source_slot_step:
     (acc: ExtractSourceAcc, m: int) -> ExtractSourceAcc:
         let k = edge_lineage_key(acc.source_i, m, acc.motor_count)
-        let dummy = RetainedRelation(0, 0, 0, 0, 0, 0, 0/1r, 0)
-        let rel = map_get_or(acc.r, k, dummy)
-        let has_k = contains(acc.keys, k)
-        return ExtractSourceAcc(acc.r, acc.keys, acc.source_i, acc.motor_count, select(has_k, push(acc.items, rel), acc.items))
+        let slot = key_lookup_slot(acc.bank.index, k)
+        return maybe_push_extracted_rel((slot >= 0), acc, slot)
+
+dec maybe_push_extracted_rel:
+    (false: bool, acc: ExtractSourceAcc, _: int) -> ExtractSourceAcc:
+        return acc
+    (true: bool, acc: ExtractSourceAcc, slot: int) -> ExtractSourceAcc:
+        return ExtractSourceAcc(acc.bank, acc.source_i, acc.motor_count, push(acc.items, acc.bank.items[slot]))
 
 dec extract_source_relations:
     (net: OperativeNet, source_i: int) -> [RetainedRelation]:
         let empty_items: [RetainedRelation] = []
-        let fin = fold(range_seq(0, net.x.motor_count), ExtractSourceAcc(net.r, map_keys(net.r), source_i, net.x.motor_count, empty_items), extract_source_slot_step)
+        let fin = fold(range_seq(0, net.x.motor_count), ExtractSourceAcc(RelationBank(net.r_index, net.r), source_i, net.x.motor_count, empty_items), extract_source_slot_step)
         return fin.items
 
 struct RestoreSourceAcc:
@@ -581,7 +763,7 @@ struct RestoreSourceAcc:
     cut: int
     motor_count: int
     max_relations: int
-    r: map[int, RetainedRelation]
+    bank: RelationBank
 
 dec restore_rel_step:
     (acc: RestoreSourceAcc, _: RetainedRelation) where not acc.ok -> RestoreSourceAcc:
@@ -589,15 +771,23 @@ dec restore_rel_step:
     (acc: RestoreSourceAcc, rel: RetainedRelation) -> RestoreSourceAcc:
         let lineage_ok = ((((((((rel.event_id > 0) and (rel.source_i >= 0)) and (rel.target_j == acc.self_id)) and (rel.motor_slot >= 0)) and (rel.motor_slot < acc.motor_count)) and (rel.commit_cut >= 0)) and (rel.commit_cut <= acc.cut)) and (rel.closures_n > 0))
         let k = edge_lineage_key(rel.source_i, rel.motor_slot, acc.motor_count)
-        let keys = map_keys(acc.r)
-        let cap_ok = (contains(keys, k) or (len(keys) < acc.max_relations))
+        let exists = (key_lookup_slot(acc.bank.index, k) >= 0)
+        let cap_ok = (exists or (len(acc.bank.items) < acc.max_relations))
         let ok = (lineage_ok and cap_ok)
-        return RestoreSourceAcc(ok, acc.self_id, acc.cut, acc.motor_count, acc.max_relations, select(ok, map_put(acc.r, k, rel), acc.r))
+        let next_b = maybe_restore_one_rel(ok, acc.bank, k, rel)
+        return RestoreSourceAcc(ok, acc.self_id, acc.cut, acc.motor_count, acc.max_relations, next_b)
+
+dec maybe_restore_one_rel:
+    (false: bool, bank: RelationBank, _: int, _: RetainedRelation) -> RelationBank:
+        return bank
+    (true: bool, bank: RelationBank, k: int, rel: RetainedRelation) -> RelationBank:
+        return rel_bank_put(bank, k, rel)
 
 dec try_restore_source_relations:
     (net: OperativeNet, saved: [RetainedRelation]) -> (bool, OperativeNet):
-        let fin = fold(saved, RestoreSourceAcc(true, net.x.self_id, net.x.cut, net.x.motor_count, net.x.max_relations, net.r), restore_rel_step)
-        return (fin.ok, select(fin.ok, OperativeNet(net.x, net.mc, fin.r), net))
+        let start_b = RelationBank(net.r_index, net.r)
+        let fin = fold(saved, RestoreSourceAcc(true, net.x.self_id, net.x.cut, net.x.motor_count, net.x.max_relations, start_b), restore_rel_step)
+        return (fin.ok, select(fin.ok, OperativeNet(net.x, net.mc, fin.bank.items, fin.bank.index), net))
 
 dec restore_source_relations:
     (net: OperativeNet, saved: [RetainedRelation]) -> OperativeNet:
@@ -606,40 +796,49 @@ dec restore_source_relations:
         return after
 
 struct OldestRelAcc:
-    r: map[int, RetainedRelation]
     has_min: bool
     min_key: int
     min_event_id: int
+    motor_count: int
 
 dec find_oldest_rel_step:
-    (acc: OldestRelAcc, k: int) -> OldestRelAcc:
-        let dummy = RetainedRelation(0, 0, 0, 0, 0, 0, 0/1r, 0)
-        let rel = map_get_or(acc.r, k, dummy)
+    (acc: OldestRelAcc, rel: RetainedRelation) -> OldestRelAcc:
+        let k = edge_lineage_key(rel.source_i, rel.motor_slot, acc.motor_count)
         let take = (not acc.has_min or (rel.event_id < acc.min_event_id))
-        return OldestRelAcc(acc.r, true, select(take, k, acc.min_key), select(take, rel.event_id, acc.min_event_id))
+        return OldestRelAcc(true, select(take, k, acc.min_key), select(take, rel.event_id, acc.min_event_id), acc.motor_count)
 
 struct UpsertOut:
-    r: map[int, RetainedRelation]
+    bank: RelationBank
     next_event_id: int
     shed_added: int
 
 dec upsert_retained_relation:
-    (r: map[int, RetainedRelation], max_relations: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, motor_count: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
+    (bank: RelationBank, max_relations: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, motor_count: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
         let k = edge_lineage_key(source_i, motor_slot, motor_count)
-        let keys = map_keys(r)
-        let exists = contains(keys, k)
-        let need_evict = (not exists and (len(keys) >= max_relations))
-        let oldest = select(need_evict, fold(keys, OldestRelAcc(r, false, 0, 0), find_oldest_rel_step), OldestRelAcc(r, false, 0, 0))
-        let r_trimmed = select((need_evict and oldest.has_min), map_remove(r, oldest.min_key), r)
-        let shed_inc = select((need_evict and oldest.has_min), 1, 0)
-        let dummy = RetainedRelation(0, source_i, target_j, motor_slot, commit_cut, action_id, 0/1r, 0)
-        let prev = map_get_or(r_trimmed, k, dummy)
-        let updated = select(exists, RetainedRelation(prev.event_id, source_i, target_j, motor_slot, commit_cut, action_id, (prev.residual_r + delta_r), (prev.closures_n + 1)), RetainedRelation(next_event_id, source_i, target_j, motor_slot, commit_cut, action_id, delta_r, 1))
-        let eid_next = select(exists, next_event_id, (next_event_id + 1))
-        return UpsertOut(map_put(r_trimmed, k, updated), eid_next, shed_inc)
+        let slot = key_lookup_slot(bank.index, k)
+        return apply_upsert_rel((slot >= 0), bank, slot, k, max_relations, next_event_id, source_i, target_j, motor_slot, motor_count, commit_cut, action_id, delta_r)
+
+dec apply_upsert_rel:
+    (true: bool, bank: RelationBank, slot: int, _: int, _: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, _: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
+        let prev = bank.items[slot]
+        let updated = RetainedRelation(prev.event_id, source_i, target_j, motor_slot, commit_cut, action_id, (prev.residual_r + delta_r), (prev.closures_n + 1))
+        return UpsertOut(RelationBank(bank.index, set_at(bank.items, slot, updated)), next_event_id, 0)
+    (false: bool, bank: RelationBank, _: int, k: int, max_relations: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, motor_count: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
+        let need_evict = (len(bank.items) >= max_relations)
+        let (b_trim, shed_inc) = evict_oldest_rel_if_needed(need_evict, bank, motor_count)
+        let fresh = RetainedRelation(next_event_id, source_i, target_j, motor_slot, commit_cut, action_id, delta_r, 1)
+        return UpsertOut(rel_bank_put(b_trim, k, fresh), (next_event_id + 1), shed_inc)
+
+dec evict_oldest_rel_if_needed:
+    (false: bool, bank: RelationBank, _: int) -> (RelationBank, int):
+        return (bank, 0)
+    (true: bool, bank: RelationBank, motor_count: int) -> (RelationBank, int):
+        let oldest = fold(bank.items, OldestRelAcc(false, 0, 0, motor_count), find_oldest_rel_step)
+        let next_b = select(oldest.has_min, rel_bank_remove_key(bank, oldest.min_key), bank)
+        return (next_b, select(oldest.has_min, 1, 0))
 
 struct BoundCommitAcc:
-    r: map[int, RetainedRelation]
+    bank: RelationBank
     max_relations: int
     next_event_id: int
     shed_added: int
@@ -652,17 +851,17 @@ struct BoundCommitAcc:
 
 dec commit_bound_source_step:
     (acc: BoundCommitAcc, src_i: int) -> BoundCommitAcc:
-        let u = upsert_retained_relation(acc.r, acc.max_relations, acc.next_event_id, src_i, acc.target_j, acc.motor_slot, acc.motor_count, acc.commit_cut, acc.action_id, acc.delta_r)
-        return BoundCommitAcc(u.r, acc.max_relations, u.next_event_id, (acc.shed_added + u.shed_added), acc.target_j, acc.motor_slot, acc.motor_count, acc.commit_cut, acc.action_id, acc.delta_r)
+        let u = upsert_retained_relation(acc.bank, acc.max_relations, acc.next_event_id, src_i, acc.target_j, acc.motor_slot, acc.motor_count, acc.commit_cut, acc.action_id, acc.delta_r)
+        return BoundCommitAcc(u.bank, acc.max_relations, u.next_event_id, (acc.shed_added + u.shed_added), acc.target_j, acc.motor_slot, acc.motor_count, acc.commit_cut, acc.action_id, acc.delta_r)
 
 dec commit_action_sources:
-    (r: map[int, RetainedRelation], max_relations: int, next_event_id: int, act: IssuedAction, target_j: int, motor_count: int, commit_cut: int, delta_r: ratio) -> UpsertOut:
-        let init = BoundCommitAcc(r, max_relations, next_event_id, 0, target_j, act.motor_slot, motor_count, commit_cut, act.action_id, delta_r)
+    (bank: RelationBank, max_relations: int, next_event_id: int, act: IssuedAction, target_j: int, motor_count: int, commit_cut: int, delta_r: ratio) -> UpsertOut:
+        let init = BoundCommitAcc(bank, max_relations, next_event_id, 0, target_j, act.motor_slot, motor_count, commit_cut, act.action_id, delta_r)
         let fin = fold(act.bound_sources, init, commit_bound_source_step)
-        return UpsertOut(fin.r, fin.next_event_id, fin.shed_added)
+        return UpsertOut(fin.bank, fin.next_event_id, fin.shed_added)
 
 struct WindowFoldAcc:
-    r: map[int, RetainedRelation]
+    bank: RelationBank
     max_relations: int
     next_event_id: int
     shed_added: int
@@ -673,13 +872,13 @@ struct WindowFoldAcc:
 
 dec fold_window_action_step:
     (acc: WindowFoldAcc, act: IssuedAction) -> WindowFoldAcc:
-        let u = commit_action_sources(acc.r, acc.max_relations, acc.next_event_id, act, acc.target_j, acc.motor_count, acc.commit_cut, acc.delta_r)
-        return WindowFoldAcc(u.r, acc.max_relations, u.next_event_id, (acc.shed_added + u.shed_added), acc.target_j, acc.motor_count, acc.commit_cut, acc.delta_r)
+        let u = commit_action_sources(acc.bank, acc.max_relations, acc.next_event_id, act, acc.target_j, acc.motor_count, acc.commit_cut, acc.delta_r)
+        return WindowFoldAcc(u.bank, acc.max_relations, u.next_event_id, (acc.shed_added + u.shed_added), acc.target_j, acc.motor_count, acc.commit_cut, acc.delta_r)
 
 struct PulseCheckAcc:
     ok: bool
     sources: [int]
-    prefixes: map[int, int]
+    prefixes: IntTable
     overhang_sum: int
     flux_sum: ratio
 
@@ -691,13 +890,12 @@ dec check_and_admit_pulse:
         let safe_p = select(valid, p, DuonicPulse(0, 0t, 1, 0, 1, 0/1r))
         let cur = admit_sensor_pulse(safe_p)
         let next_srcs = select((valid and not contains(acc.sources, p.channel)), push(acc.sources, p.channel), acc.sources)
-        let old_pref = map_get_or(acc.prefixes, p.channel, 0)
-        let next_pref = select(valid, map_put(acc.prefixes, p.channel, (old_pref + 1)), acc.prefixes)
+        let old_pref = int_table_get_or(acc.prefixes, p.channel, 0)
+        let next_pref = select(valid, int_table_put(acc.prefixes, p.channel, (old_pref + 1)), acc.prefixes)
         return PulseCheckAcc(valid, next_srcs, next_pref, (acc.overhang_sum + select(valid, cur.overhang, 0)), (acc.flux_sum + select(valid, cur.sadar_flux, 0/1r)))
 
 struct SumRetainedAcc:
-    r: map[int, RetainedRelation]
-    keys: [int]
+    bank: RelationBank
     motor_slot: int
     motor_count: int
     total: ratio
@@ -705,30 +903,34 @@ struct SumRetainedAcc:
 dec sum_retained_source_step:
     (acc: SumRetainedAcc, src_i: int) -> SumRetainedAcc:
         let k = edge_lineage_key(src_i, acc.motor_slot, acc.motor_count)
-        let dummy = RetainedRelation(0, 0, 0, 0, 0, 0, 0/1r, 0)
-        let rel = map_get_or(acc.r, k, dummy)
-        let contrib = select(contains(acc.keys, k), rel.residual_r, 0/1r)
-        return SumRetainedAcc(acc.r, acc.keys, acc.motor_slot, acc.motor_count, (acc.total + contrib))
+        let slot = key_lookup_slot(acc.bank.index, k)
+        let contrib = residual_at_slot((slot >= 0), acc.bank.items, slot)
+        return SumRetainedAcc(acc.bank, acc.motor_slot, acc.motor_count, (acc.total + contrib))
+
+dec residual_at_slot:
+    (false: bool, _: [RetainedRelation], _: int) -> ratio:
+        return 0/1r
+    (true: bool, items: [RetainedRelation], slot: int) -> ratio:
+        return items[slot].residual_r
 
 struct EvalCurrentsAcc:
     x: PresentCoords
-    r: map[int, RetainedRelation]
-    keys: [int]
+    bank: RelationBank
     sources: [int]
     out: [ratio]
 
 dec eval_motor_current_step:
     (acc: EvalCurrentsAcc, m: int) -> EvalCurrentsAcc:
-        let s_acc = fold(acc.sources, SumRetainedAcc(acc.r, acc.keys, m, acc.x.motor_count, 0/1r), sum_retained_source_step)
+        let s_acc = fold(acc.sources, SumRetainedAcc(acc.bank, m, acc.x.motor_count, 0/1r), sum_retained_source_step)
         let prev_j = acc.x.currents[m]
         let q_m = select(acc.x.mindful_reflex, -prev_j, 0/1r)
         let upd = awareness_current_update(prev_j, acc.x.pressure, 0/1r, q_m, acc.x.gain, [s_acc.total], 0/1r)
-        return EvalCurrentsAcc(acc.x, acc.r, acc.keys, acc.sources, push(acc.out, upd.next_current))
+        return EvalCurrentsAcc(acc.x, acc.bank, acc.sources, push(acc.out, upd.next_current))
 
 dec eval_motor_currents:
-    (x: PresentCoords, r: map[int, RetainedRelation], sources: [int]) -> [ratio]:
+    (x: PresentCoords, bank: RelationBank, sources: [int]) -> [ratio]:
         let init_out: [ratio] = []
-        let fin = fold(range_seq(0, x.motor_count), EvalCurrentsAcc(x, r, map_keys(r), sources, init_out), eval_motor_current_step)
+        let fin = fold(range_seq(0, x.motor_count), EvalCurrentsAcc(x, bank, sources, init_out), eval_motor_current_step)
         return fin.out
 
 struct BuildSlotsAcc:
@@ -748,7 +950,7 @@ dec pick_motor_from_currents:
 
 struct OpSourceScanAcc:
     x: PresentCoords
-    r: map[int, RetainedRelation]
+    bank: RelationBank
     sources: [int]
     admissible: [bool]
     actual_currents: [ratio]
@@ -757,11 +959,11 @@ struct OpSourceScanAcc:
 
 dec scan_op_source_step:
     (acc: OpSourceScanAcc, src_i: int) -> OpSourceScanAcc:
-        let r_minus = remove_source_map(acc.r, src_i, acc.x.motor_count)
-        let cur_minus = eval_motor_currents(acc.x, r_minus, acc.sources)
+        let b_minus = remove_source_bank(acc.bank, src_i, acc.x.motor_count)
+        let cur_minus = eval_motor_currents(acc.x, b_minus, acc.sources)
         let dec_minus = pick_motor_from_currents(cur_minus, acc.admissible, acc.x.pressure, acc.x.gain)
         let is_op = ((cur_minus != acc.actual_currents) or (dec_minus.selected_slot != acc.actual_motor))
-        return OpSourceScanAcc(acc.x, acc.r, acc.sources, acc.admissible, acc.actual_currents, acc.actual_motor, select(is_op, push(acc.op_sources, src_i), acc.op_sources))
+        return OpSourceScanAcc(acc.x, acc.bank, acc.sources, acc.admissible, acc.actual_currents, acc.actual_motor, select(is_op, push(acc.op_sources, src_i), acc.op_sources))
 
 dec classify_channel_role:
     (_: OperativeNet, _: [int], node_id: int) where (node_id < 0) -> BoundaryRole:
@@ -800,27 +1002,28 @@ dec apply_valid_operative_step:
         let has_echo = (frame.action_echo_id > 0)
         let act = net.mc.pending_action
         let r_prop = select(has_echo, ratio((frame.return_traversals - act.command_u), 1), 0/1r)
-        let prop_commit = select((has_echo and (r_prop != 0/1r)), commit_action_sources(net.r, net.x.max_relations, net.mc.next_event_id, act, net.x.self_id, net.x.motor_count, net.x.cut, r_prop), UpsertOut(net.r, net.mc.next_event_id, 0))
+        let start_b = RelationBank(net.r_index, net.r)
+        let prop_commit = select((has_echo and (r_prop != 0/1r)), commit_action_sources(start_b, net.x.max_relations, net.mc.next_event_id, act, net.x.self_id, net.x.motor_count, net.x.cut, r_prop), UpsertOut(start_b, net.mc.next_event_id, 0))
         let local_hazard = ((has_echo and (r_prop < 0/1r)) and (frame.outer_close == 0t))
         let empty_win: [IssuedAction] = []
         let win_with_act = select(local_hazard, empty_win, select(has_echo, push_bounded_window(net.mc.window_actions, act, 32), net.mc.window_actions))
         let has_outer = (frame.outer_close != 0t)
         let cr_outer = measure_cross_return(frame.outer_close, frame.outer_close)
         let outer_delta = ratio(cr_outer.deficit, 1)
-        let outer_fold = select(has_outer, fold(win_with_act, WindowFoldAcc(prop_commit.r, net.x.max_relations, prop_commit.next_event_id, 0, net.x.self_id, net.x.motor_count, net.x.cut, outer_delta), fold_window_action_step), WindowFoldAcc(prop_commit.r, net.x.max_relations, prop_commit.next_event_id, 0, net.x.self_id, net.x.motor_count, net.x.cut, 0/1r))
+        let outer_fold = select(has_outer, fold(win_with_act, WindowFoldAcc(prop_commit.bank, net.x.max_relations, prop_commit.next_event_id, 0, net.x.self_id, net.x.motor_count, net.x.cut, outer_delta), fold_window_action_step), WindowFoldAcc(prop_commit.bank, net.x.max_relations, prop_commit.next_event_id, 0, net.x.self_id, net.x.motor_count, net.x.cut, 0/1r))
         let win_after = select(has_outer, empty_win, win_with_act)
-        let r_after = outer_fold.r
-        let empty_r: map[int, RetainedRelation] = map[]
-        let cur_actual = eval_motor_currents(net.x, r_after, p_acc.sources)
-        let cur_removed = eval_motor_currents(net.x, empty_r, p_acc.sources)
-        let cur_restored = eval_motor_currents(net.x, r_after, p_acc.sources)
+        let b_after = outer_fold.bank
+        let empty_b = empty_relation_bank()
+        let cur_actual = eval_motor_currents(net.x, b_after, p_acc.sources)
+        let cur_removed = eval_motor_currents(net.x, empty_b, p_acc.sources)
+        let cur_restored = eval_motor_currents(net.x, b_after, p_acc.sources)
         assert (cur_actual == cur_restored)
         let dec_actual = pick_motor_from_currents(cur_actual, frame.admissible, net.x.pressure, net.x.gain)
         let dec_removed = pick_motor_from_currents(cur_removed, frame.admissible, net.x.pressure, net.x.gain)
         let dec_restored = pick_motor_from_currents(cur_restored, frame.admissible, net.x.pressure, net.x.gain)
         assert (dec_actual.selected_slot == dec_restored.selected_slot)
         let init_ops: [int] = []
-        let op_scan = fold(p_acc.sources, OpSourceScanAcc(net.x, r_after, p_acc.sources, frame.admissible, cur_actual, dec_actual.selected_slot, init_ops), scan_op_source_step)
+        let op_scan = fold(p_acc.sources, OpSourceScanAcc(net.x, b_after, p_acc.sources, frame.admissible, cur_actual, dec_actual.selected_slot, init_ops), scan_op_source_step)
         let sel_m = dec_actual.selected_slot
         let can_issue = (sel_m >= 0)
         let issued_id = select(can_issue, net.mc.next_action_id, 0)
@@ -836,7 +1039,7 @@ dec apply_valid_operative_step:
         let next_mc = ClosureMemory((net.mc.next_action_id + select(can_issue, 1, 0)), outer_fold.next_event_id, p_acc.prefixes, next_mp, can_issue, next_act, win_after)
         let changed = ((sel_m != dec_removed.selected_slot) or (cur_actual != cur_removed))
         let out_frame = DuonicMotorFrame(true, net.x.cut, issued_id, issued_u, sel_m, dec_removed.selected_slot, dec_restored.selected_slot, changed, op_scan.op_sources, signum(sel_cur), sel_cur, shed_exc)
-        return (true, OperativeNet(next_x, next_mc, r_after), out_frame)
+        return (true, OperativeNet(next_x, next_mc, b_after.items, b_after.index), out_frame)
 
 dec step_operative_net:
     (net: OperativeNet, frame: DuonicBoundaryFrame) -> (OperativeNet, DuonicMotorFrame):

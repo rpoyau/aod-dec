@@ -651,7 +651,7 @@ dec main:
         let saved_10 = extract_source_relations(n3, 10)
         assert len(saved_10) == 1 and retained_relation_count(n3) == 2
         let n3_no10 = remove_source_relations(n3, 10)
-        assert len(map_keys(n3_no10.r)) == 1
+        assert len(n3_no10.r) == 1
 
         # Wrong target_j or future commit_cut restoration must be rejected!
         let forged_rel = RetainedRelation(1, 10, 888, 0, 1, 1, 1/1r, 1)
