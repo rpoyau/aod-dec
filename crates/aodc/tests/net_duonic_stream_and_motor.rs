@@ -604,7 +604,7 @@ fn operative_net_domain_blind_awareness_and_dn02_3mode_parity() {
     let prog_src = r#"use aod::core:
     contains, len, map_keys
 use stdlib::aod::net:
-    BoundaryRole, DuonicBoundaryFrame, DuonicInitSpec, DuonicPulse, classify_channel_role, decode_boundary_frame, decode_init_spec, decode_motor_frame, encode_boundary_frame, encode_init_spec, encode_motor_frame, operative_net_init, present_projection, remove_source_relations, step_operative_net, try_step_operative_net
+    BoundaryRole, DuonicBoundaryFrame, DuonicInitSpec, DuonicPulse, RetainedRelation, classify_channel_role, decode_boundary_frame, decode_init_spec, decode_motor_frame, encode_boundary_frame, encode_init_spec, encode_motor_frame, extract_source_relations, operative_net_init, present_projection, remove_source_relations, restore_source_relations, retained_relation_count, step_operative_net, try_restore_source_relations, try_step_operative_net
 
 dec main:
     () -> ():
@@ -648,8 +648,21 @@ dec main:
         assert classify_channel_role(n3, m2_dec.operative_sources, 30) == BoundaryRole::NotSelf
         assert classify_channel_role(n3, m2_dec.operative_sources, -1) == BoundaryRole::NullRole
 
+        let saved_10 = extract_source_relations(n3, 10)
+        assert len(saved_10) == 1 and retained_relation_count(n3) == 2
         let n3_no10 = remove_source_relations(n3, 10)
         assert len(map_keys(n3_no10.r)) == 1
+
+        # Wrong target_j or future commit_cut restoration must be rejected!
+        let forged_rel = RetainedRelation(1, 10, 888, 0, 1, 1, 1/1r, 1)
+        let (ok_forged, _) = try_restore_source_relations(n3_no10, [forged_rel])
+        assert not ok_forged
+
+        let n3_restored = restore_source_relations(n3_no10, saved_10)
+        assert retained_relation_count(n3_restored) == 2
+        let (_, m_orig) = step_operative_net(n3, DuonicBoundaryFrame([p_a, p_b], adm, m2.action_id, 1, 0t))
+        let (_, m_rest) = step_operative_net(n3_restored, DuonicBoundaryFrame([p_a, p_b], adm, m2.action_id, 1, 0t))
+        assert m_orig.selected_motor == m_rest.selected_motor and m_orig.operative_sources == m_rest.operative_sources
 
         emit len(m2_dec.operative_sources)
         emit n3.x.cut

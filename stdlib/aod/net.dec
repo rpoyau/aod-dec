@@ -550,6 +550,61 @@ dec remove_source_relations:
     (net: OperativeNet, source_i: int) -> OperativeNet:
         return OperativeNet(net.x, net.mc, remove_source_map(net.r, source_i, net.x.motor_count))
 
+dec retained_relation_count:
+    (net: OperativeNet) -> int:
+        return len(map_keys(net.r))
+
+struct ExtractSourceAcc:
+    r: map[int, RetainedRelation]
+    keys: [int]
+    source_i: int
+    motor_count: int
+    items: [RetainedRelation]
+
+dec extract_source_slot_step:
+    (acc: ExtractSourceAcc, m: int) -> ExtractSourceAcc:
+        let k = edge_lineage_key(acc.source_i, m, acc.motor_count)
+        let dummy = RetainedRelation(0, 0, 0, 0, 0, 0, 0/1r, 0)
+        let rel = map_get_or(acc.r, k, dummy)
+        let has_k = contains(acc.keys, k)
+        return ExtractSourceAcc(acc.r, acc.keys, acc.source_i, acc.motor_count, select(has_k, push(acc.items, rel), acc.items))
+
+dec extract_source_relations:
+    (net: OperativeNet, source_i: int) -> [RetainedRelation]:
+        let empty_items: [RetainedRelation] = []
+        let fin = fold(range_seq(0, net.x.motor_count), ExtractSourceAcc(net.r, map_keys(net.r), source_i, net.x.motor_count, empty_items), extract_source_slot_step)
+        return fin.items
+
+struct RestoreSourceAcc:
+    ok: bool
+    self_id: int
+    cut: int
+    motor_count: int
+    max_relations: int
+    r: map[int, RetainedRelation]
+
+dec restore_rel_step:
+    (acc: RestoreSourceAcc, _: RetainedRelation) where not acc.ok -> RestoreSourceAcc:
+        return acc
+    (acc: RestoreSourceAcc, rel: RetainedRelation) -> RestoreSourceAcc:
+        let lineage_ok = ((((((((rel.event_id > 0) and (rel.source_i >= 0)) and (rel.target_j == acc.self_id)) and (rel.motor_slot >= 0)) and (rel.motor_slot < acc.motor_count)) and (rel.commit_cut >= 0)) and (rel.commit_cut <= acc.cut)) and (rel.closures_n > 0))
+        let k = edge_lineage_key(rel.source_i, rel.motor_slot, acc.motor_count)
+        let keys = map_keys(acc.r)
+        let cap_ok = (contains(keys, k) or (len(keys) < acc.max_relations))
+        let ok = (lineage_ok and cap_ok)
+        return RestoreSourceAcc(ok, acc.self_id, acc.cut, acc.motor_count, acc.max_relations, select(ok, map_put(acc.r, k, rel), acc.r))
+
+dec try_restore_source_relations:
+    (net: OperativeNet, saved: [RetainedRelation]) -> (bool, OperativeNet):
+        let fin = fold(saved, RestoreSourceAcc(true, net.x.self_id, net.x.cut, net.x.motor_count, net.x.max_relations, net.r), restore_rel_step)
+        return (fin.ok, select(fin.ok, OperativeNet(net.x, net.mc, fin.r), net))
+
+dec restore_source_relations:
+    (net: OperativeNet, saved: [RetainedRelation]) -> OperativeNet:
+        let (ok, after) = try_restore_source_relations(net, saved)
+        assert ok
+        return after
+
 struct OldestRelAcc:
     r: map[int, RetainedRelation]
     has_min: bool
