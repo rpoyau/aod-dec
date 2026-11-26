@@ -1,8 +1,10 @@
 #![allow(unsafe_code)]
 
 use std::ffi::CString;
+use std::sync::Mutex;
 
-use aod_rt::abi::{runtime_symbol_table, AodRtContext, OwnedRtContext};
+pub use aod_rt::abi::SandboxTier;
+use aod_rt::abi::{runtime_symbol_table, AodRtContext, OwnedRtContext, SandboxedJitWorker};
 
 use crate::ffi::{
     create_host_target_machine, llvm_api, parse_and_verify_module, run_module_passes,
@@ -13,10 +15,11 @@ use crate::plan::{CodegenPlan, OptLevel};
 use crate::{LlvmError, LlvmResult};
 
 /// Self-contained in-process LLVM 18 ORC LLJIT session supporting parameterized `CodegenPlan`
-/// (`P0-1`: exact `JITTargetMachineBuilder` ownership, zero double-dispose!).
+/// and default-on Linux Plan 9 kernel container execution (`SandboxedJitWorker`).
 pub struct OrcJitSession {
     jit: LLVMOrcLLJITRef,
     entry_addr: u64,
+    default_worker: Mutex<Option<SandboxedJitWorker>>,
 }
 
 impl OrcJitSession {
@@ -206,7 +209,11 @@ impl OrcJitSession {
         })();
 
         match init_res {
-            Ok(entry_addr) => Ok(Self { jit, entry_addr }),
+            Ok(entry_addr) => Ok(Self {
+                jit,
+                entry_addr,
+                default_worker: Mutex::new(None),
+            }),
             Err(e) => {
                 let dispose_err = unsafe { (api.orc_dispose_lljit)(jit) };
                 if !dispose_err.is_null() {
@@ -233,6 +240,7 @@ impl OrcJitSession {
         Ok(addr)
     }
 
+    /// Low-level in-process execution hook (used ONLY when `rt_ns.is_unconfined()` is explicitly requested).
     pub fn execute(&self, ctx: &mut OwnedRtContext) {
         if self.entry_addr == 0 {
             ctx.fail_with("OrcJitSession has no default entry symbol");
@@ -242,6 +250,104 @@ impl OrcJitSession {
             unsafe { std::mem::transmute(self.entry_addr as usize) };
         unsafe {
             entry_fn(ctx.as_mut_ptr());
+        }
+    }
+
+    /// Ensure the persistent default-empty Linux Plan 9 container worker is spawned and return its tier.
+    pub fn ensure_default_sandbox_tier(&self) -> LlvmResult<SandboxTier> {
+        if self.entry_addr == 0 {
+            return Err(LlvmError::new("OrcJitSession has no default entry symbol"));
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let mut guard = self
+                .default_worker
+                .lock()
+                .map_err(|_| LlvmError::new("poisoned JIT sandbox worker mutex"))?;
+            if guard.is_none() {
+                let w = SandboxedJitWorker::spawn(
+                    self.entry_addr,
+                    aod_rt::ns_fs::RtNamespace::empty(),
+                )
+                .map_err(LlvmError::new)?;
+                *guard = Some(w);
+            }
+            Ok(guard.as_ref().unwrap().tier())
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Ok(SandboxTier::Unconfined)
+        }
+    }
+
+    fn run_sandboxed_semantic(
+        &self,
+        fuel: i64,
+        max_depth: i32,
+        rt_ns: aod_rt::ns_fs::RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+    ) -> (Vec<String>, bool, Option<String>) {
+        if self.entry_addr == 0 {
+            return (
+                Vec::new(),
+                true,
+                Some("OrcJitSession has no default entry symbol".to_string()),
+            );
+        }
+
+        if rt_ns.is_unconfined() || !cfg!(target_os = "linux") {
+            let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
+            ctx.set_rt_namespace(rt_ns);
+            if !cli_args.is_empty() {
+                ctx.set_cli_args(cli_args);
+            }
+            self.execute(&mut ctx);
+            return (
+                ctx.emits().to_vec(),
+                ctx.failed(),
+                ctx.error_message().map(ToString::to_string),
+            );
+        }
+
+        // Reuse the persistent container worker for the common empty-namespace case (`bench`/`learn`/`jit`),
+        // or spawn a dedicated ephemeral container projected to custom `--mount` specs!
+        if rt_ns.is_empty() {
+            let mut guard = match self.default_worker.lock() {
+                Ok(g) => g,
+                Err(_) => {
+                    return (
+                        Vec::new(),
+                        true,
+                        Some("poisoned JIT sandbox worker mutex".to_string()),
+                    );
+                }
+            };
+            if guard.is_none() {
+                match SandboxedJitWorker::spawn(self.entry_addr, rt_ns) {
+                    Ok(w) => *guard = Some(w),
+                    Err(e) => return (Vec::new(), true, Some(e)),
+                }
+            }
+            let outcome = guard
+                .as_mut()
+                .unwrap()
+                .run_once(fuel, max_depth, &cli_args);
+            match outcome {
+                Ok(res) => res,
+                Err(pipe_err) => {
+                    // Evict crashed/killed worker so subsequent calls don't touch a dead pipe.
+                    *guard = None;
+                    (Vec::new(), true, Some(pipe_err))
+                }
+            }
+        } else {
+            match SandboxedJitWorker::spawn(self.entry_addr, rt_ns) {
+                Ok(mut w) => match w.run_once(fuel, max_depth, &cli_args) {
+                    Ok(res) => res,
+                    Err(e) => (Vec::new(), true, Some(e)),
+                },
+                Err(e) => (Vec::new(), true, Some(e)),
+            }
         }
     }
 
@@ -261,37 +367,40 @@ impl OrcJitSession {
         rt_ns: aod_rt::ns_fs::RtNamespace,
         cli_args: Vec<Vec<u8>>,
     ) -> (String, Result<(), String>) {
-        let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
-        ctx.set_rt_namespace(rt_ns);
-        if !cli_args.is_empty() {
-            ctx.set_cli_args(cli_args);
+        let (emits, failed, err_opt) =
+            self.run_sandboxed_semantic(fuel, max_depth, rt_ns, cli_args);
+        let mut stdout = String::new();
+        for line in &emits {
+            stdout.push_str(line);
+            stdout.push('\n');
         }
-        self.execute(&mut ctx);
-        let stdout = ctx.stdout_string();
-        if ctx.failed() {
-            let msg = ctx
-                .error_message()
-                .unwrap_or("runtime error")
-                .to_string();
-            (stdout, Err(msg))
+        if failed {
+            (
+                stdout,
+                Err(err_opt.unwrap_or_else(|| "runtime error".to_string())),
+            )
         } else {
             (stdout, Ok(()))
         }
     }
 
-    /// Execute and return full semantic signature `(emits, failed, error)` for Exact Semantic Guard.
+    /// Execute and return full semantic signature `(emits, failed, error)` for Exact Semantic Guard
+    /// (runs inside the default Linux Plan 9 container worker!).
     pub fn run_semantic_captured(&self, fuel: i64, max_depth: i32) -> (Vec<String>, bool, Option<String>) {
-        let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
-        self.execute(&mut ctx);
-        let emits = ctx.emits().to_vec();
-        let failed = ctx.failed();
-        let error = ctx.error_message().map(ToString::to_string);
-        (emits, failed, error)
+        self.run_sandboxed_semantic(
+            fuel,
+            max_depth,
+            aod_rt::ns_fs::RtNamespace::empty(),
+            Vec::new(),
+        )
     }
 }
 
 impl Drop for OrcJitSession {
     fn drop(&mut self) {
+        if let Ok(mut guard) = self.default_worker.lock() {
+            let _ = guard.take();
+        }
         if !self.jit.is_null() {
             if let Ok(api) = llvm_api() {
                 let err = unsafe { (api.orc_dispose_lljit)(self.jit) };

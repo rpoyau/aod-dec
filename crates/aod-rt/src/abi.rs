@@ -399,6 +399,9 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
         for spec in &mount_specs {
             rt_ns.apply_spec(spec)?;
         }
+        if !rt_ns.is_unconfined() {
+            let _ = enter_current_process_sandbox(&mut rt_ns)?;
+        }
         unsafe {
             aod_rt_ctx_init(ctx, fuel, max_depth, 0);
             if !(*ctx).inner.is_null() {
@@ -4012,3 +4015,1061 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_dot_qext_ratio", aod_rt_dot_qext_ratio as *const () as usize),
     ]
 }
+
+// ============================================================================
+// Default-On Linux Plan 9 Kernel Container & Persistent Sandboxed JIT Worker
+// ============================================================================
+
+/// Kernel isolation tier enforced on a sandboxed `aodc jit` worker or AOT process.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SandboxTier {
+    /// Full Plan 9 `rfork(RFCNAMEG)` Linux namespace jail:
+    /// `CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS`
+    /// + `pivot_root` onto an empty read-only `/` `tmpfs` with ONLY declared mounts
+    /// + `seccomp-bpf` blocking sockets, `execve`, `ptrace`, and mount syscalls.
+    LinuxPlan9PivotRoot,
+    /// Kernel Landlock LSM + `seccomp-bpf` fallback used when an outer container
+    /// restricts unprivileged `CLONE_NEWUSER`.
+    LinuxLandlockSeccomp,
+    /// Explicit `--unconfined` opt-out (never used by default).
+    Unconfined,
+}
+
+impl SandboxTier {
+    fn to_tag(self) -> u8 {
+        match self {
+            SandboxTier::LinuxPlan9PivotRoot => 1,
+            SandboxTier::LinuxLandlockSeccomp => 2,
+            SandboxTier::Unconfined => 3,
+        }
+    }
+
+    fn from_tag(tag: u8) -> Result<Self, String> {
+        match tag {
+            1 => Ok(SandboxTier::LinuxPlan9PivotRoot),
+            2 => Ok(SandboxTier::LinuxLandlockSeccomp),
+            3 => Ok(SandboxTier::Unconfined),
+            other => Err(format!("unknown sandbox tier byte {other}")),
+        }
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            SandboxTier::LinuxPlan9PivotRoot => "linux_plan9_pivot_root",
+            SandboxTier::LinuxLandlockSeccomp => "linux_landlock_seccomp",
+            SandboxTier::Unconfined => "unconfined",
+        }
+    }
+}
+
+/// Lock the calling single-threaded process into a Linux Plan 9 kernel container
+/// matching `rt_ns` (`pivot_root` primary tier; Landlock + `seccomp-bpf` fallback).
+pub fn enter_current_process_sandbox(
+    rt_ns: &mut crate::ns_fs::RtNamespace,
+) -> Result<SandboxTier, String> {
+    if rt_ns.is_unconfined() {
+        return Ok(SandboxTier::Unconfined);
+    }
+    #[cfg(target_os = "linux")]
+    {
+        linux_sandbox::enter_sandbox(rt_ns)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(SandboxTier::Unconfined)
+    }
+}
+
+/// Persistent `fork()`ed child worker executing pre-materialized JIT machine code
+/// inside a real Linux Plan 9 `pivot_root` + `seccomp-bpf` container.
+pub struct SandboxedJitWorker {
+    #[cfg(target_os = "linux")]
+    inner: linux_sandbox::WorkerInner,
+    tier: SandboxTier,
+}
+
+impl SandboxedJitWorker {
+    pub fn spawn(
+        entry_addr: u64,
+        rt_ns: crate::ns_fs::RtNamespace,
+    ) -> Result<Self, String> {
+        if entry_addr == 0 {
+            return Err("cannot spawn sandboxed JIT worker with null entry_addr".to_string());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let (inner, tier) = linux_sandbox::WorkerInner::spawn(entry_addr, rt_ns)?;
+            Ok(Self { inner, tier })
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = rt_ns;
+            Err("Linux kernel container worker requires target_os = linux".to_string())
+        }
+    }
+
+    pub const fn tier(&self) -> SandboxTier {
+        self.tier
+    }
+
+    pub fn run_once(
+        &mut self,
+        fuel: i64,
+        max_depth: i32,
+        cli_args: &[Vec<u8>],
+    ) -> Result<(Vec<String>, bool, Option<String>), String> {
+        #[cfg(target_os = "linux")]
+        {
+            self.inner.run_once(fuel, max_depth, cli_args)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (fuel, max_depth, cli_args);
+            Err("Linux kernel container worker requires target_os = linux".to_string())
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+mod linux_sandbox {
+    use std::ffi::{c_char, c_int, c_long, c_uint, c_ulong, c_void, CString};
+    use std::io::Write;
+    use std::os::unix::ffi::OsStrExt;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    use aod_core::ns::MountPerm;
+
+    use super::{AodRtContext, OwnedRtContext, SandboxTier};
+    use crate::ns_fs::{PivotBindMount, RtNamespace};
+
+    const CLONE_NEWNS: c_int = 0x0002_0000;
+    const CLONE_NEWUTS: c_int = 0x0400_0000;
+    const CLONE_NEWIPC: c_int = 0x0800_0000;
+    const CLONE_NEWUSER: c_int = 0x1000_0000;
+    const CLONE_NEWNET: c_int = 0x4000_0000;
+
+    const MS_NOSUID: c_ulong = 2;
+    const MS_NODEV: c_ulong = 4;
+    const MS_BIND: c_ulong = 4096;
+    const MS_REC: c_ulong = 16384;
+    const MS_PRIVATE: c_ulong = 1 << 18;
+    const MNT_DETACH: c_int = 2;
+
+    const O_RDONLY: c_int = 0;
+    const O_CLOEXEC: c_int = 0x80000;
+    #[cfg(target_arch = "x86_64")]
+    const O_DIRECTORY: c_int = 0x10000;
+    #[cfg(target_arch = "aarch64")]
+    const O_DIRECTORY: c_int = 0x4000;
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    const O_DIRECTORY: c_int = 0x10000;
+
+    const AT_FDCWD: c_int = -100;
+    const AT_RECURSIVE: c_uint = 0x8000;
+    const MOUNT_ATTR_RDONLY: u64 = 0x01;
+    const MOUNT_ATTR_SIZE_VER0: usize = 32;
+
+    const PR_SET_PDEATHSIG: c_int = 1;
+    const PR_SET_DUMPABLE: c_int = 4;
+    const PR_SET_SECCOMP: c_int = 22;
+    const PR_SET_NO_NEW_PRIVS: c_int = 38;
+    const SECCOMP_MODE_FILTER: c_ulong = 2;
+    const SIGKILL: c_ulong = 9;
+    const EINTR: c_int = 4;
+
+    #[cfg(target_arch = "x86_64")]
+    const SYS_PIVOT_ROOT: c_long = 155;
+    #[cfg(target_arch = "aarch64")]
+    const SYS_PIVOT_ROOT: c_long = 41;
+
+    const SYS_MOUNT_SETATTR: c_long = 442;
+    const SYS_LANDLOCK_CREATE_RULESET: c_long = 444;
+    const SYS_LANDLOCK_ADD_RULE: c_long = 445;
+    const SYS_LANDLOCK_RESTRICT_SELF: c_long = 446;
+
+    const LANDLOCK_RULE_PATH_BENEATH: c_uint = 1;
+    const LANDLOCK_ABI_V1_FS_ALL: u64 = (1u64 << 13) - 1;
+    // Read file (1<<2) | Read dir (1<<3)
+    const LANDLOCK_FS_RO: u64 = (1u64 << 2) | (1u64 << 3);
+    // Read/write/create/remove/mkdir regular files & dirs (no char/block/fifo/sock/sym devices!)
+    const LANDLOCK_FS_RW: u64 =
+        LANDLOCK_FS_RO | (1u64 << 0) | (1u64 << 1) | (1u64 << 4) | (1u64 << 5) | (1u64 << 7) | (1u64 << 8);
+
+    #[repr(C)]
+    struct MountAttr {
+        attr_set: u64,
+        attr_clr: u64,
+        propagation: u64,
+        userns_fd: u64,
+    }
+
+    #[repr(C)]
+    struct LandlockRulesetAttrV1 {
+        handled_access_fs: u64,
+    }
+
+    #[repr(C, packed)]
+    struct LandlockPathBeneathAttr {
+        allowed_access: u64,
+        parent_fd: i32,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct SockFilter {
+        code: u16,
+        jt: u8,
+        jf: u8,
+        k: u32,
+    }
+
+    #[repr(C)]
+    struct SockFprog {
+        len: u16,
+        filter: *const SockFilter,
+    }
+
+    unsafe extern "C" {
+        fn unshare(flags: c_int) -> c_int;
+        fn mount(
+            source: *const c_char,
+            target: *const c_char,
+            filesystemtype: *const c_char,
+            mountflags: c_ulong,
+            data: *const c_void,
+        ) -> c_int;
+        fn umount2(target: *const c_char, flags: c_int) -> c_int;
+        fn mkdir(pathname: *const c_char, mode: c_uint) -> c_int;
+        fn rmdir(pathname: *const c_char) -> c_int;
+        fn chdir(path: *const c_char) -> c_int;
+        fn open(pathname: *const c_char, flags: c_int, ...) -> c_int;
+        fn close(fd: c_int) -> c_int;
+        fn read(fd: c_int, buf: *mut c_void, count: usize) -> isize;
+        fn write(fd: c_int, buf: *const c_void, count: usize) -> isize;
+        fn pipe2(pipefd: *mut c_int, flags: c_int) -> c_int;
+        fn fork() -> c_int;
+        fn waitpid(pid: c_int, wstatus: *mut c_int, options: c_int) -> c_int;
+        fn _exit(status: c_int) -> !;
+        fn getuid() -> c_uint;
+        fn getgid() -> c_uint;
+        fn prctl(option: c_int, arg2: c_ulong, arg3: c_ulong, arg4: c_ulong, arg5: c_ulong) -> c_int;
+        fn syscall(num: c_long, ...) -> c_long;
+        fn __errno_location() -> *mut c_int;
+    }
+
+    fn last_errno() -> c_int {
+        unsafe { *__errno_location() }
+    }
+
+    struct FdGuard(c_int);
+
+    impl Drop for FdGuard {
+        fn drop(&mut self) {
+            if self.0 >= 0 {
+                unsafe {
+                    let _ = close(self.0);
+                }
+            }
+        }
+    }
+
+    #[repr(C)]
+    struct StatVfs {
+        f_bsize: c_ulong,
+        f_frsize: c_ulong,
+        f_blocks: u64,
+        f_bfree: u64,
+        f_bavail: u64,
+        f_files: u64,
+        f_ffree: u64,
+        f_favail: u64,
+        f_fsid: c_ulong,
+        f_flag: c_ulong,
+        f_namemax: c_ulong,
+        __f_spare: [c_int; 6],
+    }
+
+    unsafe extern "C" {
+        fn statvfs(path: *const c_char, buf: *mut StatVfs) -> c_int;
+    }
+
+    pub fn enter_sandbox(rt_ns: &mut RtNamespace) -> Result<SandboxTier, String> {
+        let host_uid = unsafe { getuid() };
+        let host_gid = unsafe { getgid() };
+        let ns_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS;
+
+        // Only fall back to Landlock+seccomp if `unshare` itself is blocked by an outer container
+        // (before any mount table mutation has occurred!).
+        if unsafe { unshare(ns_flags) } == 0 {
+            finish_pivot_root_after_unshare(rt_ns, host_uid, host_gid)?;
+            harden_no_new_privs_and_dumpable()?;
+            install_seccomp_denylist()?;
+            Ok(SandboxTier::LinuxPlan9PivotRoot)
+        } else {
+            let unshare_err = last_errno();
+            harden_no_new_privs_and_dumpable()?;
+            if let Err((ll_errno, ll_err)) = apply_landlock_fallback(rt_ns) {
+                if ll_errno != 38 && ll_errno != 95 {
+                    return Err(format!(
+                        "Linux container sandbox failed (unshare errno={unshare_err}; landlock fallback: {ll_err})"
+                    ));
+                }
+            }
+            install_seccomp_denylist()?;
+            Ok(SandboxTier::LinuxLandlockSeccomp)
+        }
+    }
+
+    fn harden_no_new_privs_and_dumpable() -> Result<(), String> {
+        unsafe {
+            if prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 {
+                return Err(format!(
+                    "prctl(PR_SET_NO_NEW_PRIVS) failed: errno={}",
+                    last_errno()
+                ));
+            }
+            let _ = prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+        }
+        Ok(())
+    }
+
+    fn finish_pivot_root_after_unshare(
+        rt_ns: &mut RtNamespace,
+        host_uid: c_uint,
+        host_gid: c_uint,
+    ) -> Result<(), String> {
+        let (mounts, pivoted_ns) = rt_ns.prepare_pivot_root_plan();
+
+        // 1. Map uid/gid inside user namespace BEFORE setting dumpable=0
+        let _ = std::fs::write("/proc/self/setgroups", b"deny");
+        std::fs::write("/proc/self/uid_map", format!("0 {host_uid} 1\n"))
+            .map_err(|e| format!("write uid_map failed: {e}"))?;
+        std::fs::write("/proc/self/gid_map", format!("0 {host_gid} 1\n"))
+            .map_err(|e| format!("write gid_map failed: {e}"))?;
+
+        // 2. Privatize mount tree so zero mount events propagate to host
+        if unsafe {
+            mount(
+                c"none".as_ptr(),
+                c"/".as_ptr(),
+                std::ptr::null(),
+                MS_REC | MS_PRIVATE,
+                std::ptr::null(),
+            )
+        } != 0
+        {
+            return Err(format!("mount(/, MS_PRIVATE) errno={}", last_errno()));
+        }
+
+        // 3. Stage fresh rootfs on `/tmp/.aod_sandbox_stage` WITHOUT shadowing sibling `/tmp/*` dirs!
+        let stage_dir = c"/tmp/.aod_sandbox_stage";
+        let mkdir_rc = unsafe { mkdir(stage_dir.as_ptr(), 0o755) };
+        if mkdir_rc != 0 {
+            let err = last_errno();
+            if err != 17 {
+                return Err(format!("mkdir(/tmp/.aod_sandbox_stage) errno={err}"));
+            }
+        }
+        let tmpfs_opts = c"size=16m,mode=0755";
+        if unsafe {
+            mount(
+                c"tmpfs".as_ptr(),
+                stage_dir.as_ptr(),
+                c"tmpfs".as_ptr(),
+                MS_NOSUID | MS_NODEV,
+                tmpfs_opts.as_ptr() as *const c_void,
+            )
+        } != 0
+        {
+            return Err(format!("mount(tmpfs -> stage) errno={}", last_errno()));
+        }
+
+        // 4. Bind-mount ONLY declared Plan 9 mounts into the staged rootfs
+        for m in &mounts {
+            bind_one_into_new_root(m)?;
+        }
+
+        // 5. pivot_root into `/tmp/.aod_sandbox_stage` and completely detach the host rootfs!
+        if unsafe { mkdir(c"/tmp/.aod_sandbox_stage/.old_root".as_ptr(), 0o700) } != 0 {
+            return Err(format!("mkdir(.old_root) errno={}", last_errno()));
+        }
+        if unsafe { chdir(stage_dir.as_ptr()) } != 0 {
+            return Err(format!("chdir(stage_dir) errno={}", last_errno()));
+        }
+        if unsafe { syscall(SYS_PIVOT_ROOT, c".".as_ptr(), c".old_root".as_ptr()) } != 0 {
+            return Err(format!("pivot_root errno={}", last_errno()));
+        }
+        if unsafe { chdir(c"/".as_ptr()) } != 0 {
+            return Err(format!("chdir(/) errno={}", last_errno()));
+        }
+        if unsafe { umount2(c"/.old_root".as_ptr(), MNT_DETACH) } != 0 {
+            return Err(format!("umount2(/.old_root) errno={}", last_errno()));
+        }
+        let _ = unsafe { rmdir(c"/.old_root".as_ptr()) };
+
+        // 6. Lock `/` itself read-only (non-recursive so explicit `rw` submounts stay writable!)
+        set_mount_rdonly(c"/", false)?;
+
+        *rt_ns = pivoted_ns;
+        Ok(())
+    }
+
+    fn bind_one_into_new_root(m: &PivotBindMount) -> Result<(), String> {
+        let mut cur = String::from("/tmp/.aod_sandbox_stage");
+        for seg in m.container_path.trim_start_matches('/').split('/') {
+            if seg.is_empty() {
+                continue;
+            }
+            cur.push('/');
+            cur.push_str(seg);
+            let cdir = CString::new(cur.as_bytes()).map_err(|_| "NUL in container path")?;
+            let rc = unsafe { mkdir(cdir.as_ptr(), 0o755) };
+            if rc != 0 {
+                let err = last_errno();
+                if err != 17 {
+                    return Err(format!("mkdir({cur}) errno={err}"));
+                }
+            }
+        }
+
+        let src_cstr = CString::new(m.host_dir.as_os_str().as_bytes())
+            .map_err(|_| "NUL in host_dir path")?;
+        let dst_cstr = CString::new(cur.as_bytes()).map_err(|_| "NUL in dst path")?;
+        if unsafe {
+            mount(
+                src_cstr.as_ptr(),
+                dst_cstr.as_ptr(),
+                std::ptr::null(),
+                MS_BIND | MS_REC,
+                std::ptr::null(),
+            )
+        } != 0
+        {
+            return Err(format!(
+                "MS_BIND({} -> {cur}) errno={}",
+                m.host_dir.display(),
+                last_errno()
+            ));
+        }
+
+        if m.perm == MountPerm::ReadOnly {
+            set_mount_rdonly(&dst_cstr, true)?;
+        }
+        Ok(())
+    }
+
+    fn set_mount_rdonly(target: &std::ffi::CStr, recursive: bool) -> Result<(), String> {
+        let attr = MountAttr {
+            attr_set: MOUNT_ATTR_RDONLY,
+            attr_clr: 0,
+            propagation: 0,
+            userns_fd: 0,
+        };
+        let flags: c_uint = if recursive { AT_RECURSIVE } else { 0 };
+        let rc = unsafe {
+            syscall(
+                SYS_MOUNT_SETATTR,
+                AT_FDCWD,
+                target.as_ptr(),
+                flags,
+                &attr as *const MountAttr,
+                MOUNT_ATTR_SIZE_VER0,
+            )
+        };
+        if rc == 0 {
+            return Ok(());
+        }
+
+        // Fallback to classic `statvfs` + `MS_BIND | MS_REMOUNT | MS_RDONLY` preserving locked mount flags
+        let mut st: StatVfs = unsafe { std::mem::zeroed() };
+        if unsafe { statvfs(target.as_ptr(), &mut st) } != 0 {
+            return Err(format!(
+                "mount_setattr/statvfs({target:?}) errno={}",
+                last_errno()
+            ));
+        }
+        const MS_RDONLY_F: c_ulong = 1;
+        const MS_NOEXEC_F: c_ulong = 8;
+        const MS_SYNCHRONOUS_F: c_ulong = 16;
+        const MS_REMOUNT_F: c_ulong = 32;
+        const MS_NOATIME_F: c_ulong = 1024;
+        const MS_NODIRATIME_F: c_ulong = 2048;
+        const MS_RELATIME_F: c_ulong = 1 << 21;
+        const ST_RELATIME_F: c_ulong = 4096;
+
+        let mut remount_flags = MS_BIND | MS_REMOUNT_F | MS_RDONLY_F;
+        if (st.f_flag & MS_NOSUID) != 0 {
+            remount_flags |= MS_NOSUID;
+        }
+        if (st.f_flag & MS_NODEV) != 0 {
+            remount_flags |= MS_NODEV;
+        }
+        if (st.f_flag & MS_NOEXEC_F) != 0 {
+            remount_flags |= MS_NOEXEC_F;
+        }
+        if (st.f_flag & MS_SYNCHRONOUS_F) != 0 {
+            remount_flags |= MS_SYNCHRONOUS_F;
+        }
+        if (st.f_flag & MS_NOATIME_F) != 0 {
+            remount_flags |= MS_NOATIME_F;
+        }
+        if (st.f_flag & MS_NODIRATIME_F) != 0 {
+            remount_flags |= MS_NODIRATIME_F;
+        }
+        if (st.f_flag & ST_RELATIME_F) != 0 {
+            remount_flags |= MS_RELATIME_F;
+        }
+        if unsafe {
+            mount(
+                std::ptr::null(),
+                target.as_ptr(),
+                std::ptr::null(),
+                remount_flags,
+                std::ptr::null(),
+            )
+        } != 0
+        {
+            return Err(format!(
+                "remount({target:?}, MS_RDONLY) errno={}",
+                last_errno()
+            ));
+        }
+        Ok(())
+    }
+
+    fn apply_landlock_fallback(rt_ns: &RtNamespace) -> Result<(), (c_int, String)> {
+        let attr = LandlockRulesetAttrV1 {
+            handled_access_fs: LANDLOCK_ABI_V1_FS_ALL,
+        };
+        let ruleset_fd = unsafe {
+            syscall(
+                SYS_LANDLOCK_CREATE_RULESET,
+                &attr as *const LandlockRulesetAttrV1,
+                std::mem::size_of::<LandlockRulesetAttrV1>(),
+                0u32,
+            )
+        };
+        if ruleset_fd < 0 {
+            let err = last_errno();
+            return Err((err, format!("landlock_create_ruleset errno={err}")));
+        }
+        let ruleset_guard = FdGuard(ruleset_fd as c_int);
+
+        for (dir_path, perm) in rt_ns.all_host_bind_dirs() {
+            let cpath = CString::new(dir_path.as_os_str().as_bytes())
+                .map_err(|_| (22, "NUL in Landlock host path".to_string()))?;
+            let pfd = unsafe { open(cpath.as_ptr(), O_RDONLY | O_DIRECTORY | O_CLOEXEC) };
+            if pfd < 0 {
+                let err = last_errno();
+                return Err((
+                    err,
+                    format!("open({}) for Landlock errno={err}", dir_path.display()),
+                ));
+            }
+            let pfd_guard = FdGuard(pfd);
+            let allowed = match perm {
+                MountPerm::ReadOnly => LANDLOCK_FS_RO,
+                MountPerm::ReadWrite => LANDLOCK_FS_RW,
+            };
+            let rule = LandlockPathBeneathAttr {
+                allowed_access: allowed,
+                parent_fd: pfd_guard.0,
+            };
+            let add_rc = unsafe {
+                syscall(
+                    SYS_LANDLOCK_ADD_RULE,
+                    ruleset_guard.0,
+                    LANDLOCK_RULE_PATH_BENEATH,
+                    &rule as *const LandlockPathBeneathAttr,
+                    0u32,
+                )
+            };
+            if add_rc != 0 {
+                let err = last_errno();
+                return Err((err, format!("landlock_add_rule errno={err}")));
+            }
+        }
+
+        let restrict_rc = unsafe { syscall(SYS_LANDLOCK_RESTRICT_SELF, ruleset_guard.0, 0u32) };
+        if restrict_rc != 0 {
+            let err = last_errno();
+            return Err((err, format!("landlock_restrict_self errno={err}")));
+        }
+        Ok(())
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+    fn install_seccomp_denylist() -> Result<(), String> {
+        #[cfg(target_arch = "x86_64")]
+        const EXPECTED_ARCH: u32 = 0xC000_003E;
+        #[cfg(target_arch = "aarch64")]
+        const EXPECTED_ARCH: u32 = 0xC000_00B7;
+
+        #[cfg(target_arch = "x86_64")]
+        const DENIED: &[u32] = &[
+            41,  // socket
+            42,  // connect
+            43,  // accept
+            49,  // bind
+            50,  // listen
+            53,  // socketpair
+            59,  // execve
+            101, // ptrace
+            155, // pivot_root
+            161, // chroot
+            165, // mount
+            166, // umount2
+            288, // accept4
+            298, // perf_event_open
+            321, // bpf
+            322, // execveat
+            425, // io_uring_setup
+            442, // mount_setattr
+        ];
+
+        #[cfg(target_arch = "aarch64")]
+        const DENIED: &[u32] = &[
+            198, // socket
+            199, // socketpair
+            200, // bind
+            201, // listen
+            202, // accept
+            203, // connect
+            221, // execve
+            117, // ptrace
+            41,  // pivot_root
+            51,  // chroot
+            40,  // mount
+            39,  // umount2
+            242, // accept4
+            241, // perf_event_open
+            280, // bpf
+            281, // execveat
+            425, // io_uring_setup
+            442, // mount_setattr
+        ];
+
+        #[cfg(target_arch = "x86_64")]
+        let has_x32_guard = 1usize;
+        #[cfg(not(target_arch = "x86_64"))]
+        let has_x32_guard = 0usize;
+
+        // Layout:
+        // [0] LD arch
+        // [1] JEQ EXPECTED_ARCH (jf -> DENY)
+        // [2] LD nr
+        // [3] (x86_64) JGE 0x4000_0000 (jt -> DENY)
+        // [..] JEQ bad_nr (jt -> DENY)
+        // [total - 2] RET ALLOW
+        // [total - 1] RET ERRNO|EPERM (0x0005_0001)
+        let total = 3 + has_x32_guard + DENIED.len() + 2;
+        let deny_idx = total - 1;
+        let mut insns: Vec<SockFilter> = Vec::with_capacity(total);
+
+        // [0]BPF_LD | BPF_W | BPF_ABS (0x20), offset 4 (arch)
+        insns.push(SockFilter {
+            code: 0x20,
+            jt: 0,
+            jf: 0,
+            k: 4,
+        });
+        // [1] BPF_JMP | BPF_JEQ | BPF_K (0x15)
+        insns.push(SockFilter {
+            code: 0x15,
+            jt: 0,
+            jf: (deny_idx - 2) as u8,
+            k: EXPECTED_ARCH,
+        });
+        // [2] BPF_LD | BPF_W | BPF_ABS (0x20), offset 0 (nr)
+        insns.push(SockFilter {
+            code: 0x20,
+            jt: 0,
+            jf: 0,
+            k: 0,
+        });
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            let cur = insns.len();
+            // BPF_JMP | BPF_JGE | BPF_K (0x35) — reject x32 ABI bit
+            insns.push(SockFilter {
+                code: 0x35,
+                jt: (deny_idx - (cur + 1)) as u8,
+                jf: 0,
+                k: 0x4000_0000,
+            });
+        }
+
+        for &bad_nr in DENIED {
+            let cur = insns.len();
+            insns.push(SockFilter {
+                code: 0x15,
+                jt: (deny_idx - (cur + 1)) as u8,
+                jf: 0,
+                k: bad_nr,
+            });
+        }
+
+        // [total - 2]: SECCOMP_RET_ALLOW
+        insns.push(SockFilter {
+            code: 0x06,
+            jt: 0,
+            jf: 0,
+            k: 0x7fff_0000,
+        });
+        // [total - 1]: SECCOMP_RET_ERRNO | EPERM (1)
+        insns.push(SockFilter {
+            code: 0x06,
+            jt: 0,
+            jf: 0,
+            k: 0x0005_0001,
+        });
+        debug_assert_eq!(insns.len(), total);
+
+        let prog = SockFprog {
+            len: insns.len() as u16,
+            filter: insns.as_ptr(),
+        };
+        let rc = unsafe {
+            prctl(
+                PR_SET_SECCOMP,
+                SECCOMP_MODE_FILTER,
+                &prog as *const SockFprog as c_ulong,
+                0,
+                0,
+            )
+        };
+        if rc != 0 {
+            return Err(format!("prctl(SECCOMP_MODE_FILTER) errno={}", last_errno()));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    fn install_seccomp_denylist() -> Result<(), String> {
+        Ok(())
+    }
+
+    fn write_all_fd(fd: c_int, mut buf: &[u8]) -> Result<(), String> {
+        while !buf.is_empty() {
+            let n = unsafe { write(fd, buf.as_ptr() as *const c_void, buf.len()) };
+            if n < 0 {
+                let err = last_errno();
+                if err == EINTR {
+                    continue;
+                }
+                return Err(format!("pipe write failed: errno={err}"));
+            }
+            if n == 0 {
+                return Err("pipe write returned 0".to_string());
+            }
+            buf = &buf[n as usize..];
+        }
+        Ok(())
+    }
+
+    fn read_exact_fd(fd: c_int, mut buf: &mut [u8]) -> Result<bool, String> {
+        let mut read_any = false;
+        while !buf.is_empty() {
+            let n = unsafe { read(fd, buf.as_mut_ptr() as *mut c_void, buf.len()) };
+            if n < 0 {
+                let err = last_errno();
+                if err == EINTR {
+                    continue;
+                }
+                return Err(format!("pipe read failed: errno={err}"));
+            }
+            if n == 0 {
+                if !read_any {
+                    return Ok(false); // Clean EOF on message boundary
+                }
+                return Err("unexpected EOF from sandboxed JIT worker".to_string());
+            }
+            read_any = true;
+            buf = &mut buf[n as usize..];
+        }
+        Ok(true)
+    }
+
+    fn write_u32_fd(fd: c_int, val: u32) -> Result<(), String> {
+        write_all_fd(fd, &val.to_le_bytes())
+    }
+
+    fn read_u32_fd(fd: c_int) -> Result<u32, String> {
+        let mut b = [0u8; 4];
+        if !read_exact_fd(fd, &mut b)? {
+            return Err("unexpected EOF reading u32 from worker".to_string());
+        }
+        Ok(u32::from_le_bytes(b))
+    }
+
+    fn write_bytes_fd(fd: c_int, data: &[u8]) -> Result<(), String> {
+        write_u32_fd(fd, data.len() as u32)?;
+        write_all_fd(fd, data)
+    }
+
+    fn read_bytes_fd(fd: c_int, max_len: usize) -> Result<Vec<u8>, String> {
+        let len = read_u32_fd(fd)? as usize;
+        if len > max_len {
+            return Err(format!("worker message length {len} exceeds {max_len}"));
+        }
+        let mut out = vec![0u8; len];
+        if len > 0 && !read_exact_fd(fd, &mut out)? {
+            return Err("unexpected EOF reading payload from worker".to_string());
+        }
+        Ok(out)
+    }
+
+    pub struct WorkerInner {
+        child_pid: c_int,
+        cmd_write_fd: c_int,
+        resp_read_fd: c_int,
+    }
+
+    impl WorkerInner {
+        pub fn spawn(
+            entry_addr: u64,
+            mut rt_ns: RtNamespace,
+        ) -> Result<(Self, SandboxTier), String> {
+            let _ = std::io::stdout().flush();
+            let _ = std::io::stderr().flush();
+
+            let mut cmd_fds = [-1, -1];
+            let mut resp_fds = [-1, -1];
+            if unsafe { pipe2(cmd_fds.as_mut_ptr(), O_CLOEXEC) } != 0 {
+                return Err(format!("pipe2(cmd) errno={}", last_errno()));
+            }
+            if unsafe { pipe2(resp_fds.as_mut_ptr(), O_CLOEXEC) } != 0 {
+                unsafe {
+                    let _ = close(cmd_fds[0]);
+                    let _ = close(cmd_fds[1]);
+                }
+                return Err(format!("pipe2(resp) errno={}", last_errno()));
+            }
+
+            let pid = unsafe { fork() };
+            if pid < 0 {
+                let err = last_errno();
+                unsafe {
+                    let _ = close(cmd_fds[0]);
+                    let _ = close(cmd_fds[1]);
+                    let _ = close(resp_fds[0]);
+                    let _ = close(resp_fds[1]);
+                }
+                return Err(format!("fork() for sandboxed JIT worker failed: errno={err}"));
+            }
+
+            if pid == 0 {
+                // ---- CHILD WORKER PROCESS (Single-Threaded, COW RX JIT Pages) ----
+                unsafe {
+                    let _ = prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+                    let _ = close(cmd_fds[1]);
+                    let _ = close(resp_fds[0]);
+                }
+                child_worker_loop(entry_addr, &mut rt_ns, cmd_fds[0], resp_fds[1]);
+            }
+
+            // ---- PARENT PROCESS ----
+            unsafe {
+                let _ = close(cmd_fds[0]);
+                let _ = close(resp_fds[1]);
+            }
+            let worker = Self {
+                child_pid: pid,
+                cmd_write_fd: cmd_fds[1],
+                resp_read_fd: resp_fds[0],
+            };
+
+            let mut tag = [0u8; 2];
+            if !read_exact_fd(worker.resp_read_fd, &mut tag)? {
+                return Err("sandboxed JIT worker exited before handshake".to_string());
+            }
+            if tag[0] == 1 {
+                let tier = SandboxTier::from_tag(tag[1])?;
+                Ok((worker, tier))
+            } else {
+                let err_bytes = read_bytes_fd(worker.resp_read_fd, 65536)
+                    .unwrap_or_else(|_| b"worker sandbox init error".to_vec());
+                Err(String::from_utf8_lossy(&err_bytes).to_string())
+            }
+        }
+
+        pub fn run_once(
+            &mut self,
+            fuel: i64,
+            max_depth: i32,
+            cli_args: &[Vec<u8>],
+        ) -> Result<(Vec<String>, bool, Option<String>), String> {
+            let mut req = Vec::with_capacity(17);
+            req.push(1u8); // CMD_RUN
+            req.extend_from_slice(&fuel.to_le_bytes());
+            req.extend_from_slice(&max_depth.to_le_bytes());
+            req.extend_from_slice(&(cli_args.len() as u32).to_le_bytes());
+            write_all_fd(self.cmd_write_fd, &req)?;
+            for a in cli_args {
+                write_bytes_fd(self.cmd_write_fd, a)?;
+            }
+
+            let mut hdr = [0u8; 2];
+            if !read_exact_fd(self.resp_read_fd, &mut hdr)? {
+                return Err(self.diagnose_unexpected_exit());
+            }
+            let failed = hdr[0] != 0;
+            let error = if hdr[1] != 0 {
+                let eb = read_bytes_fd(self.resp_read_fd, 1_048_576)?;
+                Some(String::from_utf8_lossy(&eb).to_string())
+            } else {
+                None
+            };
+            let emits_len = read_u32_fd(self.resp_read_fd)? as usize;
+            if emits_len > 4_000_000 {
+                return Err("worker emit count exceeded limit".to_string());
+            }
+            let mut emits = Vec::with_capacity(emits_len.min(4096));
+            for _ in 0..emits_len {
+                let lb = read_bytes_fd(self.resp_read_fd, 16 * 1024 * 1024)?;
+                emits.push(String::from_utf8_lossy(&lb).to_string());
+            }
+            Ok((emits, failed, error))
+        }
+
+        fn diagnose_unexpected_exit(&mut self) -> String {
+            let mut status: c_int = 0;
+            let rc = unsafe { waitpid(self.child_pid, &mut status, 1 /* WNOHANG */) };
+            if rc == self.child_pid {
+                self.child_pid = -1;
+                let sig = status & 0x7f;
+                if sig != 0 {
+                    return format!("sandboxed JIT worker terminated by signal {sig}");
+                }
+                let exit_code = (status >> 8) & 0xff;
+                return format!("sandboxed JIT worker exited unexpectedly with code {exit_code}");
+            }
+            "sandboxed JIT worker closed response pipe unexpectedly".to_string()
+        }
+    }
+
+    impl Drop for WorkerInner {
+        fn drop(&mut self) {
+            if self.cmd_write_fd >= 0 {
+                unsafe {
+                    let _ = close(self.cmd_write_fd);
+                }
+                self.cmd_write_fd = -1;
+            }
+            if self.resp_read_fd >= 0 {
+                unsafe {
+                    let _ = close(self.resp_read_fd);
+                }
+                self.resp_read_fd = -1;
+            }
+            if self.child_pid > 0 {
+                let mut status: c_int = 0;
+                loop {
+                    let rc = unsafe { waitpid(self.child_pid, &mut status, 0) };
+                    if rc >= 0 || last_errno() != EINTR {
+                        break;
+                    }
+                }
+                self.child_pid = -1;
+            }
+        }
+    }
+
+    fn child_worker_loop(
+        entry_addr: u64,
+        rt_ns: &mut RtNamespace,
+        cmd_fd: c_int,
+        resp_fd: c_int,
+    ) -> ! {
+        match enter_sandbox(rt_ns) {
+            Ok(tier) => {
+                if write_all_fd(resp_fd, &[1u8, tier.to_tag()]).is_err() {
+                    unsafe { _exit(1) };
+                }
+            }
+            Err(msg) => {
+                let _ = write_all_fd(resp_fd, &[0u8, 0u8]);
+                let _ = write_bytes_fd(resp_fd, msg.as_bytes());
+                unsafe { _exit(1) };
+            }
+        }
+
+        let entry_fn: unsafe extern "C" fn(*mut AodRtContext) =
+            unsafe { std::mem::transmute(entry_addr as usize) };
+
+        loop {
+            let mut cmd_hdr = [0u8; 17];
+            match read_exact_fd(cmd_fd, &mut cmd_hdr) {
+                Ok(true) => {}
+                Ok(false) | Err(_) => break,
+            }
+            if cmd_hdr[0] != 1 {
+                break;
+            }
+            let fuel = i64::from_le_bytes(cmd_hdr[1..9].try_into().unwrap());
+            let max_depth = i32::from_le_bytes(cmd_hdr[9..13].try_into().unwrap());
+            let args_count = u32::from_le_bytes(cmd_hdr[13..17].try_into().unwrap()) as usize;
+            let mut cli_args = Vec::with_capacity(args_count.min(256));
+            let mut read_ok = true;
+            for _ in 0..args_count {
+                match read_bytes_fd(cmd_fd, 1_048_576) {
+                    Ok(b) => cli_args.push(b),
+                    Err(_) => {
+                        read_ok = false;
+                        break;
+                    }
+                }
+            }
+            if !read_ok {
+                break;
+            }
+
+            let mut ctx = OwnedRtContext::new(fuel, max_depth, true);
+            ctx.set_rt_namespace(rt_ns.clone());
+            if !cli_args.is_empty() {
+                ctx.set_cli_args(cli_args);
+            }
+            let run_res = catch_unwind(AssertUnwindSafe(|| unsafe {
+                entry_fn(ctx.as_mut_ptr());
+            }));
+            if run_res.is_err() {
+                ctx.fail_with("internal panic inside sandboxed JIT entry");
+            }
+
+            let failed = ctx.failed();
+            let err_opt = ctx.error_message().map(|s| s.as_bytes().to_vec());
+            let emits = ctx.emits();
+            let hdr = [u8::from(failed), u8::from(err_opt.is_some())];
+            if write_all_fd(resp_fd, &hdr).is_err() {
+                break;
+            }
+            if let Some(eb) = err_opt {
+                if write_bytes_fd(resp_fd, &eb).is_err() {
+                    break;
+                }
+            }
+            if write_u32_fd(resp_fd, emits.len() as u32).is_err() {
+                break;
+            }
+            let mut emits_ok = true;
+            for line in emits {
+                if write_bytes_fd(resp_fd, line.as_bytes()).is_err() {
+                    emits_ok = false;
+                    break;
+                }
+            }
+            if !emits_ok {
+                break;
+            }
+        }
+
+        unsafe {
+            let _ = close(cmd_fd);
+            let _ = close(resp_fd);
+            // CRITICAL: `_exit` bypasses parent C++ `atexit` handlers registered by `libLLVM-18.so`!
+            _exit(0);
+        }
+    }
+}
+

@@ -172,13 +172,6 @@ impl ScopedHostDirProvider {
         ))
     }
 
-    fn pivoted(&self, mount_point: &CleanPath) -> Self {
-        Self {
-            host_root: self.host_root.clone(),
-            active_root: PathBuf::from(mount_point.as_str()),
-        }
-    }
-
     fn resolve_checked_path(&self, clean_subpath: &str, create_parents: bool) -> Result<PathBuf, NsError> {
         if clean_subpath.is_empty() {
             return Err(NsError::ProviderFault {
@@ -410,11 +403,11 @@ impl RtMountSpec {
     }
 }
 
-/// Host bind-mount descriptor extracted from `RtNamespace` for Linux `pivot_root` / Landlock setup.
+/// Exact kernel bind-mount instruction for `pivot_root` container initialization.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HostBindProjection {
+pub struct PivotBindMount {
     pub host_dir: PathBuf,
-    pub target: CleanPath,
+    pub container_path: String,
     pub perm: MountPerm,
 }
 
@@ -525,56 +518,72 @@ impl RtNamespace {
         }
     }
 
-    /// Enumerate host directories that must be bind-mounted into a Linux `pivot_root` container
-    /// (or whitelisted in Landlock). Notice union stacks with multiple `HostDir`s on the exact
-    /// same mount point keep user-space `RtNamespace` union resolution if not single-dir, whereas
-    /// single-dir mounts map 1-to-1 onto kernel `MS_BIND` mounts!
-    pub fn host_bind_projections(&self) -> Vec<HostBindProjection> {
-        let mut out = Vec::new();
+    /// Build the exact kernel bind-mount list and corresponding post-`pivot_root` `RtNamespace`
+    /// where every `ScopedHostDirProvider` points to its in-container mount path (`/src`, `/out`,
+    /// or `/.ns_layers/<idx>` for multi-layer union stacks).
+    pub fn prepare_pivot_root_plan(&self) -> (Vec<PivotBindMount>, Self) {
+        let mut mounts = Vec::new();
+        let mut layer_seq = 0usize;
+
+        // Pre-scan which mount points are single-layer non-root HostDir mounts without subpath prefixes.
+        let mut direct_mounts = std::collections::BTreeSet::new();
         for (target, stack) in self.ns.entries() {
-            if stack.len() == 1 {
-                if let RtFsBackend::HostDir(ref h) = stack[0].backend {
-                    if stack[0].subpath_prefix.is_empty() {
-                        out.push(HostBindProjection {
-                            host_dir: h.host_root.clone(),
-                            target,
-                            perm: stack[0].perm,
-                        });
+            if !target.is_root()
+                && stack.len() == 1
+                && stack[0].subpath_prefix.is_empty()
+                && matches!(stack[0].backend, RtFsBackend::HostDir(_))
+            {
+                direct_mounts.insert(target);
+            }
+        }
+        // Also guard against nested mount points colliding with a direct parent's internal `.ns_layers`
+        let mapped_ns = self.ns.map_backends(|mount_point, prov| match &prov.backend {
+            RtFsBackend::RamFs(m) => RtFsBackend::RamFs(m.clone()),
+            RtFsBackend::HostDir(h) => {
+                let container_path = if direct_mounts.contains(mount_point) {
+                    mount_point.as_str().to_string()
+                } else {
+                    let p = format!("/.ns_layers/{layer_seq}");
+                    layer_seq += 1;
+                    p
+                };
+                mounts.push(PivotBindMount {
+                    host_dir: h.host_root.clone(),
+                    container_path: container_path.clone(),
+                    perm: prov.perm,
+                });
+                RtFsBackend::HostDir(ScopedHostDirProvider {
+                    host_root: h.host_root.clone(),
+                    active_root: PathBuf::from(container_path),
+                })
+            }
+        });
+
+        (
+            mounts,
+            Self {
+                ns: mapped_ns,
+                unconfined: self.unconfined,
+            },
+        )
+    }
+
+    /// Return all host directories and their required permissions for Landlock LSM fallback rules.
+    pub fn all_host_bind_dirs(&self) -> Vec<(PathBuf, MountPerm)> {
+        let mut by_path: BTreeMap<PathBuf, MountPerm> = BTreeMap::new();
+        for (_, stack) in self.ns.entries() {
+            for prov in stack {
+                if let RtFsBackend::HostDir(ref h) = prov.backend {
+                    let entry = by_path
+                        .entry(h.host_root.clone())
+                        .or_insert(MountPerm::ReadOnly);
+                    if prov.perm == MountPerm::ReadWrite {
+                        *entry = MountPerm::ReadWrite;
                     }
                 }
             }
         }
-        out
-    }
-
-    /// Returns `true` if every `HostDir` mount in this namespace is a clean single-layer mount
-    /// that can be projected 1-to-1 via kernel `pivot_root` without losing multi-host-dir union layers.
-    pub fn can_project_all_host_dirs_via_pivot_root(&self) -> bool {
-        if self.unconfined {
-            return false;
-        }
-        for (_, stack) in self.ns.entries() {
-            let host_count = stack
-                .iter()
-                .filter(|p| matches!(p.backend, RtFsBackend::HostDir(_)))
-                .count();
-            if host_count > 1 {
-                return false;
-            }
-            if host_count == 1 && (stack.len() != 1 || !stack[0].subpath_prefix.is_empty()) {
-                return false;
-            }
-        }
-        true
-    }
-
-    /// Called inside the child worker immediately after `pivot_root` detaches `/.old` so all
-    /// `ScopedHostDirProvider`s resolve against their in-container mount points (`/in`, `/out`).
-    pub fn activate_pivoted_roots(&mut self) {
-        self.ns = self.ns.map_backends(|mount_point, prov| match &prov.backend {
-            RtFsBackend::HostDir(h) => RtFsBackend::HostDir(h.pivoted(mount_point)),
-            RtFsBackend::RamFs(m) => RtFsBackend::RamFs(m.clone()),
-        });
+        by_path.into_iter().collect()
     }
 
     /// Read a file through the task's Plan 9 namespace (enforcing `MAX_SYS_IO_BYTES` and

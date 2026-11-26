@@ -48,7 +48,7 @@ pub use hw_probe::{
     certify_frg_channel, probe_perf_event_open, read_rdtscp, run_all_hw_probes,
     run_probe_frg_ring_gate, FrgChannelReport, FrgRingGateReport, HwProbeReport, PerfCapability,
 };
-pub use jit::OrcJitSession;
+pub use jit::{OrcJitSession, SandboxTier};
 pub use learner::{
     paired_bootstrap_ci_bps, run_learn_session, BootstrapCi, LearnDecision, LearnSessionReport,
     ProfileLoadOutcome, RetainedProfile, PROFILE_VERSION,
