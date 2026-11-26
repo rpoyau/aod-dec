@@ -255,6 +255,7 @@ pub fn validate_runtime_output_path(
     // Also discover repo roots along the resolved candidate ancestors.
     discover_ancestor_repo_roots(&candidate, &mut all_roots);
 
+    let mut nearest_enclosing: Option<(&PathBuf, Vec<String>)> = None;
     for guarded in &all_roots {
         if let Ok(rel) = candidate.strip_prefix(guarded) {
             let parts: Vec<String> = rel
@@ -264,12 +265,6 @@ pub fn validate_runtime_output_path(
                     _ => None,
                 })
                 .collect();
-            if parts.len() < 2 || !ALLOWED_IN_REPO_OUTPUT_ROOTS.contains(&parts[0].as_str()) {
-                return Err(format!(
-                    "--report target {:?} is inside a distributable repository directory; write outside the repository or under _build/",
-                    parts.join("/")
-                ));
-            }
             let mut walk = guarded.clone();
             for part in &parts {
                 walk.push(part);
@@ -281,6 +276,23 @@ pub fn validate_runtime_output_path(
                     }
                 }
             }
+            let depth = guarded.components().count();
+            let replace = match &nearest_enclosing {
+                None => true,
+                Some((prev_root, _)) => depth > prev_root.components().count(),
+            };
+            if replace {
+                nearest_enclosing = Some((guarded, parts));
+            }
+        }
+    }
+
+    if let Some((_, parts)) = nearest_enclosing {
+        if parts.len() < 2 || !ALLOWED_IN_REPO_OUTPUT_ROOTS.contains(&parts[0].as_str()) {
+            return Err(format!(
+                "--report target {:?} is inside a distributable repository directory; write outside the repository or under _build/",
+                parts.join("/")
+            ));
         }
     }
 

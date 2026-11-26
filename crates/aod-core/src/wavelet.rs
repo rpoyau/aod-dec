@@ -2676,6 +2676,42 @@ impl ShedWitness {
         }
         Ok(())
     }
+
+    pub fn to_json(&self) -> JsonValue {
+        let mut map = BTreeMap::new();
+        map.insert(
+            "cut_coordinate".to_string(),
+            JsonValue::from_str_val(self.cut_coordinate.clone()),
+        );
+        map.insert(
+            "emit_boundary".to_string(),
+            JsonValue::from_str_val(self.emit_boundary.clone()),
+        );
+        map.insert(
+            "emit_cut".to_string(),
+            JsonValue::from_i64(self.emit_cut),
+        );
+        map.insert(
+            "parent_id".to_string(),
+            JsonValue::from_str_val(self.parent_id.clone()),
+        );
+        map.insert(
+            "post_shed_parent_state".to_string(),
+            JsonValue::from_str_val(self.post_shed_parent_state.clone()),
+        );
+        map.insert(
+            "route".to_string(),
+            JsonValue::from_str_val(self.route.as_str()),
+        );
+        map.insert(
+            "x_route".to_string(),
+            JsonValue::Array(vec![
+                JsonValue::from_str_val(self.x_route.num().to_decimal_string()),
+                JsonValue::from_str_val(self.x_route.den().to_decimal_string()),
+            ]),
+        );
+        JsonValue::Object(map)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]

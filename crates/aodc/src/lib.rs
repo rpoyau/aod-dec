@@ -16,12 +16,14 @@ pub mod ir;
 pub mod lexer;
 pub mod manual_data;
 pub mod manual_verify;
+pub mod migrate;
 pub mod modules;
 pub mod parser;
 pub mod pdf_audit;
 pub mod report_guard;
 pub mod sim;
 pub mod types;
+pub mod v1_compat;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -55,6 +57,7 @@ pub use crate::manual_data::{
     MANUAL_DATA_FILENAMES, MANUAL_DATA_SCHEMA,
 };
 pub use crate::manual_verify::{verify_manual_dir, ManualVerifyOptions, ManualVerifyReport};
+pub use crate::migrate::{migrate_file_to_v3, migrate_to_v3, MAX_MIGRATE_SOURCE_BYTES};
 pub use crate::modules::LoadOptions;
 pub use crate::parser::parse_source;
 pub use crate::pdf_audit::{
@@ -66,6 +69,11 @@ pub use crate::report_guard::{
     collect_guarded_roots, read_bounded_regular_file, read_bounded_stdin,
     validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
 };
+pub use crate::v1_compat::{
+    check_v1_file, check_v1_source, compile_v1_file_to_ir, compile_v1_source_to_ir,
+    exec_v1_ir_str, exec_v1_ir_str_capturing, is_v1_ir_json, run_v1_file, run_v1_file_capturing,
+    run_v1_source, CompatMode, V1_IR_FORMAT, V1_IR_VERSION,
+};
 
 use crate::checker::{check_unit, CheckedUnit};
 use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
@@ -75,6 +83,16 @@ use crate::ir::{dumps_ir, loads_ir};
 use crate::modules::load_from_source_with_options;
 
 static BENCH_TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+pub fn migrate_source_formatted(source: &str) -> DecResult<String> {
+    let migrated = migrate_to_v3(source)?;
+    format_source(&migrated)
+}
+
+pub fn migrate_file_formatted(path: &Path) -> DecResult<String> {
+    let migrated = migrate_file_to_v3(path)?;
+    format_source(&migrated)
+}
 
 pub fn check_source(source: &str) -> DecResult<CheckedUnit> {
     check_source_with_options(source, &LoadOptions::default())
@@ -185,6 +203,9 @@ pub fn compile_file_to_ir_with_options(path: &Path, options: &LoadOptions) -> De
 }
 
 pub fn exec_ir_str(ir_text: &str) -> DecResult<EvalOutput> {
+    if is_v1_ir_json(ir_text) {
+        return exec_v1_ir_str(ir_text, DEFAULT_FUEL, DEFAULT_MAX_DEPTH);
+    }
     let checked = loads_ir(ir_text)?;
     Evaluator::new(&checked, DEFAULT_FUEL, DEFAULT_MAX_DEPTH)?.run_main()
 }
@@ -210,6 +231,9 @@ pub fn exec_ir_file_with_budget_capturing(
             format!("failed reading IR {}: {e}", path.display()),
         )
     })?;
+    if is_v1_ir_json(&text) {
+        return exec_v1_ir_str_capturing(&text, fuel, max_depth);
+    }
     let checked = loads_ir(&text)?;
     Ok(Evaluator::new(&checked, fuel, max_depth)?.run_main_capturing())
 }
@@ -1021,6 +1045,14 @@ pub fn run_dec_tests_with_options(
     target: &Path,
     options: &LoadOptions,
 ) -> DecResult<Vec<TestCaseResult>> {
+    run_dec_tests_with_compat(target, options, CompatMode::V3)
+}
+
+pub fn run_dec_tests_with_compat(
+    target: &Path,
+    options: &LoadOptions,
+    compat: CompatMode,
+) -> DecResult<Vec<TestCaseResult>> {
     let mut files = Vec::new();
     if target.is_file() {
         files.push(target.to_path_buf());
@@ -1031,6 +1063,62 @@ pub fn run_dec_tests_with_options(
             DiagnosticCode::ParseError,
             format!("test path not found: {}", target.display()),
         ));
+    }
+
+    if compat == CompatMode::V1 {
+        let mut results = Vec::new();
+        for file in files {
+            let sibling_stdout = file.with_extension("stdout");
+            let has_stdout = sibling_stdout.is_file();
+            match run_v1_file(&file, DEFAULT_FUEL, DEFAULT_MAX_DEPTH) {
+                Ok(out) => {
+                    if has_stdout {
+                        match std::fs::read_to_string(&sibling_stdout) {
+                            Ok(expected) => {
+                                if out.to_stdout_string() == expected {
+                                    results.push(TestCaseResult {
+                                        file,
+                                        test_name: "main+stdout".to_string(),
+                                        passed: true,
+                                        error: None,
+                                    });
+                                } else {
+                                    results.push(TestCaseResult {
+                                        file,
+                                        test_name: "main+stdout".to_string(),
+                                        passed: false,
+                                        error: Some(format!(
+                                            "stdout mismatch against {}",
+                                            sibling_stdout.display()
+                                        )),
+                                    });
+                                }
+                            }
+                            Err(e) => results.push(TestCaseResult {
+                                file,
+                                test_name: "main+stdout".to_string(),
+                                passed: false,
+                                error: Some(e.to_string()),
+                            }),
+                        }
+                    } else {
+                        results.push(TestCaseResult {
+                            file,
+                            test_name: "main".to_string(),
+                            passed: true,
+                            error: None,
+                        });
+                    }
+                }
+                Err(e) => results.push(TestCaseResult {
+                    file,
+                    test_name: "main".to_string(),
+                    passed: false,
+                    error: Some(e.to_string()),
+                }),
+            }
+        }
+        return Ok(results);
     }
 
     let mut results = Vec::new();
@@ -1262,19 +1350,42 @@ fn collect_dec_files_sorted(dir: &Path, out: &mut Vec<PathBuf>) -> DecResult<()>
     Ok(())
 }
 
+fn is_s2_root_dir(dir: &Path) -> bool {
+    dir.join("SOURCE_BINDING.json").is_file()
+        && dir
+            .join("bindings/aod/s2_vectors/rational_core.jsonl")
+            .is_file()
+}
+
+fn find_s2_ancestor(start: &Path) -> Option<PathBuf> {
+    let mut cur: Option<&Path> = Some(start);
+    for _ in 0..=8 {
+        if let Some(dir) = cur {
+            if is_s2_root_dir(dir) {
+                return Some(dir.to_path_buf());
+            }
+            cur = dir.parent();
+        }
+    }
+    None
+}
+
 fn discover_default_s2_root() -> PathBuf {
     if let Ok(cwd) = std::env::current_dir() {
-        let mut cur: Option<&Path> = Some(cwd.as_path());
-        for _ in 0..=6 {
-            if let Some(dir) = cur {
-                if dir.join("SOURCE_BINDING.json").is_file()
-                    && dir
-                        .join("bindings/aod/s2_vectors/rational_core.jsonl")
-                        .is_file()
-                {
-                    return dir.to_path_buf();
-                }
-                cur = dir.parent();
+        if let Some(found) = find_s2_ancestor(&cwd) {
+            return found;
+        }
+        for sub in ["aod-dec", "vendor/aod-dec"] {
+            let nested = cwd.join(sub);
+            if is_s2_root_dir(&nested) {
+                return nested;
+            }
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            if let Some(found) = find_s2_ancestor(parent) {
+                return found;
             }
         }
     }

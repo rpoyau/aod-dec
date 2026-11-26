@@ -1,17 +1,21 @@
-# `rpoyau/aod-dec` — Native Reference Engine, Clean-Break Dec Compiler, & Fixed-Point Self-Hosting Toolchain
+# `rpoyau/aod-dec` — Experimental Downstream Reference Engine, Clean-Break Dec Compiler, & Fixed-Point Self-Hosting Toolchain
 
-> **Explicit Scope & Non-Claims Disclosure (`P0-2`):**
-> The chamber simulator in `crates/aodc/src/sim.rs` is explicitly tagged on every
-> simulation record and snapshot as:
+> **Experimental Reference Engine & Scope Disclosure (`P0-2`):**
+> `rpoyau/aod-dec` is an **experimental downstream reference engine** for
+> Alpha-Omega Dynamics ($\mathrm{A}\Omega\mathrm{D}$) and Declared Edge Computation
+> (D.E.C.), maintained independently until promoted by upstream $\mathrm{A}\Omega\mathrm{D}$
+> integration review. Every chamber simulation record and snapshot in
+> `crates/aod-rt/src/sim.rs` carries the explicit status tag:
 >
 > `model_status: "DECLARED_SANDBOX_DEC_MODEL_NOT_S3_AUTHENTICATED"`
 >
-> It is a deterministic, zero-RNG, exact $\mathbb{Z}/\mathbb{Q}$ sandbox model
-> executing Manual §4 kernel/hinge-slide and `SupportForm` shedding rules with
-> zero hardcoded physical target outcomes and structural zero-back-reaction for
-> attached observers. It is **not** an S3-authenticated physical derivation, does
-> **not** infer SI metrology or universal physical constants, and makes **zero**
-> edits to upstream `rpoyau/aod`.
+> It is a deterministic, zero-RNG, exact $\mathbb{Z}/\mathbb{Q}$ sandbox engine
+> executing Manual §4 kernel/hinge-slide rules, `SupportForm` shedding witnesses,
+> moving-boundary flux (`boundary_step`), finite contact-window TTL (`contact_ttl`),
+> commensurate zero-drift resonance (`Endo` vs `Exo` routing), and composite outer
+> carrier fusion (`fuse_on_resonance`) with field-for-field witness hashing in
+> `state_json` / `final_state_hash`, structural zero-back-reaction for attached
+> observers, and **zero** edits to upstream `rpoyau/aod`.
 
 ## Architecture (100% `std`-only 4-Crate Rust Workspace)
 
@@ -106,7 +110,17 @@ cargo run --bin aodc -- test tests/fixtures/v3_examples
 cargo run --bin aodc -- test tests/fixtures/v2_smoke
 cargo run --bin aodc -- test examples/first_principles
 cargo run --bin aodc -- test manual_examples
+
+# Replay frozen v1 (2bc927c) fixtures & DecIR v1 bundles byte-for-byte via isolated --compat v1
+cargo run --bin aodc -- test --compat v1 tests/fixtures/v1_examples
+cargo run --bin aodc -- compile --compat v1 tests/fixtures/v1_examples/fusion.dec -o /tmp/fusion.v1.ir.json
+cargo run --bin aodc -- exec /tmp/fusion.v1.ir.json
+
+# Deterministically migrate legacy v1 (2bc927c) or PR #8 (68d6705) sources to Pure-Wave v3
+cargo run --bin aodc -- migrate [--check | --write | -o /tmp/upgraded.dec] legacy_input.dec
 ```
+
+See [`docs/MIGRATION_V1_V2_TO_V3.md`](docs/MIGRATION_V1_V2_TO_V3.md) for the upstream caller audit, `--compat v1` replay guarantees, `aodc migrate` transformation table, and line-by-line `stdout` delta audit.
 
 ## Native Dec Standard Library, First-Principles Modules, Manual Fixtures, & Self-Host Compiler
 

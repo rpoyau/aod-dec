@@ -2861,6 +2861,39 @@ pub unsafe extern "C" fn aod_rt_sim_builder_new(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sim_builder_set_dynamics(
+    ctx: *mut AodRtContext,
+    b_h: u64,
+    dx: u64,
+    dy: u64,
+    dz: u64,
+    has_ttl: u8,
+    contact_ttl_word: u64,
+    fuse_on_resonance: u8,
+) {
+    unsafe {
+        guard_ret(ctx, (), |_, s| {
+            let dxv = s.unpack_dec_int(dx)?;
+            let dyv = s.unpack_dec_int(dy)?;
+            let dzv = s.unpack_dec_int(dz)?;
+            let ttl_i64 = if has_ttl != 0 {
+                let tv = s.unpack_dec_int(contact_ttl_word)?;
+                let n = tv
+                    .to_i64()
+                    .ok_or_else(|| format!("contact_ttl {tv} out of range"))?;
+                if n < 0 {
+                    return Err(format!("chamber contact_ttl must be >= 0, got {n}"));
+                }
+                n
+            } else {
+                -1
+            };
+            s.op_sim_builder_set_dynamics(b_h, &dxv, &dyv, &dzv, ttl_i64, fuse_on_resonance)
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_sim_builder_add_clock(
     ctx: *mut AodRtContext,
     b_h: u64,
@@ -2975,7 +3008,8 @@ pub unsafe extern "C" fn aod_rt_sim_run_ex(
             builder.walls,
             builder.carriers,
             builder.clocks,
-        );
+        )
+        .with_dynamics(builder.dynamics);
         let mut decl_observers = builder.decl_observers;
         let proc_observers = builder.proc_observers;
 
@@ -3894,6 +3928,10 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_enum_payload", aod_rt_enum_payload as *const () as usize),
         ("aod_rt_field_get", aod_rt_field_get as *const () as usize),
         ("aod_rt_sim_builder_new", aod_rt_sim_builder_new as *const () as usize),
+        (
+            "aod_rt_sim_builder_set_dynamics",
+            aod_rt_sim_builder_set_dynamics as *const () as usize,
+        ),
         ("aod_rt_sim_builder_add_clock", aod_rt_sim_builder_add_clock as *const () as usize),
         ("aod_rt_sim_builder_add_carrier", aod_rt_sim_builder_add_carrier as *const () as usize),
         ("aod_rt_sim_builder_add_decl_obs", aod_rt_sim_builder_add_decl_obs as *const () as usize),

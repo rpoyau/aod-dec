@@ -147,6 +147,9 @@ pub struct ChamberDecl {
     pub space: Expr,
     pub walls: WallPolicyAst,
     pub engine: Option<String>,
+    pub boundary_step: Option<Expr>,
+    pub contact_ttl: Option<Expr>,
+    pub fuse_on_resonance: Option<Expr>,
     pub line: usize,
 }
 

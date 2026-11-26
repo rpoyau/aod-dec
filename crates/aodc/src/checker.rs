@@ -788,6 +788,46 @@ impl<'a> Checker<'a> {
                     ),
                 ));
             }
+            if let Some(ref bs) = ch.boundary_step {
+                let bs_ty = self.check_expr(bs, &scopes, &ctx)?;
+                let expect_tup = Type::Tuple(vec![Type::Int, Type::Int, Type::Int]);
+                if bs_ty != expect_tup {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        bs.line,
+                        format!(
+                            "chamber {} boundary_step must be (int, int, int), got {bs_ty}",
+                            ch.name
+                        ),
+                    ));
+                }
+            }
+            if let Some(ref ttl) = ch.contact_ttl {
+                let ttl_ty = self.check_expr(ttl, &scopes, &ctx)?;
+                if ttl_ty != Type::Int {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        ttl.line,
+                        format!(
+                            "chamber {} contact_ttl must be int, got {ttl_ty}",
+                            ch.name
+                        ),
+                    ));
+                }
+            }
+            if let Some(ref fus) = ch.fuse_on_resonance {
+                let fus_ty = self.check_expr(fus, &scopes, &ctx)?;
+                if fus_ty != Type::Bool {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::TypeError,
+                        fus.line,
+                        format!(
+                            "chamber {} fuse_on_resonance must be bool, got {fus_ty}",
+                            ch.name
+                        ),
+                    ));
+                }
+            }
         }
 
         let prepares: Vec<(String, PrepareDecl)> = self
@@ -5485,28 +5525,43 @@ pub fn resolve_builtin_field_type(base: &Type, field: &str, line: usize) -> DecR
             | "final_state_hash_bytes"
             | "final_state_sha256"
             | "model_status_bytes"
-            | "boundary_bytes",
+            | "boundary_bytes"
+            | "state_json"
+            | "shedding_witnesses_json",
         ) => Ok(Type::Bytes),
         (Type::Box3, "boundary_bytes") => Ok(Type::Bytes),
         (Type::SimResult, "ticks")
         | (Type::SimResult, "carrier_count")
+        | (Type::SimResult, "active_carrier_count")
         | (Type::SimResult, "shedding_event_count")
         | (Type::SimResult, "wavelet_event_count")
         | (Type::SimResult, "boundary_crossings")
         | (Type::SimResult, "total_returns")
         | (Type::SimResult, "total_hinges")
-        | (Type::SimResult, "total_shedding_events") => Ok(Type::Int),
+        | (Type::SimResult, "total_shedding_events")
+        | (Type::SimResult, "resonance_count")
+        | (Type::SimResult, "expired_contact_count")
+        | (Type::SimResult, "fusion_count")
+        | (Type::SimResult, "moving_flux_total") => Ok(Type::Int),
         (Type::SimResult, "final_snapshot") => Ok(Type::ReadOnly(Box::new(Type::ChamberView))),
 
-        (Type::ChamberView, "chamber_name" | "model_status_bytes" | "chamber_name_bytes") => {
-            Ok(Type::Bytes)
-        }
+        (
+            Type::ChamberView,
+            "chamber_name"
+            | "model_status_bytes"
+            | "chamber_name_bytes"
+            | "shedding_witnesses_json",
+        ) => Ok(Type::Bytes),
         (Type::ChamberView, "tick")
         | (Type::ChamberView, "carrier_count")
+        | (Type::ChamberView, "active_carrier_count")
         | (Type::ChamberView, "boundary_crossings")
         | (Type::ChamberView, "shedding_count")
         | (Type::ChamberView, "wavelet_count")
-        | (Type::ChamberView, "clock_count") => Ok(Type::Int),
+        | (Type::ChamberView, "clock_count")
+        | (Type::ChamberView, "resonance_count")
+        | (Type::ChamberView, "expired_contact_count")
+        | (Type::ChamberView, "fusion_count") => Ok(Type::Int),
         (Type::ChamberView, "carriers") => {
             Ok(Type::ReadOnly(Box::new(Type::List(Box::new(Type::Int)))))
         }

@@ -260,6 +260,7 @@ pub fn validate_manual_data_output_dir(
     let candidate = resolve_with_missing_tail(&abs_input);
     discover_ancestor_repo_roots(&candidate, &mut all_roots);
 
+    let mut nearest_enclosing: Option<(&PathBuf, Vec<String>)> = None;
     for guarded in &all_roots {
         if let Ok(rel) = candidate.strip_prefix(guarded) {
             let parts: Vec<String> = rel
@@ -269,18 +270,6 @@ pub fn validate_manual_data_output_dir(
                     _ => None,
                 })
                 .collect();
-            let is_exact_manual_data = parts.len() == 3
-                && parts[0] == "docs"
-                && parts[1] == "manual"
-                && parts[2] == "data";
-            let is_allowed_scratch =
-                parts.len() >= 2 && ALLOWED_IN_REPO_OUTPUT_ROOTS.contains(&parts[0].as_str());
-            if !is_exact_manual_data && !is_allowed_scratch {
-                return Err(format!(
-                    "--output-dir {:?} is disallowed inside repository; use docs/manual/data, _build/<subpath>, or an outside-repo directory",
-                    parts.join("/")
-                ));
-            }
             let mut walk = guarded.clone();
             for part in &parts {
                 walk.push(part);
@@ -292,6 +281,35 @@ pub fn validate_manual_data_output_dir(
                     }
                 }
             }
+            let depth = guarded.components().count();
+            let replace = match &nearest_enclosing {
+                None => true,
+                Some((prev_root, _)) => depth > prev_root.components().count(),
+            };
+            if replace {
+                nearest_enclosing = Some((guarded, parts));
+            }
+        }
+    }
+
+    if let Some((nearest_root, parts)) = nearest_enclosing {
+        let is_target_aod_dec_root = is_aod_dec_checkout_root(nearest_root)
+            || guarded_roots.iter().any(|r| {
+                lexical_normalize(r) == *nearest_root
+                    || fs::canonicalize(r).ok().as_ref() == Some(nearest_root)
+            });
+        let is_exact_manual_data = is_target_aod_dec_root
+            && parts.len() == 3
+            && parts[0] == "docs"
+            && parts[1] == "manual"
+            && parts[2] == "data";
+        let is_allowed_scratch =
+            parts.len() >= 2 && ALLOWED_IN_REPO_OUTPUT_ROOTS.contains(&parts[0].as_str());
+        if !is_exact_manual_data && !is_allowed_scratch {
+            return Err(format!(
+                "--output-dir {:?} is disallowed inside repository; use docs/manual/data, _build/<subpath>, or an outside-repo directory",
+                parts.join("/")
+            ));
         }
     }
 
@@ -322,17 +340,54 @@ pub fn validate_manual_data_output_dir(
 // Pure Exact-VM Dec Execution Helpers (ZERO LLVM, ZERO Hardcoded Data!)
 // ============================================================================
 
-fn discover_repo_root_for_manual_data() -> PathBuf {
-    if let Ok(cwd) = env::current_dir() {
-        let mut cur: Option<&Path> = Some(cwd.as_path());
-        for _ in 0..=6 {
-            if let Some(dir) = cur {
-                if dir.join("SOURCE_BINDING.json").is_file()
-                    && dir.join("manual_examples/03_short_window_boundary.dec").is_file()
-                {
-                    return dir.to_path_buf();
-                }
-                cur = dir.parent();
+fn is_aod_dec_checkout_root(dir: &Path) -> bool {
+    dir.join("SOURCE_BINDING.json").is_file()
+        && dir.join("manual_examples/03_short_window_boundary.dec")
+            .is_file()
+}
+
+fn find_aod_dec_ancestor(start: &Path) -> Option<PathBuf> {
+    let mut cur: Option<&Path> = Some(start);
+    for _ in 0..=8 {
+        if let Some(dir) = cur {
+            if is_aod_dec_checkout_root(dir) {
+                return Some(dir.to_path_buf());
+            }
+            cur = dir.parent();
+        }
+    }
+    None
+}
+
+fn discover_repo_root_for_manual_data(explicit_output_dir: Option<&Path>) -> PathBuf {
+    let cwd = env::current_dir().ok();
+    if let Some(out_dir) = explicit_output_dir {
+        let abs_out = if out_dir.is_absolute() {
+            out_dir.to_path_buf()
+        } else if let Some(ref c) = cwd {
+            c.join(out_dir)
+        } else {
+            out_dir.to_path_buf()
+        };
+        if let Some(found) = find_aod_dec_ancestor(&lexical_normalize(&abs_out)) {
+            return found;
+        }
+    }
+    if let Some(ref c) = cwd {
+        if let Some(found) = find_aod_dec_ancestor(c) {
+            return found;
+        }
+        for sub in ["aod-dec", "vendor/aod-dec"] {
+            let nested = c.join(sub);
+            if is_aod_dec_checkout_root(&nested) {
+                return nested;
+            }
+        }
+    }
+    if let Ok(exe) = env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            if let Some(found) = find_aod_dec_ancestor(parent) {
+                return found;
             }
         }
     }
@@ -720,7 +775,7 @@ fn generate_sandbox_chamber_json(
 /// Validates `--output-dir` BEFORE running any Dec program or touching disk (`Err` = exit code 2
 /// usage/unsafe-path error; `Ok(report)` = execution completed with `report.is_ok()` determining exit 0 vs 1).
 pub fn run_manual_data(options: &ManualDataOptions) -> Result<ManualDataReport, String> {
-    let repo_root = discover_repo_root_for_manual_data();
+    let repo_root = discover_repo_root_for_manual_data(options.output_dir.as_deref());
     let raw_out_dir = options
         .output_dir
         .clone()
