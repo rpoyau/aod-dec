@@ -1,4 +1,5 @@
 use aod_core::bigint::BigInt;
+pub use aod_core::ns::{BindMode, MountMode, MountPerm};
 use aod_core::ratio::Ratio;
 use aod_core::support::SupportForm;
 use aod_core::ternary::{Addr8, B64, B8, Q4, T1};
@@ -30,6 +31,7 @@ pub struct Program {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Item {
+    Namespace(NamespaceDecl),
     Use(UseDecl),
     Const(ConstDecl),
     Struct(StructDecl),
@@ -42,7 +44,50 @@ pub enum Item {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NsMountSource {
+    BytesUri(Vec<u8>),
+    ExistingPath(Vec<String>),
+    RamFs,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NsOp {
+    Clear {
+        line: usize,
+    },
+    Fork {
+        line: usize,
+    },
+    Mount {
+        mode: MountMode,
+        perm: MountPerm,
+        bind_mode: BindMode,
+        source: NsMountSource,
+        target: Vec<String>,
+        line: usize,
+    },
+    Bind {
+        mode: BindMode,
+        existing: Vec<String>,
+        target: Vec<String>,
+        line: usize,
+    },
+    Unmount {
+        target: Vec<String>,
+        line: usize,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NamespaceDecl {
+    pub name: String,
+    pub ops: Vec<NsOp>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UseDecl {
+    pub rooted_slash: bool,
     pub path: Vec<String>,
     pub items: Option<Vec<String>>,
     pub line: usize,

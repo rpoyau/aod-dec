@@ -78,6 +78,9 @@ pub struct LlvmApi {
     pub context_dispose: unsafe extern "C" fn(LLVMContextRef),
     pub create_mem_buf_copy:
         unsafe extern "C" fn(*const c_char, usize, *const c_char) -> LLVMMemoryBufferRef,
+    pub get_buffer_start: unsafe extern "C" fn(LLVMMemoryBufferRef) -> *const c_char,
+    pub get_buffer_size: unsafe extern "C" fn(LLVMMemoryBufferRef) -> usize,
+    pub dispose_memory_buffer: unsafe extern "C" fn(LLVMMemoryBufferRef),
     pub parse_ir_in_context: unsafe extern "C" fn(
         LLVMContextRef,
         LLVMMemoryBufferRef,
@@ -133,6 +136,13 @@ pub struct LlvmApi {
         c_uint,
         *mut *mut c_char,
     ) -> c_int,
+    pub target_machine_emit_to_mem_buf: unsafe extern "C" fn(
+        LLVMTargetMachineRef,
+        LLVMModuleRef,
+        c_uint,
+        *mut *mut c_char,
+        *mut LLVMMemoryBufferRef,
+    ) -> c_int,
 
     // ORC LLJIT & TargetMachineBuilder (`P0-1`)
     pub orc_create_lljit_builder: unsafe extern "C" fn() -> LLVMOrcLLJITBuilderRef,
@@ -176,6 +186,11 @@ pub struct LlvmApi {
         LLVMOrcLLJITRef,
         LLVMOrcJITDylibRef,
         LLVMOrcThreadSafeModuleRef,
+    ) -> LLVMErrorRef,
+    pub orc_lljit_add_object_file: unsafe extern "C" fn(
+        LLVMOrcLLJITRef,
+        LLVMOrcJITDylibRef,
+        LLVMMemoryBufferRef,
     ) -> LLVMErrorRef,
     pub orc_lljit_lookup:
         unsafe extern "C" fn(LLVMOrcLLJITRef, *mut u64, *const c_char) -> LLVMErrorRef,
@@ -239,6 +254,9 @@ fn load_llvm_api_inner() -> Result<LlvmApi, String> {
             context_create: load_sym(handle, "LLVMContextCreate")?,
             context_dispose: load_sym(handle, "LLVMContextDispose")?,
             create_mem_buf_copy: load_sym(handle, "LLVMCreateMemoryBufferWithMemoryRangeCopy")?,
+            get_buffer_start: load_sym(handle, "LLVMGetBufferStart")?,
+            get_buffer_size: load_sym(handle, "LLVMGetBufferSize")?,
+            dispose_memory_buffer: load_sym(handle, "LLVMDisposeMemoryBuffer")?,
             parse_ir_in_context: load_sym(handle, "LLVMParseIRInContext")?,
             verify_module: load_sym(handle, "LLVMVerifyModule")?,
             print_module_to_string: load_sym(handle, "LLVMPrintModuleToString")?,
@@ -267,6 +285,7 @@ fn load_llvm_api_inner() -> Result<LlvmApi, String> {
             dispose_pass_builder_options: load_sym(handle, "LLVMDisposePassBuilderOptions")?,
             run_passes: load_sym(handle, "LLVMRunPasses")?,
             target_machine_emit_to_file: load_sym(handle, "LLVMTargetMachineEmitToFile")?,
+            target_machine_emit_to_mem_buf: load_sym(handle, "LLVMTargetMachineEmitToMemoryBuffer")?,
 
             orc_create_lljit_builder: load_sym(handle, "LLVMOrcCreateLLJITBuilder")?,
             orc_lljit_builder_set_jtmb: load_sym(
@@ -311,6 +330,7 @@ fn load_llvm_api_inner() -> Result<LlvmApi, String> {
             )?,
             orc_dispose_thread_safe_module: load_sym(handle, "LLVMOrcDisposeThreadSafeModule")?,
             orc_lljit_add_llvm_ir_module: load_sym(handle, "LLVMOrcLLJITAddLLVMIRModule")?,
+            orc_lljit_add_object_file: load_sym(handle, "LLVMOrcLLJITAddObjectFile")?,
             orc_lljit_lookup: load_sym(handle, "LLVMOrcLLJITLookup")?,
         }
     };

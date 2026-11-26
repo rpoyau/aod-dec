@@ -37,7 +37,32 @@ pub fn lower_to_llvm_ir_with_plan(
 ) -> DecResult<String> {
     plan.validate()
         .map_err(|msg| Diagnostic::new(DiagnosticCode::RuntimeError, msg))?;
-    let mut cg = Codegen::new(checked, *plan);
+    let mut cg = Codegen::new(checked, *plan, None);
+    cg.index_all()?;
+    cg.emit_all()
+}
+
+pub fn dynamic_export_symbol_name(
+    export_prefix: &str,
+    fn_name: &str,
+    overload_index: u32,
+) -> String {
+    format!(
+        "{export_prefix}__{}__ov{overload_index}",
+        sanitize_ident(fn_name)
+    )
+}
+
+/// Lower a verified library/provider `CheckedUnit` (`require_main == false`) into an LLVM IR module
+/// exporting `<entry>` functions as `@<export_prefix>__<fn>__ov<k>` for Inferno `load` dispatch.
+pub fn lower_dynamic_provider_to_llvm_ir_with_plan(
+    checked: &CheckedUnit,
+    export_prefix: &str,
+    plan: &CodegenPlan,
+) -> DecResult<String> {
+    plan.validate()
+        .map_err(|msg| Diagnostic::new(DiagnosticCode::RuntimeError, msg))?;
+    let mut cg = Codegen::new(checked, *plan, Some(export_prefix.to_string()));
     cg.index_all()?;
     cg.emit_all()
 }
@@ -133,6 +158,8 @@ struct EnumMeta {
 struct FnOverload {
     llvm_name: String,
     unboxed_evolve_llvm_name: Option<String>,
+    dyn_slot: Option<u32>,
+    exported_external: bool,
     mod_key: String,
     param_types: Vec<Type>,
     ret_type: Type,
@@ -148,6 +175,7 @@ enum LoweredCallTarget {
 struct Codegen<'a> {
     checked: &'a CheckedUnit,
     plan: CodegenPlan,
+    export_entry_prefix: Option<String>,
     structs: BTreeMap<(String, String), StructMeta>,
     enums: BTreeMap<(String, String), EnumMeta>,
     chambers: BTreeMap<(String, String), ChamberDecl>,
@@ -166,10 +194,15 @@ struct Codegen<'a> {
 }
 
 impl<'a> Codegen<'a> {
-    fn new(checked: &'a CheckedUnit, plan: CodegenPlan) -> Self {
+    fn new(
+        checked: &'a CheckedUnit,
+        plan: CodegenPlan,
+        export_entry_prefix: Option<String>,
+    ) -> Self {
         Self {
             checked,
             plan,
+            export_entry_prefix,
             structs: BTreeMap::new(),
             enums: BTreeMap::new(),
             chambers: BTreeMap::new(),
@@ -659,25 +692,54 @@ impl<'a> Codegen<'a> {
             }
         }
 
-        for (param_types, ret_type, group_arms) in groups {
+        for (ov_idx, (param_types, ret_type, group_arms)) in groups.into_iter().enumerate() {
             let id = self.fresh_id();
-            let llvm_name = if is_entry_main && param_types.is_empty() {
-                "@dec_entry_main".to_string()
-            } else {
-                format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id)
-            };
-            let unboxed_evolve_llvm_name =
-                if qualifies_for_unboxed_evolve(&f.name, &param_types, &ret_type, &group_arms) {
-                    Some(format!("{llvm_name}_unboxed"))
+            let dyn_slot = self
+                .checked
+                .dynamic_slots
+                .iter()
+                .find(|s| {
+                    s.unit_key == mod_key
+                        && s.fn_name == f.name
+                        && s.overload_index == (ov_idx as u32)
+                })
+                .map(|s| s.slot_index);
+
+            let (llvm_name, exported_external) = if let Some(ref prefix) = self.export_entry_prefix
+            {
+                if mod_key == "<entry>" && f.name != "main" {
+                    (
+                        format!(
+                            "@{}",
+                            dynamic_export_symbol_name(prefix, &f.name, ov_idx as u32)
+                        ),
+                        true,
+                    )
                 } else {
-                    None
-                };
+                    (format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id), false)
+                }
+            } else if is_entry_main && param_types.is_empty() {
+                ("@dec_entry_main".to_string(), false)
+            } else {
+                (format!("@dec_fn_{}_{}", sanitize_ident(&f.name), id), false)
+            };
+
+            let unboxed_evolve_llvm_name = if dyn_slot.is_none()
+                && !exported_external
+                && qualifies_for_unboxed_evolve(&f.name, &param_types, &ret_type, &group_arms)
+            {
+                Some(format!("{llvm_name}_unboxed"))
+            } else {
+                None
+            };
             self.fn_overloads
                 .entry((mod_key.to_string(), f.name.clone()))
                 .or_default()
                 .push(FnOverload {
                     llvm_name,
                     unboxed_evolve_llvm_name,
+                    dyn_slot,
+                    exported_external,
                     mod_key: mod_key.to_string(),
                     param_types,
                     ret_type,
@@ -860,12 +922,14 @@ impl<'a> Codegen<'a> {
 
         self.emit_init_consts()?;
 
-        let main_ret = self
-            .checked
-            .main_return_type
-            .clone()
-            .unwrap_or(Type::Unit);
-        self.emit_entrypoints(&main_ret);
+        if self.export_entry_prefix.is_none() {
+            let main_ret = self
+                .checked
+                .main_return_type
+                .clone()
+                .unwrap_or(Type::Unit);
+            self.emit_entrypoints(&main_ret);
+        }
 
         let mut ir = String::with_capacity(self.fn_defs.len() + 28_000);
         let lut_escaped = escape_llvm_bytes(&PACK4_LUT);
@@ -970,14 +1034,19 @@ impl<'a> Codegen<'a> {
             let _ = write!(sig_params, ", {} %arg{i}", lt.ir());
         }
         let ret_lt = LlvmTy::from_dec(&ov.ret_type);
-        let header = format!(
-            "define internal {} {}({sig_params})",
-            ret_lt.ir(),
-            ov.llvm_name
-        );
+        let linkage = if ov.exported_external {
+            "define"
+        } else {
+            "define internal"
+        };
+        let header = format!("{linkage} {} {}({sig_params})", ret_lt.ir(), ov.llvm_name);
 
         let mut fb = FnBuilder::new(&ov.llvm_name, ov.ret_type.clone(), &ov.mod_key);
         fb.emit_entry_depth_and_fuel();
+        if ov.exported_external && !self.const_order.is_empty() {
+            fb.line("  call void @aod_init_consts(ptr %ctx)");
+            fb.emit_fail_return_check();
+        }
 
         if self.try_emit_two_arm_branchless_select(&mut fb, ov, ret_lt)? {
             self.fn_defs.push_str(&fb.render_fn(&header));
@@ -8221,16 +8290,25 @@ impl FnBuilder {
             let lt = LlvmTy::from_dec(pt);
             let _ = write!(call_args, ", {} {}", lt.ir(), v.reg);
         }
+        let callee_target = if let Some(slot_idx) = ov.dyn_slot {
+            let fn_ptr = self.fresh_reg();
+            self.line(&format!(
+                "  {fn_ptr} = call ptr @aod_rt_resolve_dyn_slot(ptr %ctx, i32 {slot_idx}, ptr {})",
+                ov.llvm_name
+            ));
+            fn_ptr
+        } else {
+            ov.llvm_name.clone()
+        };
         let ret_lt = LlvmTy::from_dec(&ov.ret_type);
         let reg = if ret_lt == LlvmTy::Void {
-            self.line(&format!("  call void {}({call_args})", ov.llvm_name));
+            self.line(&format!("  call void {callee_target}({call_args})"));
             String::new()
         } else {
             let r = self.fresh_reg();
             self.line(&format!(
-                "  {r} = call {} {}({call_args})",
-                ret_lt.ir(),
-                ov.llvm_name
+                "  {r} = call {} {callee_target}({call_args})",
+                ret_lt.ir()
             ));
             r
         };
@@ -10617,6 +10695,7 @@ declare void @aod_rt_sim_builder_add_decl_obs(ptr, i64, i8, i64, i64)
 declare void @aod_rt_sim_builder_add_proc_obs(ptr, i64, i64, ptr)
 declare i64 @aod_rt_sim_run(ptr, i64, i64)
 declare i64 @aod_rt_sim_run_ex(ptr, i64, i64, i8)
+declare ptr @aod_rt_resolve_dyn_slot(ptr, i32, ptr)
 
 define internal i64 @__aod_int_from_i64_fast(ptr %ctx, i64 %v) alwaysinline {
 entry:

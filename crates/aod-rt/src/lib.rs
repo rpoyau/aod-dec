@@ -7,6 +7,7 @@
 
 pub mod abi;
 pub mod arena;
+pub mod ns_fs;
 pub mod ops;
 pub mod sim;
 pub mod value;

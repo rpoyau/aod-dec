@@ -2,11 +2,11 @@ use aod_core::bigint::BigInt;
 use aod_core::ternary::{B64, B8, Q4, T1};
 
 use crate::ast::{
-    AxisDir, BinaryOp, ChamberDecl, ClockDecl, ConstDecl, DecArm, DecArmParam,
+    AdverbOp, AxisDir, BinaryOp, BindMode, ChamberDecl, ClockDecl, ConstDecl, DecArm, DecArmParam,
     DecFnDecl, EnumDecl, EnumVariantDecl, Expr, ExprKind, InjectDecl, Item, LetPattern,
-    MatchExprArm, ObserveDecl, Pattern, PipeStage, PrepareDecl, ProbeDecl, ProbeKind, Program,
-    QuarantineModDecl, Stmt, StmtKind, StructDecl, TritLiteral, TypeExpr, UnaryOp, UseDecl,
-    WallPolicyAst,
+    MatchExprArm, MountMode, MountPerm, NamespaceDecl, NsMountSource, NsOp, ObserveDecl, Pattern,
+    PipeStage, PrepareDecl, ProbeDecl, ProbeKind, Program, QuarantineModDecl, Stmt, StmtKind,
+    StructDecl, TritLiteral, TypeExpr, UnaryOp, UseDecl, WallPolicyAst,
 };
 use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::lexer::{tokenize, Token, TokenKind};
@@ -247,6 +247,16 @@ impl Parser {
                 }
                 Ok(Item::QuarantineMod(self.parse_quarantine_mod()?))
             }
+            TokenKind::Ident(kw) if kw == "namespace" => {
+                if in_quarantine_mod {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        line,
+                        "namespace declarations must appear at module top level",
+                    ));
+                }
+                Ok(Item::Namespace(self.parse_namespace_decl()?))
+            }
             other => Err(Diagnostic::at(
                 DiagnosticCode::ParseError,
                 line,
@@ -256,16 +266,375 @@ impl Parser {
         }
     }
 
+    fn expect_slash_segment(&mut self) -> DecResult<(String, bool)> {
+        let tok = self.peek().clone();
+        match tok.kind {
+            TokenKind::Ident(s) => {
+                self.advance();
+                Ok((s, false))
+            }
+            TokenKind::Adverb(AdverbOp::FoldMin) => {
+                self.advance();
+                Ok(("min".to_string(), true))
+            }
+            TokenKind::Adverb(AdverbOp::FoldMax) => {
+                self.advance();
+                Ok(("max".to_string(), true))
+            }
+            TokenKind::Adverb(AdverbOp::FoldSuperpose) => {
+                self.advance();
+                Ok(("superpose".to_string(), true))
+            }
+            TokenKind::Dec => {
+                self.advance();
+                Ok(("dec".to_string(), false))
+            }
+            TokenKind::Where => {
+                self.advance();
+                Ok(("where".to_string(), false))
+            }
+            TokenKind::Null => {
+                self.advance();
+                Ok(("null".to_string(), false))
+            }
+            TokenKind::Let => {
+                self.advance();
+                Ok(("let".to_string(), false))
+            }
+            TokenKind::Const => {
+                self.advance();
+                Ok(("const".to_string(), false))
+            }
+            TokenKind::Return => {
+                self.advance();
+                Ok(("return".to_string(), false))
+            }
+            TokenKind::Emit => {
+                self.advance();
+                Ok(("emit".to_string(), false))
+            }
+            TokenKind::Assert => {
+                self.advance();
+                Ok(("assert".to_string(), false))
+            }
+            TokenKind::In => {
+                self.advance();
+                Ok(("in".to_string(), false))
+            }
+            TokenKind::And => {
+                self.advance();
+                Ok(("and".to_string(), false))
+            }
+            TokenKind::Or => {
+                self.advance();
+                Ok(("or".to_string(), false))
+            }
+            TokenKind::Not => {
+                self.advance();
+                Ok(("not".to_string(), false))
+            }
+            TokenKind::True => {
+                self.advance();
+                Ok(("true".to_string(), false))
+            }
+            TokenKind::False => {
+                self.advance();
+                Ok(("false".to_string(), false))
+            }
+            TokenKind::Use => {
+                self.advance();
+                Ok(("use".to_string(), false))
+            }
+            TokenKind::Chamber => {
+                self.advance();
+                Ok(("chamber".to_string(), false))
+            }
+            TokenKind::Prepare => {
+                self.advance();
+                Ok(("prepare".to_string(), false))
+            }
+            TokenKind::Observe => {
+                self.advance();
+                Ok(("observe".to_string(), false))
+            }
+            TokenKind::Simulate => {
+                self.advance();
+                Ok(("simulate".to_string(), false))
+            }
+            TokenKind::Quarantine => {
+                self.advance();
+                Ok(("quarantine".to_string(), false))
+            }
+            TokenKind::Pass => {
+                self.advance();
+                Ok(("pass".to_string(), false))
+            }
+            TokenKind::Struct => {
+                self.advance();
+                Ok(("struct".to_string(), false))
+            }
+            TokenKind::Enum => {
+                self.advance();
+                Ok(("enum".to_string(), false))
+            }
+            TokenKind::Match => {
+                self.advance();
+                Ok(("match".to_string(), false))
+            }
+            _ => Err(Diagnostic::at(
+                DiagnosticCode::ParseError,
+                tok.line,
+                tok.col,
+                format!("expected Plan 9 path segment after '/', got {:?}", tok.kind),
+            )),
+        }
+    }
+
+    fn parse_slash_path(&mut self, allow_root: bool) -> DecResult<Vec<String>> {
+        let line = self.line();
+        self.expect(&TokenKind::Slash, "'/'")?;
+        if allow_root
+            && matches!(
+                self.peek().kind,
+                TokenKind::Newline | TokenKind::Colon | TokenKind::Arrow | TokenKind::Eof
+            )
+        {
+            return Ok(Vec::new());
+        }
+        let mut segs = Vec::new();
+        loop {
+            let (seg, had_slash) = self.expect_slash_segment()?;
+            if seg == "." || seg == ".." {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::ParseError,
+                    line,
+                    "'.' and '..' segments are forbidden in lexical Plan 9 paths",
+                ));
+            }
+            segs.push(seg);
+            if had_slash {
+                continue;
+            }
+            if self.check(&TokenKind::Slash) {
+                self.advance();
+                continue;
+            }
+            break;
+        }
+        Ok(segs)
+    }
+
+    fn parse_opt_bind_mode(&mut self) -> Option<BindMode> {
+        match &self.peek().kind {
+            TokenKind::Ident(s) if s == "replace" => {
+                self.advance();
+                Some(BindMode::Replace)
+            }
+            TokenKind::Ident(s) if s == "before" => {
+                self.advance();
+                Some(BindMode::Before)
+            }
+            TokenKind::Ident(s) if s == "after" => {
+                self.advance();
+                Some(BindMode::After)
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_namespace_decl(&mut self) -> DecResult<NamespaceDecl> {
+        let line = self.line();
+        let kw = self.expect_ident("'namespace'")?;
+        debug_assert_eq!(kw, "namespace");
+        let name = self.expect_ident("namespace name")?;
+        self.expect(&TokenKind::Colon, "':' after namespace name")?;
+        self.expect(&TokenKind::Newline, "newline after 'namespace <name>:'")?;
+        self.expect(&TokenKind::Indent, "indented namespace body")?;
+        self.skip_newlines();
+
+        let mut ops = Vec::new();
+        while !self.check(&TokenKind::Dedent) && !self.check(&TokenKind::Eof) {
+            if self.check(&TokenKind::Pass) {
+                self.advance();
+                self.expect_line_end()?;
+                self.skip_newlines();
+                continue;
+            }
+            let op_line = self.line();
+            let verb = self.expect_ident("namespace directive (clear, fork, mount, bind, unmount)")?;
+            match verb.as_str() {
+                "clear" => {
+                    self.expect_line_end()?;
+                    ops.push(NsOp::Clear { line: op_line });
+                }
+                "fork" => {
+                    self.expect_line_end()?;
+                    ops.push(NsOp::Fork { line: op_line });
+                }
+                "mount" => {
+                    if matches!(&self.peek().kind, TokenKind::Ident(s) if s == "dyn") {
+                        self.advance();
+                        let source = if let TokenKind::BytesLit(bs) = self.peek().kind.clone() {
+                            self.advance();
+                            NsMountSource::BytesUri(bs)
+                        } else if self.check(&TokenKind::Slash) {
+                            NsMountSource::ExistingPath(self.parse_slash_path(false)?)
+                        } else {
+                            return Err(Diagnostic::at_line(
+                                DiagnosticCode::ParseError,
+                                op_line,
+                                "expected b\"<uri>\" or /path after 'mount dyn'",
+                            ));
+                        };
+                        self.expect(&TokenKind::Arrow, "'->' in mount dyn")?;
+                        let target = self.parse_slash_path(false)?;
+                        self.expect_line_end()?;
+                        ops.push(NsOp::Mount {
+                            mode: MountMode::Dynamic,
+                            perm: MountPerm::ReadOnly,
+                            bind_mode: BindMode::Replace,
+                            source,
+                            target,
+                            line: op_line,
+                        });
+                    } else {
+                        // Accept flexible modifier order: `[before|after|replace]`, `[ro|rw]`, `ramfs`
+                        let mut bind_mode: Option<BindMode> = None;
+                        let mut perm: Option<MountPerm> = None;
+                        let mut is_ramfs = false;
+                        loop {
+                            if bind_mode.is_none() {
+                                if let Some(bm) = self.parse_opt_bind_mode() {
+                                    bind_mode = Some(bm);
+                                    continue;
+                                }
+                            }
+                            match &self.peek().kind {
+                                TokenKind::Ident(s) if s == "ramfs" && !is_ramfs && perm.is_none() => {
+                                    self.advance();
+                                    is_ramfs = true;
+                                }
+                                TokenKind::Ident(s) if s == "ro" && perm.is_none() && !is_ramfs => {
+                                    self.advance();
+                                    perm = Some(MountPerm::ReadOnly);
+                                }
+                                TokenKind::Ident(s) if s == "rw" && perm.is_none() && !is_ramfs => {
+                                    self.advance();
+                                    perm = Some(MountPerm::ReadWrite);
+                                }
+                                _ => break,
+                            }
+                        }
+                        let bind_mode = bind_mode.unwrap_or(BindMode::Replace);
+                        if is_ramfs {
+                            self.expect(&TokenKind::Arrow, "'->' after 'mount ramfs'")?;
+                            let target = self.parse_slash_path(true)?;
+                            self.expect_line_end()?;
+                            ops.push(NsOp::Mount {
+                                mode: MountMode::Static,
+                                perm: MountPerm::ReadWrite,
+                                bind_mode,
+                                source: NsMountSource::RamFs,
+                                target,
+                                line: op_line,
+                            });
+                        } else {
+                            let perm = perm.unwrap_or(MountPerm::ReadOnly);
+                            let TokenKind::BytesLit(bs) = self.peek().kind.clone() else {
+                                return Err(Diagnostic::at_line(
+                                    DiagnosticCode::ParseError,
+                                    op_line,
+                                    "expected byte URI literal b\"...\" in mount directive",
+                                ));
+                            };
+                            self.advance();
+                            self.expect(&TokenKind::Arrow, "'->' in mount directive")?;
+                            let target = self.parse_slash_path(true)?;
+                            self.expect_line_end()?;
+                            ops.push(NsOp::Mount {
+                                mode: MountMode::Static,
+                                perm,
+                                bind_mode,
+                                source: NsMountSource::BytesUri(bs),
+                                target,
+                                line: op_line,
+                            });
+                        }
+                    }
+                }
+                "bind" => {
+                    let mode = self.parse_opt_bind_mode().unwrap_or(BindMode::Replace);
+                    let existing = self.parse_slash_path(true)?;
+                    self.expect(&TokenKind::Arrow, "'->' in bind directive")?;
+                    let target = self.parse_slash_path(true)?;
+                    self.expect_line_end()?;
+                    ops.push(NsOp::Bind {
+                        mode,
+                        existing,
+                        target,
+                        line: op_line,
+                    });
+                }
+                "unmount" => {
+                    let target = self.parse_slash_path(true)?;
+                    self.expect_line_end()?;
+                    ops.push(NsOp::Unmount {
+                        target,
+                        line: op_line,
+                    });
+                }
+                other => {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::ParseError,
+                        op_line,
+                        format!(
+                            "unknown namespace directive {other:?}; expected clear, fork, mount, bind, or unmount"
+                        ),
+                    ));
+                }
+            }
+            self.skip_newlines();
+        }
+        self.expect(&TokenKind::Dedent, "dedent after namespace block")?;
+        Ok(NamespaceDecl { name, ops, line })
+    }
+
     fn parse_use(&mut self) -> DecResult<UseDecl> {
         let line = self.line();
         self.expect(&TokenKind::Use, "'use'")?;
-        let mut path = vec![self.expect_ident("module path")?];
-        while self.check(&TokenKind::ColonColon) {
-            self.advance();
-            path.push(self.expect_ident("path segment")?);
-        }
+        let (rooted_slash, path) = if self.check(&TokenKind::Slash) {
+            (true, self.parse_slash_path(false)?)
+        } else {
+            let mut p = vec![self.expect_ident("module path")?];
+            while self.check(&TokenKind::ColonColon) {
+                self.advance();
+                p.push(self.expect_ident("path segment")?);
+            }
+            (false, p)
+        };
         if self.check(&TokenKind::Colon) {
             self.advance();
+            if !self.check(&TokenKind::Newline) {
+                let mut list = Vec::new();
+                loop {
+                    list.push(self.expect_ident("imported item")?);
+                    if self.check(&TokenKind::Comma) {
+                        self.advance();
+                        if self.check(&TokenKind::Newline) || self.check(&TokenKind::Eof) {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                self.expect_line_end()?;
+                return Ok(UseDecl {
+                    rooted_slash,
+                    path,
+                    items: Some(list),
+                    line,
+                });
+            }
             self.expect(&TokenKind::Newline, "newline after 'use path:'")?;
             self.expect(&TokenKind::Indent, "indented imported items")?;
             self.skip_newlines();
@@ -297,6 +666,7 @@ impl Parser {
                 ));
             }
             Ok(UseDecl {
+                rooted_slash,
                 path,
                 items: Some(list),
                 line,
@@ -304,6 +674,7 @@ impl Parser {
         } else {
             self.expect_line_end()?;
             Ok(UseDecl {
+                rooted_slash,
                 path,
                 items: None,
                 line,

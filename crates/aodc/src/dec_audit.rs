@@ -279,13 +279,36 @@ pub fn audit_dec_source_with_options(
     base_dir: Option<&Path>,
     opts: &LoadOptions,
 ) -> DecAuditReport {
+    audit_dec_source_with_ns_and_options(source, source_name, base_dir, None, None, opts)
+}
+
+pub fn audit_dec_source_with_ns_and_options(
+    source: &str,
+    source_name: &str,
+    base_dir: Option<&Path>,
+    bootstrap_ns_source: Option<&str>,
+    ns_base_dir: Option<&Path>,
+    opts: &LoadOptions,
+) -> DecAuditReport {
     let raw_bytes = source.as_bytes();
     let live_walk = lex_live_walk(raw_bytes);
     let source_sha256 = Sha256::digest_hex(raw_bytes);
 
     let mut acc = AuditState::default();
 
-    match load_from_source_with_options(source, base_dir, opts) {
+    let load_res = if let Some(ns_src) = bootstrap_ns_source {
+        crate::modules::load_with_external_namespace_source(
+            source,
+            ns_src,
+            base_dir,
+            ns_base_dir,
+            opts,
+        )
+    } else {
+        load_from_source_with_options(source, base_dir, opts)
+    };
+
+    match load_res {
         Err(diag) => {
             let msg = sanitize_error(&diag.to_string(), &[]);
             acc.errors.push(msg.clone());
@@ -682,11 +705,13 @@ fn audit_program(prog: &Program, is_entry: bool, acc: &mut AuditState) {
                     }
                 }
             }
-            Item::Struct(_) | Item::Enum(_) | Item::Use(_) => {}
+            Item::Struct(_) | Item::Enum(_) | Item::Use(_) | Item::Namespace(_) => {}
         }
     }
 
-    if is_entry && dec_fn_count == 0 {
+    let has_only_namespace =
+        !prog.items.is_empty() && prog.items.iter().all(|it| matches!(it, Item::Namespace(_)));
+    if is_entry && dec_fn_count == 0 && !has_only_namespace {
         acc.spine_audit
             .record("entry module declares zero dec functions");
     }

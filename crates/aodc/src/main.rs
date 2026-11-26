@@ -8,16 +8,17 @@ use std::process::ExitCode;
 use aod_core::json::{parse_strict_json, JsonValue};
 use aodc::eval::{Value, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use aodc::{
-    audit_dec_file_with_options, audit_pdf_file, bench_file_with_options,
-    build_aot_file_with_options, check_file_with_options, check_v1_file, collect_guarded_roots,
-    compile_file_to_ir_with_options, compile_v1_file_to_ir, emit_llvm_file_with_options,
-    eval_operation, exec_ir_file_with_budget_capturing, format_source, format_x100,
-    jit_file_with_profile_and_parallel_captured, learn_file_with_options,
+    audit_dec_file_with_ns_and_options, audit_pdf_file, bench_file_with_options,
+    build_aot_file_with_ns_and_options, check_file_with_ns_and_options, check_v1_file,
+    collect_guarded_roots, compile_file_to_ir_with_ns_and_options, compile_v1_file_to_ir,
+    emit_llvm_file_with_ns_and_options, eval_operation, exec_ir_file_with_budget_capturing,
+    format_source, format_x100, jit_file_with_ns_and_bootstrap_captured, learn_file_with_options,
     migrate_source_formatted, read_bounded_regular_file, read_bounded_stdin, run_all_hw_probes,
-    run_dec_tests_with_compat, run_file_with_parallel_observers_capturing, run_manual_data,
+    run_dec_tests_with_compat, run_file_with_ns_and_bootstrap_capturing, run_manual_data,
     run_v1_file_capturing, validate_runtime_output_path, verify_manual_dir, verify_s2_dir,
     verify_s4_convergence_dir, write_report_atomic, CompatMode, LoadOptions, ManualDataOptions,
-    ManualVerifyOptions, OptLevel, PdfAuditOptions, MAX_MIGRATE_SOURCE_BYTES, MAX_S4_INPUT_BYTES,
+    ManualVerifyOptions, OptLevel, PdfAuditOptions, RtMountSpec, RtNamespace,
+    MAX_MIGRATE_SOURCE_BYTES, MAX_S4_INPUT_BYTES,
 };
 
 struct CliErr {
@@ -171,6 +172,7 @@ struct ExecOptions {
     output: Option<String>,
     profile: Option<String>,
     parallel_observers: bool,
+    bootstrap_ns: Option<PathBuf>,
     load: LoadOptions,
     rest: Vec<String>,
 }
@@ -198,6 +200,7 @@ fn parse_options(
     let mut profile = None;
     let mut parallel_observers = false;
     let mut stdlib_dir = None;
+    let mut bootstrap_ns = None;
     let mut rest = Vec::new();
     let mut i = 0usize;
     while i < args.len() {
@@ -211,6 +214,15 @@ fn parse_options(
                 .get(i + 1)
                 .ok_or_else(|| "missing directory path after --stdlib".to_string())?;
             stdlib_dir = Some(PathBuf::from(val));
+            i += 2;
+        } else if allow_stdlib && a == "--namespace" {
+            if bootstrap_ns.is_some() {
+                return Err("duplicate flag --namespace".to_string());
+            }
+            let val = args
+                .get(i + 1)
+                .ok_or_else(|| "missing bootstrap .dec file path after --namespace".to_string())?;
+            bootstrap_ns = Some(PathBuf::from(val));
             i += 2;
         } else if allow_opt && a.starts_with("-O") {
             let (parsed, adv) = parse_opt_level(a, args.get(i + 1))?;
@@ -278,6 +290,7 @@ fn parse_options(
         output,
         profile,
         parallel_observers,
+        bootstrap_ns,
         load: LoadOptions { stdlib_dir },
         rest,
     })
@@ -304,8 +317,71 @@ fn flush_emits_and_result(
     }
 }
 
+fn extract_ns_and_prog_args(
+    args: &[String],
+) -> Result<(RtNamespace, Vec<String>, Vec<String>), String> {
+    let mut before_ddash = Vec::new();
+    let mut after_ddash = Vec::new();
+    let mut saw_ddash = false;
+    for a in args {
+        if saw_ddash {
+            after_ddash.push(a.clone());
+        } else if a == "--" {
+            saw_ddash = true;
+        } else {
+            before_ddash.push(a.clone());
+        }
+    }
+
+    let mut specs = Vec::new();
+    let mut unconfined = false;
+    let mut filtered = Vec::new();
+    let mut i = 0usize;
+    while i < before_ddash.len() {
+        match before_ddash[i].as_str() {
+            "--unconfined" => {
+                unconfined = true;
+                i += 1;
+            }
+            "--mount" => {
+                let raw = before_ddash
+                    .get(i + 1)
+                    .ok_or_else(|| "missing spec after --mount".to_string())?;
+                specs.push(RtMountSpec::parse_cli(raw)?);
+                i += 2;
+            }
+            _ => {
+                filtered.push(before_ddash[i].clone());
+                i += 1;
+            }
+        }
+    }
+
+    if unconfined && !specs.is_empty() {
+        return Err("--unconfined cannot be combined with --mount".to_string());
+    }
+    let mut rt_ns = if unconfined {
+        RtNamespace::unconfined_host()
+    } else {
+        RtNamespace::empty()
+    };
+    for spec in &specs {
+        rt_ns.apply_spec(spec)?;
+    }
+    Ok((rt_ns, filtered, after_ddash))
+}
+
+fn build_prog_cli_args(prog_name: &str, prog_tail: &[String]) -> Vec<Vec<u8>> {
+    let mut out = Vec::with_capacity(1 + prog_tail.len());
+    out.push(prog_name.as_bytes().to_vec());
+    for a in prog_tail {
+        out.push(a.as_bytes().to_vec());
+    }
+    out
+}
+
 fn usage() -> &'static str {
-    "Usage:\n  aodc check [--compat v1|v3] [--stdlib <dir>] <source.dec>\n  aodc run [--compat v1|v3] [--stdlib <dir>] [--fuel <N>] [--max-depth <N>] [--parallel-observers] <source.dec>\n  aodc compile [--compat v1|v3] [--stdlib <dir>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--parallel-observers] <source.dec>\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc migrate [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--report <path>] [--json] <source.dec>\n  aodc test [--compat v1|v3] [--stdlib <dir>] <file_or_dir>"
+    "Usage:\n  aodc check [--compat v1|v3] [--stdlib <dir>] [--namespace <ns.dec>] <source.dec>\n  aodc run [--compat v1|v3] [--stdlib <dir>] [--namespace <ns.dec>] [--fuel <N>] [--max-depth <N>] [--mount <spec>] [--unconfined] [--parallel-observers] <source.dec> [-- <args>...]\n  aodc compile [--compat v1|v3] [--stdlib <dir>] [--namespace <ns.dec>] <source.dec> -o <out.ir.json>\n  aodc exec [--fuel <N>] [--max-depth <N>] <program.ir.json>\n  aodc emit-llvm [--stdlib <dir>] [--namespace <ns.dec>] [-O 0|1|2|3] <source.dec> [-o <out.ll>]\n  aodc build [--stdlib <dir>] [--namespace <ns.dec>] [-O 0|1|2|3] <source.dec> -o <out_exe>\n  aodc jit [--stdlib <dir>] [--namespace <ns.dec>] [-O 0|1|2|3] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] [--mount <spec>] [--unconfined] [--parallel-observers] <source.dec> [-- <args>...]\n  aodc bench [--stdlib <dir>] [--iters <N>] [--fuel <N>] [--max-depth <N>] <source.dec>\n  aodc probe-hw [--output <report.json>]\n  aodc learn [--stdlib <dir>] [--baseline O0|O2] [--pairs <N>] [--heldout <N>] [--fuel <N>] [--max-depth <N>] [--profile <p.json>] <source.dec>\n  aodc bootstrap-verify [--source <aodc_self.dec>] [--sample <prog.dec>] [--emit-stage2 <out_exe>] [--stdlib <dir>] [--json]\n  aodc manual-data [--check] [--output-dir <dir>] [--stdlib <dir>] [--json]\n  aodc manual-verify [--stdlib <dir>] [--registry <path>] [--json] <manual_dir>\n  aodc verify-s2 [--vectors <dir>] [--binding <path>] [--fixture <csv>] [--s4-report] [--report <path>] [--json]\n  aodc eval-op <op> (--input-json <json> | --input <file> | --input-stdin) [--report <path>]\n  aodc audit-pdf [--min-pages <N>] [--compare-pdf <pdf2>] [--json] <pdf>\n  aodc fmt [--check | --write | -o <out.dec>] <source.dec>\n  aodc migrate [--check | --write | -o <out.dec>] <source.dec>\n  aodc audit-dec [--stdlib <dir>] [--namespace <ns.dec>] [--report <path>] [--json] <source.dec>\n  aodc test [--compat v1|v3] [--stdlib <dir>] <file_or_dir>"
 }
 
 fn main() -> ExitCode {
@@ -336,7 +412,12 @@ fn main() -> ExitCode {
                         check_v1_file(src_path).map_err(|e| e.to_string())?;
                     }
                     CompatMode::V3 => {
-                        check_file_with_options(src_path, &opts.load).map_err(|e| e.to_string())?;
+                        check_file_with_ns_and_options(
+                            src_path,
+                            opts.bootstrap_ns.as_deref(),
+                            &opts.load,
+                        )
+                        .map_err(|e| e.to_string())?;
                     }
                 }
                 println!("OK: Dec");
@@ -345,21 +426,26 @@ fn main() -> ExitCode {
             .map_err(CliErr::fail),
         "run" => extract_compat_flag(sub_args)
             .and_then(|(compat, rem)| {
+                let (rt_ns, rem2, prog_tail) = extract_ns_and_prog_args(&rem)?;
                 let opts =
-                    parse_options(&rem, false, true, false, false, true, false, false, true)?;
+                    parse_options(&rem2, false, true, false, false, true, false, false, true)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let src_path = Path::new(&opts.rest[0]);
+                let cli_args = build_prog_cli_args(&opts.rest[0], &prog_tail);
                 let (emits, outcome) = match compat {
                     CompatMode::V1 => run_v1_file_capturing(src_path, opts.fuel, opts.max_depth)
                         .map_err(|e| e.to_string())?,
-                    CompatMode::V3 => run_file_with_parallel_observers_capturing(
+                    CompatMode::V3 => run_file_with_ns_and_bootstrap_capturing(
                         src_path,
+                        opts.bootstrap_ns.as_deref(),
                         opts.fuel,
                         opts.max_depth,
                         &opts.load,
                         opts.parallel_observers,
+                        rt_ns,
+                        cli_args,
                     )
                     .map_err(|e| e.to_string())?,
                 };
@@ -383,8 +469,12 @@ fn main() -> ExitCode {
                     CompatMode::V1 => {
                         compile_v1_file_to_ir(&src_path).map_err(|e| e.to_string())?
                     }
-                    CompatMode::V3 => compile_file_to_ir_with_options(&src_path, &opts.load)
-                        .map_err(|e| e.to_string())?,
+                    CompatMode::V3 => compile_file_to_ir_with_ns_and_options(
+                        &src_path,
+                        opts.bootstrap_ns.as_deref(),
+                        &opts.load,
+                    )
+                    .map_err(|e| e.to_string())?,
                 };
                 std::fs::write(&out_path, ir_text).map_err(|e| format!("write error: {e}"))?;
                 Ok(())
@@ -414,8 +504,13 @@ fn main() -> ExitCode {
                 if let Some(ref out) = opts.output {
                     ensure_out_differs_from_src(&src_path, Path::new(out))?;
                 }
-                let ir = emit_llvm_file_with_options(&src_path, opts.opt, &opts.load)
-                    .map_err(|e| e.to_string())?;
+                let ir = emit_llvm_file_with_ns_and_options(
+                    &src_path,
+                    opts.bootstrap_ns.as_deref(),
+                    opts.opt,
+                    &opts.load,
+                )
+                .map_err(|e| e.to_string())?;
                 if let Some(out) = opts.output {
                     std::fs::write(&out, ir).map_err(|e| format!("write error: {e}"))?;
                 } else {
@@ -436,27 +531,38 @@ fn main() -> ExitCode {
                         .ok_or_else(|| "missing -o <out_exe>".to_string())?,
                 );
                 ensure_out_differs_from_src(&src_path, &out_path)?;
-                build_aot_file_with_options(&src_path, opts.opt, &out_path, &opts.load)
-                    .map_err(|e| e.to_string())
+                build_aot_file_with_ns_and_options(
+                    &src_path,
+                    opts.bootstrap_ns.as_deref(),
+                    opts.opt,
+                    &out_path,
+                    &opts.load,
+                )
+                .map_err(|e| e.to_string())
             })
             .map_err(CliErr::fail),
-        "jit" => parse_options(sub_args, true, true, false, false, true, true, false, true)
-            .and_then(|opts| {
+        "jit" => extract_ns_and_prog_args(sub_args)
+            .and_then(|(rt_ns, rem, prog_tail)| {
+                let opts =
+                    parse_options(&rem, true, true, false, false, true, true, false, true)?;
                 if opts.rest.len() != 1 {
                     return Err(format!("expected <source.dec>\n{}", usage()));
                 }
                 let profile_path = opts.profile.as_deref().map(Path::new);
-                let (stdout, res, _plan, fallback_note) =
-                    jit_file_with_profile_and_parallel_captured(
-                        Path::new(&opts.rest[0]),
-                        opts.opt,
-                        opts.fuel,
-                        opts.max_depth,
-                        profile_path,
-                        &opts.load,
-                        opts.parallel_observers,
-                    )
-                    .map_err(|e| e.to_string())?;
+                let cli_args = build_prog_cli_args(&opts.rest[0], &prog_tail);
+                let (stdout, res, _plan, fallback_note) = jit_file_with_ns_and_bootstrap_captured(
+                    Path::new(&opts.rest[0]),
+                    opts.bootstrap_ns.as_deref(),
+                    opts.opt,
+                    opts.fuel,
+                    opts.max_depth,
+                    profile_path,
+                    &opts.load,
+                    opts.parallel_observers,
+                    rt_ns,
+                    cli_args,
+                )
+                .map_err(|e| e.to_string())?;
                 if let Some(note) = fallback_note {
                     eprintln!("aodc: profile fallback to baseline: {note}");
                 }
@@ -1653,6 +1759,7 @@ fn main() -> ExitCode {
         }
         "audit-dec" | "audit" => {
             let mut stdlib_dir: Option<PathBuf> = None;
+            let mut bootstrap_ns: Option<PathBuf> = None;
             let mut report_path: Option<PathBuf> = None;
             let mut json_mode = false;
             let mut positional: Vec<String> = Vec::new();
@@ -1682,6 +1789,23 @@ fn main() -> ExitCode {
                             None => {
                                 parse_err =
                                     Some("missing directory path after --stdlib".to_string());
+                                break;
+                            }
+                        }
+                    }
+                    "--namespace" => {
+                        if bootstrap_ns.is_some() {
+                            parse_err = Some("duplicate flag --namespace".to_string());
+                            break;
+                        }
+                        match sub_args.get(idx + 1) {
+                            Some(v) => {
+                                bootstrap_ns = Some(PathBuf::from(v));
+                                idx += 2;
+                            }
+                            None => {
+                                parse_err =
+                                    Some("missing file path after --namespace".to_string());
                                 break;
                             }
                         }
@@ -1732,6 +1856,9 @@ fn main() -> ExitCode {
                     if let Some(ref sd) = stdlib_dir {
                         explicit.push(sd.as_path());
                     }
+                    if let Some(ref ns) = bootstrap_ns {
+                        explicit.push(ns.as_path());
+                    }
                     let guarded = collect_guarded_roots(raw_rp, &explicit);
                     match validate_runtime_output_path(raw_rp, &guarded) {
                         Ok(p) => Some(p),
@@ -1745,7 +1872,11 @@ fn main() -> ExitCode {
                 };
 
                 let load_opts = LoadOptions { stdlib_dir };
-                let report = audit_dec_file_with_options(src_path, &load_opts);
+                let report = audit_dec_file_with_ns_and_options(
+                    src_path,
+                    bootstrap_ns.as_deref(),
+                    &load_opts,
+                );
                 let json_val = report.to_json();
                 if let Some(ref rp) = validated_report {
                     let pretty = json_val.to_pretty_utf8_json();

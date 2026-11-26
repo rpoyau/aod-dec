@@ -663,6 +663,12 @@ where
     // 1. Compile baseline plan & capture exact reference semantic snapshot
     let (base_sess, _base_compile_ns) = compile_plan(&baseline_plan)?;
     let (base_sem, _) = time_semantic_exec(&base_sess, fuel, max_depth);
+    if base_sem.failed {
+        return Err(format!(
+            "baseline execution failed during hardware learn session: {}",
+            base_sem.error.as_deref().unwrap_or("runtime error")
+        ));
+    }
     let mut baseline_stdout = String::new();
     for line in &base_sem.emits {
         baseline_stdout.push_str(line);

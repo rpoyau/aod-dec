@@ -9,6 +9,7 @@ pub mod bigint;
 pub mod error;
 pub mod json;
 pub mod ledger;
+pub mod ns;
 pub mod qext;
 pub mod ratio;
 pub mod s2_kernel;

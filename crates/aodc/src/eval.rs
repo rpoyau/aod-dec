@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
 use std::sync::Arc;
 
 use aod_core::bigint::BigInt;
@@ -17,9 +16,10 @@ use aod_core::wavelet::{
     StageEventWitness, Wavelet, WaveletRole, WaveletSpec,
 };
 use aod_core::witness::{Coupling, Fusion, SeatState, Trace};
+use aod_rt::ns_fs::RtNamespace;
 use aod_rt::ops::{
     checked_trit_pow, decode_hex_32, exact_unpack_t9_bits, exact_verify_frg_cross_return,
-    exact_verify_sheddic_route, exact_verify_sheddic_route_int, MAX_SYS_IO_BYTES,
+    exact_verify_sheddic_route, exact_verify_sheddic_route_int,
 };
 use aod_rt::value::{
     model_status_variant_and_tag, recipient_stage_variant_and_tag, render_bytes_literal,
@@ -384,11 +384,19 @@ pub struct Evaluator<'a> {
     depth: usize,
     emits: Vec<String>,
     cli_args: Vec<Vec<u8>>,
+    rt_ns: RtNamespace,
+    dyn_slot_bindings: BTreeMap<u32, Arc<CheckedUnit>>,
     parallel_observers: bool,
 }
 
 impl<'a> Evaluator<'a> {
     pub fn new(checked: &'a CheckedUnit, fuel: usize, max_depth: usize) -> DecResult<Self> {
+        let mut initial_rt_ns = RtNamespace::empty();
+        for spec in &checked.unit.declared_rt_mounts {
+            initial_rt_ns
+                .apply_spec(spec)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+        }
         let mut ev = Self {
             program: Arc::new(EvalProgram {
                 checked,
@@ -406,6 +414,8 @@ impl<'a> Evaluator<'a> {
             depth: 0,
             emits: Vec::new(),
             cli_args: Vec::new(),
+            rt_ns: initial_rt_ns,
+            dyn_slot_bindings: BTreeMap::new(),
             parallel_observers: false,
         };
         ev.register_builtin_enums();
@@ -430,6 +440,68 @@ impl<'a> Evaluator<'a> {
     pub fn with_cli_args(mut self, cli_args: Vec<Vec<u8>>) -> Self {
         self.cli_args = cli_args;
         self
+    }
+
+    pub fn with_rt_namespace(mut self, rt_ns: RtNamespace) -> Self {
+        self.rt_ns = rt_ns;
+        self
+    }
+
+    /// Bind an Inferno `load`-style dynamic capability provider at `mount_path` after verifying
+    /// 32-byte `iface_sha256` signature identity and capability subset monotonicity (`impl <= allowed`),
+    /// without re-checking or recompiling `main`!
+    pub fn bind_dynamic_provider(
+        &mut self,
+        mount_path: &str,
+        provider: Arc<CheckedUnit>,
+    ) -> DecResult<()> {
+        let verified = crate::checker::validate_dynamic_provider_binding(
+            &self.program.checked.dynamic_slots,
+            mount_path,
+            &provider,
+        )?;
+        for (slot_idx, _) in verified {
+            self.dyn_slot_bindings
+                .insert(slot_idx, Arc::clone(&provider));
+        }
+        Ok(())
+    }
+
+    pub fn unbind_dynamic_mount(&mut self, mount_path: &str) -> DecResult<()> {
+        let clean = aod_core::ns::CleanPath::parse_str(mount_path)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::ModuleNotFound, e.to_string()))?;
+        for slot in &self.program.checked.dynamic_slots {
+            if slot.mount_path == clean.as_str() {
+                self.dyn_slot_bindings.remove(&slot.slot_index);
+            }
+        }
+        Ok(())
+    }
+
+    /// Execute an isolated per-task run sharing the pre-indexed `EvalProgram` and current
+    /// `dyn_slot_bindings` in O(1) without recompiling `main`.
+    pub fn run_task_capturing(
+        &self,
+        fuel: usize,
+        max_depth: usize,
+        rt_ns: RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+    ) -> DecResult<(Vec<String>, DecResult<Value>)> {
+        let effective_rt_ns = rt_ns
+            .overlay_onto_base_specs(&self.program.checked.unit.declared_rt_mounts)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+        let task_ev = Self {
+            program: Arc::clone(&self.program),
+            fuel,
+            max_depth,
+            depth: 0,
+            emits: Vec::new(),
+            cli_args,
+            rt_ns: effective_rt_ns,
+            dyn_slot_bindings: self.dyn_slot_bindings.clone(),
+            parallel_observers: self.parallel_observers,
+        };
+        Ok(task_ev.run_main_capturing())
     }
 
     fn register_builtin_enums(&mut self) {
@@ -945,6 +1017,35 @@ impl<'a> Evaluator<'a> {
         pos_vals: Vec<Value>,
         call_line: usize,
     ) -> DecResult<Value> {
+        if !self.dyn_slot_bindings.is_empty() {
+            let matched_prov = self
+                .program
+                .checked
+                .dynamic_slots
+                .iter()
+                .find(|s| {
+                    s.unit_key == mod_key
+                        && s.fn_name == name
+                        && s.param_types.len() == pos_vals.len()
+                        && pos_vals
+                            .iter()
+                            .zip(&s.param_types)
+                            .all(|(v, pt)| eval_val_matches_slot_type(v, pt))
+                })
+                .and_then(|s| self.dyn_slot_bindings.get(&s.slot_index).cloned());
+            if let Some(prov_checked) = matched_prov {
+                let mut sub_ev = Evaluator::new(&prov_checked, self.fuel, self.max_depth)?;
+                sub_ev.depth = self.depth;
+                sub_ev.rt_ns = self.rt_ns.clone();
+                sub_ev.cli_args = self.cli_args.clone();
+                sub_ev.parallel_observers = self.parallel_observers;
+                let res = sub_ev.call_user_fn("<entry>", name, pos_vals, call_line);
+                self.fuel = sub_ev.fuel;
+                self.emits.extend(sub_ev.emits);
+                return res;
+            }
+        }
+
         self.tick()?;
         self.depth += 1;
         if self.depth > self.max_depth {
@@ -2559,109 +2660,18 @@ impl<'a> Evaluator<'a> {
                 self.cli_args.iter().cloned().map(Value::Bytes).collect(),
             )),
             ("aod::sys::read_file_bytes", [Value::Bytes(path_bytes)]) => {
-                if path_bytes.is_empty() || path_bytes.contains(&0) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "invalid empty or NUL-containing path in read_file_bytes",
-                    ));
-                }
-                let path_str = std::str::from_utf8(path_bytes).map_err(|_| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "file path must be valid UTF-8",
-                    )
-                })?;
-                let meta = std::fs::metadata(path_str).map_err(|e| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("failed to stat {path_str:?}: {e}"),
-                    )
-                })?;
-                if meta.len() > (MAX_SYS_IO_BYTES as u64) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"),
-                    ));
-                }
-                let data = std::fs::read(path_str).map_err(|e| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("failed to read {path_str:?}: {e}"),
-                    )
-                })?;
-                if data.len() > MAX_SYS_IO_BYTES {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("file {path_str:?} exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"),
-                    ));
-                }
+                let data = self
+                    .rt_ns
+                    .read_file_bytes(path_bytes)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
                 Ok(Value::Bytes(data))
             }
             ("aod::sys::write_executable_elf", [Value::Bytes(path_bytes), Value::Bytes(img)]) => {
-                if path_bytes.is_empty() || path_bytes.contains(&0) {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "invalid empty or NUL-containing output ELF path",
-                    ));
-                }
-                if img.len() < 64 || &img[0..4] != b"\x7FELF" {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "write_executable_elf requires a valid ELF64 header (\\x7FELF)",
-                    ));
-                }
-                if img.len() > MAX_SYS_IO_BYTES {
-                    return Err(Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("ELF image exceeds {MAX_SYS_IO_BYTES}-byte bootstrap limit"),
-                    ));
-                }
-                let path_str = std::str::from_utf8(path_bytes).map_err(|_| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        "output ELF path must be valid UTF-8",
-                    )
-                })?;
-                let target = Path::new(path_str);
-                if let Ok(meta) = std::fs::symlink_metadata(target) {
-                    if meta.file_type().is_symlink() {
-                        return Err(Diagnostic::at_line(
-                            DiagnosticCode::RuntimeError,
-                            line,
-                            format!("refusing to overwrite symlink {path_str:?}"),
-                        ));
-                    }
-                }
-                std::fs::write(target, img).map_err(|e| {
-                    Diagnostic::at_line(
-                        DiagnosticCode::RuntimeError,
-                        line,
-                        format!("failed to write ELF {path_str:?}: {e}"),
-                    )
-                })?;
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    std::fs::set_permissions(target, std::fs::Permissions::from_mode(0o755))
-                        .map_err(|e| {
-                            Diagnostic::at_line(
-                                DiagnosticCode::RuntimeError,
-                                line,
-                                format!("failed to chmod +x {path_str:?}: {e}"),
-                            )
-                        })?;
-                }
-                Ok(Value::Int(BigInt::from_u64(img.len() as u64)))
+                let written = self
+                    .rt_ns
+                    .write_executable_elf(path_bytes, img)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Int(BigInt::from_u64(written as u64)))
             }
             _ => Err(Diagnostic::at_line(
                 DiagnosticCode::RuntimeError,
@@ -2953,6 +2963,7 @@ impl<'a> Evaluator<'a> {
                         let mut handles = Vec::with_capacity(proc_probes.len());
                         for (_, param_name, body) in &proc_probes {
                             let w_prog = Arc::clone(prog_ref);
+                            let w_dyn = self.dyn_slot_bindings.clone();
                             let p_name = param_name.as_str();
                             let body_slice = body.as_slice();
                             handles.push(scope.spawn(move || {
@@ -2963,6 +2974,8 @@ impl<'a> Evaluator<'a> {
                                     depth: parent_depth,
                                     emits: Vec::new(),
                                     cli_args: Vec::new(),
+                                    rt_ns: RtNamespace::empty(),
+                                    dyn_slot_bindings: w_dyn,
                                     parallel_observers: false,
                                 };
                                 let mut pscope = BTreeMap::new();
@@ -5061,5 +5074,24 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             line,
             format!("unlisted builtin call {name}"),
         )),
+    }
+}
+
+fn eval_val_matches_slot_type(v: &Value, pt: &Type) -> bool {
+    let vt = v.type_of();
+    let pt_base = pt.unwrap_read_only();
+    let vt_base = vt.unwrap_read_only();
+    if vt_base == pt_base {
+        return true;
+    }
+    match (vt_base, pt_base) {
+        (Type::Array(ve, _), Type::List(pe)) => {
+            **ve == Type::Unknown || ve.unwrap_read_only() == pe.unwrap_read_only()
+        }
+        (Type::List(ve), Type::List(_)) if **ve == Type::Unknown => true,
+        (Type::Map(vk, vv), Type::Map(_, _)) if **vk == Type::Unknown && **vv == Type::Unknown => {
+            true
+        }
+        _ => false,
     }
 }

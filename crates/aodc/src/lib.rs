@@ -18,6 +18,7 @@ pub mod manual_data;
 pub mod manual_verify;
 pub mod migrate;
 pub mod modules;
+pub mod ns_host;
 pub mod parser;
 pub mod pdf_audit;
 pub mod report_guard;
@@ -42,14 +43,21 @@ pub use aod_core::s4_report::{
 };
 use aod_core::sha256::Sha256;
 pub use aod_llvm::{
-    certify_frg_channel, recommend_candidates, run_all_hw_probes, run_probe_frg_ring_gate,
-    BootstrapCi, CodegenPlan, FrgChannelReport, FrgRingGateReport, HostHardwareInfo, HwPlanHints,
-    HwProbeReport, LearnDecision, LearnSessionReport, OptLevel, OrcJitSession, PerfCapability,
-    ProfileLoadOutcome, RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+    certify_frg_channel, clear_jit_cache, jit_cache_stats, recommend_candidates,
+    run_all_hw_probes, run_probe_frg_ring_gate, BootstrapCi, CodegenPlan, FrgChannelReport,
+    FrgRingGateReport, HostHardwareInfo, HwPlanHints, HwProbeReport, JitCacheStats, LearnDecision,
+    LearnSessionReport, OptLevel, OrcJitSession, PerfCapability, ProfileLoadOutcome,
+    RetainedProfile, UnrollHint, POLICY_SCOPE, PROFILE_VERSION,
+};
+pub use aod_rt::ns_fs::{MemFsProvider, RtMountSpec, RtNamespace};
+pub use crate::checker::{
+    compute_iface_sha256, validate_dynamic_provider_binding, CheckedUnit, DynamicSlotSpec,
+    ExportedFnSig,
 };
 pub use crate::dec_audit::{
-    audit_dec_source_with_options, failed_read_audit_report, lex_live_walk, verify_frg_identity,
-    verify_sheddic_route, DecAuditReport, HookAuditResult, LiveWalkSummary, DEC_AUDIT_SCHEMA,
+    audit_dec_source_with_ns_and_options, audit_dec_source_with_options, failed_read_audit_report,
+    lex_live_walk, verify_frg_identity, verify_sheddic_route, DecAuditReport, HookAuditResult,
+    LiveWalkSummary, DEC_AUDIT_SCHEMA,
 };
 pub use crate::fmt::{format_file, format_program, format_source};
 pub use crate::manual_data::{
@@ -69,20 +77,34 @@ pub use crate::report_guard::{
     collect_guarded_roots, read_bounded_regular_file, read_bounded_stdin,
     validate_runtime_output_path, write_report_atomic, ALLOWED_IN_REPO_OUTPUT_ROOTS,
 };
+pub use crate::types::DynEffectCaps;
 pub use crate::v1_compat::{
     check_v1_file, check_v1_source, compile_v1_file_to_ir, compile_v1_source_to_ir,
     exec_v1_ir_str, exec_v1_ir_str_capturing, is_v1_ir_json, run_v1_file, run_v1_file_capturing,
     run_v1_source, CompatMode, V1_IR_FORMAT, V1_IR_VERSION,
 };
 
-use crate::checker::{check_unit, CheckedUnit};
-use crate::codegen::{lower_to_llvm_ir, lower_to_llvm_ir_with_plan};
+use crate::checker::check_unit;
+use crate::codegen::{
+    dynamic_export_symbol_name, lower_dynamic_provider_to_llvm_ir_with_plan, lower_to_llvm_ir,
+    lower_to_llvm_ir_with_plan,
+};
 use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::eval::{EvalOutput, Evaluator, DEFAULT_FUEL, DEFAULT_MAX_DEPTH};
 use crate::ir::{dumps_ir, loads_ir};
-use crate::modules::load_from_source_with_options;
+use crate::modules::{load_from_source_with_options, load_with_external_namespace_source};
 
 static BENCH_TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn build_rt_ns_from_declared(checked: &CheckedUnit) -> DecResult<RtNamespace> {
+    let mut rt_ns = RtNamespace::empty();
+    for spec in &checked.unit.declared_rt_mounts {
+        rt_ns
+            .apply_spec(spec)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+    }
+    Ok(rt_ns)
+}
 
 pub fn migrate_source_formatted(source: &str) -> DecResult<String> {
     let migrated = migrate_to_v3(source)?;
@@ -103,11 +125,52 @@ pub fn check_source_with_options(source: &str, options: &LoadOptions) -> DecResu
     check_unit(loaded, true)
 }
 
+pub fn check_library_source(source: &str) -> DecResult<CheckedUnit> {
+    check_library_source_with_options(source, &LoadOptions::default())
+}
+
+pub fn check_library_source_with_options(
+    source: &str,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    let loaded = load_from_source_with_options(source, None, options)?;
+    check_unit(loaded, false)
+}
+
 pub fn check_file(path: &Path) -> DecResult<CheckedUnit> {
     check_file_with_options(path, &LoadOptions::default())
 }
 
 pub fn check_file_with_options(path: &Path, options: &LoadOptions) -> DecResult<CheckedUnit> {
+    check_file_with_ns_and_options(path, None, options)
+}
+
+pub fn check_library_file(path: &Path) -> DecResult<CheckedUnit> {
+    check_library_file_with_ns_and_options(path, None, &LoadOptions::default())
+}
+
+pub fn check_library_file_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    check_file_internal(path, bootstrap_ns, options, false)
+}
+
+pub fn check_file_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<CheckedUnit> {
+    check_file_internal(path, bootstrap_ns, options, true)
+}
+
+fn check_file_internal(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+    require_main: bool,
+) -> DecResult<CheckedUnit> {
     let source = std::fs::read_to_string(path).map_err(|e| {
         Diagnostic::new(
             DiagnosticCode::ParseError,
@@ -115,8 +178,21 @@ pub fn check_file_with_options(path: &Path, options: &LoadOptions) -> DecResult<
         )
     })?;
     let base_dir = path.parent();
-    let loaded = load_from_source_with_options(&source, base_dir, options)?;
-    check_unit(loaded, true)
+    let loaded = if let Some(ns_path) = bootstrap_ns {
+        let ns_bytes =
+            read_bounded_regular_file(ns_path, "namespace", crate::parser::MAX_SOURCE_BYTES)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::ParseError, e))?;
+        let ns_source = String::from_utf8(ns_bytes).map_err(|_| {
+            Diagnostic::new(
+                DiagnosticCode::ParseError,
+                "namespace: file is not valid UTF-8",
+            )
+        })?;
+        load_with_external_namespace_source(&source, &ns_source, base_dir, ns_path.parent(), options)?
+    } else {
+        load_from_source_with_options(&source, base_dir, options)?
+    };
+    check_unit(loaded, require_main)
 }
 
 pub fn audit_dec_source(source: &str) -> DecAuditReport {
@@ -128,6 +204,14 @@ pub fn audit_dec_file(path: &Path) -> DecAuditReport {
 }
 
 pub fn audit_dec_file_with_options(path: &Path, options: &LoadOptions) -> DecAuditReport {
+    audit_dec_file_with_ns_and_options(path, None, options)
+}
+
+pub fn audit_dec_file_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+) -> DecAuditReport {
     let bytes = match read_bounded_regular_file(path, "source", crate::parser::MAX_SOURCE_BYTES) {
         Ok(b) => b,
         Err(err) => return failed_read_audit_report(&path.to_string_lossy(), &err),
@@ -141,7 +225,32 @@ pub fn audit_dec_file_with_options(path: &Path, options: &LoadOptions) -> DecAud
             );
         }
     };
-    audit_dec_source_with_options(&source, &path.to_string_lossy(), path.parent(), options)
+    if let Some(ns_path) = bootstrap_ns {
+        let ns_bytes =
+            match read_bounded_regular_file(ns_path, "namespace", crate::parser::MAX_SOURCE_BYTES) {
+                Ok(b) => b,
+                Err(err) => return failed_read_audit_report(&path.to_string_lossy(), &err),
+            };
+        let ns_source = match String::from_utf8(ns_bytes) {
+            Ok(s) => s,
+            Err(_) => {
+                return failed_read_audit_report(
+                    &path.to_string_lossy(),
+                    "namespace: file is not valid UTF-8",
+                );
+            }
+        };
+        audit_dec_source_with_ns_and_options(
+            &source,
+            &path.to_string_lossy(),
+            path.parent(),
+            Some(&ns_source),
+            ns_path.parent(),
+            options,
+        )
+    } else {
+        audit_dec_source_with_options(&source, &path.to_string_lossy(), path.parent(), options)
+    }
 }
 
 pub fn run_source(source: &str) -> DecResult<EvalOutput> {
@@ -187,9 +296,57 @@ pub fn run_file_with_parallel_observers_capturing(
     options: &LoadOptions,
     parallel_observers: bool,
 ) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
-    let checked = check_file_with_options(path, options)?;
+    run_file_with_ns_capturing(
+        path,
+        fuel,
+        max_depth,
+        options,
+        parallel_observers,
+        RtNamespace::empty(),
+        Vec::new(),
+    )
+}
+
+pub fn run_file_with_ns_capturing(
+    path: &Path,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+    parallel_observers: bool,
+    rt_ns: RtNamespace,
+    cli_args: Vec<Vec<u8>>,
+) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
+    run_file_with_ns_and_bootstrap_capturing(
+        path,
+        None,
+        fuel,
+        max_depth,
+        options,
+        parallel_observers,
+        rt_ns,
+        cli_args,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn run_file_with_ns_and_bootstrap_capturing(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    fuel: usize,
+    max_depth: usize,
+    options: &LoadOptions,
+    parallel_observers: bool,
+    rt_ns: RtNamespace,
+    cli_args: Vec<Vec<u8>>,
+) -> DecResult<(Vec<String>, DecResult<crate::eval::Value>)> {
+    let checked = check_file_with_ns_and_options(path, bootstrap_ns, options)?;
+    let effective_rt_ns = rt_ns
+        .overlay_onto_base_specs(&checked.unit.declared_rt_mounts)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
     Ok(Evaluator::new(&checked, fuel, max_depth)?
         .with_parallel_observers(parallel_observers)
+        .with_rt_namespace(effective_rt_ns)
+        .with_cli_args(cli_args)
         .run_main_capturing())
 }
 
@@ -198,7 +355,15 @@ pub fn compile_file_to_ir(path: &Path) -> DecResult<String> {
 }
 
 pub fn compile_file_to_ir_with_options(path: &Path, options: &LoadOptions) -> DecResult<String> {
-    let checked = check_file_with_options(path, options)?;
+    compile_file_to_ir_with_ns_and_options(path, None, options)
+}
+
+pub fn compile_file_to_ir_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    options: &LoadOptions,
+) -> DecResult<String> {
+    let checked = check_file_with_ns_and_options(path, bootstrap_ns, options)?;
     Ok(dumps_ir(&checked))
 }
 
@@ -262,7 +427,20 @@ pub fn emit_llvm_file_with_options(
     opt: OptLevel,
     options: &LoadOptions,
 ) -> DecResult<String> {
-    emit_llvm_file_with_plan(path, &CodegenPlan::for_opt_level(opt), options)
+    emit_llvm_file_with_ns_and_options(path, None, opt, options)
+}
+
+pub fn emit_llvm_file_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    opt: OptLevel,
+    options: &LoadOptions,
+) -> DecResult<String> {
+    let checked = check_file_with_ns_and_options(path, bootstrap_ns, options)?;
+    let plan = CodegenPlan::for_opt_level(opt);
+    let raw_ir = lower_to_llvm_ir_with_plan(&checked, &plan)?;
+    aod_llvm::verify_and_optimize_ir_with_plan(&raw_ir, &plan)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
 }
 
 pub fn emit_llvm_file_with_plan(
@@ -293,7 +471,17 @@ pub fn build_aot_file_with_options(
     out_exe: &Path,
     options: &LoadOptions,
 ) -> DecResult<()> {
-    let checked = check_file_with_options(path, options)?;
+    build_aot_file_with_ns_and_options(path, None, opt, out_exe, options)
+}
+
+pub fn build_aot_file_with_ns_and_options(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    opt: OptLevel,
+    out_exe: &Path,
+    options: &LoadOptions,
+) -> DecResult<()> {
+    let checked = check_file_with_ns_and_options(path, bootstrap_ns, options)?;
     let plan = CodegenPlan::for_opt_level(opt);
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &plan)?;
     aod_llvm::link_aot_executable_with_plan(&raw_ir, &plan, out_exe)
@@ -306,9 +494,11 @@ pub fn compile_jit_source(source: &str, opt: OptLevel) -> DecResult<OrcJitSessio
 
 pub fn compile_jit_source_with_plan(source: &str, plan: &CodegenPlan) -> DecResult<OrcJitSession> {
     let checked = check_source(source)?;
+    let default_rt_ns = build_rt_ns_from_declared(&checked)?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
-    OrcJitSession::compile_with_plan(&raw_ir, plan)
-        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
+    let sess = OrcJitSession::compile_with_plan(&raw_ir, plan)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+    Ok(sess.with_default_rt_namespace(default_rt_ns))
 }
 
 pub fn compile_jit_file(path: &Path, opt: OptLevel) -> DecResult<OrcJitSession> {
@@ -329,9 +519,11 @@ pub fn compile_jit_file_with_plan(
     options: &LoadOptions,
 ) -> DecResult<OrcJitSession> {
     let checked = check_file_with_options(path, options)?;
+    let default_rt_ns = build_rt_ns_from_declared(&checked)?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan)?;
-    OrcJitSession::compile_with_plan(&raw_ir, plan)
-        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))
+    let sess = OrcJitSession::compile_with_plan(&raw_ir, plan)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+    Ok(sess.with_default_rt_namespace(default_rt_ns))
 }
 
 pub fn jit_source_captured(
@@ -416,7 +608,59 @@ pub fn jit_file_with_profile_and_parallel_captured(
     options: &LoadOptions,
     parallel_observers: bool,
 ) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
-    let checked = check_file_with_options(path, options)?;
+    jit_file_with_ns_captured(
+        path,
+        fallback_opt,
+        fuel,
+        max_depth,
+        profile_path,
+        options,
+        parallel_observers,
+        RtNamespace::empty(),
+        Vec::new(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn jit_file_with_ns_captured(
+    path: &Path,
+    fallback_opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    profile_path: Option<&Path>,
+    options: &LoadOptions,
+    parallel_observers: bool,
+    rt_ns: RtNamespace,
+    cli_args: Vec<Vec<u8>>,
+) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
+    jit_file_with_ns_and_bootstrap_captured(
+        path,
+        None,
+        fallback_opt,
+        fuel,
+        max_depth,
+        profile_path,
+        options,
+        parallel_observers,
+        rt_ns,
+        cli_args,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn jit_file_with_ns_and_bootstrap_captured(
+    path: &Path,
+    bootstrap_ns: Option<&Path>,
+    fallback_opt: OptLevel,
+    fuel: usize,
+    max_depth: usize,
+    profile_path: Option<&Path>,
+    options: &LoadOptions,
+    parallel_observers: bool,
+    rt_ns: RtNamespace,
+    cli_args: Vec<Vec<u8>>,
+) -> DecResult<(String, Result<(), String>, CodegenPlan, Option<String>)> {
+    let checked = check_file_with_ns_and_options(path, bootstrap_ns, options)?;
     let fallback_plan = CodegenPlan::for_opt_level(fallback_opt);
 
     let (mut chosen_plan, note) = if let Some(pp) = profile_path {
@@ -434,11 +678,126 @@ pub fn jit_file_with_profile_and_parallel_captured(
         chosen_plan.parallel_observers = true;
     }
 
+    let effective_rt_ns = rt_ns
+        .overlay_onto_base_specs(&checked.unit.declared_rt_mounts)
+        .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
     let raw_ir = lower_to_llvm_ir_with_plan(&checked, &chosen_plan)?;
     let session = OrcJitSession::compile_with_plan(&raw_ir, &chosen_plan)
         .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
-    let (stdout, res) = session.run_captured(fuel as i64, max_depth as i32);
+    let (stdout, res) =
+        session.run_captured_with_ns(fuel as i64, max_depth as i32, effective_rt_ns, cli_args);
     Ok((stdout, res, chosen_plan, note))
+}
+
+/// Persistent Inferno `sign`/`load` ORC LLJIT host: compiles `main` ONCE, verifies and links
+/// dynamic capability providers (`mount dyn`) on demand via `JitCodeCache`, and dispatches
+/// per-task vtables inside the default-on Linux Plan 9 container with ZERO recompilation of `main`.
+pub struct DynamicJitHost {
+    checked: CheckedUnit,
+    plan: CodegenPlan,
+    session: OrcJitSession,
+    loaded_provider_prefixes: std::collections::BTreeSet<String>,
+    dyn_vtable: Vec<u64>,
+    compile_main_count: u64,
+}
+
+impl DynamicJitHost {
+    pub fn compile(checked: CheckedUnit, opt: OptLevel) -> DecResult<Self> {
+        Self::compile_with_plan(checked, CodegenPlan::for_opt_level(opt))
+    }
+
+    pub fn compile_with_plan(checked: CheckedUnit, plan: CodegenPlan) -> DecResult<Self> {
+        let default_rt_ns = build_rt_ns_from_declared(&checked)?;
+        let raw_ir = lower_to_llvm_ir_with_plan(&checked, &plan)?;
+        let session = OrcJitSession::compile_with_plan(&raw_ir, &plan)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?
+            .with_default_rt_namespace(default_rt_ns);
+        let slot_count = checked.dynamic_slots.len();
+        Ok(Self {
+            checked,
+            plan,
+            session,
+            loaded_provider_prefixes: std::collections::BTreeSet::new(),
+            dyn_vtable: vec![0u64; slot_count],
+            compile_main_count: 1,
+        })
+    }
+
+    pub const fn main_compile_count(&self) -> u64 {
+        self.compile_main_count
+    }
+
+    pub fn dynamic_slots(&self) -> &[DynamicSlotSpec] {
+        &self.checked.dynamic_slots
+    }
+
+    /// Verify `provider` against the `mount dyn` interface at `mount_path` (`iface_sha256` +
+    /// `DynEffectCaps` subset check), link its machine code once via `JitCodeCache`, and update
+    /// the indirect capability vtable WITHOUT recompiling `main`!
+    pub fn bind_dynamic_provider(
+        &mut self,
+        mount_path: &str,
+        provider: &CheckedUnit,
+    ) -> DecResult<()> {
+        let verified = validate_dynamic_provider_binding(
+            &self.checked.dynamic_slots,
+            mount_path,
+            provider,
+        )?;
+        let prefix = format!("aod_dyn_{}", &provider.unit.entry_sha256[..24]);
+        if !self.loaded_provider_prefixes.contains(&prefix) {
+            let dyn_ir =
+                lower_dynamic_provider_to_llvm_ir_with_plan(provider, &prefix, &self.plan)?;
+            self.session
+                .add_module_with_plan(&dyn_ir, &self.plan)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+            self.loaded_provider_prefixes.insert(prefix.clone());
+        }
+
+        for (slot_idx, exp) in verified {
+            let sym_name = dynamic_export_symbol_name(&prefix, &exp.fn_name, exp.overload_index);
+            let addr = self
+                .session
+                .lookup_symbol_addr(&sym_name)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e.to_string()))?;
+            if let Some(cell) = self.dyn_vtable.get_mut(slot_idx as usize) {
+                *cell = addr;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn unbind_dynamic_mount(&mut self, mount_path: &str) -> DecResult<()> {
+        let clean = aod_core::ns::CleanPath::parse_str(mount_path)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::ModuleNotFound, e.to_string()))?;
+        for slot in &self.checked.dynamic_slots {
+            if slot.mount_path == clean.as_str() {
+                if let Some(cell) = self.dyn_vtable.get_mut(slot.slot_index as usize) {
+                    *cell = 0;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn run_task_captured(
+        &self,
+        fuel: usize,
+        max_depth: usize,
+        rt_ns: RtNamespace,
+        cli_args: Vec<Vec<u8>>,
+    ) -> DecResult<(String, Result<(), String>)> {
+        let effective_rt_ns = rt_ns
+            .overlay_onto_base_specs(&self.checked.unit.declared_rt_mounts)
+            .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+        Ok(self.session.run_captured_with_ns_and_dyn(
+            fuel as i64,
+            max_depth as i32,
+            effective_rt_ns,
+            cli_args,
+            &self.dyn_vtable,
+        ))
+    }
 }
 
 /// Run CPU discovery + 5 live JIT probes + semantically-guarded, honest cost-inclusive learning
@@ -477,7 +836,8 @@ pub fn learn_file_with_options(
         |plan| {
             let t0 = Instant::now();
             let raw_ir = lower_to_llvm_ir_with_plan(&checked, plan).map_err(|e| e.to_string())?;
-            let sess = OrcJitSession::compile_with_plan(&raw_ir, plan).map_err(|e| e.to_string())?;
+            let sess = OrcJitSession::compile_uncached_with_plan(&raw_ir, plan)
+                .map_err(|e| e.to_string())?;
             let compile_ns = t0.elapsed().as_nanos().max(1) as u64;
             Ok((sess, compile_ns))
         },
@@ -847,15 +1207,44 @@ pub fn bootstrap_verify_with_stage2_out(
     })?;
     let stage1_sha256 = Sha256::digest_hex(&stage1_bytes_raw);
 
-    // 2. Stage 1 -> Stage 2
+    // 2. Stage 1 -> Stage 2 (strictly mounted via Plan 9 /src ro + /out rw!)
+    let src_canon = std::fs::canonicalize(&resolved_src).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticCode::ModuleNotFound,
+            format!("failed canonicalizing {}: {e}", resolved_src.display()),
+        )
+    })?;
+    let src_parent = src_canon.parent().ok_or_else(|| {
+        Diagnostic::new(
+            DiagnosticCode::RuntimeError,
+            "self-host compiler source has no parent directory",
+        )
+    })?;
+    let src_fname = src_canon
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| {
+            Diagnostic::new(
+                DiagnosticCode::RuntimeError,
+                "self-host compiler filename must be valid UTF-8",
+            )
+        })?;
+    let stage1_mount_ro = format!("ro:{}:/src", src_parent.display());
+    let stage1_mount_rw = format!("rw:{}:/out", work_dir.display());
+    let stage1_ns_src = format!("/src/{src_fname}");
+
     let s1_out = Command::new(&stage1_exe)
         .args([
             "--fuel",
             "100000000",
             "--max-depth",
             "512",
-            &resolved_src.to_string_lossy(),
-            &stage2_exe.to_string_lossy(),
+            "--mount",
+            &stage1_mount_ro,
+            "--mount",
+            &stage1_mount_rw,
+            &stage1_ns_src,
+            "/out/aodc_stage2",
         ])
         .output()
         .map_err(|e| {
