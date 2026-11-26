@@ -495,7 +495,11 @@ impl<'a> Checker<'a> {
     fn collect_program_items(&mut self, mod_key: &str, prog: &Program) -> DecResult<()> {
         for item in &prog.items {
             match item {
-                Item::Use(_) | Item::Struct(_) | Item::Enum(_) | Item::Const(_) => {}
+                Item::Namespace(_)
+                | Item::Use(_)
+                | Item::Struct(_)
+                | Item::Enum(_)
+                | Item::Const(_) => {}
                 Item::DecFn(f) => {
                     self.register_fn(mod_key, f, false)?;
                 }

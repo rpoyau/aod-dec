@@ -390,6 +390,12 @@ pub struct Evaluator<'a> {
 
 impl<'a> Evaluator<'a> {
     pub fn new(checked: &'a CheckedUnit, fuel: usize, max_depth: usize) -> DecResult<Self> {
+        let mut initial_rt_ns = RtNamespace::empty();
+        for spec in &checked.unit.declared_rt_mounts {
+            initial_rt_ns
+                .apply_spec(spec)
+                .map_err(|e| Diagnostic::new(DiagnosticCode::RuntimeError, e))?;
+        }
         let mut ev = Self {
             program: Arc::new(EvalProgram {
                 checked,
@@ -407,7 +413,7 @@ impl<'a> Evaluator<'a> {
             depth: 0,
             emits: Vec::new(),
             cli_args: Vec::new(),
-            rt_ns: RtNamespace::empty(),
+            rt_ns: initial_rt_ns,
             parallel_observers: false,
         };
         ev.register_builtin_enums();

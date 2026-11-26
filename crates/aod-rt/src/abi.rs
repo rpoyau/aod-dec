@@ -4865,6 +4865,7 @@ mod linux_sandbox {
                     let _ = prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
                     let _ = close(cmd_fds[1]);
                     let _ = close(resp_fds[0]);
+                    close_other_fds_except(cmd_fds[0], resp_fds[1]);
                 }
                 child_worker_loop(entry_addr, &mut rt_ns, cmd_fds[0], resp_fds[1]);
             }
@@ -4949,9 +4950,41 @@ mod linux_sandbox {
         }
     }
 
+    /// Close every file descriptor `>= 3` except `keep_a` and `keep_b` inside the forked worker
+    /// so sibling `OrcJitSession` pipe endpoints and host FDs never leak into the container!
+    unsafe fn close_other_fds_except(keep_a: c_int, keep_b: c_int) {
+        const SYS_CLOSE_RANGE: c_long = 436;
+        let lo = keep_a.min(keep_b) as u32;
+        let hi = keep_a.max(keep_b) as u32;
+        let mut ok = true;
+        if lo > 3 {
+            if unsafe { syscall(SYS_CLOSE_RANGE, 3u32, lo - 1, 0u32) } != 0 {
+                ok = false;
+            }
+        }
+        if hi > lo + 1 {
+            if unsafe { syscall(SYS_CLOSE_RANGE, lo + 1, hi - 1, 0u32) } != 0 {
+                ok = false;
+            }
+        }
+        if unsafe { syscall(SYS_CLOSE_RANGE, hi + 1, u32::MAX, 0u32) } != 0 {
+            ok = false;
+        }
+        if !ok {
+            for fd in 3..1024 {
+                if fd != keep_a && fd != keep_b {
+                    let _ = unsafe { close(fd) };
+                }
+            }
+        }
+    }
+
     impl Drop for WorkerInner {
         fn drop(&mut self) {
             if self.cmd_write_fd >= 0 {
+                // Send explicit CMD_SHUTDOWN (0) before closing pipe so child exits immediately
+                // even if an external process held a duplicated descriptor.
+                let _ = write_all_fd(self.cmd_write_fd, &[0u8]);
                 unsafe {
                     let _ = close(self.cmd_write_fd);
                 }
@@ -4999,17 +5032,19 @@ mod linux_sandbox {
             unsafe { std::mem::transmute(entry_addr as usize) };
 
         loop {
-            let mut cmd_hdr = [0u8; 17];
+            let mut cmd_tag = [0u8; 1];
+            match read_exact_fd(cmd_fd, &mut cmd_tag) {
+                Ok(true) if cmd_tag[0] == 1 => {}
+                _ => break,
+            }
+            let mut cmd_hdr = [0u8; 16];
             match read_exact_fd(cmd_fd, &mut cmd_hdr) {
                 Ok(true) => {}
                 Ok(false) | Err(_) => break,
             }
-            if cmd_hdr[0] != 1 {
-                break;
-            }
-            let fuel = i64::from_le_bytes(cmd_hdr[1..9].try_into().unwrap());
-            let max_depth = i32::from_le_bytes(cmd_hdr[9..13].try_into().unwrap());
-            let args_count = u32::from_le_bytes(cmd_hdr[13..17].try_into().unwrap()) as usize;
+            let fuel = i64::from_le_bytes(cmd_hdr[0..8].try_into().unwrap());
+            let max_depth = i32::from_le_bytes(cmd_hdr[8..12].try_into().unwrap());
+            let args_count = u32::from_le_bytes(cmd_hdr[12..16].try_into().unwrap()) as usize;
             let mut cli_args = Vec::with_capacity(args_count.min(256));
             let mut read_ok = true;
             for _ in 0..args_count {

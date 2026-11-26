@@ -19,6 +19,7 @@ use crate::{LlvmError, LlvmResult};
 pub struct OrcJitSession {
     jit: LLVMOrcLLJITRef,
     entry_addr: u64,
+    default_rt_ns: aod_rt::ns_fs::RtNamespace,
     default_worker: Mutex<Option<SandboxedJitWorker>>,
 }
 
@@ -212,6 +213,7 @@ impl OrcJitSession {
             Ok(entry_addr) => Ok(Self {
                 jit,
                 entry_addr,
+                default_rt_ns: aod_rt::ns_fs::RtNamespace::empty(),
                 default_worker: Mutex::new(None),
             }),
             Err(e) => {
@@ -222,6 +224,11 @@ impl OrcJitSession {
                 Err(e)
             }
         }
+    }
+
+    pub fn with_default_rt_namespace(mut self, rt_ns: aod_rt::ns_fs::RtNamespace) -> Self {
+        self.default_rt_ns = rt_ns;
+        self
     }
 
     /// Look up the materialized address of any exported JIT symbol in this session.
@@ -355,7 +362,7 @@ impl OrcJitSession {
         self.run_captured_with_ns(
             fuel,
             max_depth,
-            aod_rt::ns_fs::RtNamespace::empty(),
+            self.default_rt_ns.clone(),
             Vec::new(),
         )
     }
@@ -390,7 +397,7 @@ impl OrcJitSession {
         self.run_sandboxed_semantic(
             fuel,
             max_depth,
-            aod_rt::ns_fs::RtNamespace::empty(),
+            self.default_rt_ns.clone(),
             Vec::new(),
         )
     }

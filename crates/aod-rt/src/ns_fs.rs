@@ -411,11 +411,26 @@ pub struct PivotBindMount {
     pub perm: MountPerm,
 }
 
+#[derive(Clone, Debug)]
+enum RecordedRtOp {
+    Mount {
+        target: CleanPath,
+        prov: Provider<RtFsBackend>,
+        bind_mode: BindMode,
+    },
+    Bind {
+        existing: CleanPath,
+        target: CleanPath,
+        mode: BindMode,
+    },
+}
+
 /// Per-task Plan 9 Runtime Namespace (`empty` by default: zero ambient host disk access).
 #[derive(Clone, Debug)]
 pub struct RtNamespace {
     ns: Namespace<RtFsBackend>,
     unconfined: bool,
+    recorded_ops: Vec<RecordedRtOp>,
 }
 
 impl Default for RtNamespace {
@@ -430,6 +445,7 @@ impl RtNamespace {
         Self {
             ns: Namespace::empty(),
             unconfined: false,
+            recorded_ops: Vec::new(),
         }
     }
 
@@ -438,6 +454,7 @@ impl RtNamespace {
         Self {
             ns: Namespace::empty(),
             unconfined: true,
+            recorded_ops: Vec::new(),
         }
     }
 
@@ -473,7 +490,12 @@ impl RtNamespace {
             MountPerm::ReadWrite,
             RtFsBackend::RamFs(ramfs),
         );
-        self.ns.mount(prov, target, bind_mode);
+        self.ns.mount(prov.clone(), target, bind_mode);
+        self.recorded_ops.push(RecordedRtOp::Mount {
+            target: target.clone(),
+            prov,
+            bind_mode,
+        });
     }
 
     pub fn mount_host_dir(
@@ -490,7 +512,12 @@ impl RtNamespace {
             perm,
             RtFsBackend::HostDir(scoped),
         );
-        self.ns.mount(prov, target, bind_mode);
+        self.ns.mount(prov.clone(), target, bind_mode);
+        self.recorded_ops.push(RecordedRtOp::Mount {
+            target: target.clone(),
+            prov,
+            bind_mode,
+        });
         Ok(())
     }
 
@@ -500,7 +527,13 @@ impl RtNamespace {
         target: &CleanPath,
         mode: BindMode,
     ) -> Result<(), String> {
-        self.ns.bind(existing, target, mode).map_err(|e| e.to_string())
+        self.ns.bind(existing, target, mode).map_err(|e| e.to_string())?;
+        self.recorded_ops.push(RecordedRtOp::Bind {
+            existing: existing.clone(),
+            target: target.clone(),
+            mode,
+        });
+        Ok(())
     }
 
     pub fn apply_spec(&mut self, spec: &RtMountSpec) -> Result<(), String> {
@@ -516,6 +549,38 @@ impl RtNamespace {
                 target,
             } => self.mount_host_dir(host_dir, target, *perm, *bind_mode),
         }
+    }
+
+    /// Seed `base_specs` (declared in a `namespace <name>:` block) first, then replay any
+    /// caller/CLI mounts & binds from `self` on top (preserving `BindMode::Before`/`After`/`Replace`).
+    pub fn overlay_onto_base_specs(&self, base_specs: &[RtMountSpec]) -> Result<Self, String> {
+        if self.unconfined || base_specs.is_empty() {
+            return Ok(self.clone());
+        }
+        let mut merged = Self::empty();
+        for spec in base_specs {
+            merged.apply_spec(spec)?;
+        }
+        for op in &self.recorded_ops {
+            match op {
+                RecordedRtOp::Mount {
+                    target,
+                    prov,
+                    bind_mode,
+                } => {
+                    merged.ns.mount(prov.clone(), target, *bind_mode);
+                    merged.recorded_ops.push(op.clone());
+                }
+                RecordedRtOp::Bind {
+                    existing,
+                    target,
+                    mode,
+                } => {
+                    merged.bind(existing, target, *mode)?;
+                }
+            }
+        }
+        Ok(merged)
     }
 
     /// Build the exact kernel bind-mount list and corresponding post-`pivot_root` `RtNamespace`
@@ -564,6 +629,7 @@ impl RtNamespace {
             Self {
                 ns: mapped_ns,
                 unconfined: self.unconfined,
+                recorded_ops: Vec::new(),
             },
         )
     }

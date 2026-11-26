@@ -7,10 +7,10 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use crate::ast::{
-    AdverbOp, BinaryOp, ChamberDecl, ConstDecl, DecArm, DecArmParam, DecFnDecl, EnumDecl, Expr,
-    ExprKind, Item, LetPattern, ObserveDecl, Pattern, PipeStage, PrepareDecl, ProbeDecl,
-    ProbeKind, Program, Stmt, StmtKind, StructDecl, TritLiteral, TypeExpr, UnaryOp, UseDecl,
-    WallPolicyAst,
+    AdverbOp, BinaryOp, BindMode, ChamberDecl, ConstDecl, DecArm, DecArmParam, DecFnDecl, EnumDecl,
+    Expr, ExprKind, Item, LetPattern, MountMode, MountPerm, NamespaceDecl, NsMountSource, NsOp,
+    ObserveDecl, Pattern, PipeStage, PrepareDecl, ProbeDecl, ProbeKind, Program, Stmt, StmtKind,
+    StructDecl, TritLiteral, TypeExpr, UnaryOp, UseDecl, WallPolicyAst,
 };
 use crate::diagnostics::{DecResult, Diagnostic, DiagnosticCode};
 use crate::parser::parse_source;
@@ -54,8 +54,111 @@ fn indent_str(indent: usize) -> String {
     "    ".repeat(indent)
 }
 
+fn fmt_slash_segs(segs: &[String]) -> String {
+    if segs.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{}", segs.join("/"))
+    }
+}
+
+fn fmt_bind_mode_suffix(mode: BindMode) -> &'static str {
+    match mode {
+        BindMode::Replace => "",
+        BindMode::Before => " before",
+        BindMode::After => " after",
+    }
+}
+
+fn fmt_namespace(out: &mut String, ns: &NamespaceDecl, indent: usize) {
+    push_indent(out, indent);
+    let _ = writeln!(out, "namespace {}:", ns.name);
+    if ns.ops.is_empty() {
+        push_indent(out, indent + 1);
+        out.push_str("pass\n");
+        return;
+    }
+    for op in &ns.ops {
+        push_indent(out, indent + 1);
+        match op {
+            NsOp::Clear { .. } => out.push_str("clear\n"),
+            NsOp::Fork { .. } => out.push_str("fork\n"),
+            NsOp::Mount {
+                mode: MountMode::Dynamic,
+                source,
+                target,
+                ..
+            } => {
+                let src_s = match source {
+                    NsMountSource::BytesUri(bs) => fmt_escaped_bytes(bs),
+                    NsMountSource::ExistingPath(segs) => fmt_slash_segs(segs),
+                    NsMountSource::RamFs => "ramfs".to_string(),
+                };
+                let _ = writeln!(out, "mount dyn {src_s} -> {}", fmt_slash_segs(target));
+            }
+            NsOp::Mount {
+                mode: MountMode::Static,
+                perm,
+                bind_mode,
+                source,
+                target,
+                ..
+            } => match source {
+                NsMountSource::RamFs => {
+                    let _ = writeln!(
+                        out,
+                        "mount ramfs{} -> {}",
+                        fmt_bind_mode_suffix(*bind_mode),
+                        fmt_slash_segs(target)
+                    );
+                }
+                NsMountSource::BytesUri(bs) => {
+                    let perm_s = match perm {
+                        MountPerm::ReadOnly => "ro",
+                        MountPerm::ReadWrite => "rw",
+                    };
+                    let _ = writeln!(
+                        out,
+                        "mount {perm_s}{} {} -> {}",
+                        fmt_bind_mode_suffix(*bind_mode),
+                        fmt_escaped_bytes(bs),
+                        fmt_slash_segs(target)
+                    );
+                }
+                NsMountSource::ExistingPath(segs) => {
+                    let _ = writeln!(
+                        out,
+                        "bind{} {} -> {}",
+                        fmt_bind_mode_suffix(*bind_mode),
+                        fmt_slash_segs(segs),
+                        fmt_slash_segs(target)
+                    );
+                }
+            },
+            NsOp::Bind {
+                mode,
+                existing,
+                target,
+                ..
+            } => {
+                let _ = writeln!(
+                    out,
+                    "bind{} {} -> {}",
+                    fmt_bind_mode_suffix(*mode),
+                    fmt_slash_segs(existing),
+                    fmt_slash_segs(target)
+                );
+            }
+            NsOp::Unmount { target, .. } => {
+                let _ = writeln!(out, "unmount {}", fmt_slash_segs(target));
+            }
+        }
+    }
+}
+
 fn fmt_item(out: &mut String, item: &Item, indent: usize) {
     match item {
+        Item::Namespace(ns) => fmt_namespace(out, ns, indent),
         Item::Use(u) => fmt_use(out, u, indent),
         Item::Struct(s) => fmt_struct(out, s, indent),
         Item::Enum(e) => fmt_enum(out, e, indent),
@@ -84,6 +187,20 @@ fn fmt_item(out: &mut String, item: &Item, indent: usize) {
 
 fn fmt_use(out: &mut String, u: &UseDecl, indent: usize) {
     push_indent(out, indent);
+    if u.rooted_slash {
+        let path = fmt_slash_segs(&u.path);
+        match &u.items {
+            None => {
+                let _ = writeln!(out, "use {path}");
+            }
+            Some(syms) => {
+                let _ = writeln!(out, "use {path}:");
+                push_indent(out, indent + 1);
+                let _ = writeln!(out, "{}", syms.join(", "));
+            }
+        }
+        return;
+    }
     let path = u.path.join("::");
     match &u.items {
         None => {
