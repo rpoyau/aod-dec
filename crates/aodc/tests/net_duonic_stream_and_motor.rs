@@ -595,3 +595,66 @@ dec main:
         );
     }
 }
+
+#[test]
+fn operative_net_domain_blind_awareness_and_dn02_3mode_parity() {
+    let tmp = TempDirGuard::new("operative_net_dn02");
+    let prog_path = tmp.path().join("operative_check.dec");
+
+    let prog_src = r#"use aod::core:
+    contains, len, map_keys
+use stdlib::aod::net:
+    BoundaryRole, DuonicBoundaryFrame, DuonicInitSpec, DuonicPulse, classify_channel_role, decode_boundary_frame, decode_init_spec, decode_motor_frame, encode_boundary_frame, encode_init_spec, encode_motor_frame, operative_net_init, present_projection, remove_source_relations, step_operative_net, try_step_operative_net
+
+dec main:
+    () -> ():
+        let spec = DuonicInitSpec(3, 3, 5, 4, true)
+        let (ok_s, spec_dec) = decode_init_spec(encode_init_spec(spec))
+        assert ok_s and spec_dec.motor_count == 3 and spec_dec.max_relations == 4
+
+        let n0 = operative_net_init(99, 3, 3, 5, 4, true)
+        assert present_projection(n0).self_id == 99
+
+        let p_a = DuonicPulse(10, 1t, 3, 4, 5, 1/2r)
+        let p_b = DuonicPulse(20, -1t, 3, 4, 5, 1/2r)
+        let adm = [true, true, true]
+
+        let f0 = DuonicBoundaryFrame([p_a], adm, 0, 0, 0t)
+        let (ok_f0, f0_dec) = decode_boundary_frame(encode_boundary_frame(f0))
+        assert ok_f0 and len(f0_dec.pulses) == 1
+        let (n1, m0) = step_operative_net(n0, f0_dec)
+        assert m0.selected_motor == 0 and m0.action_id == 1
+
+        # Forged / wrong action_echo_id must be rejected cleanly with zero state mutation
+        let bad_echo = DuonicBoundaryFrame([p_a], adm, 777, 2, 0t)
+        let (ok_bad, n_bad, _) = try_step_operative_net(n1, bad_echo)
+        assert (not ok_bad) and n_bad.x.cut == n1.x.cut
+
+        # Certified 2-traversal closure return on source 10 (+1/1r)
+        let (n2, m1) = step_operative_net(n1, DuonicBoundaryFrame([p_b], adm, m0.action_id, 2, 0t))
+        assert m1.action_id == 2
+
+        # Zero-traversal unclosed return on source 20 (-1/1r)
+        let (n3, m2) = step_operative_net(n2, DuonicBoundaryFrame([p_a, p_b], adm, m1.action_id, 0, 0t))
+        let (ok_m2, m2_dec) = decode_motor_frame(encode_motor_frame(m2))
+        assert ok_m2 and m2_dec.action_id == 3
+
+        # Cancelling +1 and -1 sources sum to 0/1r, yet BOTH remain operative under single-source removal!
+        assert contains(m2_dec.operative_sources, 10)
+        assert contains(m2_dec.operative_sources, 20)
+        assert classify_channel_role(n3, m2_dec.operative_sources, 99) == BoundaryRole::SelfNode
+        assert classify_channel_role(n3, m2_dec.operative_sources, 10) == BoundaryRole::BetweenInterface
+        assert classify_channel_role(n3, m2_dec.operative_sources, 20) == BoundaryRole::BetweenInterface
+        assert classify_channel_role(n3, m2_dec.operative_sources, 30) == BoundaryRole::NotSelf
+        assert classify_channel_role(n3, m2_dec.operative_sources, -1) == BoundaryRole::NullRole
+
+        let n3_no10 = remove_source_relations(n3, 10)
+        assert len(map_keys(n3_no10.r)) == 1
+
+        emit len(m2_dec.operative_sources)
+        emit n3.x.cut
+"#;
+    std::fs::write(&prog_path, prog_src).unwrap();
+    let stdout = run_3mode(&prog_path, &[], None);
+    assert_eq!(stdout, "2\n3\n");
+}
