@@ -133,6 +133,24 @@ impl RtState {
         }
     }
 
+    /// Reclaim arena slots above `mark` while preserving a Trit-Boxed `DecInt` word (inline or spilled).
+    pub fn reclaim_dec_int(&mut self, mark: u64, word: u64) -> Result<u64, String> {
+        if word >= TOP_TAG_MASK && (word & SUBTAG_MASK) == TAG_SPILL_PREFIX {
+            let h = word & TAG_PAYLOAD_MASK;
+            if h > mark {
+                let kept = self.arena.get(h)?.clone();
+                self.arena.truncate(mark as usize);
+                let nh = self.arena.insert(kept)?;
+                if nh > TAG_PAYLOAD_MASK {
+                    return Err("arena handle exceeded 60-bit 0b11 tag payload".to_string());
+                }
+                return Ok(TAG_SPILL_PREFIX | nh);
+            }
+        }
+        self.arena.truncate(mark as usize);
+        Ok(word)
+    }
+
     /// Decode 2-GPR `DecRatio` words `(num, den)` (`(num | den) < 0xC000...` inline, `0xD000...` spill).
     pub fn unpack_dec_ratio(&self, num: u64, den: u64) -> Result<Ratio, String> {
         if num < TOP_TAG_MASK && den < TOP_TAG_MASK && den != 0 {

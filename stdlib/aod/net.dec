@@ -1,5 +1,5 @@
 use aod::core:
-    abs, b8, b64, b64_bits, b64_le_bytes, bytes, concat, concat_bytes, contains, fold, gcd, int, len, max, min, popcnt, push, push_byte, range_seq, ratio, select, set_at, signum, slice, slice_bytes, superpose_cancel, t1, u16_le_bytes, verify_frg_cross_return
+    abs, b8, b64, b64_bits, b64_le_bytes, bytes, concat, concat_bytes, contains, fold, gcd, int, len, max, min, popcnt, push, push_byte, range_seq, ratio, select, set_at, signum, slice, slice_bytes, sort_int_pairs, superpose_cancel, t1, u16_le_bytes, verify_frg_cross_return
 
 use aod::ledger::sadar_promote
 
@@ -452,26 +452,81 @@ dec bsearch_advance:
         let cand = (pos + step)
         return select((keys[cand] < target), cand, pos)
 
+dec klb_4_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 8)
+        let p2 = bsearch_advance(keys, n, target, p1, 4)
+        let p3 = bsearch_advance(keys, n, target, p2, 2)
+        return bsearch_advance(keys, n, target, p3, 1)
+
+dec klb_8_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 128)
+        let p2 = bsearch_advance(keys, n, target, p1, 64)
+        let p3 = bsearch_advance(keys, n, target, p2, 32)
+        let p4 = bsearch_advance(keys, n, target, p3, 16)
+        return klb_4_from(keys, n, target, p4)
+
+dec klb_12_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 2048)
+        let p2 = bsearch_advance(keys, n, target, p1, 1024)
+        let p3 = bsearch_advance(keys, n, target, p2, 512)
+        let p4 = bsearch_advance(keys, n, target, p3, 256)
+        return klb_8_from(keys, n, target, p4)
+
+dec klb_16_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 32768)
+        let p2 = bsearch_advance(keys, n, target, p1, 16384)
+        let p3 = bsearch_advance(keys, n, target, p2, 8192)
+        let p4 = bsearch_advance(keys, n, target, p3, 4096)
+        return klb_12_from(keys, n, target, p4)
+
+dec klb_20_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 524288)
+        let p2 = bsearch_advance(keys, n, target, p1, 262144)
+        let p3 = bsearch_advance(keys, n, target, p2, 131072)
+        let p4 = bsearch_advance(keys, n, target, p3, 65536)
+        return klb_16_from(keys, n, target, p4)
+
+dec klb_24_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 8388608)
+        let p2 = bsearch_advance(keys, n, target, p1, 4194304)
+        let p3 = bsearch_advance(keys, n, target, p2, 2097152)
+        let p4 = bsearch_advance(keys, n, target, p3, 1048576)
+        return klb_20_from(keys, n, target, p4)
+
+dec klb_30_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 536870912)
+        let p2 = bsearch_advance(keys, n, target, p1, 268435456)
+        let p3 = bsearch_advance(keys, n, target, p2, 134217728)
+        let p4 = bsearch_advance(keys, n, target, p3, 67108864)
+        let p5 = bsearch_advance(keys, n, target, p4, 33554432)
+        let p6 = bsearch_advance(keys, n, target, p5, 16777216)
+        return klb_24_from(keys, n, target, p6)
+
 dec key_lower_bound:
+    (_: [int], 0: int, _: int) -> int:
+        return 0
+    (keys: [int], n: int, target: int) where (n < 16) -> int:
+        return (klb_4_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 256) -> int:
+        return (klb_8_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 4096) -> int:
+        return (klb_12_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 65536) -> int:
+        return (klb_16_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 1048576) -> int:
+        return (klb_20_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 16777216) -> int:
+        return (klb_24_from(keys, n, target, -1) + 1)
     (keys: [int], n: int, target: int) -> int:
-        assert (n < 65536)
-        let p0 = bsearch_advance(keys, n, target, -1, 32768)
-        let p1 = bsearch_advance(keys, n, target, p0, 16384)
-        let p2 = bsearch_advance(keys, n, target, p1, 8192)
-        let p3 = bsearch_advance(keys, n, target, p2, 4096)
-        let p4 = bsearch_advance(keys, n, target, p3, 2048)
-        let p5 = bsearch_advance(keys, n, target, p4, 1024)
-        let p6 = bsearch_advance(keys, n, target, p5, 512)
-        let p7 = bsearch_advance(keys, n, target, p6, 256)
-        let p8 = bsearch_advance(keys, n, target, p7, 128)
-        let p9 = bsearch_advance(keys, n, target, p8, 64)
-        let p10 = bsearch_advance(keys, n, target, p9, 32)
-        let p11 = bsearch_advance(keys, n, target, p10, 16)
-        let p12 = bsearch_advance(keys, n, target, p11, 8)
-        let p13 = bsearch_advance(keys, n, target, p12, 4)
-        let p14 = bsearch_advance(keys, n, target, p13, 2)
-        let p15 = bsearch_advance(keys, n, target, p14, 1)
-        return (p15 + 1)
+        assert (n < 1073741824)
+        return (klb_30_from(keys, n, target, -1) + 1)
 
 dec slot_if_key_matches:
     (_: [int], _: [int], n: int, pos: int, _: int) where (pos >= n) -> int:
@@ -526,6 +581,31 @@ dec remap_last_slot_if_needed:
         assert (fin.found_pos >= 0)
         return set_at(trimmed_slots, fin.found_pos, dead_slot)
 
+dec key_remove_swap_with_last:
+    (idx: KeyIndex, key: int, last_key: int) -> (bool, KeyIndex, int, int):
+        let (hit, pos) = key_bsearch(idx, key)
+        return apply_key_remove_swap_with_last(hit, idx, pos, last_key)
+
+dec apply_key_remove_swap_with_last:
+    (false: bool, idx: KeyIndex, _: int, _: int) -> (bool, KeyIndex, int, int):
+        return (false, idx, -1, -1)
+    (true: bool, idx: KeyIndex, rm_pos: int, last_key: int) -> (bool, KeyIndex, int, int):
+        let n = len(idx.keys)
+        let dead_slot = idx.slots[rm_pos]
+        let last_slot = (n - 1)
+        let next_keys = concat(slice(idx.keys, 0, rm_pos), slice(idx.keys, (rm_pos + 1), n))
+        let trimmed_slots = concat(slice(idx.slots, 0, rm_pos), slice(idx.slots, (rm_pos + 1), n))
+        let next_slots = remap_last_key_slot((dead_slot < last_slot), next_keys, trimmed_slots, dead_slot, last_key)
+        return (true, KeyIndex(next_keys, next_slots), dead_slot, last_slot)
+
+dec remap_last_key_slot:
+    (false: bool, _: [int], trimmed_slots: [int], _: int, _: int) -> [int]:
+        return trimmed_slots
+    (true: bool, next_keys: [int], trimmed_slots: [int], dead_slot: int, last_key: int) -> [int]:
+        let pos = key_lower_bound(next_keys, len(next_keys), last_key)
+        assert ((pos < len(next_keys)) and (next_keys[pos] == last_key))
+        return set_at(trimmed_slots, pos, dead_slot)
+
 dec key_remove_swap:
     (idx: KeyIndex, key: int) -> (bool, KeyIndex, int, int):
         let (hit, pos) = key_bsearch(idx, key)
@@ -546,11 +626,27 @@ dec apply_key_remove_swap:
 struct IntTable:
     index: KeyIndex
     vals: [int]
+    slot_keys: [int]
 
 dec empty_int_table:
     () -> IntTable:
         let ev: [int] = []
-        return IntTable(empty_key_index(), ev)
+        let ek: [int] = []
+        return IntTable(empty_key_index(), ev, ek)
+
+dec int_table_len:
+    (tbl: IntTable) -> int:
+        return len(tbl.vals)
+
+dec int_table_contains:
+    (tbl: IntTable, key: int) -> bool:
+        return (key_lookup_slot(tbl.index, key) >= 0)
+
+dec int_table_get:
+    (tbl: IntTable, key: int) -> (bool, int):
+        let slot = key_lookup_slot(tbl.index, key)
+        let hit = (slot >= 0)
+        return (hit, select_int_slot(hit, tbl.vals, slot, 0))
 
 dec int_table_get_or:
     (tbl: IntTable, key: int, fallback: int) -> int:
@@ -570,10 +666,315 @@ dec int_table_put:
 
 dec upsert_int_slot:
     (true: bool, tbl: IntTable, _: int, slot: int, val: int) -> IntTable:
-        return IntTable(tbl.index, set_at(tbl.vals, slot, val))
+        return IntTable(tbl.index, set_at(tbl.vals, slot, val), tbl.slot_keys)
     (false: bool, tbl: IntTable, key: int, _: int, val: int) -> IntTable:
         let new_slot = len(tbl.vals)
-        return IntTable(key_insert_new(tbl.index, key, new_slot), push(tbl.vals, val))
+        return IntTable(key_insert_new(tbl.index, key, new_slot), push(tbl.vals, val), push(tbl.slot_keys, key))
+
+dec int_table_put_flag:
+    (tbl: IntTable, key: int, val: int) -> (bool, IntTable):
+        let slot = key_lookup_slot(tbl.index, key)
+        let hit = (slot >= 0)
+        return (not hit, upsert_int_slot(hit, tbl, key, slot, val))
+
+dec int_table_add:
+    (tbl: IntTable, key: int, delta: int) -> (bool, int, IntTable):
+        let slot = key_lookup_slot(tbl.index, key)
+        return apply_int_table_add((slot >= 0), tbl, key, slot, delta)
+
+dec apply_int_table_add:
+    (true: bool, tbl: IntTable, _: int, slot: int, delta: int) -> (bool, int, IntTable):
+        let old = tbl.vals[slot]
+        return (false, old, IntTable(tbl.index, set_at(tbl.vals, slot, (old + delta)), tbl.slot_keys))
+    (false: bool, tbl: IntTable, key: int, _: int, delta: int) -> (bool, int, IntTable):
+        let new_slot = len(tbl.vals)
+        return (true, 0, IntTable(key_insert_new(tbl.index, key, new_slot), push(tbl.vals, delta), push(tbl.slot_keys, key)))
+
+dec int_table_remove:
+    (tbl: IntTable, key: int) -> (bool, int, IntTable):
+        let n = len(tbl.vals)
+        return apply_int_table_remove_nonempty((n > 0), tbl, key, n)
+
+dec apply_int_table_remove_nonempty:
+    (false: bool, tbl: IntTable, _: int, _: int) -> (bool, int, IntTable):
+        return (false, 0, tbl)
+    (true: bool, tbl: IntTable, key: int, n: int) -> (bool, int, IntTable):
+        let last_key = tbl.slot_keys[(n - 1)]
+        let (hit, next_idx, dead_slot, last_slot) = key_remove_swap_with_last(tbl.index, key, last_key)
+        return apply_int_table_remove(hit, tbl, next_idx, dead_slot, last_slot)
+
+dec apply_int_table_remove:
+    (false: bool, tbl: IntTable, _: KeyIndex, _: int, _: int) -> (bool, int, IntTable):
+        return (false, 0, tbl)
+    (true: bool, tbl: IntTable, next_idx: KeyIndex, dead_slot: int, last_slot: int) -> (bool, int, IntTable):
+        let old_val = tbl.vals[dead_slot]
+        let moved_v = tbl.vals[last_slot]
+        let moved_k = tbl.slot_keys[last_slot]
+        let trunc_v = slice(tbl.vals, 0, last_slot)
+        let trunc_k = slice(tbl.slot_keys, 0, last_slot)
+        let swap_needed = (dead_slot < last_slot)
+        let next_vals = select(swap_needed, set_at(trunc_v, dead_slot, moved_v), trunc_v)
+        let next_sk = select(swap_needed, set_at(trunc_k, dead_slot, moved_k), trunc_k)
+        return (true, old_val, IntTable(next_idx, next_vals, next_sk))
+
+dec count_nonzero_int_step:
+    (acc: int, v: int) -> int:
+        return (acc + select((v != 0), 1, 0))
+
+dec int_table_nonzero_count:
+    (tbl: IntTable) -> int:
+        return fold(tbl.vals, 0, count_nonzero_int_step)
+
+struct ShardRow:
+    count: int
+    leaves: [IntTable]
+
+struct ShardPlane:
+    count: int
+    rows: [ShardRow]
+
+struct ShardIntTable:
+    total_keys: int
+    planes: [ShardPlane]
+
+dec empty_shard_row:
+    () -> ShardRow:
+        let el: [IntTable] = []
+        return ShardRow(0, el)
+
+dec empty_shard_plane:
+    () -> ShardPlane:
+        let er: [ShardRow] = []
+        return ShardPlane(0, er)
+
+dec empty_shard_int_table:
+    (_: int) -> ShardIntTable:
+        let ep: [ShardPlane] = []
+        return ShardIntTable(0, ep)
+
+dec ensure_planes:
+    (planes: [ShardPlane]) where (len(planes) == 16) -> [ShardPlane]:
+        return planes
+    (_: [ShardPlane]) -> [ShardPlane]:
+        let p = empty_shard_plane()
+        return [p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]
+
+dec ensure_rows:
+    (rows: [ShardRow]) where (len(rows) == 16) -> [ShardRow]:
+        return rows
+    (_: [ShardRow]) -> [ShardRow]:
+        let r = empty_shard_row()
+        return [r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r]
+
+dec ensure_leaves:
+    (leaves: [IntTable]) where (len(leaves) == 16) -> [IntTable]:
+        return leaves
+    (_: [IntTable]) -> [IntTable]:
+        let lf = empty_int_table()
+        return [lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf]
+
+dec shard_bucket:
+    (key: int, _: int) -> int:
+        let k = (((key % 1000000007) + 1000000007) % 1000000007)
+        let h = ((k * 2654435761) // 65536)
+        return (h % 4096)
+
+dec shard_int_len:
+    (tbl: ShardIntTable) -> int:
+        return tbl.total_keys
+
+dec shard_int_contains:
+    (tbl: ShardIntTable, _: int) where (tbl.total_keys == 0) -> bool:
+        return false
+    (tbl: ShardIntTable, key: int) -> bool:
+        let slot = shard_bucket(key, 4096)
+        return shard_plane_contains(tbl.planes[(slot // 256)], ((slot // 16) % 16), (slot % 16), key)
+
+dec shard_plane_contains:
+    (plane: ShardPlane, _: int, _: int, _: int) where (plane.count == 0) -> bool:
+        return false
+    (plane: ShardPlane, r_idx: int, l_idx: int, key: int) -> bool:
+        return shard_row_contains(plane.rows[r_idx], l_idx, key)
+
+dec shard_row_contains:
+    (row: ShardRow, _: int, _: int) where (row.count == 0) -> bool:
+        return false
+    (row: ShardRow, l_idx: int, key: int) -> bool:
+        return int_table_contains(row.leaves[l_idx], key)
+
+dec shard_int_get:
+    (tbl: ShardIntTable, _: int) where (tbl.total_keys == 0) -> (bool, int):
+        return (false, 0)
+    (tbl: ShardIntTable, key: int) -> (bool, int):
+        let slot = shard_bucket(key, 4096)
+        return shard_plane_get(tbl.planes[(slot // 256)], ((slot // 16) % 16), (slot % 16), key)
+
+dec shard_plane_get:
+    (plane: ShardPlane, _: int, _: int, _: int) where (plane.count == 0) -> (bool, int):
+        return (false, 0)
+    (plane: ShardPlane, r_idx: int, l_idx: int, key: int) -> (bool, int):
+        return shard_row_get(plane.rows[r_idx], l_idx, key)
+
+dec shard_row_get:
+    (row: ShardRow, _: int, _: int) where (row.count == 0) -> (bool, int):
+        return (false, 0)
+    (row: ShardRow, l_idx: int, key: int) -> (bool, int):
+        return int_table_get(row.leaves[l_idx], key)
+
+dec shard_int_get_or:
+    (tbl: ShardIntTable, _: int, fallback: int) where (tbl.total_keys == 0) -> int:
+        return fallback
+    (tbl: ShardIntTable, key: int, fallback: int) -> int:
+        let slot = shard_bucket(key, 4096)
+        return shard_plane_get_or(tbl.planes[(slot // 256)], ((slot // 16) % 16), (slot % 16), key, fallback)
+
+dec shard_plane_get_or:
+    (plane: ShardPlane, _: int, _: int, _: int, fallback: int) where (plane.count == 0) -> int:
+        return fallback
+    (plane: ShardPlane, r_idx: int, l_idx: int, key: int, fallback: int) -> int:
+        return shard_row_get_or(plane.rows[r_idx], l_idx, key, fallback)
+
+dec shard_row_get_or:
+    (row: ShardRow, _: int, _: int, fallback: int) where (row.count == 0) -> int:
+        return fallback
+    (row: ShardRow, l_idx: int, key: int, fallback: int) -> int:
+        return int_table_get_or(row.leaves[l_idx], key, fallback)
+
+dec shard_int_put:
+    (tbl: ShardIntTable, key: int, val: int) -> (bool, ShardIntTable):
+        let slot = shard_bucket(key, 4096)
+        let p_idx = (slot // 256)
+        let r_idx = ((slot // 16) % 16)
+        let l_idx = (slot % 16)
+        let planes = ensure_planes(tbl.planes)
+        let plane = planes[p_idx]
+        let rows = ensure_rows(plane.rows)
+        let row = rows[r_idx]
+        let leaves = ensure_leaves(row.leaves)
+        let (is_new, next_leaf) = int_table_put_flag(leaves[l_idx], key, val)
+        let dc = select(is_new, 1, 0)
+        let next_row = ShardRow((row.count + dc), set_at(leaves, l_idx, next_leaf))
+        let next_plane = ShardPlane((plane.count + dc), set_at(rows, r_idx, next_row))
+        return (is_new, ShardIntTable((tbl.total_keys + dc), set_at(planes, p_idx, next_plane)))
+
+dec shard_int_add:
+    (tbl: ShardIntTable, key: int, delta: int) -> (bool, int, ShardIntTable):
+        let slot = shard_bucket(key, 4096)
+        let p_idx = (slot // 256)
+        let r_idx = ((slot // 16) % 16)
+        let l_idx = (slot % 16)
+        let planes = ensure_planes(tbl.planes)
+        let plane = planes[p_idx]
+        let rows = ensure_rows(plane.rows)
+        let row = rows[r_idx]
+        let leaves = ensure_leaves(row.leaves)
+        let (is_new, old_v, next_leaf) = int_table_add(leaves[l_idx], key, delta)
+        let dc = select(is_new, 1, 0)
+        let next_row = ShardRow((row.count + dc), set_at(leaves, l_idx, next_leaf))
+        let next_plane = ShardPlane((plane.count + dc), set_at(rows, r_idx, next_row))
+        return (is_new, old_v, ShardIntTable((tbl.total_keys + dc), set_at(planes, p_idx, next_plane)))
+
+dec shard_int_remove:
+    (tbl: ShardIntTable, _: int) where (tbl.total_keys == 0) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (tbl: ShardIntTable, key: int) -> (bool, int, ShardIntTable):
+        let slot = shard_bucket(key, 4096)
+        let p_idx = (slot // 256)
+        let r_idx = ((slot // 16) % 16)
+        let l_idx = (slot % 16)
+        let plane = tbl.planes[p_idx]
+        return shard_remove_in_plane(tbl, p_idx, r_idx, l_idx, plane, key)
+
+dec shard_remove_in_plane:
+    (tbl: ShardIntTable, _: int, _: int, _: int, plane: ShardPlane, _: int) where (plane.count == 0) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (tbl: ShardIntTable, p_idx: int, r_idx: int, l_idx: int, plane: ShardPlane, key: int) -> (bool, int, ShardIntTable):
+        let row = plane.rows[r_idx]
+        return shard_remove_in_row(tbl, p_idx, r_idx, l_idx, plane, row, key)
+
+dec shard_remove_in_row:
+    (tbl: ShardIntTable, _: int, _: int, _: int, _: ShardPlane, row: ShardRow, _: int) where (row.count == 0) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (tbl: ShardIntTable, p_idx: int, r_idx: int, l_idx: int, plane: ShardPlane, row: ShardRow, key: int) -> (bool, int, ShardIntTable):
+        let (removed, old_v, next_leaf) = int_table_remove(row.leaves[l_idx], key)
+        return finish_shard_remove(removed, old_v, tbl, p_idx, r_idx, l_idx, plane, row, next_leaf)
+
+dec finish_shard_remove:
+    (false: bool, _: int, tbl: ShardIntTable, _: int, _: int, _: int, _: ShardPlane, _: ShardRow, _: IntTable) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (true: bool, old_v: int, tbl: ShardIntTable, p_idx: int, r_idx: int, l_idx: int, plane: ShardPlane, row: ShardRow, next_leaf: IntTable) -> (bool, int, ShardIntTable):
+        let next_row = ShardRow((row.count - 1), set_at(row.leaves, l_idx, next_leaf))
+        let next_plane = ShardPlane((plane.count - 1), set_at(plane.rows, r_idx, next_row))
+        return (true, old_v, ShardIntTable((tbl.total_keys - 1), set_at(tbl.planes, p_idx, next_plane)))
+
+dec shard_leaf_nonzero_step:
+    (acc: int, sh: IntTable) -> int:
+        return (acc + int_table_nonzero_count(sh))
+
+dec shard_row_nonzero_step:
+    (acc: int, row: ShardRow) where (row.count == 0) -> int:
+        return acc
+    (acc: int, row: ShardRow) -> int:
+        return fold(row.leaves, acc, shard_leaf_nonzero_step)
+
+dec shard_plane_nonzero_step:
+    (acc: int, plane: ShardPlane) where (plane.count == 0) -> int:
+        return acc
+    (acc: int, plane: ShardPlane) -> int:
+        return fold(plane.rows, acc, shard_row_nonzero_step)
+
+dec shard_int_nonzero_count:
+    (tbl: ShardIntTable) where (tbl.total_keys == 0) -> int:
+        return 0
+    (tbl: ShardIntTable) -> int:
+        return fold(tbl.planes, 0, shard_plane_nonzero_step)
+
+struct SortedKV:
+    keys: [int]
+    vals: [int]
+
+dec empty_sorted_kv:
+    () -> SortedKV:
+        let ek: [int] = []
+        let ev: [int] = []
+        return SortedKV(ek, ev)
+
+dec concat_sorted_kv:
+    (a: SortedKV, b: SortedKV) where (len(b.keys) == 0) -> SortedKV:
+        return a
+    (a: SortedKV, b: SortedKV) where (len(a.keys) == 0) -> SortedKV:
+        return b
+    (a: SortedKV, b: SortedKV) -> SortedKV:
+        return SortedKV(concat(a.keys, b.keys), concat(a.vals, b.vals))
+
+dec collect_leaf_flat_step:
+    (acc: SortedKV, sh: IntTable) where (len(sh.vals) == 0) -> SortedKV:
+        return acc
+    (acc: SortedKV, sh: IntTable) -> SortedKV:
+        return concat_sorted_kv(acc, SortedKV(sh.slot_keys, sh.vals))
+
+dec collect_row_flat_step:
+    (acc: SortedKV, row: ShardRow) where (row.count == 0) -> SortedKV:
+        return acc
+    (acc: SortedKV, row: ShardRow) -> SortedKV:
+        let row_kv = fold(row.leaves, empty_sorted_kv(), collect_leaf_flat_step)
+        return concat_sorted_kv(acc, row_kv)
+
+dec collect_plane_flat_step:
+    (acc: SortedKV, plane: ShardPlane) where (plane.count == 0) -> SortedKV:
+        return acc
+    (acc: SortedKV, plane: ShardPlane) -> SortedKV:
+        let plane_kv = fold(plane.rows, empty_sorted_kv(), collect_row_flat_step)
+        return concat_sorted_kv(acc, plane_kv)
+
+dec shard_int_sorted_entries:
+    (tbl: ShardIntTable) where (tbl.total_keys == 0) -> ([int], [int]):
+        let ek: [int] = []
+        let ev: [int] = []
+        return (ek, ev)
+    (tbl: ShardIntTable) -> ([int], [int]):
+        let flat = fold(tbl.planes, empty_sorted_kv(), collect_plane_flat_step)
+        return sort_int_pairs(flat.keys, flat.vals)
 
 struct ClosureMemory:
     next_action_id: int
@@ -1066,15 +1467,33 @@ dec decode_trit_bool_step:
         let valid = ((tr == 0t) or (tr == 1t))
         return TritBoolDecodeAcc(valid, select(valid, push(acc.items, (tr == 1t)), acc.items))
 
-dec encode_init_spec:
-    (spec: DuonicInitSpec) -> bytes:
-        assert ((((spec.motor_count > 0) and (spec.motor_count <= 65535)) and (spec.c3_cap > 0)) and (spec.c3_cap <= 65535))
-        assert ((((spec.win_len > 0) and (spec.win_len <= 65535)) and (spec.max_relations > 0)) and (spec.max_relations <= 65535))
+dec dn02_init_spec_valid:
+    (spec: DuonicInitSpec) -> bool:
+        let m_ok = ((spec.motor_count > 0) and (spec.motor_count <= 65535))
+        let c_ok = ((spec.c3_cap > 0) and (spec.c3_cap <= 65535))
+        let w_ok = ((spec.win_len > 0) and (spec.win_len <= 65535))
+        let r_ok = ((spec.max_relations > 0) and (spec.max_relations <= 65535))
+        return (((m_ok and c_ok) and w_ok) and r_ok)
+
+dec try_encode_init_spec:
+    (spec: DuonicInitSpec) -> (bool, bytes):
+        return encode_init_spec_if_valid(dn02_init_spec_valid(spec), spec)
+
+dec encode_init_spec_if_valid:
+    (false: bool, _: DuonicInitSpec) -> (bool, bytes):
+        return (false, b"ERR dn02_init_spec_out_of_u16_range")
+    (true: bool, spec: DuonicInitSpec) -> (bool, bytes):
         let hdr = push_byte(push_byte(b"DN02", b8(0)), b8(select(spec.mindful_reflex, 1, 0)))
         let p0 = concat_bytes(hdr, u16_le_bytes(spec.motor_count))
         let p1 = concat_bytes(u16_le_bytes(spec.c3_cap), u16_le_bytes(spec.win_len))
         let p2 = concat_bytes(u16_le_bytes(spec.max_relations), u16_le_bytes(0))
-        return concat_bytes(concat_bytes(p0, p1), p2)
+        return (true, concat_bytes(concat_bytes(p0, p1), p2))
+
+dec encode_init_spec:
+    (spec: DuonicInitSpec) -> bytes:
+        let (ok, raw) = try_encode_init_spec(spec)
+        assert ok
+        return raw
 
 dec decode_init_spec:
     (raw: bytes) -> (bool, DuonicInitSpec):
@@ -1092,6 +1511,48 @@ dec decode_init_spec_body:
         let mr = (int(raw[12]) + (256 * int(raw[13])))
         let pad = (int(raw[14]) + (256 * int(raw[15])))
         let ok = ((((((magic_ok and mf_ok) and (mc > 0)) and (c3 > 0)) and (wl > 0)) and (mr > 0)) and (pad == 0))
+        return (ok, select(ok, DuonicInitSpec(mc, c3, wl, mr, (mf_raw == 1)), DuonicInitSpec(1, 1, 1, 1, true)))
+
+dec dn03_init_spec_valid:
+    (spec: DuonicInitSpec) -> bool:
+        let m_ok = ((spec.motor_count > 0) and (spec.motor_count <= 65535))
+        let c_ok = ((spec.c3_cap > 0) and (spec.c3_cap <= 65535))
+        let w_ok = ((spec.win_len > 0) and (spec.win_len <= 65535))
+        let r_ok = ((spec.max_relations > 0) and (spec.max_relations <= 1073741823))
+        return (((m_ok and c_ok) and w_ok) and r_ok)
+
+dec try_encode_init_spec_v3:
+    (spec: DuonicInitSpec) -> (bool, bytes):
+        return encode_init_spec_v3_if_valid(dn03_init_spec_valid(spec), spec)
+
+dec encode_init_spec_v3_if_valid:
+    (false: bool, _: DuonicInitSpec) -> (bool, bytes):
+        return (false, b"ERR dn03_init_spec_out_of_range")
+    (true: bool, spec: DuonicInitSpec) -> (bool, bytes):
+        let hdr = push_byte(push_byte(b"DN03", b8(0)), b8(select(spec.mindful_reflex, 1, 0)))
+        let p0 = concat_bytes(hdr, u16_le_bytes(spec.motor_count))
+        let p1 = concat_bytes(u16_le_bytes(spec.c3_cap), u16_le_bytes(spec.win_len))
+        let p2 = concat_bytes(u16_le_bytes(0), u16_le_bytes(0))
+        let p3 = b64_le_bytes(b64(spec.max_relations))
+        return (true, concat_bytes(concat_bytes(p0, p1), concat_bytes(p2, p3)))
+
+dec decode_init_spec_v3:
+    (raw: bytes) -> (bool, DuonicInitSpec):
+        let dummy = DuonicInitSpec(1, 1, 1, 1, true)
+        return select((len(raw) != 24), (false, dummy), decode_init_spec_v3_body(raw))
+
+dec decode_init_spec_v3_body:
+    (raw: bytes) -> (bool, DuonicInitSpec):
+        let magic_ok = ((slice_bytes(raw, 0, 4) == b"DN03") and (int(raw[4]) == 0))
+        let mf_raw = int(raw[5])
+        let mf_ok = ((mf_raw == 0) or (mf_raw == 1))
+        let mc = (int(raw[6]) + (256 * int(raw[7])))
+        let c3 = (int(raw[8]) + (256 * int(raw[9])))
+        let wl = (int(raw[10]) + (256 * int(raw[11])))
+        let pad0 = (int(raw[12]) + (256 * int(raw[13])))
+        let pad1 = (int(raw[14]) + (256 * int(raw[15])))
+        let (mr_ok, mr) = decode_trit_word_checked(read_b64_le_at(raw, 16))
+        let ok = ((((((((magic_ok and mf_ok) and (mc > 0)) and (c3 > 0)) and (wl > 0)) and (pad0 == 0)) and (pad1 == 0)) and mr_ok) and ((mr > 0) and (mr <= 1073741823)))
         return (ok, select(ok, DuonicInitSpec(mc, c3, wl, mr, (mf_raw == 1)), DuonicInitSpec(1, 1, 1, 1, true)))
 
 dec encode_pulse_record:

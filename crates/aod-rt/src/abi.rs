@@ -258,6 +258,49 @@ unsafe fn write_ratio_out(out: *mut DecRatio, num: u64, den: u64) -> Result<(), 
 // ============================================================================
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_mark(ctx: *mut AodRtContext) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| Ok(s.arena.len() as u64)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_truncate(ctx: *mut AodRtContext, mark: u64) {
+    unsafe {
+        let _ = guard_ret(ctx, (), |_, s| {
+            s.arena.truncate(mark as usize);
+            Ok(())
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_reclaim_handle(
+    ctx: *mut AodRtContext,
+    mark: u64,
+    keep_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            if keep_h == 0 || keep_h <= mark {
+                s.arena.truncate(mark as usize);
+                return Ok(keep_h);
+            }
+            let kept = s.arena.get(keep_h)?.clone();
+            s.arena.truncate(mark as usize);
+            s.arena.insert(kept)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_reclaim_int(
+    ctx: *mut AodRtContext,
+    mark: u64,
+    val_packed: u64,
+) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.reclaim_dec_int(mark, val_packed)) }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ctx_init(
     ctx: *mut AodRtContext,
     fuel: i64,
@@ -295,6 +338,7 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
         let mut fuel = DEFAULT_NATIVE_FUEL;
         let mut max_depth = DEFAULT_NATIVE_MAX_DEPTH;
+        let mut arena_cap = crate::arena::DEFAULT_MAX_ARENA_ENTRIES;
         let mut mount_specs: Vec<crate::ns_fs::RtMountSpec> = Vec::new();
         let mut unconfined = false;
         let mut positional: Vec<Vec<u8>> = Vec::new();
@@ -383,9 +427,31 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                         max_depth = parsed;
                         i += 2;
                     }
+                    "--arena-cap" => {
+                        let next = args
+                            .get(i + 1)
+                            .copied()
+                            .filter(|p| !p.is_null())
+                            .ok_or_else(|| {
+                                "missing positive integer after --arena-cap".to_string()
+                            })?;
+                        let val_s = unsafe { CStr::from_ptr(next) }
+                            .to_str()
+                            .map_err(|_| "invalid UTF-8 after --arena-cap".to_string())?;
+                        let parsed: usize = val_s.parse().map_err(|_| {
+                            format!(
+                                "invalid integer {val_s:?} for --arena-cap; expected positive integer"
+                            )
+                        })?;
+                        if parsed == 0 || parsed > 268_435_456 {
+                            return Err("--arena-cap must be in 1..=268435456".to_string());
+                        }
+                        arena_cap = parsed;
+                        i += 2;
+                    }
                     other if other.starts_with('-') => {
                         return Err(format!(
-                            "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>, --mount <spec>, --unconfined)"
+                            "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>, --arena-cap <N>, --mount <spec>, --unconfined)"
                         ));
                     }
                     _ => {
@@ -412,6 +478,9 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
         unsafe {
             aod_rt_ctx_init(ctx, fuel, max_depth, 0);
             if !(*ctx).inner.is_null() {
+                if arena_cap != crate::arena::DEFAULT_MAX_ARENA_ENTRIES {
+                    (*(*ctx).inner).arena = crate::arena::RtArena::new(arena_cap);
+                }
                 (*(*ctx).inner).cli_args = positional;
                 (*(*ctx).inner).rt_ns = rt_ns;
             }
@@ -2442,6 +2511,20 @@ pub unsafe extern "C" fn aod_rt_seq_get(ctx: *mut AodRtContext, seq_h: u64, idx:
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_get_int(ctx: *mut AodRtContext, seq_h: u64, idx: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let iv = s.unpack_dec_int(idx)?;
+            let v = s.op_seq_get(seq_h, &iv)?;
+            match v {
+                RtValue::Int(n) => s.pack_dec_int(n),
+                other => Err(format!("expected int element, got {}", other.render())),
+            }
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_seq_get_raw_idx(
     ctx: *mut AodRtContext,
     seq_h: u64,
@@ -2466,6 +2549,43 @@ pub unsafe extern "C" fn aod_rt_array_set(
         guard_ret(ctx, 0, |_, s| {
             let iv = s.unpack_dec_int(idx)?;
             s.op_array_set(arr_h, &iv, val_h)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_array_set_int(
+    ctx: *mut AodRtContext,
+    arr_h: u64,
+    idx: u64,
+    val_packed: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let iv = s.unpack_dec_int(idx)?;
+            let i = iv
+                .to_i64()
+                .ok_or_else(|| format!("index {iv} out of i64 range"))?;
+            let val = RtValue::Int(s.unpack_dec_int(val_packed)?);
+            let (is_array, mut out) = match s.arena.get(arr_h)? {
+                RtValue::Array(items) => (true, (**items).clone()),
+                RtValue::List(items) => (false, (**items).clone()),
+                other => {
+                    return Err(format!(
+                        "set_at expects array or list, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            if i < 0 || (i as usize) >= out.len() {
+                return Err(format!("set_at index {i} out of bounds"));
+            }
+            out[i as usize] = val;
+            if is_array {
+                s.arena.insert(RtValue::Array(std::sync::Arc::new(out)))
+            } else {
+                s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+            }
         })
     }
 }
@@ -2592,6 +2712,83 @@ pub unsafe extern "C" fn aod_rt_seq_push(ctx: *mut AodRtContext, seq_h: u64, ele
             };
             out.push(elem);
             s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_push_int(
+    ctx: *mut AodRtContext,
+    seq_h: u64,
+    val_packed: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let elem = RtValue::Int(s.unpack_dec_int(val_packed)?);
+            let mut out = match s.arena.get(seq_h)? {
+                RtValue::Array(items) | RtValue::List(items) => (**items).clone(),
+                other => return Err(format!("push expects sequence, got {}", other.render())),
+            };
+            out.push(elem);
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sort_int_pairs(
+    ctx: *mut AodRtContext,
+    ks_h: u64,
+    vs_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let ks = match s.arena.get(ks_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => {
+                    return Err(format!(
+                        "sort_int_pairs expects key sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            let vs = match s.arena.get(vs_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => {
+                    return Err(format!(
+                        "sort_int_pairs expects value sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            if ks.len() != vs.len() {
+                return Err(format!(
+                    "sort_int_pairs length mismatch: {} vs {}",
+                    ks.len(),
+                    vs.len()
+                ));
+            }
+            let mut pairs: Vec<(aod_core::bigint::BigInt, aod_core::bigint::BigInt)> =
+                Vec::with_capacity(ks.len());
+            for (k, v) in ks.iter().zip(vs.iter()) {
+                match (k, v) {
+                    (RtValue::Int(ki), RtValue::Int(vi)) => pairs.push((ki.clone(), vi.clone())),
+                    _ => {
+                        return Err("sort_int_pairs expects integer sequences".to_string());
+                    }
+                }
+            }
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            let mut ok = Vec::with_capacity(pairs.len());
+            let mut ov = Vec::with_capacity(pairs.len());
+            for (k, v) in pairs {
+                ok.push(RtValue::Int(k));
+                ov.push(RtValue::Int(v));
+            }
+            s.arena.insert(RtValue::Tuple(vec![
+                RtValue::List(std::sync::Arc::new(ok)),
+                RtValue::List(std::sync::Arc::new(ov)),
+            ]))
         })
     }
 }
@@ -2960,6 +3157,28 @@ pub unsafe extern "C" fn aod_rt_field_get(
             let fname = read_utf8_str(field_ptr, field_len)?.to_string();
             let v = s.op_field_get(h, &fname)?;
             s.arena.insert(v)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_field_get_int(
+    ctx: *mut AodRtContext,
+    h: u64,
+    field_ptr: *const u8,
+    field_len: usize,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let fname = read_utf8_str(field_ptr, field_len)?.to_string();
+            let v = s.op_field_get(h, &fname)?;
+            match v {
+                RtValue::Int(n) => s.pack_dec_int(n),
+                other => Err(format!(
+                    "expected int field .{fname}, got {}",
+                    other.render()
+                )),
+            }
         })
     }
 }
@@ -3867,6 +4086,16 @@ pub unsafe extern "C" fn aod_rt_ext_decimal(ctx: *mut AodRtContext, h: u64) -> u
 pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
     vec![
         ("aod_rt_ctx_init", aod_rt_ctx_init as *const () as usize),
+        ("aod_rt_arena_mark", aod_rt_arena_mark as *const () as usize),
+        ("aod_rt_arena_truncate", aod_rt_arena_truncate as *const () as usize),
+        (
+            "aod_rt_arena_reclaim_handle",
+            aod_rt_arena_reclaim_handle as *const () as usize,
+        ),
+        (
+            "aod_rt_arena_reclaim_int",
+            aod_rt_arena_reclaim_int as *const () as usize,
+        ),
         ("aod_rt_cli_parse_args", aod_rt_cli_parse_args as *const () as usize),
         ("aod_rt_ctx_finish", aod_rt_ctx_finish as *const () as usize),
         ("aod_rt_fail", aod_rt_fail as *const () as usize),
@@ -4032,8 +4261,10 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_array_new", aod_rt_array_new as *const () as usize),
         ("aod_rt_list_new", aod_rt_list_new as *const () as usize),
         ("aod_rt_seq_get", aod_rt_seq_get as *const () as usize),
+        ("aod_rt_seq_get_int", aod_rt_seq_get_int as *const () as usize),
         ("aod_rt_seq_get_raw_idx", aod_rt_seq_get_raw_idx as *const () as usize),
         ("aod_rt_array_set", aod_rt_array_set as *const () as usize),
+        ("aod_rt_array_set_int", aod_rt_array_set_int as *const () as usize),
         ("aod_rt_seq_len_raw", aod_rt_seq_len_raw as *const () as usize),
         ("aod_rt_seq_sieve", aod_rt_seq_sieve as *const () as usize),
         ("aod_rt_seq_argmin_argmax", aod_rt_seq_argmin_argmax as *const () as usize),
@@ -4055,6 +4286,7 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_enum_tag", aod_rt_enum_tag as *const () as usize),
         ("aod_rt_enum_payload", aod_rt_enum_payload as *const () as usize),
         ("aod_rt_field_get", aod_rt_field_get as *const () as usize),
+        ("aod_rt_field_get_int", aod_rt_field_get_int as *const () as usize),
         ("aod_rt_sim_builder_new", aod_rt_sim_builder_new as *const () as usize),
         (
             "aod_rt_sim_builder_set_dynamics",
@@ -4076,7 +4308,9 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_le_bytes_from_int", aod_rt_le_bytes_from_int as *const () as usize),
         ("aod_rt_bytes_push", aod_rt_bytes_push as *const () as usize),
         ("aod_rt_seq_push", aod_rt_seq_push as *const () as usize),
+        ("aod_rt_seq_push_int", aod_rt_seq_push_int as *const () as usize),
         ("aod_rt_seq_concat", aod_rt_seq_concat as *const () as usize),
+        ("aod_rt_sort_int_pairs", aod_rt_sort_int_pairs as *const () as usize),
         ("aod_rt_seq_slice", aod_rt_seq_slice as *const () as usize),
         ("aod_rt_seq_contains", aod_rt_seq_contains as *const () as usize),
         ("aod_rt_range_seq", aod_rt_range_seq as *const () as usize),

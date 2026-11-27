@@ -671,3 +671,226 @@ dec main:
     let stdout = run_3mode(&prog_path, &[], None);
     assert_eq!(stdout, "2\n3\n");
 }
+
+#[test]
+fn key_index_past_65535_membership_and_dn03_4mode_parity() {
+    let dir = TempDirGuard::new("key_index_past_65535");
+    let prog_path = dir.path().join("key_index_65535.dec");
+    let ir_path = dir.path().join("key_index_65535.ir.json");
+    let prog_src = r#"use aod::core:
+    fold, len, range_seq, select
+use stdlib::aod::net:
+    DuonicInitSpec, IntTable, KeyIndex, ShardIntTable, decode_init_spec, decode_init_spec_v3, empty_int_table, empty_shard_int_table, encode_init_spec, int_table_add, int_table_contains, int_table_get, int_table_get_or, int_table_nonzero_count, int_table_put, int_table_remove, key_insert_new, key_len, key_lookup_slot, key_remove_swap, key_remove_swap_with_last, shard_int_add, shard_int_contains, shard_int_get, shard_int_len, shard_int_nonzero_count, shard_int_put, shard_int_remove, shard_int_sorted_entries, try_encode_init_spec, try_encode_init_spec_v3
+
+dec add_route_bounded:
+    (tbl: ShardIntTable, _: int, 0: int, _: int) -> ShardIntTable:
+        return tbl
+    (tbl: ShardIntTable, key: int, amount: int, cap: int) -> ShardIntTable:
+        let present = shard_int_contains(tbl, key)
+        let allowed = (present or (shard_int_len(tbl) < cap))
+        return apply_add_route(allowed, tbl, key, amount)
+
+dec apply_add_route:
+    (false: bool, tbl: ShardIntTable, _: int, _: int) -> ShardIntTable:
+        return tbl
+    (true: bool, tbl: ShardIntTable, key: int, amount: int) -> ShardIntTable:
+        let (_, _, next_t) = shard_int_add(tbl, key, amount)
+        return next_t
+
+dec main:
+    () -> ():
+        # 1. Exact membership semantics: 99_999_999 value vs absence vs 0 reactivation vs cap refusal
+        let s0 = empty_shard_int_table(16)
+        let (_, s1) = shard_int_put(s0, 12, 99999999)
+        let (_, s2) = shard_int_put(s1, 23, 0)
+        assert (shard_int_len(s2) == 2 and shard_int_nonzero_count(s2) == 1)
+        assert (shard_int_contains(s2, 12) and shard_int_contains(s2, 23) and (not shard_int_contains(s2, 34)))
+        let s3 = add_route_bounded(s2, 12, 1, 2)
+        let (p12, v12) = shard_int_get(s3, 12)
+        assert (p12 and (v12 == 100000000))
+        let s4 = add_route_bounded(s3, 23, -1, 2)
+        let (p23, v23) = shard_int_get(s4, 23)
+        assert (p23 and (v23 == -1) and shard_int_nonzero_count(s4) == 2)
+        let s5 = add_route_bounded(s4, 34, 1, 2)
+        assert ((shard_int_len(s5) == 2) and (not shard_int_contains(s5, 34)))
+        let s_zero_ign = add_route_bounded(s0, 34, 0, 2)
+        assert (shard_int_len(s_zero_ign) == 0)
+
+        # 2. Sorted start/middle/end insertion, swap-remove with moved-slot fixup, and exact restoration
+        let t0 = empty_int_table()
+        let t1 = int_table_put(t0, 50, 500)
+        let t2 = int_table_put(t1, 10, 0)
+        let t3 = int_table_put(t2, 90, 900)
+        let t4 = int_table_put(t3, 30, 300)
+        assert (int_table_contains(t4, 10) and int_table_get_or(t4, 10, -1) == 0 and int_table_nonzero_count(t4) == 3)
+        let (rm_ok, rm_v, t5) = int_table_remove(t4, 50)
+        assert (rm_ok and (rm_v == 500) and (not int_table_contains(t5, 50)))
+        assert (int_table_get_or(t5, 10, -1) == 0 and int_table_get_or(t5, 30, -1) == 300 and int_table_get_or(t5, 90, -1) == 900)
+        let t6 = int_table_put(t5, 50, rm_v)
+        assert (int_table_get_or(t6, 50, -1) == 500 and int_table_get_or(t6, 30, -1) == 300)
+        let (rm_s, idx_s, ds_s, ls_s) = key_remove_swap(t4.index, 50)
+        assert (rm_s and ds_s == 0 and ls_s == 3 and key_lookup_slot(idx_s, 30) == 0)
+
+        # 3. Direct KeyIndex transition across 65_535 -> 65_536 -> 65_537 and 109_062
+        let ks65535 = range_seq(0, 65535)
+        let idx65535 = KeyIndex(ks65535, ks65535)
+        assert (key_len(idx65535) == 65535 and key_lookup_slot(idx65535, 0) == 0 and key_lookup_slot(idx65535, 65534) == 65534 and key_lookup_slot(idx65535, 65535) == -1)
+        let idx65536 = key_insert_new(idx65535, 65535, 65535)
+        assert (key_len(idx65536) == 65536 and key_lookup_slot(idx65536, 65535) == 65535 and key_lookup_slot(idx65536, 0) == 0 and key_lookup_slot(idx65536, 65536) == -1)
+        let idx65537 = key_insert_new(idx65536, 65536, 65536)
+        assert (key_len(idx65537) == 65537 and key_lookup_slot(idx65537, 65536) == 65536 and key_lookup_slot(idx65537, 32768) == 32768)
+        let (rm65, idx_back, dead_s, last_s) = key_remove_swap_with_last(idx65537, 32768, 65536)
+        assert (rm65 and (dead_s == 32768) and (last_s == 65536) and key_len(idx_back) == 65536)
+        assert (key_lookup_slot(idx_back, 32768) == -1 and key_lookup_slot(idx_back, 65536) == 32768)
+
+        let ks109 = range_seq(0, 109062)
+        let idx109 = KeyIndex(ks109, ks109)
+        assert (key_len(idx109) == 109062 and key_lookup_slot(idx109, 0) == 0 and key_lookup_slot(idx109, 65535) == 65535 and key_lookup_slot(idx109, 65536) == 65536 and key_lookup_slot(idx109, 109061) == 109061 and key_lookup_slot(idx109, 109062) == -1)
+
+        # 4. Canonical sorted merge on ShardIntTable
+        let (_, m1) = shard_int_put(s0, 91, 9)
+        let (_, m2) = shard_int_put(m1, 14, 0)
+        let (_, m3) = shard_int_put(m2, 42, -1)
+        let (sk, sv) = shard_int_sorted_entries(m3)
+        assert (sk == [14, 42, 91] and sv == [0, -1, 9])
+
+        # 5. DN02 byte-compatibility + explicit rejection past 65535 + versioned DN03 negotiation
+        let spec_v2 = DuonicInitSpec(9, 3, 5, 65535, true)
+        let raw_v2 = encode_init_spec(spec_v2)
+        assert (len(raw_v2) == 16)
+        let (ok_v2, dec_v2) = decode_init_spec(raw_v2)
+        assert (ok_v2 and dec_v2.max_relations == 65535)
+        let (ok_v3_on_v2, _) = decode_init_spec_v3(raw_v2)
+        assert not ok_v3_on_v2
+
+        let spec_big = DuonicInitSpec(9, 3, 5, 109062, true)
+        let (ok_v2_big, err_v2_big) = try_encode_init_spec(spec_big)
+        assert ((not ok_v2_big) and (err_v2_big == b"ERR dn02_init_spec_out_of_u16_range"))
+        let (ok_v3_enc, raw_v3) = try_encode_init_spec_v3(spec_big)
+        assert (ok_v3_enc and (len(raw_v3) == 24))
+        let (ok_v2_on_v3, _) = decode_init_spec(raw_v3)
+        assert not ok_v2_on_v3
+        let (ok_v3_dec, dec_v3) = decode_init_spec_v3(raw_v3)
+        assert (ok_v3_dec and dec_v3.max_relations == 109062 and dec_v3.motor_count == 9)
+
+        emit key_len(idx109)
+        emit dec_v3.max_relations
+"#;
+    std::fs::write(&prog_path, prog_src).unwrap();
+    let stdout = run_3mode(&prog_path, &[], None);
+    assert_eq!(stdout, "109062\n109062\n");
+
+    // 4th backend: serialized IR (`aodc compile` -> `aodc exec`) must match VM/JIT/AOT byte-for-byte
+    let comp = Command::new(aodc_bin())
+        .args([
+            "compile",
+            "--stdlib",
+            &stdlib_dir().to_string_lossy(),
+            &prog_path.to_string_lossy(),
+            "-o",
+            &ir_path.to_string_lossy(),
+        ])
+        .output()
+        .expect("compile to IR");
+    assert!(
+        comp.status.success(),
+        "IR compile failed: {}",
+        String::from_utf8_lossy(&comp.stderr)
+    );
+    let exec_ir = Command::new(aodc_bin())
+        .args(["exec", "--fuel", "20000000", &ir_path.to_string_lossy()])
+        .output()
+        .expect("exec serialized IR");
+    assert!(
+        exec_ir.status.success(),
+        "IR exec failed: {}",
+        String::from_utf8_lossy(&exec_ir.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&exec_ir.stdout), stdout);
+}
+
+#[test]
+fn shard_int_table_109062_native_aot_scale() {
+    let dir = TempDirGuard::new("shard_scale_109062");
+    let prog_path = dir.path().join("shard_scale_109062.dec");
+    let bin_path = dir.path().join("shard_scale_109062.elf");
+    let prog_src = r#"use aod::core:
+    fold, len, range_seq, select
+use stdlib::aod::net:
+    ShardIntTable, empty_shard_int_table, shard_int_contains, shard_int_get, shard_int_len, shard_int_nonzero_count, shard_int_put, shard_int_remove, shard_int_sorted_entries
+
+dec insert_step:
+    (tbl: ShardIntTable, i: int) -> ShardIntTable:
+        let key = (((i * 2654435761) % 1000000000) + i)
+        let val = select(((i % 10) == 0), 0, select((i == 65535), 99999999, ((i % 7) - 3)))
+        let (_, next_t) = shard_int_put(tbl, key, val)
+        return next_t
+
+dec main:
+    () -> ():
+        let t0 = empty_shard_int_table(512)
+        let t65535 = fold(range_seq(0, 65535), t0, insert_step)
+        assert (shard_int_len(t65535) == 65535)
+        let t65536 = insert_step(t65535, 65535)
+        let k65535 = (((65535 * 2654435761) % 1000000000) + 65535)
+        let (hit65535, val65535) = shard_int_get(t65536, k65535)
+        assert (shard_int_len(t65536) == 65536 and hit65535 and val65535 == 99999999)
+        let t65537 = insert_step(t65536, 65536)
+        assert (shard_int_len(t65537) == 65537)
+        let t109 = fold(range_seq(65537, 109062), t65537, insert_step)
+        assert (shard_int_len(t109) == 109062)
+
+        # Verify zero-valued member, removal with swap-fixup, and exact restoration at 109,062 entries
+        let k_zero = (((100 * 2654435761) % 1000000000) + 100)
+        let (hz, vz) = shard_int_get(t109, k_zero)
+        assert (hz and vz == 0)
+        let (rm_ok, rm_val, t_less) = shard_int_remove(t109, k65535)
+        assert (rm_ok and rm_val == 99999999 and shard_int_len(t_less) == 109061 and (not shard_int_contains(t_less, k65535)))
+        let (ins_back, t_restored) = shard_int_put(t_less, k65535, rm_val)
+        assert (ins_back and shard_int_len(t_restored) == 109062)
+        let nz = shard_int_nonzero_count(t_restored)
+        let (sk, sv) = shard_int_sorted_entries(t_restored)
+        assert (len(sk) == 109062 and len(sv) == 109062 and sk[0] < sk[109061])
+        # Verify start, middle, end, and absent key lookups at 109,062 occupied entries
+        let (h_start, v_start) = shard_int_get(t_restored, sk[0])
+        let (h_mid, v_mid) = shard_int_get(t_restored, sk[54531])
+        let (h_end, v_end) = shard_int_get(t_restored, sk[109061])
+        assert (h_start and v_start == sv[0] and h_mid and v_mid == sv[54531] and h_end and v_end == sv[109061])
+        assert (not shard_int_contains(t_restored, (sk[109061] + 1)))
+        emit shard_int_len(t_restored)
+        emit nz
+"#;
+    std::fs::write(&prog_path, prog_src).unwrap();
+    let build = Command::new(aodc_bin())
+        .args([
+            "build",
+            "-O2",
+            "--stdlib",
+            &stdlib_dir().to_string_lossy(),
+            &prog_path.to_string_lossy(),
+            "-o",
+            &bin_path.to_string_lossy(),
+        ])
+        .output()
+        .expect("build 109062 AOT binary");
+    assert!(
+        build.status.success(),
+        "build failed: {}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let run = Command::new(&bin_path)
+        .args(["--fuel", "500000000", "--arena-cap", "262144"])
+        .output()
+        .expect("run 109062 AOT binary");
+    assert!(
+        run.status.success(),
+        "run failed: {}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let out = String::from_utf8_lossy(&run.stdout);
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 2, "unexpected output: {out}");
+    assert_eq!(lines[0], "109062");
+    assert!(lines[1].parse::<i64>().unwrap() > 80_000);
+}
+

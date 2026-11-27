@@ -304,6 +304,7 @@ pub fn builtin_tail_items(tail: &str) -> Option<&'static [&'static str]> {
             "list_push",
             "concat_seq",
             "slice_seq",
+            "sort_int_pairs",
             "map_put",
             "map_remove",
             "map_get_or",

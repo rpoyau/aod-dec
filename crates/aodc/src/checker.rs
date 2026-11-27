@@ -4144,6 +4144,40 @@ impl<'a> Checker<'a> {
                 };
                 return Ok(Some(Type::List(Box::new(resolved_e))));
             }
+            ("sort_int_pairs", [a, b]) => {
+                let ea = match a.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e)
+                        if *e.unwrap_read_only() == Type::Int || **e == Type::Unknown =>
+                    {
+                        Type::Int
+                    }
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("sort_int_pairs expects [int] keys, got {other}"),
+                        ));
+                    }
+                };
+                let eb = match b.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e)
+                        if *e.unwrap_read_only() == Type::Int || **e == Type::Unknown =>
+                    {
+                        Type::Int
+                    }
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("sort_int_pairs expects [int] vals, got {other}"),
+                        ));
+                    }
+                };
+                return Ok(Some(Type::Tuple(vec![
+                    Type::List(Box::new(ea)),
+                    Type::List(Box::new(eb)),
+                ])));
+            }
             ("concat" | "concat_seq", [a, b]) => {
                 if name == "concat_seq" && (contains_unknown(a) || contains_unknown(b)) {
                     return Err(Diagnostic::at_line(

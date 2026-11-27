@@ -31,6 +31,7 @@ const TK_WHERE: int = 17
 const TK_AND: int = 18
 const TK_OR: int = 19
 const TK_NOT: int = 20
+const TK_RETURN: int = 21
 
 const TK_LPAREN: int = 30
 const TK_RPAREN: int = 31
@@ -122,6 +123,23 @@ struct TopBlock:
     start: int
     end_pos: int
 
+struct UnitRec:
+    path: bytes
+    dir: bytes
+    src: bytes
+    blocks: [TopBlock]
+
+struct ImportBind:
+    from_uid: int
+    local_name: bytes
+    target_uid: int
+    target_name: bytes
+
+struct ModAlias:
+    from_uid: int
+    alias: bytes
+    target_uid: int
+
 struct Tok:
     kind: int
     val: int
@@ -137,17 +155,20 @@ struct LexState:
     toks: [Tok]
 
 struct StructDef:
+    unit_id: int
     name: bytes
     field_names: [bytes]
     field_tys: [int]
 
 struct ConstDef:
+    unit_id: int
     name: bytes
     val: int
     bytes_val: bytes
     ty: int
 
 struct FnSig:
+    unit_id: int
     name: bytes
     param_tys: [int]
     ret_ty: int
@@ -158,6 +179,8 @@ struct SymTab:
     structs: [StructDef]
     consts: [ConstDef]
     fns: [FnSig]
+    imports: [ImportBind]
+    aliases: [ModAlias]
 
 struct LocalVar:
     name: bytes
@@ -170,6 +193,7 @@ struct CgEnv:
     locals: [LocalVar]
     next_slot: int
     ret_ty: int
+    cur_uid: int
 
 struct ExprOut:
     pos: int
@@ -374,6 +398,13 @@ dec pop_arg_reg(idx: int) -> bytes:
             ),
         ),
     )
+
+dec load_stack_arg_to_slot(idx: int, arity: int) -> bytes:
+    let src_disp = 16 + (8 * (arity - 1 - idx))
+    cb2(cb2(b3(0x48, 0x8B, 0x85), i32_le_bytes(src_disp)), store_slot_rax(idx))
+
+dec add_rsp_imm32(nbytes: int) -> bytes:
+    cb2(b3(0x48, 0x81, 0xC4), i32_le_bytes(nbytes))
 
 dec emit_inline_bytes_lit(payload: bytes) -> bytes:
     let n = len(payload)
@@ -1398,7 +1429,7 @@ dec scan_top_batch(st: TopScanState, rem: int) -> TopScanState:
 dec scan_top_all(st: TopScanState) -> TopScanState:
     select(st.pos >= st.limit, st, scan_top_all(scan_top_batch(st, 64)))
 
-dec split_and_audit_source(src: bytes) -> [TopBlock]:
+dec split_source_blocks(src: bytes, require_dec: int) -> [TopBlock]:
     # §5.17 Spine & 00_8 Anchor Audit: start at explicit 00_8 octal anchor
     let anchor0 = 00_8
     assert anchor0 != 0_8
@@ -1411,9 +1442,12 @@ dec split_and_audit_source(src: bytes) -> [TopBlock]:
         fin.blocks,
         push(fin.blocks, TopBlock(fin.cur_kind, fin.cur_start, n)),
     )
-    assert fin.octal_anchor >= 1
+    assert require_dec == 0 or fin.octal_anchor >= 1
     assert fin.dwell_burned >= 0
     all_blks
+
+dec split_and_audit_source(src: bytes) -> [TopBlock]:
+    split_source_blocks(src, 1)
 
 # --- Indentation-Aware Per-Block Lexer ---
 
@@ -1649,7 +1683,11 @@ dec classify_word_len456(w: bytes, wl: int, e: bytes) -> Tok:
             select(
                 w == b"assert",
                 Tok(TK_ASSERT, 0, e),
-                select(w == b"struct", Tok(TK_STRUCT, 0, e), Tok(TK_IDENT, 0, w)),
+                select(
+                    w == b"struct",
+                    Tok(TK_STRUCT, 0, e),
+                    select(w == b"return", Tok(TK_RETURN, 0, e), Tok(TK_IDENT, 0, w)),
+                ),
             ),
         ),
     )
@@ -1969,38 +2007,307 @@ dec lex_slice(src: bytes, start: int, limit: int) -> [Tok]:
     push(dd.toks, Tok(TK_EOF, 0, b""))
 
 # ============================================================================
-# Section 7: Type & Symbol Table Resolution (Pass 1)
+# Section 7: Multi-File Loader & Unit-Scoped Nominal Symbol Resolution (Pass 1)
 # ============================================================================
 
-dec find_struct_idx_loop(structs: [StructDef], name: bytes, idx: int, n: int) -> int:
+dec find_last_slash(p: bytes, idx: int) -> int:
+    select(
+        idx < 0,
+        -1,
+        select(int(p[idx]) == 47, idx, find_last_slash(p, idx - 1)),
+    )
+
+dec dirname_bytes(p: bytes) -> bytes:
+    let sl = find_last_slash(p, len(p) - 1)
+    select(sl < 0, b"", slice_bytes(p, 0, sl))
+
+dec join_segs_loop(segs: [bytes], idx: int, limit: int, acc: bytes) -> bytes:
+    select(
+        idx >= limit,
+        acc,
+        join_segs_loop(
+            segs,
+            idx + 1,
+            limit,
+            select(len(acc) == 0, segs[idx], cb3(acc, b"/", segs[idx])),
+        ),
+    )
+
+dec build_mod_path(base_dir: bytes, segs: [bytes], count: int) -> bytes:
+    let rel = cb2(join_segs_loop(segs, 0, count, b""), b".dec")
+    select(len(base_dir) == 0, rel, cb3(base_dir, b"/", rel))
+
+dec find_unit_by_path_loop(units: [UnitRec], path: bytes, idx: int, n: int) -> int:
     select(
         idx >= n,
         -1,
-        select(structs[idx].name == name, idx, find_struct_idx_loop(structs, name, idx + 1, n)),
+        select(units[idx].path == path, idx, find_unit_by_path_loop(units, path, idx + 1, n)),
     )
 
-dec find_struct_idx(structs: [StructDef], name: bytes) -> int:
-    find_struct_idx_loop(structs, name, 0, len(structs))
+struct EnsureUnitOut:
+    uid: int
+    units: [UnitRec]
+
+dec ensure_unit(units: [UnitRec], path: bytes) -> EnsureUnitOut:
+    let existing = find_unit_by_path_loop(units, path, 0, len(units))
+    select(
+        existing >= 0,
+        EnsureUnitOut(existing, units),
+        load_new_unit(units, path),
+    )
+
+dec load_new_unit(units: [UnitRec], path: bytes) -> EnsureUnitOut:
+    let msrc = read_file_bytes(path)
+    let mblks = split_source_blocks(msrc, 0)
+    let new_uid = len(units)
+    EnsureUnitOut(new_uid, push(units, UnitRec(path, dirname_bytes(path), msrc, mblks)))
+
+struct SegScanOut:
+    pos: int
+    segs: [bytes]
+
+dec scan_use_segs(toks: [Tok], pos: int, acc: [bytes]) -> SegScanOut:
+    assert toks[pos].kind == TK_IDENT
+    let next_acc = push(acc, toks[pos].text)
+    select(
+        toks[pos + 1].kind == TK_DCOLON and toks[pos + 2].kind == TK_IDENT,
+        scan_use_segs(toks, pos + 2, next_acc),
+        SegScanOut(pos + 1, next_acc),
+    )
+
+struct LoadState:
+    units: [UnitRec]
+    imports: [ImportBind]
+    aliases: [ModAlias]
+
+dec parse_use_block_items(toks: [Tok], pos: int, from_uid: int, target_uid: int, acc: [ImportBind]) -> [ImportBind]:
+    let k = toks[pos].kind
+    select(
+        k == TK_DEDENT or k == TK_EOF,
+        acc,
+        select(
+            k == TK_NEWLINE or k == TK_INDENT or k == TK_COMMA,
+            parse_use_block_items(toks, pos + 1, from_uid, target_uid, acc),
+            parse_use_item_one(toks, pos, from_uid, target_uid, acc),
+        ),
+    )
+
+dec parse_use_item_one(toks: [Tok], pos: int, from_uid: int, target_uid: int, acc: [ImportBind]) -> [ImportBind]:
+    assert toks[pos].kind == TK_IDENT
+    let sym = toks[pos].text
+    let has_as = toks[pos + 1].kind == TK_IDENT and toks[pos + 1].text == b"as" and toks[pos + 2].kind == TK_IDENT
+    let local_name = select(has_as, toks[pos + 2].text, sym)
+    let next_p = select(has_as, pos + 3, pos + 1)
+    parse_use_block_items(toks, next_p, from_uid, target_uid, push(acc, ImportBind(from_uid, local_name, target_uid, sym)))
+
+dec finish_use_block_colon(st: LoadState, cur_uid: int, toks: [Tok], sc: SegScanOut) -> LoadState:
+    let segs = sc.segs
+    let u = st.units[cur_uid]
+    let mpath = build_mod_path(u.dir, segs, len(segs))
+    let eu = ensure_unit(st.units, mpath)
+    let next_aliases = push(st.aliases, ModAlias(cur_uid, segs[len(segs) - 1], eu.uid))
+    let next_imports = parse_use_block_items(toks, sc.pos + 1, cur_uid, eu.uid, st.imports)
+    LoadState(eu.units, next_imports, next_aliases)
+
+dec finish_use_inline(st: LoadState, cur_uid: int, toks: [Tok], sc: SegScanOut) -> LoadState:
+    let segs = sc.segs
+    let n = len(segs)
+    let u = st.units[cur_uid]
+    let has_as = toks[sc.pos].kind == TK_IDENT and toks[sc.pos].text == b"as" and toks[sc.pos + 1].kind == TK_IDENT
+    select(
+        has_as,
+        finish_use_mod_alias(st, cur_uid, build_mod_path(u.dir, segs, n), toks[sc.pos + 1].text),
+        select(
+            n == 1,
+            finish_use_mod_alias(st, cur_uid, build_mod_path(u.dir, segs, 1), segs[0]),
+            finish_use_single_sym(st, cur_uid, build_mod_path(u.dir, segs, n - 1), segs[n - 1]),
+        ),
+    )
+
+dec finish_use_mod_alias(st: LoadState, cur_uid: int, mpath: bytes, alias_name: bytes) -> LoadState:
+    let eu = ensure_unit(st.units, mpath)
+    LoadState(eu.units, st.imports, push(st.aliases, ModAlias(cur_uid, alias_name, eu.uid)))
+
+dec finish_use_single_sym(st: LoadState, cur_uid: int, mpath: bytes, sym: bytes) -> LoadState:
+    let eu = ensure_unit(st.units, mpath)
+    LoadState(eu.units, push(st.imports, ImportBind(cur_uid, sym, eu.uid, sym)), st.aliases)
+
+dec process_one_use(st: LoadState, cur_uid: int, blk: TopBlock) -> LoadState:
+    let u = st.units[cur_uid]
+    let toks = lex_slice(u.src, blk.start, blk.end_pos)
+    assert toks[0].kind == TK_USE and toks[1].kind == TK_IDENT
+    let empty_segs: [bytes] = []
+    let sc = scan_use_segs(toks, 1, empty_segs)
+    select(
+        sc.segs[0] == b"aod",
+        st,
+        select(
+            toks[sc.pos].kind == TK_COLON,
+            finish_use_block_colon(st, cur_uid, toks, sc),
+            finish_use_inline(st, cur_uid, toks, sc),
+        ),
+    )
+
+dec process_unit_uses_loop(st: LoadState, cur_uid: int, blks: [TopBlock], bidx: int) -> LoadState:
+    select(
+        bidx >= len(blks),
+        st,
+        select(
+            blks[bidx].kind == TK_USE,
+            process_unit_uses_loop(process_one_use(st, cur_uid, blks[bidx]), cur_uid, blks, bidx + 1),
+            process_unit_uses_loop(st, cur_uid, blks, bidx + 1),
+        ),
+    )
+
+dec load_units_worklist(st: LoadState, cursor: int) -> LoadState:
+    select(
+        cursor >= len(st.units),
+        st,
+        load_units_worklist(
+            process_unit_uses_loop(st, cursor, st.units[cursor].blocks, 0),
+            cursor + 1,
+        ),
+    )
+
+dec load_all_units(entry_path: bytes) -> LoadState:
+    let src0 = read_file_bytes(entry_path)
+    let blks0 = split_source_blocks(src0, 1)
+    let units0: [UnitRec] = [UnitRec(entry_path, dirname_bytes(entry_path), src0, blks0)]
+    let empty_imp: [ImportBind] = []
+    let empty_al: [ModAlias] = []
+    load_units_worklist(LoadState(units0, empty_imp, empty_al), 0)
+
+struct TypeScope:
+    structs: [StructDef]
+    imports: [ImportBind]
+    aliases: [ModAlias]
+    cur_uid: int
+
+dec find_struct_in_unit_loop(structs: [StructDef], uid: int, name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(
+            structs[idx].unit_id == uid and structs[idx].name == name,
+            idx,
+            find_struct_in_unit_loop(structs, uid, name, idx + 1, n),
+        ),
+    )
+
+dec find_struct_in_unit(structs: [StructDef], uid: int, name: bytes) -> int:
+    find_struct_in_unit_loop(structs, uid, name, 0, len(structs))
+
+dec find_const_in_unit_loop(consts: [ConstDef], uid: int, name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(
+            consts[idx].unit_id == uid and consts[idx].name == name,
+            idx,
+            find_const_in_unit_loop(consts, uid, name, idx + 1, n),
+        ),
+    )
+
+dec find_fn_in_unit_loop(fns: [FnSig], uid: int, name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(
+            fns[idx].unit_id == uid and fns[idx].name == name,
+            idx,
+            find_fn_in_unit_loop(fns, uid, name, idx + 1, n),
+        ),
+    )
+
+dec find_fn_in_unit(fns: [FnSig], uid: int, name: bytes) -> int:
+    find_fn_in_unit_loop(fns, uid, name, 0, len(fns))
+
+dec find_import_bind_loop(imports: [ImportBind], uid: int, name: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(
+            imports[idx].from_uid == uid and imports[idx].local_name == name,
+            idx,
+            find_import_bind_loop(imports, uid, name, idx + 1, n),
+        ),
+    )
+
+dec find_mod_alias_loop(aliases: [ModAlias], uid: int, alias: bytes, idx: int, n: int) -> int:
+    select(
+        idx >= n,
+        -1,
+        select(
+            aliases[idx].from_uid == uid and aliases[idx].alias == alias,
+            aliases[idx].target_uid,
+            find_mod_alias_loop(aliases, uid, alias, idx + 1, n),
+        ),
+    )
+
+dec resolve_struct_scoped(sc: TypeScope, name: bytes) -> int:
+    let loc = find_struct_in_unit(sc.structs, sc.cur_uid, name)
+    select(
+        loc >= 0,
+        loc,
+        resolve_struct_imported(sc, name),
+    )
+
+dec resolve_struct_imported(sc: TypeScope, name: bytes) -> int:
+    let imp_idx = find_import_bind_loop(sc.imports, sc.cur_uid, name, 0, len(sc.imports))
+    select(
+        imp_idx < 0,
+        -1,
+        find_struct_in_unit(sc.structs, sc.imports[imp_idx].target_uid, sc.imports[imp_idx].target_name),
+    )
+
+dec resolve_const_scoped(sym: SymTab, uid: int, name: bytes) -> int:
+    let loc = find_const_in_unit_loop(sym.consts, uid, name, 0, len(sym.consts))
+    select(
+        loc >= 0,
+        loc,
+        resolve_const_imported(sym, uid, name),
+    )
+
+dec resolve_const_imported(sym: SymTab, uid: int, name: bytes) -> int:
+    let imp_idx = find_import_bind_loop(sym.imports, uid, name, 0, len(sym.imports))
+    select(
+        imp_idx < 0,
+        -1,
+        find_const_in_unit_loop(sym.consts, sym.imports[imp_idx].target_uid, sym.imports[imp_idx].target_name, 0, len(sym.consts)),
+    )
+
+dec resolve_fn_scoped(sym: SymTab, uid: int, name: bytes) -> int:
+    let loc = find_fn_in_unit(sym.fns, uid, name)
+    select(
+        loc >= 0,
+        loc,
+        resolve_fn_imported(sym, uid, name),
+    )
+
+dec resolve_fn_imported(sym: SymTab, uid: int, name: bytes) -> int:
+    let imp_idx = find_import_bind_loop(sym.imports, uid, name, 0, len(sym.imports))
+    select(
+        imp_idx < 0,
+        -1,
+        find_fn_in_unit(sym.fns, sym.imports[imp_idx].target_uid, sym.imports[imp_idx].target_name),
+    )
+
+dec unwrap_list_ty(ty: int) -> int:
+    select(ty >= TY_LIST_BASE, unwrap_list_ty(ty - TY_LIST_BASE), ty)
+
+dec is_nominal_ty(ty: int) -> bool:
+    let base = unwrap_list_ty(ty)
+    base >= TY_STRUCT_BASE and base < TY_FN_BASE
+
+dec assert_nominal_compat(expected: int, actual: int) -> int:
+    assert (not (expected != 0 and is_nominal_ty(expected))) or actual == expected
+    0
 
 dec find_field_idx_loop(fnames: [bytes], name: bytes, idx: int, n: int) -> int:
     select(
         idx >= n,
         -1,
         select(fnames[idx] == name, idx, find_field_idx_loop(fnames, name, idx + 1, n)),
-    )
-
-dec find_const_idx_loop(consts: [ConstDef], name: bytes, idx: int, n: int) -> int:
-    select(
-        idx >= n,
-        -1,
-        select(consts[idx].name == name, idx, find_const_idx_loop(consts, name, idx + 1, n)),
-    )
-
-dec find_fn_idx_loop(fns: [FnSig], name: bytes, idx: int, n: int) -> int:
-    select(
-        idx >= n,
-        -1,
-        select(fns[idx].name == name, idx, find_fn_idx_loop(fns, name, idx + 1, n)),
     )
 
 dec find_local_idx_loop(locals: [LocalVar], name: bytes, idx: int) -> int:
@@ -2014,27 +2321,40 @@ struct TypeParse:
     pos: int
     ty: int
 
-dec parse_type_toks(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
+dec parse_type_toks(toks: [Tok], pos: int, sc: TypeScope) -> TypeParse:
     let tk = toks[pos]
     select(
         tk.kind == TK_LBRACKET,
-        parse_list_type(toks, pos + 1, structs),
+        parse_list_type(toks, pos + 1, sc),
         select(
             tk.kind == TK_LPAREN and toks[pos + 1].kind == TK_RPAREN,
             TypeParse(pos + 2, TY_UNIT),
-            parse_named_type(toks, pos, structs),
+            parse_named_type(toks, pos, sc),
         ),
     )
 
-dec parse_list_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
-    let inner = parse_type_toks(toks, pos, structs)
+dec parse_list_type(toks: [Tok], pos: int, sc: TypeScope) -> TypeParse:
+    let inner = parse_type_toks(toks, pos, sc)
     assert toks[inner.pos].kind == TK_RBRACKET
     TypeParse(inner.pos + 1, TY_LIST_BASE + inner.ty)
 
-dec parse_named_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
+dec parse_named_type(toks: [Tok], pos: int, sc: TypeScope) -> TypeParse:
     let tk = toks[pos]
     assert tk.kind == TK_IDENT
-    let w = tk.text
+    select(
+        toks[pos + 1].kind == TK_DCOLON and toks[pos + 2].kind == TK_IDENT,
+        parse_qual_struct_type(toks, pos, sc),
+        parse_unqual_named_type(pos, tk.text, sc),
+    )
+
+dec parse_qual_struct_type(toks: [Tok], pos: int, sc: TypeScope) -> TypeParse:
+    let target_uid = find_mod_alias_loop(sc.aliases, sc.cur_uid, toks[pos].text, 0, len(sc.aliases))
+    assert target_uid >= 0
+    let sidx = find_struct_in_unit(sc.structs, target_uid, toks[pos + 2].text)
+    assert sidx >= 0
+    TypeParse(pos + 3, TY_STRUCT_BASE + sidx)
+
+dec parse_unqual_named_type(pos: int, w: bytes, sc: TypeScope) -> TypeParse:
     let ty = select(
         w == b"int",
         TY_INT,
@@ -2056,7 +2376,7 @@ dec parse_named_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
                             select(
                                 w == b"addr8",
                                 TY_ADDR8,
-                                resolve_struct_type(structs, w),
+                                resolve_struct_type(sc, w),
                             ),
                         ),
                     ),
@@ -2066,31 +2386,43 @@ dec parse_named_type(toks: [Tok], pos: int, structs: [StructDef]) -> TypeParse:
     )
     TypeParse(pos + 1, ty)
 
-dec resolve_struct_type(structs: [StructDef], w: bytes) -> int:
-    let sidx = find_struct_idx(structs, w)
+dec resolve_struct_type(sc: TypeScope, w: bytes) -> int:
+    let sidx = resolve_struct_scoped(sc, w)
     assert sidx >= 0
     TY_STRUCT_BASE + sidx
 
 dec skip_newlines(toks: [Tok], pos: int) -> int:
     select(toks[pos].kind == TK_NEWLINE, skip_newlines(toks, pos + 1), pos)
 
-dec collect_struct_stub(acc: [StructDef], src_and_blk: TopBlock, src: bytes) -> [StructDef]:
-    let hdr_end = find_nl(src, src_and_blk.start, src_and_blk.end_pos)
-    let toks = lex_slice(src, src_and_blk.start, hdr_end)
+dec collect_struct_stub(acc: [StructDef], uid: int, blk: TopBlock, src: bytes) -> [StructDef]:
+    let hdr_end = find_nl(src, blk.start, blk.end_pos)
+    let toks = lex_slice(src, blk.start, hdr_end)
     assert toks[0].kind == TK_STRUCT and toks[1].kind == TK_IDENT
     let empty_names: [bytes] = []
     let empty_tys: [int] = []
-    push(acc, StructDef(toks[1].text, empty_names, empty_tys))
+    push(acc, StructDef(uid, toks[1].text, empty_names, empty_tys))
 
 struct StubScanCtx:
+    uid: int
     src: bytes
     structs: [StructDef]
 
 dec add_struct_stub_step(ctx: StubScanCtx, blk: TopBlock) -> StubScanCtx:
     select(
         blk.kind == TK_STRUCT,
-        StubScanCtx(ctx.src, collect_struct_stub(ctx.structs, blk, ctx.src)),
+        StubScanCtx(ctx.uid, ctx.src, collect_struct_stub(ctx.structs, ctx.uid, blk, ctx.src)),
         ctx,
+    )
+
+dec collect_all_stubs_loop(units: [UnitRec], uid: int, acc: [StructDef]) -> [StructDef]:
+    select(
+        uid >= len(units),
+        acc,
+        collect_all_stubs_loop(
+            units,
+            uid + 1,
+            fold(units[uid].blocks, StubScanCtx(uid, units[uid].src, acc), add_struct_stub_step).structs,
+        ),
     )
 
 struct FieldAcc:
@@ -2098,21 +2430,21 @@ struct FieldAcc:
     fnames: [bytes]
     ftys: [int]
 
-dec parse_struct_fields_loop(toks: [Tok], structs: [StructDef], acc: FieldAcc) -> FieldAcc:
+dec parse_struct_fields_loop(toks: [Tok], sc: TypeScope, acc: FieldAcc) -> FieldAcc:
     let p = skip_newlines(toks, acc.pos)
     select(
         toks[p].kind == TK_DEDENT or toks[p].kind == TK_EOF,
         FieldAcc(p, acc.fnames, acc.ftys),
-        parse_struct_field_one(toks, structs, FieldAcc(p, acc.fnames, acc.ftys)),
+        parse_struct_field_one(toks, sc, FieldAcc(p, acc.fnames, acc.ftys)),
     )
 
-dec parse_struct_field_one(toks: [Tok], structs: [StructDef], acc: FieldAcc) -> FieldAcc:
+dec parse_struct_field_one(toks: [Tok], sc: TypeScope, acc: FieldAcc) -> FieldAcc:
     let p = acc.pos
     assert toks[p].kind == TK_IDENT and toks[p + 1].kind == TK_COLON
-    let tp = parse_type_toks(toks, p + 2, structs)
+    let tp = parse_type_toks(toks, p + 2, sc)
     parse_struct_fields_loop(
         toks,
-        structs,
+        sc,
         FieldAcc(tp.pos, push(acc.fnames, toks[p].text), push(acc.ftys, tp.ty)),
     )
 
@@ -2124,21 +2456,21 @@ dec skip_to_colon(toks: [Tok], pos: int) -> int:
     assert toks[pos].kind != TK_EOF and toks[pos].kind != TK_RPAREN
     select(toks[pos].kind == TK_COLON, pos, skip_to_colon(toks, pos + 1))
 
-dec parse_sig_params(toks: [Tok], pos: int, structs: [StructDef], acc: [int]) -> ParamTysOut:
+dec parse_sig_params(toks: [Tok], pos: int, sc: TypeScope, acc: [int]) -> ParamTysOut:
     select(
         toks[pos].kind == TK_RPAREN,
         ParamTysOut(pos + 1, acc),
-        parse_sig_param_one(toks, pos, structs, acc),
+        parse_sig_param_one(toks, pos, sc, acc),
     )
 
-dec parse_sig_param_one(toks: [Tok], pos: int, structs: [StructDef], acc: [int]) -> ParamTysOut:
+dec parse_sig_param_one(toks: [Tok], pos: int, sc: TypeScope, acc: [int]) -> ParamTysOut:
     let cpos = skip_to_colon(toks, pos)
-    let tp = parse_type_toks(toks, cpos + 1, structs)
+    let tp = parse_type_toks(toks, cpos + 1, sc)
     let next_acc = push(acc, tp.ty)
     select(
         toks[tp.pos].kind == TK_COMMA,
-        parse_sig_params(toks, tp.pos + 1, structs, next_acc),
-         finish_sig_params(toks, tp.pos, next_acc),
+        parse_sig_params(toks, tp.pos + 1, sc, next_acc),
+        finish_sig_params(toks, tp.pos, next_acc),
     )
 
 dec finish_sig_params(toks: [Tok], pos: int, acc: [int]) -> ParamTysOut:
@@ -2150,49 +2482,50 @@ dec skip_where_to_arrow_or_colon(toks: [Tok], pos: int) -> int:
     assert k != TK_EOF
     select(k == TK_ARROW or k == TK_COLON, pos, skip_where_to_arrow_or_colon(toks, pos + 1))
 
-dec parse_fn_sig_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> FnSig:
+dec parse_fn_sig_block(src: bytes, blk: TopBlock, sc: TypeScope) -> FnSig:
     let toks = lex_slice(src, blk.start, blk.end_pos)
     assert toks[0].kind == TK_DEC and toks[1].kind == TK_IDENT
     let fname = toks[1].text
     let empty_tys: [int] = []
     select(
         toks[2].kind == TK_LPAREN,
-        parse_single_arm_sig(toks, fname, blk, structs, empty_tys),
-        parse_multi_arm_sig(toks, fname, blk, structs, empty_tys),
+        parse_single_arm_sig(toks, fname, blk, sc, empty_tys),
+        parse_multi_arm_sig(toks, fname, blk, sc, empty_tys),
     )
 
-dec parse_single_arm_sig(toks: [Tok], fname: bytes, blk: TopBlock, structs: [StructDef], empty_tys: [int]) -> FnSig:
-    let pm = parse_sig_params(toks, 3, structs, empty_tys)
+dec parse_single_arm_sig(toks: [Tok], fname: bytes, blk: TopBlock, sc: TypeScope, empty_tys: [int]) -> FnSig:
+    let pm = parse_sig_params(toks, 3, sc, empty_tys)
     let p_after = skip_where_to_arrow_or_colon(toks, pm.pos)
     let ret_ty = select(
         toks[p_after].kind == TK_ARROW,
-        parse_type_toks(toks, p_after + 1, structs).ty,
+        parse_type_toks(toks, p_after + 1, sc).ty,
         TY_UNIT,
     )
-    FnSig(fname, pm.tys, ret_ty, blk.start, blk.end_pos)
+    FnSig(sc.cur_uid, fname, pm.tys, ret_ty, blk.start, blk.end_pos)
 
-dec parse_multi_arm_sig(toks: [Tok], fname: bytes, blk: TopBlock, structs: [StructDef], empty_tys: [int]) -> FnSig:
+dec parse_multi_arm_sig(toks: [Tok], fname: bytes, blk: TopBlock, sc: TypeScope, empty_tys: [int]) -> FnSig:
     assert toks[2].kind == TK_COLON
     let p0 = skip_newlines(toks, 3)
     assert toks[p0].kind == TK_INDENT
     let p1 = skip_newlines(toks, p0 + 1)
     assert toks[p1].kind == TK_LPAREN
-    let pm = parse_sig_params(toks, p1 + 1, structs, empty_tys)
+    let pm = parse_sig_params(toks, p1 + 1, sc, empty_tys)
     let p_arrow = skip_where_to_arrow_or_colon(toks, pm.pos)
     let ret_ty = select(
         toks[p_arrow].kind == TK_ARROW,
-        parse_type_toks(toks, p_arrow + 1, structs).ty,
+        parse_type_toks(toks, p_arrow + 1, sc).ty,
         TY_UNIT,
     )
-    FnSig(fname, pm.tys, ret_ty, blk.start, blk.end_pos)
+    FnSig(sc.cur_uid, fname, pm.tys, ret_ty, blk.start, blk.end_pos)
 
-dec parse_const_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> ConstDef:
+dec parse_const_block(src: bytes, blk: TopBlock, sc: TypeScope) -> ConstDef:
     let toks = lex_slice(src, blk.start, blk.end_pos)
     assert toks[0].kind == TK_CONST and toks[1].kind == TK_IDENT
     let cname = toks[1].text
+    let uid = sc.cur_uid
     let eq_pos = select(
         toks[2].kind == TK_COLON,
-        parse_type_toks(toks, 3, structs).pos,
+        parse_type_toks(toks, 3, sc).pos,
         2,
     )
     assert toks[eq_pos].kind == TK_ASSIGN
@@ -2200,26 +2533,26 @@ dec parse_const_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> ConstD
     let k = toks[vpos].kind
     select(
         k == TK_MINUS and toks[vpos + 1].kind == TK_INT,
-        ConstDef(cname, 0 - toks[vpos + 1].val, b"", TY_INT),
+        ConstDef(uid, cname, 0 - toks[vpos + 1].val, b"", TY_INT),
         select(
             k == TK_MINUS and toks[vpos + 1].kind == TK_TRIT,
-            ConstDef(cname, 0 - toks[vpos + 1].val, b"", TY_T1),
+            ConstDef(uid, cname, 0 - toks[vpos + 1].val, b"", TY_T1),
             select(
                 k == TK_PLUS and toks[vpos + 1].kind == TK_TRIT,
-                ConstDef(cname, toks[vpos + 1].val, b"", TY_T1),
+                ConstDef(uid, cname, toks[vpos + 1].val, b"", TY_T1),
                 select(
                     k == TK_TRIT,
-                    ConstDef(cname, toks[vpos].val, b"", TY_T1),
+                    ConstDef(uid, cname, toks[vpos].val, b"", TY_T1),
                     select(
                         k == TK_OCTAL,
-                        ConstDef(cname, toks[vpos].val, b"", TY_ADDR8),
+                        ConstDef(uid, cname, toks[vpos].val, b"", TY_ADDR8),
                         select(
                             k == TK_BOOL,
-                            ConstDef(cname, toks[vpos].val, b"", TY_BOOL),
+                            ConstDef(uid, cname, toks[vpos].val, b"", TY_BOOL),
                             select(
                                 k == TK_BYTES,
-                                ConstDef(cname, 0, toks[vpos].text, TY_BYTES),
-                                finish_int_const(cname, toks[vpos]),
+                                ConstDef(uid, cname, 0, toks[vpos].text, TY_BYTES),
+                                finish_int_const(uid, cname, toks[vpos]),
                             ),
                         ),
                     ),
@@ -2228,67 +2561,96 @@ dec parse_const_block(src: bytes, blk: TopBlock, structs: [StructDef]) -> ConstD
         ),
     )
 
-dec finish_int_const(cname: bytes, tk: Tok) -> ConstDef:
+dec finish_int_const(uid: int, cname: bytes, tk: Tok) -> ConstDef:
     assert tk.kind == TK_INT
-    ConstDef(cname, tk.val, b"", TY_INT)
+    ConstDef(uid, cname, tk.val, b"", TY_INT)
 
 struct SymBuildState:
+    uid: int
     src: bytes
     struct_cursor: int
     structs: [StructDef]
     consts: [ConstDef]
     fns: [FnSig]
+    imports: [ImportBind]
+    aliases: [ModAlias]
 
 dec sym_build_step(st: SymBuildState, blk: TopBlock) -> SymBuildState:
+    let sc = TypeScope(st.structs, st.imports, st.aliases, st.uid)
     select(
         blk.kind == TK_STRUCT,
-        sym_fill_struct(st, blk),
+        sym_fill_struct(st, blk, sc),
         select(
             blk.kind == TK_CONST,
             SymBuildState(
+                st.uid,
                 st.src,
                 st.struct_cursor,
                 st.structs,
-                push(st.consts, parse_const_block(st.src, blk, st.structs)),
+                push(st.consts, parse_const_block(st.src, blk, sc)),
                 st.fns,
+                st.imports,
+                st.aliases,
             ),
             select(
                 blk.kind == TK_DEC,
                 SymBuildState(
+                    st.uid,
                     st.src,
                     st.struct_cursor,
                     st.structs,
                     st.consts,
-                    push(st.fns, parse_fn_sig_block(st.src, blk, st.structs)),
+                    push(st.fns, parse_fn_sig_block(st.src, blk, sc)),
+                    st.imports,
+                    st.aliases,
                 ),
                 st,
             ),
         ),
     )
 
-dec sym_fill_struct(st: SymBuildState, blk: TopBlock) -> SymBuildState:
+dec sym_fill_struct(st: SymBuildState, blk: TopBlock, sc: TypeScope) -> SymBuildState:
     let toks = lex_slice(st.src, blk.start, blk.end_pos)
     let p0 = skip_newlines(toks, 3)
     assert toks[2].kind == TK_COLON and toks[p0].kind == TK_INDENT
     let empty_names: [bytes] = []
     let empty_tys: [int] = []
-    let fa = parse_struct_fields_loop(toks, st.structs, FieldAcc(p0 + 1, empty_names, empty_tys))
-    let sdef = StructDef(toks[1].text, fa.fnames, fa.ftys)
+    let fa = parse_struct_fields_loop(toks, sc, FieldAcc(p0 + 1, empty_names, empty_tys))
+    let sdef = StructDef(st.uid, toks[1].text, fa.fnames, fa.ftys)
     SymBuildState(
+        st.uid,
         st.src,
         st.struct_cursor + 1,
         set_at(st.structs, st.struct_cursor, sdef),
         st.consts,
         st.fns,
+        st.imports,
+        st.aliases,
     )
 
-dec build_symtab(src: bytes, blocks: [TopBlock]) -> SymTab:
+dec sym_build_units_loop(units: [UnitRec], uid: int, st: SymBuildState) -> SymBuildState:
+    select(
+        uid >= len(units),
+        st,
+        sym_build_units_loop(
+            units,
+            uid + 1,
+            fold(
+                units[uid].blocks,
+                SymBuildState(uid, units[uid].src, st.struct_cursor, st.structs, st.consts, st.fns, st.imports, st.aliases),
+                sym_build_step,
+            ),
+        ),
+    )
+
+dec build_symtab_units(loaded: LoadState) -> SymTab:
     let empty_structs: [StructDef] = []
     let empty_consts: [ConstDef] = []
     let empty_fns: [FnSig] = []
-    let stubs = fold(blocks, StubScanCtx(src, empty_structs), add_struct_stub_step).structs
-    let built = fold(blocks, SymBuildState(src, 0, stubs, empty_consts, empty_fns), sym_build_step)
-    SymTab(built.structs, built.consts, built.fns)
+    let stubs = collect_all_stubs_loop(loaded.units, 0, empty_structs)
+    let init = SymBuildState(0, b"", 0, stubs, empty_consts, empty_fns, loaded.imports, loaded.aliases)
+    let built = sym_build_units_loop(loaded.units, 0, init)
+    SymTab(built.structs, built.consts, built.fns, loaded.imports, loaded.aliases)
 # ============================================================================
 # Section 8: Recursive-Descent x86-64 Code Generator & Self-Hosting Driver
 # ============================================================================
@@ -2302,9 +2664,6 @@ dec resolve_list_ty(a: int, b: int) -> int:
         a,
         select(b > TY_LIST_BASE, b, select(a != 0, a, b)),
     )
-
-dec find_fn_idx(fns: [FnSig], name: bytes) -> int:
-    find_fn_idx_loop(fns, name, 0, len(fns))
 
 dec call_rt1(a0: bytes, slot: int) -> bytes:
     cb3(a0, b3(0x48, 0x89, 0xC7), call_rt(slot))
@@ -2363,8 +2722,9 @@ dec emit_pipe_step(env: CgEnv, cur: ExprOut) -> ExprOut:
 
 dec emit_pipe_fn_step(env: CgEnv, cur: ExprOut, tk: Tok) -> ExprOut:
     assert tk.kind == TK_IDENT
-    let fidx = find_fn_idx(env.sym.fns, tk.text)
+    let fidx = resolve_fn_scoped(env.sym, env.cur_uid, tk.text)
     assert fidx >= 0 and len(env.sym.fns[fidx].param_tys) == 1
+    let _nc = assert_nominal_compat(env.sym.fns[fidx].param_tys[0], cur.ty)
     let step_code = cb3(cur.code, b3(0x48, 0x89, 0xC7), call_fn(fidx))
     emit_pipe_loop(
         env,
@@ -2796,10 +3156,42 @@ dec emit_ident_primary(env: CgEnv, pos: int, hint_ty: int) -> ExprOut:
     let id_pos = skip_qual_prefix(env.toks, pos)
     let w = env.toks[id_pos].text
     let after_id = id_pos + 1
+    let qual_uid = select(
+        id_pos > pos,
+        find_mod_alias_loop(env.sym.aliases, env.cur_uid, env.toks[id_pos - 2].text, 0, len(env.sym.aliases)),
+        -1,
+    )
+    select(
+        qual_uid >= 0,
+        emit_qual_ident_primary(env, qual_uid, w, after_id),
+        select(
+            env.toks[after_id].kind == TK_LPAREN,
+            emit_ident_call(env, w, after_id + 1, hint_ty),
+            emit_bare_ident(env, w, after_id),
+        ),
+    )
+
+dec emit_qual_ident_primary(env: CgEnv, target_uid: int, w: bytes, after_id: int) -> ExprOut:
     select(
         env.toks[after_id].kind == TK_LPAREN,
-        emit_ident_call(env, w, after_id + 1, hint_ty),
-        emit_bare_ident(env, w, after_id),
+        emit_qual_struct_or_fn_call(env, target_uid, w, after_id + 1),
+        emit_qual_const_or_fn_ref(env, target_uid, w, after_id),
+    )
+
+dec emit_qual_struct_or_fn_call(env: CgEnv, target_uid: int, w: bytes, pos: int) -> ExprOut:
+    let sidx = find_struct_in_unit(env.sym.structs, target_uid, w)
+    select(
+        sidx >= 0,
+        emit_struct_ctor(env, sidx, pos),
+        emit_user_fn_by_idx(env, find_fn_in_unit(env.sym.fns, target_uid, w), pos),
+    )
+
+dec emit_qual_const_or_fn_ref(env: CgEnv, target_uid: int, w: bytes, end_pos: int) -> ExprOut:
+    let cidx = find_const_in_unit_loop(env.sym.consts, target_uid, w, 0, len(env.sym.consts))
+    select(
+        cidx >= 0,
+        emit_const_val(env.sym.consts[cidx], end_pos, env.next_slot),
+        emit_fn_ref_by_idx(find_fn_in_unit(env.sym.fns, target_uid, w), end_pos, env.next_slot),
     )
 
 dec emit_bare_ident(env: CgEnv, w: bytes, end_pos: int) -> ExprOut:
@@ -2811,11 +3203,11 @@ dec emit_bare_ident(env: CgEnv, w: bytes, end_pos: int) -> ExprOut:
     )
 
 dec emit_const_or_fn_ref(env: CgEnv, w: bytes, end_pos: int) -> ExprOut:
-    let cidx = find_const_idx_loop(env.sym.consts, w, 0, len(env.sym.consts))
+    let cidx = resolve_const_scoped(env.sym, env.cur_uid, w)
     select(
         cidx >= 0,
         emit_const_val(env.sym.consts[cidx], end_pos, env.next_slot),
-        emit_bare_fn_ref(env.sym.fns, w, end_pos, env.next_slot),
+        emit_fn_ref_by_idx(resolve_fn_scoped(env.sym, env.cur_uid, w), end_pos, env.next_slot),
     )
 
 dec emit_const_val(cdef: ConstDef, end_pos: int, next_slot: int) -> ExprOut:
@@ -2825,8 +3217,7 @@ dec emit_const_val(cdef: ConstDef, end_pos: int, next_slot: int) -> ExprOut:
         ExprOut(end_pos, cdef.ty, next_slot, mov_rax_imm64(cdef.val)),
     )
 
-dec emit_bare_fn_ref(fns: [FnSig], w: bytes, end_pos: int, next_slot: int) -> ExprOut:
-    let fidx = find_fn_idx(fns, w)
+dec emit_fn_ref_by_idx(fidx: int, end_pos: int, next_slot: int) -> ExprOut:
     assert fidx >= 0
     ExprOut(end_pos, TY_FN_BASE + fidx, next_slot, load_fn_ptr_rax(fidx))
 
@@ -3242,7 +3633,8 @@ dec emit_u64_int_call(env: CgEnv, pos: int) -> ExprOut:
     ExprOut(ep, TY_INT, a0.max_slot, cb2(a0.code, chk))
 
 dec emit_struct_or_fn_call(env: CgEnv, w: bytes, pos: int) -> ExprOut:
-    let sidx = find_struct_idx(env.sym.structs, w)
+    let sc = TypeScope(env.sym.structs, env.sym.imports, env.sym.aliases, env.cur_uid)
+    let sidx = resolve_struct_scoped(sc, w)
     select(
         sidx >= 0,
         emit_struct_ctor(env, sidx, pos),
@@ -3278,6 +3670,7 @@ dec finish_struct_ctor(env: CgEnv, sidx: int, pos: int, ftys: [int], alloc_hdr: 
 
 dec emit_struct_fields_eval(env: CgEnv, ftys: [int], acc: ArgEvalAcc) -> ArgEvalAcc:
     let el = emit_expr(env, acc.pos, ftys[acc.idx])
+    let _nc = assert_nominal_compat(ftys[acc.idx], el.ty)
     let st_f = cb3(
         el.code,
         b4(0x48, 0x8B, 0x0C, 0x24),
@@ -3300,11 +3693,14 @@ dec advance_comma_struct_eval(env: CgEnv, ftys: [int], acc: ArgEvalAcc) -> ArgEv
     emit_struct_fields_eval(env, ftys, ArgEvalAcc(acc.pos + 1, acc.idx, acc.max_slot, acc.chunks))
 
 dec emit_user_fn_by_name(env: CgEnv, w: bytes, pos: int) -> ExprOut:
-    let fidx = find_fn_idx(env.sym.fns, w)
+    let fidx = resolve_fn_scoped(env.sym, env.cur_uid, w)
+    emit_user_fn_by_idx(env, fidx, pos)
+
+dec emit_user_fn_by_idx(env: CgEnv, fidx: int, pos: int) -> ExprOut:
     assert fidx >= 0
     let sig = env.sym.fns[fidx]
     let arity = len(sig.param_tys)
-    assert arity <= 6
+    assert arity <= 32
     select(
         arity == 0,
         ExprOut(expect_close_paren(env.toks, pos), sig.ret_ty, env.next_slot, call_fn(fidx)),
@@ -3315,12 +3711,16 @@ dec finish_user_fn_call(env: CgEnv, fidx: int, sig: FnSig, pos: int) -> ExprOut:
     let empty_chunks: [bytes] = []
     let acc = emit_fn_args_eval(env, sig.param_tys, ArgEvalAcc(pos, 0, env.next_slot, empty_chunks))
     assert acc.idx == len(sig.param_tys)
-    let pops = emit_pop_args_rev(acc.idx - 1)
-    let code = cb3(join_bytes(acc.chunks), pops, call_fn(fidx))
+    let code = select(
+        acc.idx <= 6,
+        cb3(join_bytes(acc.chunks), emit_pop_args_rev(acc.idx - 1), call_fn(fidx)),
+        cb3(join_bytes(acc.chunks), call_fn(fidx), add_rsp_imm32(acc.idx * 8)),
+    )
     ExprOut(acc.pos, sig.ret_ty, acc.max_slot, code)
 
 dec emit_fn_args_eval(env: CgEnv, ptys: [int], acc: ArgEvalAcc) -> ArgEvalAcc:
     let el = emit_expr(env, acc.pos, ptys[acc.idx])
+    let _nc = assert_nominal_compat(ptys[acc.idx], el.ty)
     let push_el = cb2(el.code, b1(0x50))
     let next_acc = ArgEvalAcc(
         el.pos,
@@ -3358,7 +3758,11 @@ dec compile_stmt(env: CgEnv, pos: int) -> StmtOut:
             select(
                 k == TK_EMIT,
                 compile_emit_stmt(env, pos + 1),
-                compile_expr_stmt(env, pos),
+                select(
+                    k == TK_RETURN,
+                    compile_expr_stmt(env, pos + 1),
+                    compile_expr_stmt(env, pos),
+                ),
             ),
         ),
     )
@@ -3367,13 +3771,15 @@ dec compile_let_stmt(env: CgEnv, pos: int) -> StmtOut:
     assert env.toks[pos].kind == TK_IDENT
     let vname = env.toks[pos].text
     let has_ann = env.toks[pos + 1].kind == TK_COLON
+    let sc = TypeScope(env.sym.structs, env.sym.imports, env.sym.aliases, env.cur_uid)
     let ann = select(
         has_ann,
-        parse_type_toks(env.toks, pos + 2, env.sym.structs),
+        parse_type_toks(env.toks, pos + 2, sc),
         TypeParse(pos + 1, 0),
     )
     assert env.toks[ann.pos].kind == TK_ASSIGN
     let rhs = emit_expr(env, ann.pos + 1, ann.ty)
+    let _nc = assert_nominal_compat(ann.ty, rhs.ty)
     let vty = select(ann.ty != 0, ann.ty, rhs.ty)
     let slot = env.next_slot
     let new_next = max_int(slot + 1, rhs.max_slot)
@@ -3382,12 +3788,12 @@ dec compile_let_stmt(env: CgEnv, pos: int) -> StmtOut:
         env.locals,
         push(env.locals, LocalVar(vname, slot, vty)),
     )
-    let new_env = CgEnv(env.sym, env.toks, new_locals, new_next, env.ret_ty)
+    let new_env = CgEnv(env.sym, env.toks, new_locals, new_next, env.ret_ty, env.cur_uid)
     StmtOut(rhs.pos, new_env, 0, cb2(rhs.code, store_slot_rax(slot)))
 
 dec compile_assert_stmt(env: CgEnv, pos: int) -> StmtOut:
     let cond = emit_expr(env, pos, TY_BOOL)
-    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, cond.max_slot), env.ret_ty)
+    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, cond.max_slot), env.ret_ty, env.cur_uid)
     let chk = cb3(cond.code, b3(0x48, 0x85, 0xC0), jnz_over(call_rt(RT_ASSERT_FAIL)))
     StmtOut(cond.pos, new_env, 0, chk)
 
@@ -3402,12 +3808,13 @@ dec compile_emit_stmt(env: CgEnv, pos: int) -> StmtOut:
             select(val.ty == TY_T1, RT_EMIT_T1, RT_EMIT_INT),
         ),
     )
-    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, val.max_slot), env.ret_ty)
+    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, val.max_slot), env.ret_ty, env.cur_uid)
     StmtOut(val.pos, new_env, 0, call_rt1(val.code, rt_slot))
 
 dec compile_expr_stmt(env: CgEnv, pos: int) -> StmtOut:
     let val = emit_expr(env, pos, env.ret_ty)
-    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, val.max_slot), env.ret_ty)
+    let _nc = assert_nominal_compat(env.ret_ty, val.ty)
+    let new_env = CgEnv(env.sym, env.toks, env.locals, max_int(env.next_slot, val.max_slot), env.ret_ty, env.cur_uid)
     StmtOut(val.pos, new_env, 1, val.code)
 
 struct BlockOut:
@@ -3454,19 +3861,19 @@ dec parse_pat_lit_val(toks: [Tok], pos: int) -> PatLitOut:
         ),
     )
 
-dec parse_arm_params(toks: [Tok], structs: [StructDef], acc: ArmParamAcc) -> ArmParamAcc:
+dec parse_arm_params(toks: [Tok], sc: TypeScope, acc: ArmParamAcc) -> ArmParamAcc:
     select(
         toks[acc.pos].kind == TK_RPAREN,
         ArmParamAcc(acc.pos + 1, acc.idx, acc.locals, acc.conds),
-        parse_arm_param_one(toks, structs, acc),
+        parse_arm_param_one(toks, sc, acc),
     )
 
-dec parse_arm_param_one(toks: [Tok], structs: [StructDef], acc: ArmParamAcc) -> ArmParamAcc:
+dec parse_arm_param_one(toks: [Tok], sc: TypeScope, acc: ArmParamAcc) -> ArmParamAcc:
     let p = acc.pos
     let is_bind = toks[p].kind == TK_IDENT
     let pat_lit = select(is_bind, PatLitOut(p + 1, 0), parse_pat_lit_val(toks, p))
     assert toks[pat_lit.pos].kind == TK_COLON
-    let tp = parse_type_toks(toks, pat_lit.pos + 1, structs)
+    let tp = parse_type_toks(toks, pat_lit.pos + 1, sc)
     let next_locals = select(
         is_bind and toks[p].text != b"_",
         push(acc.locals, LocalVar(toks[p].text, acc.idx, tp.ty)),
@@ -3481,7 +3888,7 @@ dec parse_arm_param_one(toks: [Tok], structs: [StructDef], acc: ArmParamAcc) -> 
     let next_acc = ArmParamAcc(tp.pos, acc.idx + 1, next_locals, next_conds)
     select(
         toks[tp.pos].kind == TK_COMMA,
-        parse_arm_params(toks, structs, ArmParamAcc(tp.pos + 1, next_acc.idx, next_acc.locals, next_acc.conds)),
+        parse_arm_params(toks, sc, ArmParamAcc(tp.pos + 1, next_acc.idx, next_acc.locals, next_acc.conds)),
         finish_arm_params(toks, next_acc),
     )
 
@@ -3498,12 +3905,13 @@ dec wrap_arm_conds(conds: [bytes], idx: int, body: bytes) -> bytes:
 
 dec compile_arm_at(sym: SymTab, toks: [Tok], sig: FnSig, lparen_pos: int) -> ArmOut:
     assert toks[lparen_pos].kind == TK_LPAREN
+    let sc = TypeScope(sym.structs, sym.imports, sym.aliases, sig.unit_id)
     let empty_locals: [LocalVar] = []
     let empty_conds: [bytes] = []
-    let pa = parse_arm_params(toks, sym.structs, ArmParamAcc(lparen_pos + 1, 0, empty_locals, empty_conds))
+    let pa = parse_arm_params(toks, sc, ArmParamAcc(lparen_pos + 1, 0, empty_locals, empty_conds))
     let arity = len(sig.param_tys)
     assert pa.idx == arity
-    let base_env = CgEnv(sym, toks, pa.locals, arity, sig.ret_ty)
+    let base_env = CgEnv(sym, toks, pa.locals, arity, sig.ret_ty, sig.unit_id)
     let has_where = toks[pa.pos].kind == TK_WHERE
     let w_out = select(
         has_where,
@@ -3513,13 +3921,13 @@ dec compile_arm_at(sym: SymTab, toks: [Tok], sig: FnSig, lparen_pos: int) -> Arm
     let all_conds = select(has_where, push(pa.conds, w_out.code), pa.conds)
     let p_ret = select(
         toks[w_out.pos].kind == TK_ARROW,
-        parse_type_toks(toks, w_out.pos + 1, sym.structs).pos,
+        parse_type_toks(toks, w_out.pos + 1, sc).pos,
         w_out.pos,
     )
     assert toks[p_ret].kind == TK_COLON
     let p_ind = skip_newlines(toks, p_ret + 1)
     assert toks[p_ind].kind == TK_INDENT
-    let body_env = CgEnv(sym, toks, pa.locals, max_int(arity, w_out.max_slot), sig.ret_ty)
+    let body_env = CgEnv(sym, toks, pa.locals, max_int(arity, w_out.max_slot), sig.ret_ty, sig.unit_id)
     let empty_stmts: [bytes] = []
     let blk_out = compile_stmts_loop(body_env, p_ind + 1, empty_stmts)
     let wrapped = wrap_arm_conds(all_conds, len(all_conds) - 1, blk_out.code)
@@ -3555,6 +3963,13 @@ dec emit_store_args_pro(idx: int, arity: int, chunks: [bytes]) -> bytes:
         emit_store_args_pro(idx + 1, arity, push(chunks, store_arg_reg(idx))),
     )
 
+dec emit_store_stack_args_pro(idx: int, arity: int, chunks: [bytes]) -> bytes:
+    select(
+        idx >= arity,
+        join_bytes(chunks),
+        emit_store_stack_args_pro(idx + 1, arity, push(chunks, load_stack_arg_to_slot(idx, arity))),
+    )
+
 dec build_fn_prologue(arity: int, max_slot: int) -> bytes:
     let aligned_slots = ((max_slot + 1) // 2) * 2
     let frame_bytes = aligned_slots * 8
@@ -3564,7 +3979,11 @@ dec build_fn_prologue(arity: int, max_slot: int) -> bytes:
         b"",
     )
     let empty_c: [bytes] = []
-    let save_args = emit_store_args_pro(0, arity, empty_c)
+    let save_args = select(
+        arity <= 6,
+        emit_store_args_pro(0, arity, empty_c),
+        emit_store_stack_args_pro(0, arity, empty_c),
+    )
     cb3(b4(0x55, 0x48, 0x89, 0xE5), sub_rsp, save_args)
 
 dec compile_dec_fn(src: bytes, sym: SymTab, sig: FnSig) -> bytes:
@@ -3592,34 +4011,34 @@ dec compile_multi_arm_fn(sym: SymTab, toks: [Tok], sig: FnSig, arity: int) -> by
 # --- Whole-Program Linker & ELF64 Emission Driver ---
 
 struct FnTableLayoutAcc:
-    src: bytes
+    units: [UnitRec]
     sym: SymTab
     cur_vaddr: int
     ptrs: [bytes]
     blobs: [bytes]
 
 dec compile_and_place_fn(acc: FnTableLayoutAcc, sig: FnSig) -> FnTableLayoutAcc:
-    let code = compile_dec_fn(acc.src, acc.sym, sig)
+    let code = compile_dec_fn(acc.units[sig.unit_id].src, acc.sym, sig)
     FnTableLayoutAcc(
-        acc.src,
+        acc.units,
         acc.sym,
         acc.cur_vaddr + len(code),
         push(acc.ptrs, i64_le_bytes(acc.cur_vaddr)),
         push(acc.blobs, code),
     )
 
-dec compile_program(src: bytes) -> bytes:
-    let blocks = split_and_audit_source(src)
-    let sym = build_symtab(src, blocks)
+dec compile_program(entry_path: bytes) -> bytes:
+    let loaded = load_all_units(entry_path)
+    let sym = build_symtab_units(loaded)
     let num_fns = len(sym.fns)
     assert num_fns >= 1
-    let main_idx = find_fn_idx(sym.fns, b"main")
+    let main_idx = find_fn_in_unit(sym.fns, 0, b"main")
     assert main_idx >= 0
     let main_prints_int = select(sym.fns[main_idx].ret_ty == TY_INT, 1, 0)
     let rt_sec = build_rt_section(main_idx, main_prints_int)
     let code_start_vaddr = FN_TABLE_VADDR + (num_fns * 8)
     let empty_b: [bytes] = []
-    let fn_init = FnTableLayoutAcc(src, sym, code_start_vaddr, empty_b, empty_b)
+    let fn_init = FnTableLayoutAcc(loaded.units, sym, code_start_vaddr, empty_b, empty_b)
     let fn_fin = fold(sym.fns, fn_init, compile_and_place_fn)
     let fn_tbl_blob = join_bytes(fn_fin.ptrs)
     let fn_code_blob = join_bytes(fn_fin.blobs)
@@ -3631,7 +4050,6 @@ dec compile_program(src: bytes) -> bytes:
 dec main() -> ():
     let args = cli_args()
     assert len(args) >= 3
-    let src = read_file_bytes(args[1])
-    let img = compile_program(src)
+    let img = compile_program(args[1])
     let written = write_executable_elf(args[2], img)
     assert written >= 64

@@ -4667,6 +4667,43 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             Ok(Value::List(out))
         }
         (
+            "sort_int_pairs",
+            [Value::Array(ks) | Value::List(ks), Value::Array(vs) | Value::List(vs)],
+        ) => {
+            if ks.len() != vs.len() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!(
+                        "sort_int_pairs length mismatch: {} vs {}",
+                        ks.len(),
+                        vs.len()
+                    ),
+                ));
+            }
+            let mut pairs: Vec<(BigInt, BigInt)> = Vec::with_capacity(ks.len());
+            for (k, v) in ks.iter().zip(vs.iter()) {
+                match (k, v) {
+                    (Value::Int(ki), Value::Int(vi)) => pairs.push((ki.clone(), vi.clone())),
+                    _ => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::RuntimeError,
+                            line,
+                            "sort_int_pairs expects integer sequences".to_string(),
+                        ));
+                    }
+                }
+            }
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            let mut ok = Vec::with_capacity(pairs.len());
+            let mut ov = Vec::with_capacity(pairs.len());
+            for (k, v) in pairs {
+                ok.push(Value::Int(k));
+                ov.push(Value::Int(v));
+            }
+            Ok(Value::Tuple(vec![Value::List(ok), Value::List(ov)]))
+        }
+        (
             "concat" | "concat_seq",
             [Value::Array(a) | Value::List(a), Value::Array(b) | Value::List(b)],
         ) => {

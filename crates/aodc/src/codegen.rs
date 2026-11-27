@@ -2848,13 +2848,26 @@ impl FnBuilder {
                             field_ty = field_ty.wrap_read_only();
                         }
                         let (fg, flen) = cg.intern_bytes(name.as_bytes());
-                        let fh = self.fresh_reg();
-                        self.line(&format!(
-                            "  {fh} = call i64 @aod_rt_field_get(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
-                            bv.reg
-                        ));
-                        self.emit_fail_return_check();
-                        Ok(self.unbox_handle_to_val(&fh, &field_ty))
+                        if *field_ty.unwrap_read_only() == Type::Int {
+                            let iv = self.fresh_reg();
+                            self.line(&format!(
+                                "  {iv} = call i64 @aod_rt_field_get_int(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
+                                bv.reg
+                            ));
+                            self.emit_fail_return_check();
+                            Ok(Val {
+                                reg: iv,
+                                dec_ty: Type::Int,
+                            })
+                        } else {
+                            let fh = self.fresh_reg();
+                            self.line(&format!(
+                                "  {fh} = call i64 @aod_rt_field_get(ptr %ctx, i64 {}, ptr {fg}, i64 {flen})",
+                                bv.reg
+                            ));
+                            self.emit_fail_return_check();
+                            Ok(self.unbox_handle_to_val(&fh, &field_ty))
+                        }
                     }
                 }
             }
@@ -2863,13 +2876,26 @@ impl FnBuilder {
                 let iv = self.emit_expr(cg, index)?;
                 match bv.dec_ty.unwrap_read_only().clone() {
                     Type::Array(elem_ty, _) | Type::List(elem_ty) => {
-                        let eh = self.fresh_reg();
-                        self.line(&format!(
-                            "  {eh} = call i64 @aod_rt_seq_get(ptr %ctx, i64 {}, i64 {})",
-                            bv.reg, iv.reg
-                        ));
-                        self.emit_fail_return_check();
-                        Ok(self.unbox_handle_to_val(&eh, &elem_ty))
+                        if *elem_ty.unwrap_read_only() == Type::Int {
+                            let ev = self.fresh_reg();
+                            self.line(&format!(
+                                "  {ev} = call i64 @aod_rt_seq_get_int(ptr %ctx, i64 {}, i64 {})",
+                                bv.reg, iv.reg
+                            ));
+                            self.emit_fail_return_check();
+                            Ok(Val {
+                                reg: ev,
+                                dec_ty: Type::Int,
+                            })
+                        } else {
+                            let eh = self.fresh_reg();
+                            self.line(&format!(
+                                "  {eh} = call i64 @aod_rt_seq_get(ptr %ctx, i64 {}, i64 {})",
+                                bv.reg, iv.reg
+                            ));
+                            self.emit_fail_return_check();
+                            Ok(self.unbox_handle_to_val(&eh, &elem_ty))
+                        }
                     }
                     Type::Bytes => {
                         let b = self.fresh_reg();
@@ -6330,6 +6356,37 @@ impl FnBuilder {
         })
     }
 
+    fn emit_arena_reclaim_step(&mut self, mark_reg: &str, val: &Val, ty: &Type) -> String {
+        let lt = LlvmTy::from_dec(ty);
+        match lt {
+            LlvmTy::Handle => {
+                let kept = self.fresh_reg();
+                self.line(&format!(
+                    "  {kept} = call i64 @aod_rt_arena_reclaim_handle(ptr %ctx, i64 {mark_reg}, i64 {})",
+                    val.reg
+                ));
+                self.emit_fail_return_check();
+                kept
+            }
+            LlvmTy::I64 if *ty.unwrap_read_only() == Type::Int => {
+                let kept = self.fresh_reg();
+                self.line(&format!(
+                    "  {kept} = call i64 @aod_rt_arena_reclaim_int(ptr %ctx, i64 {mark_reg}, i64 {})",
+                    val.reg
+                ));
+                self.emit_fail_return_check();
+                kept
+            }
+            LlvmTy::DecRatio => val.reg.clone(),
+            _ => {
+                self.line(&format!(
+                    "  call void @aod_rt_arena_truncate(ptr %ctx, i64 {mark_reg})"
+                ));
+                val.reg.clone()
+            }
+        }
+    }
+
     fn emit_walk_or_settle(
         &mut self,
         cg: &mut Codegen<'_>,
@@ -6376,6 +6433,11 @@ impl FnBuilder {
             }),
             LoweredCallTarget::Builtin(_) => true,
         };
+
+        let arena_mark = self.fresh_reg();
+        self.line(&format!(
+            "  {arena_mark} = call i64 @aod_rt_arena_mark(ptr %ctx)"
+        ));
 
         let idx_slot = self.alloc_temp("i64");
         self.line(&format!("  store i64 0, ptr {idx_slot}"));
@@ -6428,17 +6490,22 @@ impl FnBuilder {
             vec![cur_val.clone()]
         };
         let next_val = self.invoke_lowered_target(cg, fn_target, call_args, Some(&state_ty), line)?;
-        if let Some(ref s) = state_slot {
-            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), next_val.reg));
-        }
 
         if is_settle {
-            let eq_val = self.emit_binary(cg, BinaryOp::Eq, next_val, cur_val, line)?;
+            let eq_val = self.emit_binary(cg, BinaryOp::Eq, next_val.clone(), cur_val, line)?;
+            let kept_reg = self.emit_arena_reclaim_step(&arena_mark, &next_val, &state_ty);
+            if let Some(ref s) = state_slot {
+                self.line(&format!("  store {} {kept_reg}, ptr {s}", lt.ir()));
+            }
             self.line(&format!(
                 "  br i1 {}, label %{done_lbl}, label %{step_lbl}",
                 eq_val.reg
             ));
         } else {
+            let kept_reg = self.emit_arena_reclaim_step(&arena_mark, &next_val, &state_ty);
+            if let Some(ref s) = state_slot {
+                self.line(&format!("  store {} {kept_reg}, ptr {s}", lt.ir()));
+            }
             self.line(&format!("  br label %{step_lbl}"));
         }
 
@@ -6509,6 +6576,14 @@ impl FnBuilder {
             None
         };
 
+        let arena_mark = if !is_scan {
+            let m = self.fresh_reg();
+            self.line(&format!("  {m} = call i64 @aod_rt_arena_mark(ptr %ctx)"));
+            Some(m)
+        } else {
+            None
+        };
+
         let idx_slot = self.alloc_temp("i64");
         self.line(&format!("  store i64 0, ptr {idx_slot}"));
         let cond_lbl = self.fresh_label("hof_cond");
@@ -6554,8 +6629,13 @@ impl FnBuilder {
             Some(&acc_ty),
             line,
         )?;
+        let stored_reg = if let Some(ref m) = arena_mark {
+            self.emit_arena_reclaim_step(m, &next_acc, &acc_ty)
+        } else {
+            next_acc.reg.clone()
+        };
         if let Some(ref s) = acc_slot {
-            self.line(&format!("  store {} {}, ptr {s}", lt.ir(), next_acc.reg));
+            self.line(&format!("  store {} {stored_reg}, ptr {s}", lt.ir()));
         }
         if let Some(ref b) = buf_id {
             let nh = self.box_val_to_handle(&next_acc);
@@ -9199,21 +9279,46 @@ impl FnBuilder {
                 }
             }
             ("push" | "list_push", [Type::Array(elem, _) | Type::List(elem), _]) => {
-                let eh = self.box_val_to_handle(&vals[1]);
                 let out_elem = if **elem == Type::Unknown {
                     vals[1].dec_ty.clone()
                 } else {
                     (**elem).clone()
                 };
                 let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_seq_push(ptr %ctx, i64 {}, i64 {eh})",
-                    vals[0].reg
-                ));
+                if *vals[1].dec_ty.unwrap_read_only() == Type::Int {
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_seq_push_int(ptr %ctx, i64 {}, i64 {})",
+                        vals[0].reg, vals[1].reg
+                    ));
+                } else {
+                    let eh = self.box_val_to_handle(&vals[1]);
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_seq_push(ptr %ctx, i64 {}, i64 {eh})",
+                        vals[0].reg
+                    ));
+                }
                 self.emit_fail_return_check();
                 Val {
                     reg: r,
                     dec_ty: Type::List(Box::new(out_elem)),
+                }
+            }
+            (
+                "sort_int_pairs",
+                [Type::Array(_, _) | Type::List(_), Type::Array(_, _) | Type::List(_)],
+            ) => {
+                let r = self.fresh_reg();
+                self.line(&format!(
+                    "  {r} = call i64 @aod_rt_sort_int_pairs(ptr %ctx, i64 {}, i64 {})",
+                    vals[0].reg, vals[1].reg
+                ));
+                self.emit_fail_return_check();
+                Val {
+                    reg: r,
+                    dec_ty: Type::Tuple(vec![
+                        Type::List(Box::new(Type::Int)),
+                        Type::List(Box::new(Type::Int)),
+                    ]),
                 }
             }
             (
@@ -9264,12 +9369,19 @@ impl FnBuilder {
                 }
             }
             ("set_at" | "array_set", [Type::Array(elem, n), Type::Int, _]) => {
-                let eh = self.box_val_to_handle(&vals[2]);
                 let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
-                    vals[0].reg, vals[1].reg
-                ));
+                if *vals[2].dec_ty.unwrap_read_only() == Type::Int {
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_array_set_int(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                        vals[0].reg, vals[1].reg, vals[2].reg
+                    ));
+                } else {
+                    let eh = self.box_val_to_handle(&vals[2]);
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
+                        vals[0].reg, vals[1].reg
+                    ));
+                }
                 self.emit_fail_return_check();
                 Val {
                     reg: r,
@@ -9277,12 +9389,19 @@ impl FnBuilder {
                 }
             }
             ("set_at" | "list_set", [Type::List(elem), Type::Int, _]) => {
-                let eh = self.box_val_to_handle(&vals[2]);
                 let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
-                    vals[0].reg, vals[1].reg
-                ));
+                if *vals[2].dec_ty.unwrap_read_only() == Type::Int {
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_array_set_int(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                        vals[0].reg, vals[1].reg, vals[2].reg
+                    ));
+                } else {
+                    let eh = self.box_val_to_handle(&vals[2]);
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
+                        vals[0].reg, vals[1].reg
+                    ));
+                }
                 self.emit_fail_return_check();
                 Val {
                     reg: r,
@@ -9290,12 +9409,19 @@ impl FnBuilder {
                 }
             }
             ("list_set", [Type::Array(elem, _), Type::Int, _]) => {
-                let eh = self.box_val_to_handle(&vals[2]);
                 let r = self.fresh_reg();
-                self.line(&format!(
-                    "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
-                    vals[0].reg, vals[1].reg
-                ));
+                if *vals[2].dec_ty.unwrap_read_only() == Type::Int {
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_array_set_int(ptr %ctx, i64 {}, i64 {}, i64 {})",
+                        vals[0].reg, vals[1].reg, vals[2].reg
+                    ));
+                } else {
+                    let eh = self.box_val_to_handle(&vals[2]);
+                    self.line(&format!(
+                        "  {r} = call i64 @aod_rt_array_set(ptr %ctx, i64 {}, i64 {}, i64 {eh})",
+                        vals[0].reg, vals[1].reg
+                    ));
+                }
                 self.emit_fail_return_check();
                 Val {
                     reg: r,
@@ -10549,6 +10675,10 @@ declare i64 @llvm.ctpop.i64(i64)
 declare i8 @llvm.ctpop.i8(i8)
 
 declare void @aod_rt_ctx_init(ptr, i64, i32, i8)
+declare i64 @aod_rt_arena_mark(ptr)
+declare void @aod_rt_arena_truncate(ptr, i64)
+declare i64 @aod_rt_arena_reclaim_handle(ptr, i64, i64)
+declare i64 @aod_rt_arena_reclaim_int(ptr, i64, i64)
 declare i32 @aod_rt_cli_parse_args(i32, ptr, ptr)
 declare i32 @aod_rt_ctx_finish(ptr)
 declare void @aod_rt_fail(ptr, ptr, i64)
@@ -10725,14 +10855,18 @@ declare i64 @aod_rt_qext_format_bytes_fixed(ptr, i64, i64)
 declare i64 @aod_rt_array_new(ptr, ptr, i64)
 declare i64 @aod_rt_list_new(ptr, ptr, i64)
 declare i64 @aod_rt_seq_get(ptr, i64, i64)
+declare i64 @aod_rt_seq_get_int(ptr, i64, i64)
 declare i64 @aod_rt_seq_get_raw_idx(ptr, i64, i64)
 declare i64 @aod_rt_array_set(ptr, i64, i64, i64)
+declare i64 @aod_rt_array_set_int(ptr, i64, i64, i64)
 declare i64 @aod_rt_seq_len_raw(ptr, i64)
 declare i64 @aod_rt_seq_sieve(ptr, i64, i64)
 declare i64 @aod_rt_seq_argmin_argmax(ptr, i64, i8)
 declare i64 @aod_rt_len(ptr, i64)
 declare i64 @aod_rt_seq_push(ptr, i64, i64)
+declare i64 @aod_rt_seq_push_int(ptr, i64, i64)
 declare i64 @aod_rt_seq_concat(ptr, i64, i64)
+declare i64 @aod_rt_sort_int_pairs(ptr, i64, i64)
 declare i64 @aod_rt_seq_slice(ptr, i64, i64, i64)
 declare i8 @aod_rt_seq_contains(ptr, i64, i64)
 declare i64 @aod_rt_range_seq(ptr, i64, i64)
@@ -10766,6 +10900,7 @@ declare i64 @aod_rt_enum_new(ptr, i64, i64, i64, i32, ptr, i64)
 declare i32 @aod_rt_enum_tag(ptr, i64)
 declare i64 @aod_rt_enum_payload(ptr, i64, i64)
 declare i64 @aod_rt_field_get(ptr, i64, ptr, i64)
+declare i64 @aod_rt_field_get_int(ptr, i64, ptr, i64)
 
 declare i64 @aod_rt_sim_builder_new(ptr, i64, i64, i8)
 declare void @aod_rt_sim_builder_set_dynamics(ptr, i64, i64, i64, i64, i8, i64, i8)
