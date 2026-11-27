@@ -133,6 +133,24 @@ impl RtState {
         }
     }
 
+    /// Reclaim arena slots above `mark` while preserving a Trit-Boxed `DecInt` word (inline or spilled).
+    pub fn reclaim_dec_int(&mut self, mark: u64, word: u64) -> Result<u64, String> {
+        if word >= TOP_TAG_MASK && (word & SUBTAG_MASK) == TAG_SPILL_PREFIX {
+            let h = word & TAG_PAYLOAD_MASK;
+            if h > mark {
+                let kept = self.arena.get(h)?.clone();
+                self.arena.truncate(mark as usize);
+                let nh = self.arena.insert(kept)?;
+                if nh > TAG_PAYLOAD_MASK {
+                    return Err("arena handle exceeded 60-bit 0b11 tag payload".to_string());
+                }
+                return Ok(TAG_SPILL_PREFIX | nh);
+            }
+        }
+        self.arena.truncate(mark as usize);
+        Ok(word)
+    }
+
     /// Decode 2-GPR `DecRatio` words `(num, den)` (`(num | den) < 0xC000...` inline, `0xD000...` spill).
     pub fn unpack_dec_ratio(&self, num: u64, den: u64) -> Result<Ratio, String> {
         if num < TOP_TAG_MASK && den < TOP_TAG_MASK && den != 0 {
@@ -394,6 +412,81 @@ impl RtState {
         let img = self.get_bytes(img_h)?.to_vec();
         let written = self.rt_ns.write_executable_elf(&path_bytes, &img)?;
         Ok(BigInt::from_u64(written as u64))
+    }
+
+    pub fn op_sys_accept_stream(&mut self, path_h: u64) -> Result<bool, String> {
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        self.rt_ns.accept_stream(&raw_path)
+    }
+
+    pub fn op_sys_stream_local_addr(&mut self, path_h: u64) -> Result<u64, String> {
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        let addr = self.rt_ns.stream_local_addr(&raw_path)?;
+        self.arena.insert(RtValue::Bytes(std::sync::Arc::new(addr)))
+    }
+
+    pub fn op_sys_read_stream_line(
+        &mut self,
+        path_h: u64,
+        max_bytes: &BigInt,
+    ) -> Result<u64, String> {
+        let max_i = max_bytes
+            .to_i64()
+            .ok_or_else(|| "read_stream_line max_bytes out of i64 range".to_string())?;
+        if max_i <= 0 {
+            return Err(format!(
+                "read_stream_line max_bytes must be >= 1, got {max_bytes}"
+            ));
+        }
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        let (status, bytes) = self.rt_ns.read_stream_line(&raw_path, max_i as usize)?;
+        self.arena.insert(RtValue::Tuple(vec![
+            RtValue::T1(status),
+            RtValue::Bytes(std::sync::Arc::new(bytes)),
+        ]))
+    }
+
+    pub fn op_sys_read_stream_frame(
+        &mut self,
+        path_h: u64,
+        max_bytes: &BigInt,
+    ) -> Result<u64, String> {
+        let max_i = max_bytes
+            .to_i64()
+            .ok_or_else(|| "read_stream_frame max_bytes out of i64 range".to_string())?;
+        if max_i < 0 {
+            return Err(format!(
+                "read_stream_frame max_bytes must be >= 0, got {max_bytes}"
+            ));
+        }
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        let (status, bytes) = self.rt_ns.read_stream_frame(&raw_path, max_i as usize)?;
+        self.arena.insert(RtValue::Tuple(vec![
+            RtValue::T1(status),
+            RtValue::Bytes(std::sync::Arc::new(bytes)),
+        ]))
+    }
+
+    pub fn op_sys_write_stream_bytes(
+        &mut self,
+        path_h: u64,
+        payload_h: u64,
+    ) -> Result<BigInt, String> {
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        let payload = self.get_bytes(payload_h)?.to_vec();
+        let written = self.rt_ns.write_stream_bytes(&raw_path, &payload)?;
+        Ok(BigInt::from_i64(written))
+    }
+
+    pub fn op_sys_write_stream_frame(
+        &mut self,
+        path_h: u64,
+        payload_h: u64,
+    ) -> Result<BigInt, String> {
+        let raw_path = self.get_bytes(path_h)?.to_vec();
+        let payload = self.get_bytes(payload_h)?.to_vec();
+        let written = self.rt_ns.write_stream_frame(&raw_path, &payload)?;
+        Ok(BigInt::from_i64(written))
     }
 
     pub fn op_map_get(&self, map_h: u64, key_h: u64) -> Result<RtValue, String> {

@@ -4144,6 +4144,40 @@ impl<'a> Checker<'a> {
                 };
                 return Ok(Some(Type::List(Box::new(resolved_e))));
             }
+            ("sort_int_pairs", [a, b]) => {
+                let ea = match a.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e)
+                        if *e.unwrap_read_only() == Type::Int || **e == Type::Unknown =>
+                    {
+                        Type::Int
+                    }
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("sort_int_pairs expects [int] keys, got {other}"),
+                        ));
+                    }
+                };
+                let eb = match b.unwrap_read_only() {
+                    Type::Array(e, _) | Type::List(e)
+                        if *e.unwrap_read_only() == Type::Int || **e == Type::Unknown =>
+                    {
+                        Type::Int
+                    }
+                    other => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::TypeError,
+                            line,
+                            format!("sort_int_pairs expects [int] vals, got {other}"),
+                        ));
+                    }
+                };
+                return Ok(Some(Type::Tuple(vec![
+                    Type::List(Box::new(ea)),
+                    Type::List(Box::new(eb)),
+                ])));
+            }
             ("concat" | "concat_seq", [a, b]) => {
                 if name == "concat_seq" && (contains_unknown(a) || contains_unknown(b)) {
                     return Err(Diagnostic::at_line(
@@ -4594,7 +4628,15 @@ impl<'a> Checker<'a> {
                     }
                 } else if matches!(
                     name.as_str(),
-                    "cli_args" | "read_file_bytes" | "write_executable_elf"
+                    "cli_args"
+                        | "read_file_bytes"
+                        | "write_executable_elf"
+                        | "accept_stream"
+                        | "stream_local_addr"
+                        | "read_stream_line"
+                        | "read_stream_frame"
+                        | "write_stream_bytes"
+                        | "write_stream_frame"
                 ) {
                     if let Some(ImportedSymbol::Builtin(canon)) =
                         self.imports_for(&ctx.module_key).get(name).cloned()
@@ -6002,7 +6044,15 @@ impl<'a> Checker<'a> {
             let name = &segs[0];
             if matches!(
                 name.as_str(),
-                "cli_args" | "read_file_bytes" | "write_executable_elf"
+                "cli_args"
+                    | "read_file_bytes"
+                    | "write_executable_elf"
+                    | "accept_stream"
+                    | "stream_local_addr"
+                    | "read_stream_line"
+                    | "read_stream_frame"
+                    | "write_stream_bytes"
+                    | "write_stream_frame"
             ) {
                 return DynEffectCaps::SYS_IO;
             }

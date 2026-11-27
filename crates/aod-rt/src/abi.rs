@@ -258,6 +258,49 @@ unsafe fn write_ratio_out(out: *mut DecRatio, num: u64, den: u64) -> Result<(), 
 // ============================================================================
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_mark(ctx: *mut AodRtContext) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| Ok(s.arena.len() as u64)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_truncate(ctx: *mut AodRtContext, mark: u64) {
+    unsafe {
+        let _ = guard_ret(ctx, (), |_, s| {
+            s.arena.truncate(mark as usize);
+            Ok(())
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_reclaim_handle(
+    ctx: *mut AodRtContext,
+    mark: u64,
+    keep_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            if keep_h == 0 || keep_h <= mark {
+                s.arena.truncate(mark as usize);
+                return Ok(keep_h);
+            }
+            let kept = s.arena.get(keep_h)?.clone();
+            s.arena.truncate(mark as usize);
+            s.arena.insert(kept)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_arena_reclaim_int(
+    ctx: *mut AodRtContext,
+    mark: u64,
+    val_packed: u64,
+) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.reclaim_dec_int(mark, val_packed)) }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_ctx_init(
     ctx: *mut AodRtContext,
     fuel: i64,
@@ -295,6 +338,7 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
     let res = catch_unwind(AssertUnwindSafe(|| -> Result<(), String> {
         let mut fuel = DEFAULT_NATIVE_FUEL;
         let mut max_depth = DEFAULT_NATIVE_MAX_DEPTH;
+        let mut arena_cap = crate::arena::DEFAULT_MAX_ARENA_ENTRIES;
         let mut mount_specs: Vec<crate::ns_fs::RtMountSpec> = Vec::new();
         let mut unconfined = false;
         let mut positional: Vec<Vec<u8>> = Vec::new();
@@ -383,9 +427,31 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
                         max_depth = parsed;
                         i += 2;
                     }
+                    "--arena-cap" => {
+                        let next = args
+                            .get(i + 1)
+                            .copied()
+                            .filter(|p| !p.is_null())
+                            .ok_or_else(|| {
+                                "missing positive integer after --arena-cap".to_string()
+                            })?;
+                        let val_s = unsafe { CStr::from_ptr(next) }
+                            .to_str()
+                            .map_err(|_| "invalid UTF-8 after --arena-cap".to_string())?;
+                        let parsed: usize = val_s.parse().map_err(|_| {
+                            format!(
+                                "invalid integer {val_s:?} for --arena-cap; expected positive integer"
+                            )
+                        })?;
+                        if parsed == 0 || parsed > 268_435_456 {
+                            return Err("--arena-cap must be in 1..=268435456".to_string());
+                        }
+                        arena_cap = parsed;
+                        i += 2;
+                    }
                     other if other.starts_with('-') => {
                         return Err(format!(
-                            "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>, --mount <spec>, --unconfined)"
+                            "unknown argument {other:?} (supported: --fuel <N>, --max-depth <N>, --arena-cap <N>, --mount <spec>, --unconfined)"
                         ));
                     }
                     _ => {
@@ -412,6 +478,9 @@ pub unsafe extern "C" fn aod_rt_cli_parse_args(
         unsafe {
             aod_rt_ctx_init(ctx, fuel, max_depth, 0);
             if !(*ctx).inner.is_null() {
+                if arena_cap != crate::arena::DEFAULT_MAX_ARENA_ENTRIES {
+                    (*(*ctx).inner).arena = crate::arena::RtArena::new(arena_cap);
+                }
                 (*(*ctx).inner).cli_args = positional;
                 (*(*ctx).inner).rt_ns = rt_ns;
             }
@@ -1395,6 +1464,77 @@ pub unsafe extern "C" fn aod_rt_sys_write_executable_elf(
     }
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_accept_stream(ctx: *mut AodRtContext, path_h: u64) -> i8 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let ok = s.op_sys_accept_stream(path_h)?;
+            Ok(i8::from(ok))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_stream_local_addr(ctx: *mut AodRtContext, path_h: u64) -> u64 {
+    unsafe { guard_ret(ctx, 0, |_, s| s.op_sys_stream_local_addr(path_h)) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_read_stream_line(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    max_raw: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let max_b = s.unpack_dec_int(max_raw)?;
+            s.op_sys_read_stream_line(path_h, &max_b)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_read_stream_frame(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    max_raw: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let max_b = s.unpack_dec_int(max_raw)?;
+            s.op_sys_read_stream_frame(path_h, &max_b)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_write_stream_bytes(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    payload_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.op_sys_write_stream_bytes(path_h, payload_h)?;
+            s.pack_dec_int(n)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sys_write_stream_frame(
+    ctx: *mut AodRtContext,
+    path_h: u64,
+    payload_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let n = s.op_sys_write_stream_frame(path_h, payload_h)?;
+            s.pack_dec_int(n)
+        })
+    }
+}
+
 fn rt_values_equal(a: &RtValue, b: &RtValue) -> bool {
     match (a, b) {
         (RtValue::Array(xs) | RtValue::List(xs), RtValue::Array(ys) | RtValue::List(ys)) => {
@@ -2371,6 +2511,20 @@ pub unsafe extern "C" fn aod_rt_seq_get(ctx: *mut AodRtContext, seq_h: u64, idx:
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_get_int(ctx: *mut AodRtContext, seq_h: u64, idx: u64) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let iv = s.unpack_dec_int(idx)?;
+            let v = s.op_seq_get(seq_h, &iv)?;
+            match v {
+                RtValue::Int(n) => s.pack_dec_int(n),
+                other => Err(format!("expected int element, got {}", other.render())),
+            }
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn aod_rt_seq_get_raw_idx(
     ctx: *mut AodRtContext,
     seq_h: u64,
@@ -2395,6 +2549,43 @@ pub unsafe extern "C" fn aod_rt_array_set(
         guard_ret(ctx, 0, |_, s| {
             let iv = s.unpack_dec_int(idx)?;
             s.op_array_set(arr_h, &iv, val_h)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_array_set_int(
+    ctx: *mut AodRtContext,
+    arr_h: u64,
+    idx: u64,
+    val_packed: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let iv = s.unpack_dec_int(idx)?;
+            let i = iv
+                .to_i64()
+                .ok_or_else(|| format!("index {iv} out of i64 range"))?;
+            let val = RtValue::Int(s.unpack_dec_int(val_packed)?);
+            let (is_array, mut out) = match s.arena.get(arr_h)? {
+                RtValue::Array(items) => (true, (**items).clone()),
+                RtValue::List(items) => (false, (**items).clone()),
+                other => {
+                    return Err(format!(
+                        "set_at expects array or list, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            if i < 0 || (i as usize) >= out.len() {
+                return Err(format!("set_at index {i} out of bounds"));
+            }
+            out[i as usize] = val;
+            if is_array {
+                s.arena.insert(RtValue::Array(std::sync::Arc::new(out)))
+            } else {
+                s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+            }
         })
     }
 }
@@ -2521,6 +2712,83 @@ pub unsafe extern "C" fn aod_rt_seq_push(ctx: *mut AodRtContext, seq_h: u64, ele
             };
             out.push(elem);
             s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_seq_push_int(
+    ctx: *mut AodRtContext,
+    seq_h: u64,
+    val_packed: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let elem = RtValue::Int(s.unpack_dec_int(val_packed)?);
+            let mut out = match s.arena.get(seq_h)? {
+                RtValue::Array(items) | RtValue::List(items) => (**items).clone(),
+                other => return Err(format!("push expects sequence, got {}", other.render())),
+            };
+            out.push(elem);
+            s.arena.insert(RtValue::List(std::sync::Arc::new(out)))
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_sort_int_pairs(
+    ctx: *mut AodRtContext,
+    ks_h: u64,
+    vs_h: u64,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let ks = match s.arena.get(ks_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => {
+                    return Err(format!(
+                        "sort_int_pairs expects key sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            let vs = match s.arena.get(vs_h)? {
+                RtValue::Array(items) | RtValue::List(items) => items.clone(),
+                other => {
+                    return Err(format!(
+                        "sort_int_pairs expects value sequence, got {}",
+                        other.render()
+                    ));
+                }
+            };
+            if ks.len() != vs.len() {
+                return Err(format!(
+                    "sort_int_pairs length mismatch: {} vs {}",
+                    ks.len(),
+                    vs.len()
+                ));
+            }
+            let mut pairs: Vec<(aod_core::bigint::BigInt, aod_core::bigint::BigInt)> =
+                Vec::with_capacity(ks.len());
+            for (k, v) in ks.iter().zip(vs.iter()) {
+                match (k, v) {
+                    (RtValue::Int(ki), RtValue::Int(vi)) => pairs.push((ki.clone(), vi.clone())),
+                    _ => {
+                        return Err("sort_int_pairs expects integer sequences".to_string());
+                    }
+                }
+            }
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            let mut ok = Vec::with_capacity(pairs.len());
+            let mut ov = Vec::with_capacity(pairs.len());
+            for (k, v) in pairs {
+                ok.push(RtValue::Int(k));
+                ov.push(RtValue::Int(v));
+            }
+            s.arena.insert(RtValue::Tuple(vec![
+                RtValue::List(std::sync::Arc::new(ok)),
+                RtValue::List(std::sync::Arc::new(ov)),
+            ]))
         })
     }
 }
@@ -2889,6 +3157,28 @@ pub unsafe extern "C" fn aod_rt_field_get(
             let fname = read_utf8_str(field_ptr, field_len)?.to_string();
             let v = s.op_field_get(h, &fname)?;
             s.arena.insert(v)
+        })
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aod_rt_field_get_int(
+    ctx: *mut AodRtContext,
+    h: u64,
+    field_ptr: *const u8,
+    field_len: usize,
+) -> u64 {
+    unsafe {
+        guard_ret(ctx, 0, |_, s| {
+            let fname = read_utf8_str(field_ptr, field_len)?.to_string();
+            let v = s.op_field_get(h, &fname)?;
+            match v {
+                RtValue::Int(n) => s.pack_dec_int(n),
+                other => Err(format!(
+                    "expected int field .{fname}, got {}",
+                    other.render()
+                )),
+            }
         })
     }
 }
@@ -3796,6 +4086,16 @@ pub unsafe extern "C" fn aod_rt_ext_decimal(ctx: *mut AodRtContext, h: u64) -> u
 pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
     vec![
         ("aod_rt_ctx_init", aod_rt_ctx_init as *const () as usize),
+        ("aod_rt_arena_mark", aod_rt_arena_mark as *const () as usize),
+        ("aod_rt_arena_truncate", aod_rt_arena_truncate as *const () as usize),
+        (
+            "aod_rt_arena_reclaim_handle",
+            aod_rt_arena_reclaim_handle as *const () as usize,
+        ),
+        (
+            "aod_rt_arena_reclaim_int",
+            aod_rt_arena_reclaim_int as *const () as usize,
+        ),
         ("aod_rt_cli_parse_args", aod_rt_cli_parse_args as *const () as usize),
         ("aod_rt_ctx_finish", aod_rt_ctx_finish as *const () as usize),
         ("aod_rt_fail", aod_rt_fail as *const () as usize),
@@ -3864,6 +4164,12 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_sys_cli_args", aod_rt_sys_cli_args as *const () as usize),
         ("aod_rt_sys_read_file_bytes", aod_rt_sys_read_file_bytes as *const () as usize),
         ("aod_rt_sys_write_executable_elf", aod_rt_sys_write_executable_elf as *const () as usize),
+        ("aod_rt_sys_accept_stream", aod_rt_sys_accept_stream as *const () as usize),
+        ("aod_rt_sys_stream_local_addr", aod_rt_sys_stream_local_addr as *const () as usize),
+        ("aod_rt_sys_read_stream_line", aod_rt_sys_read_stream_line as *const () as usize),
+        ("aod_rt_sys_read_stream_frame", aod_rt_sys_read_stream_frame as *const () as usize),
+        ("aod_rt_sys_write_stream_bytes", aod_rt_sys_write_stream_bytes as *const () as usize),
+        ("aod_rt_sys_write_stream_frame", aod_rt_sys_write_stream_frame as *const () as usize),
         ("aod_rt_handle_eq", aod_rt_handle_eq as *const () as usize),
         ("aod_rt_handle_cmp", aod_rt_handle_cmp as *const () as usize),
         ("aod_rt_val_unit", aod_rt_val_unit as *const () as usize),
@@ -3955,8 +4261,10 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_array_new", aod_rt_array_new as *const () as usize),
         ("aod_rt_list_new", aod_rt_list_new as *const () as usize),
         ("aod_rt_seq_get", aod_rt_seq_get as *const () as usize),
+        ("aod_rt_seq_get_int", aod_rt_seq_get_int as *const () as usize),
         ("aod_rt_seq_get_raw_idx", aod_rt_seq_get_raw_idx as *const () as usize),
         ("aod_rt_array_set", aod_rt_array_set as *const () as usize),
+        ("aod_rt_array_set_int", aod_rt_array_set_int as *const () as usize),
         ("aod_rt_seq_len_raw", aod_rt_seq_len_raw as *const () as usize),
         ("aod_rt_seq_sieve", aod_rt_seq_sieve as *const () as usize),
         ("aod_rt_seq_argmin_argmax", aod_rt_seq_argmin_argmax as *const () as usize),
@@ -3978,6 +4286,7 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_enum_tag", aod_rt_enum_tag as *const () as usize),
         ("aod_rt_enum_payload", aod_rt_enum_payload as *const () as usize),
         ("aod_rt_field_get", aod_rt_field_get as *const () as usize),
+        ("aod_rt_field_get_int", aod_rt_field_get_int as *const () as usize),
         ("aod_rt_sim_builder_new", aod_rt_sim_builder_new as *const () as usize),
         (
             "aod_rt_sim_builder_set_dynamics",
@@ -3999,7 +4308,9 @@ pub fn runtime_symbol_table() -> Vec<(&'static str, usize)> {
         ("aod_rt_le_bytes_from_int", aod_rt_le_bytes_from_int as *const () as usize),
         ("aod_rt_bytes_push", aod_rt_bytes_push as *const () as usize),
         ("aod_rt_seq_push", aod_rt_seq_push as *const () as usize),
+        ("aod_rt_seq_push_int", aod_rt_seq_push_int as *const () as usize),
         ("aod_rt_seq_concat", aod_rt_seq_concat as *const () as usize),
+        ("aod_rt_sort_int_pairs", aod_rt_sort_int_pairs as *const () as usize),
         ("aod_rt_seq_slice", aod_rt_seq_slice as *const () as usize),
         ("aod_rt_seq_contains", aod_rt_seq_contains as *const () as usize),
         ("aod_rt_range_seq", aod_rt_range_seq as *const () as usize),
@@ -4457,10 +4768,11 @@ mod linux_sandbox {
         let ns_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS;
 
         let deny_fs_open = rt_ns.all_host_bind_dirs().is_empty();
+        let allow_stream_accept = rt_ns.has_stream_listener();
         if !force_landlock_only && is_pivot_root_capable() && unsafe { unshare(ns_flags) } == 0 {
             finish_pivot_root_after_unshare(rt_ns, host_uid, host_gid)?;
             harden_no_new_privs_and_dumpable()?;
-            install_seccomp_denylist(deny_fs_open)?;
+            install_seccomp_denylist(deny_fs_open, allow_stream_accept)?;
             Ok(SandboxTier::LinuxPlan9PivotRoot)
         } else {
             harden_no_new_privs_and_dumpable()?;
@@ -4471,7 +4783,7 @@ mod linux_sandbox {
                     ));
                 }
             }
-            install_seccomp_denylist(deny_fs_open)?;
+            install_seccomp_denylist(deny_fs_open, allow_stream_accept)?;
             Ok(SandboxTier::LinuxLandlockSeccomp)
         }
     }
@@ -4757,7 +5069,10 @@ mod linux_sandbox {
     }
 
     #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-    fn install_seccomp_denylist(deny_fs_open: bool) -> Result<(), String> {
+    fn install_seccomp_denylist(
+        deny_fs_open: bool,
+        allow_stream_accept: bool,
+    ) -> Result<(), String> {
         #[cfg(target_arch = "x86_64")]
         const EXPECTED_ARCH: u32 = 0xC000_003E;
         #[cfg(target_arch = "aarch64")]
@@ -4767,7 +5082,6 @@ mod linux_sandbox {
         const DENIED_BASE: &[u32] = &[
             41,  // socket
             42,  // connect
-            43,  // accept
             49,  // bind
             50,  // listen
             53,  // socketpair
@@ -4777,12 +5091,17 @@ mod linux_sandbox {
             161, // chroot
             165, // mount
             166, // umount2
-            288, // accept4
             298, // perf_event_open
             321, // bpf
             322, // execveat
             425, // io_uring_setup
             442, // mount_setattr
+        ];
+
+        #[cfg(target_arch = "x86_64")]
+        const DENIED_NET_ACCEPT: &[u32] = &[
+            43,  // accept
+            288, // accept4
         ];
 
         #[cfg(target_arch = "x86_64")]
@@ -4801,7 +5120,6 @@ mod linux_sandbox {
             199, // socketpair
             200, // bind
             201, // listen
-            202, // accept
             203, // connect
             221, // execve
             117, // ptrace
@@ -4809,12 +5127,17 @@ mod linux_sandbox {
             51,  // chroot
             40,  // mount
             39,  // umount2
-            242, // accept4
             241, // perf_event_open
             280, // bpf
             281, // execveat
             425, // io_uring_setup
             442, // mount_setattr
+        ];
+
+        #[cfg(target_arch = "aarch64")]
+        const DENIED_NET_ACCEPT: &[u32] = &[
+            202, // accept
+            242, // accept4
         ];
 
         #[cfg(target_arch = "aarch64")]
@@ -4825,8 +5148,13 @@ mod linux_sandbox {
             437, // openat2
         ];
 
-        let mut denied: Vec<u32> = Vec::with_capacity(DENIED_BASE.len() + DENIED_FS_OPEN.len());
+        let mut denied: Vec<u32> = Vec::with_capacity(
+            DENIED_BASE.len() + DENIED_NET_ACCEPT.len() + DENIED_FS_OPEN.len(),
+        );
         denied.extend_from_slice(DENIED_BASE);
+        if !allow_stream_accept {
+            denied.extend_from_slice(DENIED_NET_ACCEPT);
+        }
         if deny_fs_open {
             denied.extend_from_slice(DENIED_FS_OPEN);
         }
@@ -4928,7 +5256,10 @@ mod linux_sandbox {
     }
 
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    fn install_seccomp_denylist(_deny_fs_open: bool) -> Result<(), String> {
+    fn install_seccomp_denylist(
+        _deny_fs_open: bool,
+        _allow_stream_accept: bool,
+    ) -> Result<(), String> {
         Ok(())
     }
 
@@ -5047,11 +5378,16 @@ mod linux_sandbox {
 
             if pid == 0 {
                 // ---- CHILD WORKER PROCESS (Single-Threaded, COW RX JIT Pages) ----
+                let mut keep_fds = rt_ns.preserved_raw_fds();
+                keep_fds.push(cmd_fds[0]);
+                keep_fds.push(resp_fds[1]);
+                keep_fds.sort_unstable();
+                keep_fds.dedup();
                 unsafe {
                     let _ = prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
                     let _ = close(cmd_fds[1]);
                     let _ = close(resp_fds[0]);
-                    close_other_fds_except(cmd_fds[0], resp_fds[1]);
+                    close_other_fds_except(&keep_fds);
                 }
                 child_worker_loop(
                     entry_addr,
@@ -5147,29 +5483,32 @@ mod linux_sandbox {
         }
     }
 
-    /// Close every file descriptor `>= 3` except `keep_a` and `keep_b` inside the forked worker
-    /// so sibling `OrcJitSession` pipe endpoints and host FDs never leak into the container!
-    unsafe fn close_other_fds_except(keep_a: c_int, keep_b: c_int) {
+    /// Close every file descriptor `>= 3` except sorted `keep_fds` inside the forked worker
+    /// so sibling `OrcJitSession` pipe endpoints and unmounted host FDs never leak into the container!
+    unsafe fn close_other_fds_except(keep_fds: &[c_int]) {
         const SYS_CLOSE_RANGE: c_long = 436;
-        let lo = keep_a.min(keep_b) as u32;
-        let hi = keep_a.max(keep_b) as u32;
         let mut ok = true;
-        if lo > 3 {
-            if unsafe { syscall(SYS_CLOSE_RANGE, 3u32, lo - 1, 0u32) } != 0 {
+        let mut cur_lo: u32 = 3;
+        for &kfd in keep_fds {
+            if kfd < 3 {
+                continue;
+            }
+            let ku = kfd as u32;
+            if ku > cur_lo {
+                if unsafe { syscall(SYS_CLOSE_RANGE, cur_lo, ku - 1, 0u32) } != 0 {
+                    ok = false;
+                }
+            }
+            cur_lo = ku.saturating_add(1);
+        }
+        if cur_lo <= u32::MAX {
+            if unsafe { syscall(SYS_CLOSE_RANGE, cur_lo, u32::MAX, 0u32) } != 0 {
                 ok = false;
             }
-        }
-        if hi > lo + 1 {
-            if unsafe { syscall(SYS_CLOSE_RANGE, lo + 1, hi - 1, 0u32) } != 0 {
-                ok = false;
-            }
-        }
-        if unsafe { syscall(SYS_CLOSE_RANGE, hi + 1, u32::MAX, 0u32) } != 0 {
-            ok = false;
         }
         if !ok {
             for fd in 3..1024 {
-                if fd != keep_a && fd != keep_b {
+                if keep_fds.binary_search(&fd).is_err() {
                     let _ = unsafe { close(fd) };
                 }
             }

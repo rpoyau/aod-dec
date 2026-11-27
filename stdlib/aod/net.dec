@@ -1,0 +1,1694 @@
+use aod::core:
+    abs, b8, b64, b64_bits, b64_le_bytes, bytes, concat, concat_bytes, contains, fold, gcd, int, len, max, min, popcnt, push, push_byte, range_seq, ratio, select, set_at, signum, slice, slice_bytes, sort_int_pairs, superpose_cancel, t1, u16_le_bytes, verify_frg_cross_return
+
+use aod::ledger::sadar_promote
+
+use stdlib::aod::sectors::awareness_current_update
+
+struct DuonicPulse:
+    channel: int
+    sigma: t1
+    c3_cap: int
+    rd_unclipped: int
+    win_len: int
+    lag: ratio
+
+struct DuonicCurrent:
+    channel: int
+    sigma: t1
+    rho_clipped: int
+    pressure: int
+    overhang: int
+    sadar_flux: ratio
+
+struct CrossReturnReceipt:
+    isolated_mark: int
+    isolated_pulse: int
+    joint_return: int
+    residual: int
+    deficit: int
+
+struct MotorSlot:
+    slot: int
+    admissible: bool
+    base_weight: int
+    retained_current: ratio
+
+struct MotorDecision:
+    selected_slot: int
+    removed_slot: int
+    restored_slot: int
+    changed_by_carriage: bool
+    admissible_count: int
+    slide_prob: ratio
+    actuated_sigma: t1
+    actuated_current: ratio
+
+struct DuonicWirePacket:
+    kind: int
+    cut: int
+    channel: int
+    sigma: t1
+    signals: [t1]
+    current: ratio
+
+dec admit_sensor_pulse:
+    (p: DuonicPulse) -> DuonicCurrent:
+        assert (((p.c3_cap > 0) and (p.rd_unclipped >= 0)) and (p.win_len >= 0))
+        assert (abs(p.lag) <= 1/1r)
+        let rho = min(p.rd_unclipped, p.win_len)
+        let pd = (p.c3_cap * rho)
+        let qd = (p.c3_cap * max(0, (p.rd_unclipped - p.win_len)))
+        let att = (p.lag * ratio(p.sigma))
+        assert (abs(att) <= 1/1r)
+        let fwd = sadar_promote(p.c3_cap, rho, att)
+        let rev = sadar_promote(p.c3_cap, rho, -att)
+        assert ((fwd + rev) == 0/1r)
+        return DuonicCurrent(p.channel, p.sigma, rho, pd, qd, fwd)
+
+dec measure_cross_return:
+    (mark: t1, pulse: t1) -> CrossReturnReceipt:
+        let isolated_mark = int(superpose_cancel(mark, 0t))
+        let isolated_pulse = int(superpose_cancel(0t, pulse))
+        let joint = int(superpose_cancel(mark, pulse))
+        let baseline = (isolated_mark + isolated_pulse)
+        let residual = (joint - baseline)
+        assert verify_frg_cross_return(baseline, joint, residual)
+        return CrossReturnReceipt(isolated_mark, isolated_pulse, joint, residual, -residual)
+
+struct MotorFoldState:
+    pressure: ratio
+    gain: ratio
+    gate_open: int
+    has_winner: bool
+    winner_slot: int
+    winner_weight: int
+    winner_retained: ratio
+    adm_count: int
+    total_weight: int
+
+dec fold_motor_slot:
+    (st: MotorFoldState, m: MotorSlot) where not m.admissible -> MotorFoldState:
+        assert (m.base_weight >= 0)
+        return st
+    (st: MotorFoldState, m: MotorSlot) where not st.has_winner -> MotorFoldState:
+        assert (m.base_weight >= 0)
+        return MotorFoldState(st.pressure, st.gain, st.gate_open, true, m.slot, m.base_weight, m.retained_current, (st.adm_count + 1), (st.total_weight + m.base_weight))
+    (st: MotorFoldState, m: MotorSlot) -> MotorFoldState:
+        assert (m.base_weight >= 0)
+        let gate_r = ratio(st.gate_open, 1)
+        let held = [(gate_r * m.retained_current), (-gate_r * st.winner_retained)]
+        let upd = awareness_current_update(0/1r, st.pressure, 0/1r, 0/1r, st.gain, held, 0/1r)
+        let cand_leads = (upd.selected_slot == 0)
+        return MotorFoldState(st.pressure, st.gain, st.gate_open, true, select(cand_leads, m.slot, st.winner_slot), select(cand_leads, m.base_weight, st.winner_weight), select(cand_leads, m.retained_current, st.winner_retained), (st.adm_count + 1), (st.total_weight + m.base_weight))
+
+dec eval_motor_arm:
+    (slots: [MotorSlot], pressure: ratio, gain: ratio, gate_open: int) -> MotorFoldState:
+        let init = MotorFoldState(pressure, gain, gate_open, false, -1, 0, 0/1r, 0, 0)
+        return fold(slots, init, fold_motor_slot)
+
+dec select_motor_contact:
+    (slots: [MotorSlot], pressure: ratio, gain: ratio) -> MotorDecision:
+        assert ((pressure > 0/1r) and (gain >= 0/1r))
+        let actual = eval_motor_arm(slots, pressure, gain, 1)
+        let removed = eval_motor_arm(slots, pressure, gain, 0)
+        let restored = eval_motor_arm(slots, pressure, gain, 1)
+        assert (actual.winner_slot == restored.winner_slot)
+        let slide_p = select((actual.has_winner and (actual.total_weight > 0)), ratio(actual.winner_weight, actual.total_weight), 0/1r)
+        let win_upd = select(actual.has_winner, awareness_current_update(0/1r, pressure, 0/1r, 0/1r, gain, [actual.winner_retained], 0/1r), awareness_current_update(0/1r, pressure, 0/1r, 0/1r, gain, [0/1r], 0/1r))
+        let act_cur = select(actual.has_winner, win_upd.next_current, 0/1r)
+        return MotorDecision(actual.winner_slot, removed.winner_slot, restored.winner_slot, (actual.winner_slot != removed.winner_slot), actual.adm_count, slide_p, signum(act_cur), act_cur)
+
+dec trit_to_lane:
+    (-1t) -> int:
+        return 2
+    (0t) -> int:
+        return 0
+    (1t) -> int:
+        return 1
+
+dec lane_to_trit:
+    (0: int) -> (bool, t1):
+        return (true, 0t)
+    (1: int) -> (bool, t1):
+        return (true, 1t)
+    (2: int) -> (bool, t1):
+        return (true, -1t)
+    (_: int) -> (bool, t1):
+        return (false, 0t)
+
+struct TritPackAcc:
+    trits: [t1]
+    cur_byte: int
+    out: bytes
+
+dec pack_trit_step:
+    (acc: TritPackAcc, i: int) -> TritPackAcc:
+        let slot = (i % 4)
+        let lane = trit_to_lane(acc.trits[i])
+        let base_b = select((slot == 0), 0, acc.cur_byte)
+        let next_b = (base_b + (lane * select((slot == 0), 1, select((slot == 1), 4, select((slot == 2), 16, 64)))))
+        let commit = ((slot == 3) or ((i + 1) == len(acc.trits)))
+        let next_out = select(commit, push_byte(acc.out, b8(next_b)), acc.out)
+        return TritPackAcc(acc.trits, select(commit, 0, next_b), next_out)
+
+dec pack_trit_lanes:
+    (trits: [t1]) -> bytes:
+        let fin = fold(range_seq(0, len(trits)), TritPackAcc(trits, 0, b""), pack_trit_step)
+        return fin.out
+
+struct TritUnpackAcc:
+    raw: bytes
+    ok: bool
+    items: [t1]
+
+dec unpack_trit_step:
+    (acc: TritUnpackAcc, _: int) where not acc.ok -> TritUnpackAcc:
+        return acc
+    (acc: TritUnpackAcc, i: int) -> TritUnpackAcc:
+        let byte_val = int(acc.raw[(i // 4)])
+        let shift_div = select(((i % 4) == 0), 1, select(((i % 4) == 1), 4, select(((i % 4) == 2), 16, 64)))
+        let lane = ((byte_val // shift_div) % 4)
+        let (valid_lane, tr) = lane_to_trit(lane)
+        return TritUnpackAcc(acc.raw, valid_lane, select(valid_lane, push(acc.items, tr), acc.items))
+
+dec unpack_trit_lanes:
+    (raw: bytes, expected_len: int) -> (bool, [t1]):
+        let empty_trits: [t1] = []
+        let expected_bytes = select((expected_len >= 0), ((expected_len + 3) // 4), -1)
+        return select(((expected_len < 0) or (len(raw) != expected_bytes)), (false, empty_trits), unpack_trit_lanes_checked(raw, expected_len))
+
+dec unpack_trit_lanes_checked:
+    (_: bytes, 0: int) -> (bool, [t1]):
+        let empty_trits: [t1] = []
+        return (true, empty_trits)
+    (raw: bytes, expected_len: int) -> (bool, [t1]):
+        let rem = (expected_len % 4)
+        let last_b = int(raw[(len(raw) - 1)])
+        let pad_div = select((rem == 1), 4, select((rem == 2), 16, 64))
+        let pad_ok = select((rem == 0), true, ((last_b // pad_div) == 0))
+        let init_items: [t1] = []
+        let fin = fold(range_seq(0, expected_len), TritUnpackAcc(raw, pad_ok, init_items), unpack_trit_step)
+        let fallback: [t1] = []
+        return (fin.ok, select(fin.ok, fin.items, fallback))
+
+dec read_b64_le_at:
+    (raw: bytes, off: int) -> b64:
+        let w0 = b64_bits(int(raw[off]))
+        let w1 = (b64_bits(int(raw[(off + 1)])) << 8)
+        let w2 = (b64_bits(int(raw[(off + 2)])) << 16)
+        let w3 = (b64_bits(int(raw[(off + 3)])) << 24)
+        let w4 = (b64_bits(int(raw[(off + 4)])) << 32)
+        let w5 = (b64_bits(int(raw[(off + 5)])) << 40)
+        let w6 = (b64_bits(int(raw[(off + 6)])) << 48)
+        let w7 = (b64_bits(int(raw[(off + 7)])) << 56)
+        return (((((((w0 | w1) | w2) | w3) | w4) | w5) | w6) | w7)
+
+dec decode_trit_word_checked:
+    (w: b64) -> (bool, int):
+        let mask = b64_bits(6148914691236517205)
+        let reserved = ((w & (w >> 1)) & mask)
+        let clean = (popcnt(reserved) == 0)
+        let safe_w = select(clean, w, b64(0))
+        return (clean, int(safe_w))
+
+dec empty_duonic_packet:
+    () -> DuonicWirePacket:
+        let empty_sig: [t1] = []
+        return DuonicWirePacket(0, 0, 0, 0t, empty_sig, 0/1r)
+
+dec encode_duonic_packet:
+    (pkt: DuonicWirePacket) -> bytes:
+        assert ((pkt.kind >= 0) and (pkt.kind <= 255))
+        assert (len(pkt.signals) <= 65535)
+        let hdr0 = push_byte(push_byte(b"DN01", b8(pkt.kind)), b8(trit_to_lane(pkt.sigma)))
+        let hdr1 = concat_bytes(hdr0, u16_le_bytes(len(pkt.signals)))
+        let w_cut = b64_le_bytes(b64(pkt.cut))
+        let w_chan = b64_le_bytes(b64(pkt.channel))
+        let w_num = b64_le_bytes(b64(pkt.current.num))
+        let w_den = b64_le_bytes(b64(pkt.current.den))
+        let words = concat_bytes(concat_bytes(w_cut, w_chan), concat_bytes(w_num, w_den))
+        return concat_bytes(concat_bytes(hdr1, words), pack_trit_lanes(pkt.signals))
+
+dec decode_duonic_packet:
+    (raw: bytes) -> (bool, DuonicWirePacket):
+        return select((len(raw) < 40), (false, empty_duonic_packet()), decode_duonic_packet_body(raw))
+
+dec decode_duonic_packet_body:
+    (raw: bytes) -> (bool, DuonicWirePacket):
+        let magic_ok = (slice_bytes(raw, 0, 4) == b"DN01")
+        let kind_v = int(raw[4])
+        let (sigma_ok, sig_t) = lane_to_trit(int(raw[5]))
+        let sig_count = (int(raw[6]) + (256 * int(raw[7])))
+        let (cut_ok, cut_v) = decode_trit_word_checked(read_b64_le_at(raw, 8))
+        let (chan_ok, chan_v) = decode_trit_word_checked(read_b64_le_at(raw, 16))
+        let (num_ok, num_v) = decode_trit_word_checked(read_b64_le_at(raw, 24))
+        let (den_ok, den_v) = decode_trit_word_checked(read_b64_le_at(raw, 32))
+        let safe_den = select((den_ok and (den_v > 0)), den_v, 1)
+        let safe_num = select(num_ok, num_v, 0)
+        let coprime_ok = ((den_ok and (den_v > 0)) and (gcd(abs(safe_num), safe_den) == 1))
+        let tail = slice_bytes(raw, 40, len(raw))
+        let (trits_ok, sigs) = unpack_trit_lanes(tail, sig_count)
+        let all_ok = ((((((magic_ok and sigma_ok) and cut_ok) and chan_ok) and num_ok) and coprime_ok) and trits_ok)
+        let pkt = select(all_ok, DuonicWirePacket(kind_v, cut_v, chan_v, sig_t, sigs, ratio(safe_num, safe_den)), empty_duonic_packet())
+        return (all_ok, pkt)
+
+dec is_ascii_ws:
+    (b: b8) -> bool:
+        return ((((b == b8(32)) or (b == b8(9))) or (b == b8(10))) or (b == b8(13)))
+
+struct WordSplitAcc:
+    raw: bytes
+    in_word: bool
+    start: int
+    words: [bytes]
+
+dec split_ws_step:
+    (acc: WordSplitAcc, i: int) -> WordSplitAcc:
+        let ws = is_ascii_ws(acc.raw[i])
+        let next_words = select((acc.in_word and ws), push(acc.words, slice_bytes(acc.raw, acc.start, i)), acc.words)
+        let next_start = select((not acc.in_word and not ws), i, acc.start)
+        return WordSplitAcc(acc.raw, not ws, next_start, next_words)
+
+dec split_ascii_words:
+    (line: bytes) -> [bytes]:
+        let init_words: [bytes] = []
+        let fin = fold(range_seq(0, len(line)), WordSplitAcc(line, false, 0, init_words), split_ws_step)
+        return select(fin.in_word, push(fin.words, slice_bytes(line, fin.start, len(line))), fin.words)
+
+struct SepSplitAcc:
+    raw: bytes
+    sep: b8
+    start: int
+    parts: [bytes]
+
+dec split_sep_step:
+    (acc: SepSplitAcc, i: int) -> SepSplitAcc:
+        let hit = (acc.raw[i] == acc.sep)
+        let next_parts = select(hit, push(acc.parts, slice_bytes(acc.raw, acc.start, i)), acc.parts)
+        return SepSplitAcc(acc.raw, acc.sep, select(hit, (i + 1), acc.start), next_parts)
+
+dec split_ascii_byte:
+    (raw: bytes, sep: b8) -> [bytes]:
+        let init_parts: [bytes] = []
+        let fin = fold(range_seq(0, len(raw)), SepSplitAcc(raw, sep, 0, init_parts), split_sep_step)
+        return push(fin.parts, slice_bytes(raw, fin.start, len(raw)))
+
+struct IntParseAcc:
+    raw: bytes
+    ok: bool
+    acc_val: int
+
+dec parse_digit_step:
+    (st: IntParseAcc, _: int) where not st.ok -> IntParseAcc:
+        return st
+    (st: IntParseAcc, i: int) -> IntParseAcc:
+        let c = int(st.raw[i])
+        let is_dig = ((c >= 48) and (c <= 57))
+        let d = (c - 48)
+        let within_cap = (st.acc_val <= 90000000000000)
+        let next_ok = (is_dig and within_cap)
+        return IntParseAcc(st.raw, next_ok, select(next_ok, ((st.acc_val * 10) + d), 0))
+
+dec parse_i64_bytes:
+    (b"") -> (bool, int):
+        return (false, 0)
+    (b"-") -> (bool, int):
+        return (false, 0)
+    (b"+") -> (bool, int):
+        return (false, 0)
+    (tok: bytes) -> (bool, int):
+        let neg_sign = (tok[0] == b8(45))
+        let pos_sign = (tok[0] == b8(43))
+        let start_idx = select((neg_sign or pos_sign), 1, 0)
+        let fin = fold(range_seq(start_idx, len(tok)), IntParseAcc(tok, true, 0), parse_digit_step)
+        let signed = select(neg_sign, -fin.acc_val, fin.acc_val)
+        return (fin.ok, select(fin.ok, signed, 0))
+
+struct CsvParseAcc:
+    ok: bool
+    max_items: int
+    vals: [int]
+
+dec parse_csv_step:
+    (st: CsvParseAcc, _: bytes) where not st.ok -> CsvParseAcc:
+        return st
+    (st: CsvParseAcc, word: bytes) -> CsvParseAcc:
+        let (ok_n, n) = parse_i64_bytes(word)
+        let fits = (len(st.vals) < st.max_items)
+        let ok = (ok_n and fits)
+        return CsvParseAcc(ok, st.max_items, select(ok, push(st.vals, n), st.vals))
+
+dec parse_i64_csv:
+    (b"[]", max_items: int) -> (bool, [int]):
+        let empty_vals: [int] = []
+        return ((max_items >= 0), empty_vals)
+    (b"", _: int) -> (bool, [int]):
+        let empty_vals: [int] = []
+        return (false, empty_vals)
+    (raw: bytes, max_items: int) -> (bool, [int]):
+        let parts = split_ascii_byte(raw, b8(44))
+        let init_vals: [int] = []
+        let fin = fold(parts, CsvParseAcc((max_items >= 0), max_items, init_vals), parse_csv_step)
+        let empty_vals: [int] = []
+        return (fin.ok, select(fin.ok, fin.vals, empty_vals))
+
+struct DigitFmtState:
+    rem: int
+    digits: [b8]
+
+struct RevDigitAcc:
+    rev_digits: [b8]
+    out: bytes
+
+dec rev_digit_fold:
+    (acc: RevDigitAcc, idx: int) -> RevDigitAcc:
+        let pos = ((len(acc.rev_digits) - 1) - idx)
+        return RevDigitAcc(acc.rev_digits, push_byte(acc.out, acc.rev_digits[pos]))
+
+dec format_i64_bytes:
+    (0: int) -> bytes:
+        return b"0"
+    (n: int) -> bytes:
+        let is_neg = (n < 0)
+        let mag = abs(n)
+        let init_d: [b8] = []
+        let settled = fmt_digits_loop(DigitFmtState(mag, init_d))
+        let prefix = select(is_neg, b"-", b"")
+        let fin = fold(range_seq(0, len(settled.digits)), RevDigitAcc(settled.digits, prefix), rev_digit_fold)
+        return fin.out
+
+dec fmt_digits_loop:
+    (init: DigitFmtState) -> DigitFmtState:
+        let fin = fold(range_seq(0, 32), init, fmt_digit_bounded)
+        assert (fin.rem == 0)
+        return fin
+
+dec fmt_digit_bounded:
+    (st: DigitFmtState, _: int) where (st.rem == 0) -> DigitFmtState:
+        return st
+    (st: DigitFmtState, _: int) -> DigitFmtState:
+        return DigitFmtState((st.rem // 10), push(st.digits, b8((48 + (st.rem % 10)))))
+
+dec append_ok_int:
+    (buf: bytes, n: int) -> bytes:
+        return concat_bytes(push_byte(buf, b8(32)), format_i64_bytes(n))
+
+dec format_ok_ints:
+    (vals: [int]) -> bytes:
+        let row = fold(vals, b"OK", append_ok_int)
+        return push_byte(row, b8(10))
+
+enum BoundaryRole:
+    SelfNode
+    BetweenInterface
+    NotSelf
+    NullRole
+
+struct PresentCoords:
+    self_id: int
+    cut: int
+    motor_count: int
+    c3_cap: int
+    win_len: int
+    max_relations: int
+    pressure: ratio
+    gain: ratio
+    mindful_reflex: bool
+    currents: [ratio]
+    active_sources: [int]
+    admissible_motors: [bool]
+    cycle_count: int
+    shedding_count: int
+    flux_accum: ratio
+
+struct IssuedAction:
+    action_id: int
+    issuer_id: int
+    issue_cut: int
+    command_u: int
+    motor_slot: int
+    bound_sources: [int]
+    issue_overhang: int
+
+struct KeyIndex:
+    keys: [int]
+    slots: [int]
+
+dec empty_key_index:
+    () -> KeyIndex:
+        let ek: [int] = []
+        let es: [int] = []
+        return KeyIndex(ek, es)
+
+dec key_len:
+    (idx: KeyIndex) -> int:
+        return len(idx.keys)
+
+dec bsearch_advance:
+    (_: [int], n: int, _: int, pos: int, step: int) where ((pos + step) >= n) -> int:
+        return pos
+    (keys: [int], _: int, target: int, pos: int, step: int) -> int:
+        let cand = (pos + step)
+        return select((keys[cand] < target), cand, pos)
+
+dec klb_4_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 8)
+        let p2 = bsearch_advance(keys, n, target, p1, 4)
+        let p3 = bsearch_advance(keys, n, target, p2, 2)
+        return bsearch_advance(keys, n, target, p3, 1)
+
+dec klb_8_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 128)
+        let p2 = bsearch_advance(keys, n, target, p1, 64)
+        let p3 = bsearch_advance(keys, n, target, p2, 32)
+        let p4 = bsearch_advance(keys, n, target, p3, 16)
+        return klb_4_from(keys, n, target, p4)
+
+dec klb_12_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 2048)
+        let p2 = bsearch_advance(keys, n, target, p1, 1024)
+        let p3 = bsearch_advance(keys, n, target, p2, 512)
+        let p4 = bsearch_advance(keys, n, target, p3, 256)
+        return klb_8_from(keys, n, target, p4)
+
+dec klb_16_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 32768)
+        let p2 = bsearch_advance(keys, n, target, p1, 16384)
+        let p3 = bsearch_advance(keys, n, target, p2, 8192)
+        let p4 = bsearch_advance(keys, n, target, p3, 4096)
+        return klb_12_from(keys, n, target, p4)
+
+dec klb_20_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 524288)
+        let p2 = bsearch_advance(keys, n, target, p1, 262144)
+        let p3 = bsearch_advance(keys, n, target, p2, 131072)
+        let p4 = bsearch_advance(keys, n, target, p3, 65536)
+        return klb_16_from(keys, n, target, p4)
+
+dec klb_24_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 8388608)
+        let p2 = bsearch_advance(keys, n, target, p1, 4194304)
+        let p3 = bsearch_advance(keys, n, target, p2, 2097152)
+        let p4 = bsearch_advance(keys, n, target, p3, 1048576)
+        return klb_20_from(keys, n, target, p4)
+
+dec klb_30_from:
+    (keys: [int], n: int, target: int, p0: int) -> int:
+        let p1 = bsearch_advance(keys, n, target, p0, 536870912)
+        let p2 = bsearch_advance(keys, n, target, p1, 268435456)
+        let p3 = bsearch_advance(keys, n, target, p2, 134217728)
+        let p4 = bsearch_advance(keys, n, target, p3, 67108864)
+        let p5 = bsearch_advance(keys, n, target, p4, 33554432)
+        let p6 = bsearch_advance(keys, n, target, p5, 16777216)
+        return klb_24_from(keys, n, target, p6)
+
+dec key_lower_bound:
+    (_: [int], 0: int, _: int) -> int:
+        return 0
+    (keys: [int], n: int, target: int) where (n < 16) -> int:
+        return (klb_4_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 256) -> int:
+        return (klb_8_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 4096) -> int:
+        return (klb_12_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 65536) -> int:
+        return (klb_16_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 1048576) -> int:
+        return (klb_20_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) where (n < 16777216) -> int:
+        return (klb_24_from(keys, n, target, -1) + 1)
+    (keys: [int], n: int, target: int) -> int:
+        assert (n < 1073741824)
+        return (klb_30_from(keys, n, target, -1) + 1)
+
+dec slot_if_key_matches:
+    (_: [int], _: [int], n: int, pos: int, _: int) where (pos >= n) -> int:
+        return -1
+    (keys: [int], slots: [int], _: int, pos: int, target: int) -> int:
+        return select((keys[pos] == target), slots[pos], -1)
+
+dec key_lookup_raw:
+    (keys: [int], slots: [int], n: int, target: int) -> int:
+        let pos = key_lower_bound(keys, n, target)
+        return slot_if_key_matches(keys, slots, n, pos, target)
+
+dec key_bsearch:
+    (idx: KeyIndex, target: int) -> (bool, int):
+        let keys = idx.keys
+        let n = len(keys)
+        let pos = key_lower_bound(keys, n, target)
+        let hit = (slot_if_key_matches(keys, idx.slots, n, pos, target) >= 0)
+        return (hit, pos)
+
+dec key_lookup_slot:
+    (idx: KeyIndex, key: int) -> int:
+        let keys = idx.keys
+        return key_lookup_raw(keys, idx.slots, len(keys), key)
+
+dec key_insert_new:
+    (idx: KeyIndex, key: int, new_slot: int) -> KeyIndex:
+        let (hit, ins_pos) = key_bsearch(idx, key)
+        assert not hit
+        let n = len(idx.keys)
+        let next_keys = concat(push(slice(idx.keys, 0, ins_pos), key), slice(idx.keys, ins_pos, n))
+        let next_slots = concat(push(slice(idx.slots, 0, ins_pos), new_slot), slice(idx.slots, ins_pos, n))
+        return KeyIndex(next_keys, next_slots)
+
+struct SlotFindAcc:
+    slots: [int]
+    target_slot: int
+    found_pos: int
+
+dec find_slot_pos_step:
+    (acc: SlotFindAcc, _: int) where (acc.found_pos >= 0) -> SlotFindAcc:
+        return acc
+    (acc: SlotFindAcc, i: int) -> SlotFindAcc:
+        let match_here = (acc.slots[i] == acc.target_slot)
+        return SlotFindAcc(acc.slots, acc.target_slot, select(match_here, i, -1))
+
+dec remap_last_slot_if_needed:
+    (false: bool, trimmed_slots: [int], _: int, _: int) -> [int]:
+        return trimmed_slots
+    (true: bool, trimmed_slots: [int], dead_slot: int, last_slot: int) -> [int]:
+        let fin = fold(range_seq(0, len(trimmed_slots)), SlotFindAcc(trimmed_slots, last_slot, -1), find_slot_pos_step)
+        assert (fin.found_pos >= 0)
+        return set_at(trimmed_slots, fin.found_pos, dead_slot)
+
+dec key_remove_swap_with_last:
+    (idx: KeyIndex, key: int, last_key: int) -> (bool, KeyIndex, int, int):
+        let (hit, pos) = key_bsearch(idx, key)
+        return apply_key_remove_swap_with_last(hit, idx, pos, last_key)
+
+dec apply_key_remove_swap_with_last:
+    (false: bool, idx: KeyIndex, _: int, _: int) -> (bool, KeyIndex, int, int):
+        return (false, idx, -1, -1)
+    (true: bool, idx: KeyIndex, rm_pos: int, last_key: int) -> (bool, KeyIndex, int, int):
+        let n = len(idx.keys)
+        let dead_slot = idx.slots[rm_pos]
+        let last_slot = (n - 1)
+        let next_keys = concat(slice(idx.keys, 0, rm_pos), slice(idx.keys, (rm_pos + 1), n))
+        let trimmed_slots = concat(slice(idx.slots, 0, rm_pos), slice(idx.slots, (rm_pos + 1), n))
+        let next_slots = remap_last_key_slot((dead_slot < last_slot), next_keys, trimmed_slots, dead_slot, last_key)
+        return (true, KeyIndex(next_keys, next_slots), dead_slot, last_slot)
+
+dec remap_last_key_slot:
+    (false: bool, _: [int], trimmed_slots: [int], _: int, _: int) -> [int]:
+        return trimmed_slots
+    (true: bool, next_keys: [int], trimmed_slots: [int], dead_slot: int, last_key: int) -> [int]:
+        let pos = key_lower_bound(next_keys, len(next_keys), last_key)
+        assert ((pos < len(next_keys)) and (next_keys[pos] == last_key))
+        return set_at(trimmed_slots, pos, dead_slot)
+
+dec key_remove_swap:
+    (idx: KeyIndex, key: int) -> (bool, KeyIndex, int, int):
+        let (hit, pos) = key_bsearch(idx, key)
+        return apply_key_remove_swap(hit, idx, pos)
+
+dec apply_key_remove_swap:
+    (false: bool, idx: KeyIndex, _: int) -> (bool, KeyIndex, int, int):
+        return (false, idx, -1, -1)
+    (true: bool, idx: KeyIndex, rm_pos: int) -> (bool, KeyIndex, int, int):
+        let n = len(idx.keys)
+        let dead_slot = idx.slots[rm_pos]
+        let last_slot = (n - 1)
+        let next_keys = concat(slice(idx.keys, 0, rm_pos), slice(idx.keys, (rm_pos + 1), n))
+        let trimmed_slots = concat(slice(idx.slots, 0, rm_pos), slice(idx.slots, (rm_pos + 1), n))
+        let next_slots = remap_last_slot_if_needed((dead_slot < last_slot), trimmed_slots, dead_slot, last_slot)
+        return (true, KeyIndex(next_keys, next_slots), dead_slot, last_slot)
+
+struct IntTable:
+    index: KeyIndex
+    vals: [int]
+    slot_keys: [int]
+
+dec empty_int_table:
+    () -> IntTable:
+        let ev: [int] = []
+        let ek: [int] = []
+        return IntTable(empty_key_index(), ev, ek)
+
+dec int_table_len:
+    (tbl: IntTable) -> int:
+        return len(tbl.vals)
+
+dec int_table_contains:
+    (tbl: IntTable, key: int) -> bool:
+        return (key_lookup_slot(tbl.index, key) >= 0)
+
+dec int_table_get:
+    (tbl: IntTable, key: int) -> (bool, int):
+        let slot = key_lookup_slot(tbl.index, key)
+        let hit = (slot >= 0)
+        return (hit, select_int_slot(hit, tbl.vals, slot, 0))
+
+dec int_table_get_or:
+    (tbl: IntTable, key: int, fallback: int) -> int:
+        let slot = key_lookup_slot(tbl.index, key)
+        return select_int_slot((slot >= 0), tbl.vals, slot, fallback)
+
+dec select_int_slot:
+    (false: bool, _: [int], _: int, fallback: int) -> int:
+        return fallback
+    (true: bool, vals: [int], slot: int, _: int) -> int:
+        return vals[slot]
+
+dec int_table_put:
+    (tbl: IntTable, key: int, val: int) -> IntTable:
+        let slot = key_lookup_slot(tbl.index, key)
+        return upsert_int_slot((slot >= 0), tbl, key, slot, val)
+
+dec upsert_int_slot:
+    (true: bool, tbl: IntTable, _: int, slot: int, val: int) -> IntTable:
+        return IntTable(tbl.index, set_at(tbl.vals, slot, val), tbl.slot_keys)
+    (false: bool, tbl: IntTable, key: int, _: int, val: int) -> IntTable:
+        let new_slot = len(tbl.vals)
+        return IntTable(key_insert_new(tbl.index, key, new_slot), push(tbl.vals, val), push(tbl.slot_keys, key))
+
+dec int_table_put_flag:
+    (tbl: IntTable, key: int, val: int) -> (bool, IntTable):
+        let slot = key_lookup_slot(tbl.index, key)
+        let hit = (slot >= 0)
+        return (not hit, upsert_int_slot(hit, tbl, key, slot, val))
+
+dec int_table_add:
+    (tbl: IntTable, key: int, delta: int) -> (bool, int, IntTable):
+        let slot = key_lookup_slot(tbl.index, key)
+        return apply_int_table_add((slot >= 0), tbl, key, slot, delta)
+
+dec apply_int_table_add:
+    (true: bool, tbl: IntTable, _: int, slot: int, delta: int) -> (bool, int, IntTable):
+        let old = tbl.vals[slot]
+        return (false, old, IntTable(tbl.index, set_at(tbl.vals, slot, (old + delta)), tbl.slot_keys))
+    (false: bool, tbl: IntTable, key: int, _: int, delta: int) -> (bool, int, IntTable):
+        let new_slot = len(tbl.vals)
+        return (true, 0, IntTable(key_insert_new(tbl.index, key, new_slot), push(tbl.vals, delta), push(tbl.slot_keys, key)))
+
+dec int_table_remove:
+    (tbl: IntTable, key: int) -> (bool, int, IntTable):
+        let n = len(tbl.vals)
+        return apply_int_table_remove_nonempty((n > 0), tbl, key, n)
+
+dec apply_int_table_remove_nonempty:
+    (false: bool, tbl: IntTable, _: int, _: int) -> (bool, int, IntTable):
+        return (false, 0, tbl)
+    (true: bool, tbl: IntTable, key: int, n: int) -> (bool, int, IntTable):
+        let last_key = tbl.slot_keys[(n - 1)]
+        let (hit, next_idx, dead_slot, last_slot) = key_remove_swap_with_last(tbl.index, key, last_key)
+        return apply_int_table_remove(hit, tbl, next_idx, dead_slot, last_slot)
+
+dec apply_int_table_remove:
+    (false: bool, tbl: IntTable, _: KeyIndex, _: int, _: int) -> (bool, int, IntTable):
+        return (false, 0, tbl)
+    (true: bool, tbl: IntTable, next_idx: KeyIndex, dead_slot: int, last_slot: int) -> (bool, int, IntTable):
+        let old_val = tbl.vals[dead_slot]
+        let moved_v = tbl.vals[last_slot]
+        let moved_k = tbl.slot_keys[last_slot]
+        let trunc_v = slice(tbl.vals, 0, last_slot)
+        let trunc_k = slice(tbl.slot_keys, 0, last_slot)
+        let swap_needed = (dead_slot < last_slot)
+        let next_vals = select(swap_needed, set_at(trunc_v, dead_slot, moved_v), trunc_v)
+        let next_sk = select(swap_needed, set_at(trunc_k, dead_slot, moved_k), trunc_k)
+        return (true, old_val, IntTable(next_idx, next_vals, next_sk))
+
+dec count_nonzero_int_step:
+    (acc: int, v: int) -> int:
+        return (acc + select((v != 0), 1, 0))
+
+dec int_table_nonzero_count:
+    (tbl: IntTable) -> int:
+        return fold(tbl.vals, 0, count_nonzero_int_step)
+
+struct ShardRow:
+    count: int
+    leaves: [IntTable]
+
+struct ShardPlane:
+    count: int
+    rows: [ShardRow]
+
+struct ShardIntTable:
+    total_keys: int
+    planes: [ShardPlane]
+
+dec empty_shard_row:
+    () -> ShardRow:
+        let el: [IntTable] = []
+        return ShardRow(0, el)
+
+dec empty_shard_plane:
+    () -> ShardPlane:
+        let er: [ShardRow] = []
+        return ShardPlane(0, er)
+
+dec empty_shard_int_table:
+    (_: int) -> ShardIntTable:
+        let ep: [ShardPlane] = []
+        return ShardIntTable(0, ep)
+
+dec ensure_planes:
+    (planes: [ShardPlane]) where (len(planes) == 16) -> [ShardPlane]:
+        return planes
+    (_: [ShardPlane]) -> [ShardPlane]:
+        let p = empty_shard_plane()
+        return [p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]
+
+dec ensure_rows:
+    (rows: [ShardRow]) where (len(rows) == 16) -> [ShardRow]:
+        return rows
+    (_: [ShardRow]) -> [ShardRow]:
+        let r = empty_shard_row()
+        return [r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r]
+
+dec ensure_leaves:
+    (leaves: [IntTable]) where (len(leaves) == 16) -> [IntTable]:
+        return leaves
+    (_: [IntTable]) -> [IntTable]:
+        let lf = empty_int_table()
+        return [lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf, lf]
+
+dec shard_bucket:
+    (key: int, _: int) -> int:
+        let k = (((key % 1000000007) + 1000000007) % 1000000007)
+        let h = ((k * 2654435761) // 65536)
+        return (h % 4096)
+
+dec shard_int_len:
+    (tbl: ShardIntTable) -> int:
+        return tbl.total_keys
+
+dec shard_int_contains:
+    (tbl: ShardIntTable, _: int) where (tbl.total_keys == 0) -> bool:
+        return false
+    (tbl: ShardIntTable, key: int) -> bool:
+        let slot = shard_bucket(key, 4096)
+        return shard_plane_contains(tbl.planes[(slot // 256)], ((slot // 16) % 16), (slot % 16), key)
+
+dec shard_plane_contains:
+    (plane: ShardPlane, _: int, _: int, _: int) where (plane.count == 0) -> bool:
+        return false
+    (plane: ShardPlane, r_idx: int, l_idx: int, key: int) -> bool:
+        return shard_row_contains(plane.rows[r_idx], l_idx, key)
+
+dec shard_row_contains:
+    (row: ShardRow, _: int, _: int) where (row.count == 0) -> bool:
+        return false
+    (row: ShardRow, l_idx: int, key: int) -> bool:
+        return int_table_contains(row.leaves[l_idx], key)
+
+dec shard_int_get:
+    (tbl: ShardIntTable, _: int) where (tbl.total_keys == 0) -> (bool, int):
+        return (false, 0)
+    (tbl: ShardIntTable, key: int) -> (bool, int):
+        let slot = shard_bucket(key, 4096)
+        return shard_plane_get(tbl.planes[(slot // 256)], ((slot // 16) % 16), (slot % 16), key)
+
+dec shard_plane_get:
+    (plane: ShardPlane, _: int, _: int, _: int) where (plane.count == 0) -> (bool, int):
+        return (false, 0)
+    (plane: ShardPlane, r_idx: int, l_idx: int, key: int) -> (bool, int):
+        return shard_row_get(plane.rows[r_idx], l_idx, key)
+
+dec shard_row_get:
+    (row: ShardRow, _: int, _: int) where (row.count == 0) -> (bool, int):
+        return (false, 0)
+    (row: ShardRow, l_idx: int, key: int) -> (bool, int):
+        return int_table_get(row.leaves[l_idx], key)
+
+dec shard_int_get_or:
+    (tbl: ShardIntTable, _: int, fallback: int) where (tbl.total_keys == 0) -> int:
+        return fallback
+    (tbl: ShardIntTable, key: int, fallback: int) -> int:
+        let slot = shard_bucket(key, 4096)
+        return shard_plane_get_or(tbl.planes[(slot // 256)], ((slot // 16) % 16), (slot % 16), key, fallback)
+
+dec shard_plane_get_or:
+    (plane: ShardPlane, _: int, _: int, _: int, fallback: int) where (plane.count == 0) -> int:
+        return fallback
+    (plane: ShardPlane, r_idx: int, l_idx: int, key: int, fallback: int) -> int:
+        return shard_row_get_or(plane.rows[r_idx], l_idx, key, fallback)
+
+dec shard_row_get_or:
+    (row: ShardRow, _: int, _: int, fallback: int) where (row.count == 0) -> int:
+        return fallback
+    (row: ShardRow, l_idx: int, key: int, fallback: int) -> int:
+        return int_table_get_or(row.leaves[l_idx], key, fallback)
+
+dec shard_int_put:
+    (tbl: ShardIntTable, key: int, val: int) -> (bool, ShardIntTable):
+        let slot = shard_bucket(key, 4096)
+        let p_idx = (slot // 256)
+        let r_idx = ((slot // 16) % 16)
+        let l_idx = (slot % 16)
+        let planes = ensure_planes(tbl.planes)
+        let plane = planes[p_idx]
+        let rows = ensure_rows(plane.rows)
+        let row = rows[r_idx]
+        let leaves = ensure_leaves(row.leaves)
+        let (is_new, next_leaf) = int_table_put_flag(leaves[l_idx], key, val)
+        let dc = select(is_new, 1, 0)
+        let next_row = ShardRow((row.count + dc), set_at(leaves, l_idx, next_leaf))
+        let next_plane = ShardPlane((plane.count + dc), set_at(rows, r_idx, next_row))
+        return (is_new, ShardIntTable((tbl.total_keys + dc), set_at(planes, p_idx, next_plane)))
+
+dec shard_int_add:
+    (tbl: ShardIntTable, key: int, delta: int) -> (bool, int, ShardIntTable):
+        let slot = shard_bucket(key, 4096)
+        let p_idx = (slot // 256)
+        let r_idx = ((slot // 16) % 16)
+        let l_idx = (slot % 16)
+        let planes = ensure_planes(tbl.planes)
+        let plane = planes[p_idx]
+        let rows = ensure_rows(plane.rows)
+        let row = rows[r_idx]
+        let leaves = ensure_leaves(row.leaves)
+        let (is_new, old_v, next_leaf) = int_table_add(leaves[l_idx], key, delta)
+        let dc = select(is_new, 1, 0)
+        let next_row = ShardRow((row.count + dc), set_at(leaves, l_idx, next_leaf))
+        let next_plane = ShardPlane((plane.count + dc), set_at(rows, r_idx, next_row))
+        return (is_new, old_v, ShardIntTable((tbl.total_keys + dc), set_at(planes, p_idx, next_plane)))
+
+dec shard_int_remove:
+    (tbl: ShardIntTable, _: int) where (tbl.total_keys == 0) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (tbl: ShardIntTable, key: int) -> (bool, int, ShardIntTable):
+        let slot = shard_bucket(key, 4096)
+        let p_idx = (slot // 256)
+        let r_idx = ((slot // 16) % 16)
+        let l_idx = (slot % 16)
+        let plane = tbl.planes[p_idx]
+        return shard_remove_in_plane(tbl, p_idx, r_idx, l_idx, plane, key)
+
+dec shard_remove_in_plane:
+    (tbl: ShardIntTable, _: int, _: int, _: int, plane: ShardPlane, _: int) where (plane.count == 0) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (tbl: ShardIntTable, p_idx: int, r_idx: int, l_idx: int, plane: ShardPlane, key: int) -> (bool, int, ShardIntTable):
+        let row = plane.rows[r_idx]
+        return shard_remove_in_row(tbl, p_idx, r_idx, l_idx, plane, row, key)
+
+dec shard_remove_in_row:
+    (tbl: ShardIntTable, _: int, _: int, _: int, _: ShardPlane, row: ShardRow, _: int) where (row.count == 0) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (tbl: ShardIntTable, p_idx: int, r_idx: int, l_idx: int, plane: ShardPlane, row: ShardRow, key: int) -> (bool, int, ShardIntTable):
+        let (removed, old_v, next_leaf) = int_table_remove(row.leaves[l_idx], key)
+        return finish_shard_remove(removed, old_v, tbl, p_idx, r_idx, l_idx, plane, row, next_leaf)
+
+dec finish_shard_remove:
+    (false: bool, _: int, tbl: ShardIntTable, _: int, _: int, _: int, _: ShardPlane, _: ShardRow, _: IntTable) -> (bool, int, ShardIntTable):
+        return (false, 0, tbl)
+    (true: bool, old_v: int, tbl: ShardIntTable, p_idx: int, r_idx: int, l_idx: int, plane: ShardPlane, row: ShardRow, next_leaf: IntTable) -> (bool, int, ShardIntTable):
+        let next_row = ShardRow((row.count - 1), set_at(row.leaves, l_idx, next_leaf))
+        let next_plane = ShardPlane((plane.count - 1), set_at(plane.rows, r_idx, next_row))
+        return (true, old_v, ShardIntTable((tbl.total_keys - 1), set_at(tbl.planes, p_idx, next_plane)))
+
+dec shard_leaf_nonzero_step:
+    (acc: int, sh: IntTable) -> int:
+        return (acc + int_table_nonzero_count(sh))
+
+dec shard_row_nonzero_step:
+    (acc: int, row: ShardRow) where (row.count == 0) -> int:
+        return acc
+    (acc: int, row: ShardRow) -> int:
+        return fold(row.leaves, acc, shard_leaf_nonzero_step)
+
+dec shard_plane_nonzero_step:
+    (acc: int, plane: ShardPlane) where (plane.count == 0) -> int:
+        return acc
+    (acc: int, plane: ShardPlane) -> int:
+        return fold(plane.rows, acc, shard_row_nonzero_step)
+
+dec shard_int_nonzero_count:
+    (tbl: ShardIntTable) where (tbl.total_keys == 0) -> int:
+        return 0
+    (tbl: ShardIntTable) -> int:
+        return fold(tbl.planes, 0, shard_plane_nonzero_step)
+
+struct SortedKV:
+    keys: [int]
+    vals: [int]
+
+dec empty_sorted_kv:
+    () -> SortedKV:
+        let ek: [int] = []
+        let ev: [int] = []
+        return SortedKV(ek, ev)
+
+dec concat_sorted_kv:
+    (a: SortedKV, b: SortedKV) where (len(b.keys) == 0) -> SortedKV:
+        return a
+    (a: SortedKV, b: SortedKV) where (len(a.keys) == 0) -> SortedKV:
+        return b
+    (a: SortedKV, b: SortedKV) -> SortedKV:
+        return SortedKV(concat(a.keys, b.keys), concat(a.vals, b.vals))
+
+dec collect_leaf_flat_step:
+    (acc: SortedKV, sh: IntTable) where (len(sh.vals) == 0) -> SortedKV:
+        return acc
+    (acc: SortedKV, sh: IntTable) -> SortedKV:
+        return concat_sorted_kv(acc, SortedKV(sh.slot_keys, sh.vals))
+
+dec collect_row_flat_step:
+    (acc: SortedKV, row: ShardRow) where (row.count == 0) -> SortedKV:
+        return acc
+    (acc: SortedKV, row: ShardRow) -> SortedKV:
+        let row_kv = fold(row.leaves, empty_sorted_kv(), collect_leaf_flat_step)
+        return concat_sorted_kv(acc, row_kv)
+
+dec collect_plane_flat_step:
+    (acc: SortedKV, plane: ShardPlane) where (plane.count == 0) -> SortedKV:
+        return acc
+    (acc: SortedKV, plane: ShardPlane) -> SortedKV:
+        let plane_kv = fold(plane.rows, empty_sorted_kv(), collect_row_flat_step)
+        return concat_sorted_kv(acc, plane_kv)
+
+dec shard_int_sorted_entries:
+    (tbl: ShardIntTable) where (tbl.total_keys == 0) -> ([int], [int]):
+        let ek: [int] = []
+        let ev: [int] = []
+        return (ek, ev)
+    (tbl: ShardIntTable) -> ([int], [int]):
+        let flat = fold(tbl.planes, empty_sorted_kv(), collect_plane_flat_step)
+        return sort_int_pairs(flat.keys, flat.vals)
+
+struct ClosureMemory:
+    next_action_id: int
+    next_event_id: int
+    source_prefixes: IntTable
+    motor_prefixes: [int]
+    has_pending: bool
+    pending_action: IssuedAction
+    window_actions: [IssuedAction]
+
+struct RetainedRelation:
+    event_id: int
+    source_i: int
+    target_j: int
+    motor_slot: int
+    commit_cut: int
+    action_id: int
+    residual_r: ratio
+    closures_n: int
+
+struct RelationBank:
+    index: KeyIndex
+    items: [RetainedRelation]
+
+struct OperativeNet:
+    x: PresentCoords
+    mc: ClosureMemory
+    r: [RetainedRelation]
+    r_index: KeyIndex
+
+struct DuonicInitSpec:
+    motor_count: int
+    c3_cap: int
+    win_len: int
+    max_relations: int
+    mindful_reflex: bool
+
+struct DuonicBoundaryFrame:
+    pulses: [DuonicPulse]
+    admissible: [bool]
+    action_echo_id: int
+    return_traversals: int
+    outer_close: t1
+
+struct DuonicMotorFrame:
+    status_ok: bool
+    cut: int
+    action_id: int
+    command_u: int
+    selected_motor: int
+    removed_motor: int
+    restored_motor: int
+    changed_by_carriage: bool
+    operative_sources: [int]
+    actuated_sigma: t1
+    actuated_current: ratio
+    shed_excess: ratio
+
+dec empty_issued_action:
+    () -> IssuedAction:
+        let empty_src: [int] = []
+        return IssuedAction(0, 0, -1, 0, -1, empty_src, 0)
+
+dec empty_motor_frame:
+    () -> DuonicMotorFrame:
+        let empty_ops: [int] = []
+        return DuonicMotorFrame(false, 0, 0, 0, -1, -1, -1, false, empty_ops, 0t, 0/1r, 0/1r)
+
+dec empty_relation_bank:
+    () -> RelationBank:
+        let er: [RetainedRelation] = []
+        return RelationBank(empty_key_index(), er)
+
+dec append_zero_ratio:
+    (acc: [ratio], _: int) -> [ratio]:
+        return push(acc, 0/1r)
+
+dec append_true_bool:
+    (acc: [bool], _: int) -> [bool]:
+        return push(acc, true)
+
+dec append_zero_int:
+    (acc: [int], _: int) -> [int]:
+        return push(acc, 0)
+
+dec operative_net_init:
+    (self_id: int, motor_count: int, c3_cap: int, win_len: int, max_relations: int, mindful_reflex: bool) -> OperativeNet:
+        assert ((((self_id >= 0) and (motor_count > 0)) and (c3_cap > 0)) and (win_len > 0))
+        assert (max_relations > 0)
+        let init_r: [ratio] = []
+        let currents = fold(range_seq(0, motor_count), init_r, append_zero_ratio)
+        let init_b: [bool] = []
+        let adm = fold(range_seq(0, motor_count), init_b, append_true_bool)
+        let init_mp: [int] = []
+        let m_pref = fold(range_seq(0, motor_count), init_mp, append_zero_int)
+        let empty_src: [int] = []
+        let x0 = PresentCoords(self_id, 0, motor_count, c3_cap, win_len, max_relations, 1/1r, 1/1r, mindful_reflex, currents, empty_src, adm, 0, 0, 0/1r)
+        let win0: [IssuedAction] = []
+        let mc0 = ClosureMemory(1, 1, empty_int_table(), m_pref, false, empty_issued_action(), win0)
+        let r0: [RetainedRelation] = []
+        return OperativeNet(x0, mc0, r0, empty_key_index())
+
+dec present_projection:
+    (net: OperativeNet) -> PresentCoords:
+        return net.x
+
+dec edge_lineage_key:
+    (source_i: int, motor_slot: int, motor_count: int) -> int:
+        return ((source_i * motor_count) + motor_slot)
+
+dec rel_bank_remove_key:
+    (bank: RelationBank, key: int) -> RelationBank:
+        let (hit, next_idx, dead_slot, last_slot) = key_remove_swap(bank.index, key)
+        return apply_rel_swap_remove(hit, bank, next_idx, dead_slot, last_slot)
+
+dec apply_rel_swap_remove:
+    (false: bool, bank: RelationBank, _: KeyIndex, _: int, _: int) -> RelationBank:
+        return bank
+    (true: bool, bank: RelationBank, next_idx: KeyIndex, dead_slot: int, last_slot: int) -> RelationBank:
+        let moved = bank.items[last_slot]
+        let trunc = slice(bank.items, 0, last_slot)
+        let next_items = select((dead_slot < last_slot), set_at(trunc, dead_slot, moved), trunc)
+        return RelationBank(next_idx, next_items)
+
+dec rel_bank_put:
+    (bank: RelationBank, key: int, rel: RetainedRelation) -> RelationBank:
+        let slot = key_lookup_slot(bank.index, key)
+        return apply_rel_bank_put((slot >= 0), bank, key, slot, rel)
+
+dec apply_rel_bank_put:
+    (true: bool, bank: RelationBank, _: int, slot: int, rel: RetainedRelation) -> RelationBank:
+        return RelationBank(bank.index, set_at(bank.items, slot, rel))
+    (false: bool, bank: RelationBank, key: int, _: int, rel: RetainedRelation) -> RelationBank:
+        let new_slot = len(bank.items)
+        return RelationBank(key_insert_new(bank.index, key, new_slot), push(bank.items, rel))
+
+struct RemoveSourceAcc:
+    bank: RelationBank
+    source_i: int
+    motor_count: int
+
+dec remove_source_slot_step:
+    (acc: RemoveSourceAcc, m: int) -> RemoveSourceAcc:
+        let k = edge_lineage_key(acc.source_i, m, acc.motor_count)
+        return RemoveSourceAcc(rel_bank_remove_key(acc.bank, k), acc.source_i, acc.motor_count)
+
+dec remove_source_bank:
+    (bank: RelationBank, source_i: int, motor_count: int) -> RelationBank:
+        return fold(range_seq(0, motor_count), RemoveSourceAcc(bank, source_i, motor_count), remove_source_slot_step).bank
+
+dec remove_source_relations:
+    (net: OperativeNet, source_i: int) -> OperativeNet:
+        let next_b = remove_source_bank(RelationBank(net.r_index, net.r), source_i, net.x.motor_count)
+        return OperativeNet(net.x, net.mc, next_b.items, next_b.index)
+
+dec retained_relation_count:
+    (net: OperativeNet) -> int:
+        return len(net.r)
+
+struct ExtractSourceAcc:
+    bank: RelationBank
+    source_i: int
+    motor_count: int
+    items: [RetainedRelation]
+
+dec extract_source_slot_step:
+    (acc: ExtractSourceAcc, m: int) -> ExtractSourceAcc:
+        let k = edge_lineage_key(acc.source_i, m, acc.motor_count)
+        let slot = key_lookup_slot(acc.bank.index, k)
+        return maybe_push_extracted_rel((slot >= 0), acc, slot)
+
+dec maybe_push_extracted_rel:
+    (false: bool, acc: ExtractSourceAcc, _: int) -> ExtractSourceAcc:
+        return acc
+    (true: bool, acc: ExtractSourceAcc, slot: int) -> ExtractSourceAcc:
+        return ExtractSourceAcc(acc.bank, acc.source_i, acc.motor_count, push(acc.items, acc.bank.items[slot]))
+
+dec extract_source_relations:
+    (net: OperativeNet, source_i: int) -> [RetainedRelation]:
+        let empty_items: [RetainedRelation] = []
+        let fin = fold(range_seq(0, net.x.motor_count), ExtractSourceAcc(RelationBank(net.r_index, net.r), source_i, net.x.motor_count, empty_items), extract_source_slot_step)
+        return fin.items
+
+struct RestoreSourceAcc:
+    ok: bool
+    self_id: int
+    cut: int
+    motor_count: int
+    max_relations: int
+    bank: RelationBank
+
+dec restore_rel_step:
+    (acc: RestoreSourceAcc, _: RetainedRelation) where not acc.ok -> RestoreSourceAcc:
+        return acc
+    (acc: RestoreSourceAcc, rel: RetainedRelation) -> RestoreSourceAcc:
+        let lineage_ok = ((((((((rel.event_id > 0) and (rel.source_i >= 0)) and (rel.target_j == acc.self_id)) and (rel.motor_slot >= 0)) and (rel.motor_slot < acc.motor_count)) and (rel.commit_cut >= 0)) and (rel.commit_cut <= acc.cut)) and (rel.closures_n > 0))
+        let k = edge_lineage_key(rel.source_i, rel.motor_slot, acc.motor_count)
+        let exists = (key_lookup_slot(acc.bank.index, k) >= 0)
+        let cap_ok = (exists or (len(acc.bank.items) < acc.max_relations))
+        let ok = (lineage_ok and cap_ok)
+        let next_b = maybe_restore_one_rel(ok, acc.bank, k, rel)
+        return RestoreSourceAcc(ok, acc.self_id, acc.cut, acc.motor_count, acc.max_relations, next_b)
+
+dec maybe_restore_one_rel:
+    (false: bool, bank: RelationBank, _: int, _: RetainedRelation) -> RelationBank:
+        return bank
+    (true: bool, bank: RelationBank, k: int, rel: RetainedRelation) -> RelationBank:
+        return rel_bank_put(bank, k, rel)
+
+dec try_restore_source_relations:
+    (net: OperativeNet, saved: [RetainedRelation]) -> (bool, OperativeNet):
+        let start_b = RelationBank(net.r_index, net.r)
+        let fin = fold(saved, RestoreSourceAcc(true, net.x.self_id, net.x.cut, net.x.motor_count, net.x.max_relations, start_b), restore_rel_step)
+        return (fin.ok, select(fin.ok, OperativeNet(net.x, net.mc, fin.bank.items, fin.bank.index), net))
+
+dec restore_source_relations:
+    (net: OperativeNet, saved: [RetainedRelation]) -> OperativeNet:
+        let (ok, after) = try_restore_source_relations(net, saved)
+        assert ok
+        return after
+
+struct OldestRelAcc:
+    has_min: bool
+    min_key: int
+    min_event_id: int
+    motor_count: int
+
+dec find_oldest_rel_step:
+    (acc: OldestRelAcc, rel: RetainedRelation) -> OldestRelAcc:
+        let k = edge_lineage_key(rel.source_i, rel.motor_slot, acc.motor_count)
+        let take = (not acc.has_min or (rel.event_id < acc.min_event_id))
+        return OldestRelAcc(true, select(take, k, acc.min_key), select(take, rel.event_id, acc.min_event_id), acc.motor_count)
+
+struct UpsertOut:
+    bank: RelationBank
+    next_event_id: int
+    shed_added: int
+
+dec upsert_retained_relation:
+    (bank: RelationBank, max_relations: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, motor_count: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
+        let k = edge_lineage_key(source_i, motor_slot, motor_count)
+        let slot = key_lookup_slot(bank.index, k)
+        return apply_upsert_rel((slot >= 0), bank, slot, k, max_relations, next_event_id, source_i, target_j, motor_slot, motor_count, commit_cut, action_id, delta_r)
+
+dec apply_upsert_rel:
+    (true: bool, bank: RelationBank, slot: int, _: int, _: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, _: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
+        let prev = bank.items[slot]
+        let updated = RetainedRelation(prev.event_id, source_i, target_j, motor_slot, commit_cut, action_id, (prev.residual_r + delta_r), (prev.closures_n + 1))
+        return UpsertOut(RelationBank(bank.index, set_at(bank.items, slot, updated)), next_event_id, 0)
+    (false: bool, bank: RelationBank, _: int, k: int, max_relations: int, next_event_id: int, source_i: int, target_j: int, motor_slot: int, motor_count: int, commit_cut: int, action_id: int, delta_r: ratio) -> UpsertOut:
+        let need_evict = (len(bank.items) >= max_relations)
+        let (b_trim, shed_inc) = evict_oldest_rel_if_needed(need_evict, bank, motor_count)
+        let fresh = RetainedRelation(next_event_id, source_i, target_j, motor_slot, commit_cut, action_id, delta_r, 1)
+        return UpsertOut(rel_bank_put(b_trim, k, fresh), (next_event_id + 1), shed_inc)
+
+dec evict_oldest_rel_if_needed:
+    (false: bool, bank: RelationBank, _: int) -> (RelationBank, int):
+        return (bank, 0)
+    (true: bool, bank: RelationBank, motor_count: int) -> (RelationBank, int):
+        let oldest = fold(bank.items, OldestRelAcc(false, 0, 0, motor_count), find_oldest_rel_step)
+        let next_b = select(oldest.has_min, rel_bank_remove_key(bank, oldest.min_key), bank)
+        return (next_b, select(oldest.has_min, 1, 0))
+
+struct BoundCommitAcc:
+    bank: RelationBank
+    max_relations: int
+    next_event_id: int
+    shed_added: int
+    target_j: int
+    motor_slot: int
+    motor_count: int
+    commit_cut: int
+    action_id: int
+    delta_r: ratio
+
+dec commit_bound_source_step:
+    (acc: BoundCommitAcc, src_i: int) -> BoundCommitAcc:
+        let u = upsert_retained_relation(acc.bank, acc.max_relations, acc.next_event_id, src_i, acc.target_j, acc.motor_slot, acc.motor_count, acc.commit_cut, acc.action_id, acc.delta_r)
+        return BoundCommitAcc(u.bank, acc.max_relations, u.next_event_id, (acc.shed_added + u.shed_added), acc.target_j, acc.motor_slot, acc.motor_count, acc.commit_cut, acc.action_id, acc.delta_r)
+
+dec commit_action_sources:
+    (bank: RelationBank, max_relations: int, next_event_id: int, act: IssuedAction, target_j: int, motor_count: int, commit_cut: int, delta_r: ratio) -> UpsertOut:
+        let init = BoundCommitAcc(bank, max_relations, next_event_id, 0, target_j, act.motor_slot, motor_count, commit_cut, act.action_id, delta_r)
+        let fin = fold(act.bound_sources, init, commit_bound_source_step)
+        return UpsertOut(fin.bank, fin.next_event_id, fin.shed_added)
+
+struct WindowFoldAcc:
+    bank: RelationBank
+    max_relations: int
+    next_event_id: int
+    shed_added: int
+    target_j: int
+    motor_count: int
+    commit_cut: int
+    delta_r: ratio
+
+dec fold_window_action_step:
+    (acc: WindowFoldAcc, act: IssuedAction) -> WindowFoldAcc:
+        let u = commit_action_sources(acc.bank, acc.max_relations, acc.next_event_id, act, acc.target_j, acc.motor_count, acc.commit_cut, acc.delta_r)
+        return WindowFoldAcc(u.bank, acc.max_relations, u.next_event_id, (acc.shed_added + u.shed_added), acc.target_j, acc.motor_count, acc.commit_cut, acc.delta_r)
+
+struct PulseCheckAcc:
+    ok: bool
+    sources: [int]
+    prefixes: IntTable
+    overhang_sum: int
+    flux_sum: ratio
+
+dec check_and_admit_pulse:
+    (acc: PulseCheckAcc, _: DuonicPulse) where not acc.ok -> PulseCheckAcc:
+        return acc
+    (acc: PulseCheckAcc, p: DuonicPulse) -> PulseCheckAcc:
+        let valid = (((((p.channel >= 0) and (p.c3_cap > 0)) and (p.rd_unclipped >= 0)) and (p.win_len >= 0)) and (abs(p.lag) <= 1/1r))
+        let safe_p = select(valid, p, DuonicPulse(0, 0t, 1, 0, 1, 0/1r))
+        let cur = admit_sensor_pulse(safe_p)
+        let next_srcs = select((valid and not contains(acc.sources, p.channel)), push(acc.sources, p.channel), acc.sources)
+        let old_pref = int_table_get_or(acc.prefixes, p.channel, 0)
+        let next_pref = select(valid, int_table_put(acc.prefixes, p.channel, (old_pref + 1)), acc.prefixes)
+        return PulseCheckAcc(valid, next_srcs, next_pref, (acc.overhang_sum + select(valid, cur.overhang, 0)), (acc.flux_sum + select(valid, cur.sadar_flux, 0/1r)))
+
+struct SumRetainedAcc:
+    bank: RelationBank
+    motor_slot: int
+    motor_count: int
+    total: ratio
+
+dec sum_retained_source_step:
+    (acc: SumRetainedAcc, src_i: int) -> SumRetainedAcc:
+        let k = edge_lineage_key(src_i, acc.motor_slot, acc.motor_count)
+        let slot = key_lookup_slot(acc.bank.index, k)
+        let contrib = residual_at_slot((slot >= 0), acc.bank.items, slot)
+        return SumRetainedAcc(acc.bank, acc.motor_slot, acc.motor_count, (acc.total + contrib))
+
+dec residual_at_slot:
+    (false: bool, _: [RetainedRelation], _: int) -> ratio:
+        return 0/1r
+    (true: bool, items: [RetainedRelation], slot: int) -> ratio:
+        return items[slot].residual_r
+
+struct EvalCurrentsAcc:
+    x: PresentCoords
+    bank: RelationBank
+    sources: [int]
+    out: [ratio]
+
+dec eval_motor_current_step:
+    (acc: EvalCurrentsAcc, m: int) -> EvalCurrentsAcc:
+        let s_acc = fold(acc.sources, SumRetainedAcc(acc.bank, m, acc.x.motor_count, 0/1r), sum_retained_source_step)
+        let prev_j = acc.x.currents[m]
+        let q_m = select(acc.x.mindful_reflex, -prev_j, 0/1r)
+        let upd = awareness_current_update(prev_j, acc.x.pressure, 0/1r, q_m, acc.x.gain, [s_acc.total], 0/1r)
+        return EvalCurrentsAcc(acc.x, acc.bank, acc.sources, push(acc.out, upd.next_current))
+
+dec eval_motor_currents:
+    (x: PresentCoords, bank: RelationBank, sources: [int]) -> [ratio]:
+        let init_out: [ratio] = []
+        let fin = fold(range_seq(0, x.motor_count), EvalCurrentsAcc(x, bank, sources, init_out), eval_motor_current_step)
+        return fin.out
+
+struct BuildSlotsAcc:
+    currents: [ratio]
+    admissible: [bool]
+    slots: [MotorSlot]
+
+dec build_slot_from_cur_step:
+    (acc: BuildSlotsAcc, m: int) -> BuildSlotsAcc:
+        return BuildSlotsAcc(acc.currents, acc.admissible, push(acc.slots, MotorSlot(m, acc.admissible[m], 1, acc.currents[m])))
+
+dec pick_motor_from_currents:
+    (currents: [ratio], admissible: [bool], pressure: ratio, gain: ratio) -> MotorDecision:
+        let init_slots: [MotorSlot] = []
+        let built = fold(range_seq(0, len(currents)), BuildSlotsAcc(currents, admissible, init_slots), build_slot_from_cur_step)
+        return select_motor_contact(built.slots, pressure, gain)
+
+struct OpSourceScanAcc:
+    x: PresentCoords
+    bank: RelationBank
+    sources: [int]
+    admissible: [bool]
+    actual_currents: [ratio]
+    actual_motor: int
+    op_sources: [int]
+
+dec scan_op_source_step:
+    (acc: OpSourceScanAcc, src_i: int) -> OpSourceScanAcc:
+        let b_minus = remove_source_bank(acc.bank, src_i, acc.x.motor_count)
+        let cur_minus = eval_motor_currents(acc.x, b_minus, acc.sources)
+        let dec_minus = pick_motor_from_currents(cur_minus, acc.admissible, acc.x.pressure, acc.x.gain)
+        let is_op = ((cur_minus != acc.actual_currents) or (dec_minus.selected_slot != acc.actual_motor))
+        return OpSourceScanAcc(acc.x, acc.bank, acc.sources, acc.admissible, acc.actual_currents, acc.actual_motor, select(is_op, push(acc.op_sources, src_i), acc.op_sources))
+
+dec classify_channel_role:
+    (_: OperativeNet, _: [int], node_id: int) where (node_id < 0) -> BoundaryRole:
+        return BoundaryRole::NullRole
+    (net: OperativeNet, _: [int], node_id: int) where (node_id == net.x.self_id) -> BoundaryRole:
+        return BoundaryRole::SelfNode
+    (_: OperativeNet, op_sources: [int], node_id: int) -> BoundaryRole:
+        return select(contains(op_sources, node_id), BoundaryRole::BetweenInterface, BoundaryRole::NotSelf)
+
+struct TailWindowAcc:
+    src: [IssuedAction]
+    out: [IssuedAction]
+
+dec copy_window_step:
+    (acc: TailWindowAcc, idx: int) -> TailWindowAcc:
+        return TailWindowAcc(acc.src, push(acc.out, acc.src[idx]))
+
+dec push_bounded_window:
+    (win: [IssuedAction], act: IssuedAction, cap: int) -> [IssuedAction]:
+        let drop_one = (len(win) >= cap)
+        let empty_w: [IssuedAction] = []
+        let trimmed = select(drop_one, fold(range_seq(1, len(win)), TailWindowAcc(win, empty_w), copy_window_step).out, win)
+        return push(trimmed, act)
+
+dec try_step_operative_net:
+    (net: OperativeNet, frame: DuonicBoundaryFrame) -> (bool, OperativeNet, DuonicMotorFrame):
+        let adm_ok = (len(frame.admissible) == net.x.motor_count)
+        let trav_ok = (frame.return_traversals >= 0)
+        let echo_ok = select((frame.action_echo_id == 0), true, ((net.mc.has_pending and (frame.action_echo_id == net.mc.pending_action.action_id)) and (net.mc.pending_action.issue_cut < net.x.cut)))
+        let init_srcs: [int] = []
+        let p_acc = fold(frame.pulses, PulseCheckAcc(((adm_ok and trav_ok) and echo_ok), init_srcs, net.mc.source_prefixes, 0, 0/1r), check_and_admit_pulse)
+        return select(p_acc.ok, apply_valid_operative_step(net, frame, p_acc), (false, net, empty_motor_frame()))
+
+dec apply_valid_operative_step:
+    (net: OperativeNet, frame: DuonicBoundaryFrame, p_acc: PulseCheckAcc) -> (bool, OperativeNet, DuonicMotorFrame):
+        let has_echo = (frame.action_echo_id > 0)
+        let act = net.mc.pending_action
+        let r_prop = select(has_echo, ratio((frame.return_traversals - act.command_u), 1), 0/1r)
+        let start_b = RelationBank(net.r_index, net.r)
+        let prop_commit = select((has_echo and (r_prop != 0/1r)), commit_action_sources(start_b, net.x.max_relations, net.mc.next_event_id, act, net.x.self_id, net.x.motor_count, net.x.cut, r_prop), UpsertOut(start_b, net.mc.next_event_id, 0))
+        let local_hazard = ((has_echo and (r_prop < 0/1r)) and (frame.outer_close == 0t))
+        let empty_win: [IssuedAction] = []
+        let win_with_act = select(local_hazard, empty_win, select(has_echo, push_bounded_window(net.mc.window_actions, act, 32), net.mc.window_actions))
+        let has_outer = (frame.outer_close != 0t)
+        let cr_outer = measure_cross_return(frame.outer_close, frame.outer_close)
+        let outer_delta = ratio(cr_outer.deficit, 1)
+        let outer_fold = select(has_outer, fold(win_with_act, WindowFoldAcc(prop_commit.bank, net.x.max_relations, prop_commit.next_event_id, 0, net.x.self_id, net.x.motor_count, net.x.cut, outer_delta), fold_window_action_step), WindowFoldAcc(prop_commit.bank, net.x.max_relations, prop_commit.next_event_id, 0, net.x.self_id, net.x.motor_count, net.x.cut, 0/1r))
+        let win_after = select(has_outer, empty_win, win_with_act)
+        let b_after = outer_fold.bank
+        let empty_b = empty_relation_bank()
+        let cur_actual = eval_motor_currents(net.x, b_after, p_acc.sources)
+        let cur_removed = eval_motor_currents(net.x, empty_b, p_acc.sources)
+        let cur_restored = eval_motor_currents(net.x, b_after, p_acc.sources)
+        assert (cur_actual == cur_restored)
+        let dec_actual = pick_motor_from_currents(cur_actual, frame.admissible, net.x.pressure, net.x.gain)
+        let dec_removed = pick_motor_from_currents(cur_removed, frame.admissible, net.x.pressure, net.x.gain)
+        let dec_restored = pick_motor_from_currents(cur_restored, frame.admissible, net.x.pressure, net.x.gain)
+        assert (dec_actual.selected_slot == dec_restored.selected_slot)
+        let init_ops: [int] = []
+        let op_scan = fold(p_acc.sources, OpSourceScanAcc(net.x, b_after, p_acc.sources, frame.admissible, cur_actual, dec_actual.selected_slot, init_ops), scan_op_source_step)
+        let sel_m = dec_actual.selected_slot
+        let can_issue = (sel_m >= 0)
+        let issued_id = select(can_issue, net.mc.next_action_id, 0)
+        let issued_u = select(can_issue, 1, 0)
+        let next_act = select(can_issue, IssuedAction(issued_id, net.x.self_id, net.x.cut, issued_u, sel_m, p_acc.sources, p_acc.overhang_sum), empty_issued_action())
+        let next_mp = select(can_issue, set_at(net.mc.motor_prefixes, sel_m, (net.mc.motor_prefixes[sel_m] + 1)), net.mc.motor_prefixes)
+        let sel_cur = select(can_issue, cur_actual[sel_m], 0/1r)
+        let cap_r = ratio((net.x.c3_cap * net.x.win_len), 1)
+        let load_r = ((cap_r + sel_cur) + ratio(p_acc.overhang_sum, 1))
+        let shed_exc = max(0/1r, (load_r - cap_r))
+        let shed_inc = ((prop_commit.shed_added + outer_fold.shed_added) + select((p_acc.overhang_sum > 0), 1, 0))
+        let next_x = PresentCoords(net.x.self_id, (net.x.cut + 1), net.x.motor_count, net.x.c3_cap, net.x.win_len, net.x.max_relations, net.x.pressure, net.x.gain, net.x.mindful_reflex, cur_actual, p_acc.sources, frame.admissible, (net.x.cycle_count + select(has_outer, 1, 0)), (net.x.shedding_count + shed_inc), (net.x.flux_accum + p_acc.flux_sum))
+        let next_mc = ClosureMemory((net.mc.next_action_id + select(can_issue, 1, 0)), outer_fold.next_event_id, p_acc.prefixes, next_mp, can_issue, next_act, win_after)
+        let changed = ((sel_m != dec_removed.selected_slot) or (cur_actual != cur_removed))
+        let out_frame = DuonicMotorFrame(true, net.x.cut, issued_id, issued_u, sel_m, dec_removed.selected_slot, dec_restored.selected_slot, changed, op_scan.op_sources, signum(sel_cur), sel_cur, shed_exc)
+        return (true, OperativeNet(next_x, next_mc, b_after.items, b_after.index), out_frame)
+
+dec step_operative_net:
+    (net: OperativeNet, frame: DuonicBoundaryFrame) -> (OperativeNet, DuonicMotorFrame):
+        let (ok, after, out) = try_step_operative_net(net, frame)
+        assert ok
+        return (after, out)
+
+dec bool_to_trit:
+    (flag: bool) -> t1:
+        return select(flag, 1t, 0t)
+
+dec append_bool_trit:
+    (acc: [t1], flag: bool) -> [t1]:
+        return push(acc, bool_to_trit(flag))
+
+struct TritBoolDecodeAcc:
+    ok: bool
+    items: [bool]
+
+dec decode_trit_bool_step:
+    (acc: TritBoolDecodeAcc, _: t1) where not acc.ok -> TritBoolDecodeAcc:
+        return acc
+    (acc: TritBoolDecodeAcc, tr: t1) -> TritBoolDecodeAcc:
+        let valid = ((tr == 0t) or (tr == 1t))
+        return TritBoolDecodeAcc(valid, select(valid, push(acc.items, (tr == 1t)), acc.items))
+
+dec dn02_init_spec_valid:
+    (spec: DuonicInitSpec) -> bool:
+        let m_ok = ((spec.motor_count > 0) and (spec.motor_count <= 65535))
+        let c_ok = ((spec.c3_cap > 0) and (spec.c3_cap <= 65535))
+        let w_ok = ((spec.win_len > 0) and (spec.win_len <= 65535))
+        let r_ok = ((spec.max_relations > 0) and (spec.max_relations <= 65535))
+        return (((m_ok and c_ok) and w_ok) and r_ok)
+
+dec try_encode_init_spec:
+    (spec: DuonicInitSpec) -> (bool, bytes):
+        return encode_init_spec_if_valid(dn02_init_spec_valid(spec), spec)
+
+dec encode_init_spec_if_valid:
+    (false: bool, _: DuonicInitSpec) -> (bool, bytes):
+        return (false, b"ERR dn02_init_spec_out_of_u16_range")
+    (true: bool, spec: DuonicInitSpec) -> (bool, bytes):
+        let hdr = push_byte(push_byte(b"DN02", b8(0)), b8(select(spec.mindful_reflex, 1, 0)))
+        let p0 = concat_bytes(hdr, u16_le_bytes(spec.motor_count))
+        let p1 = concat_bytes(u16_le_bytes(spec.c3_cap), u16_le_bytes(spec.win_len))
+        let p2 = concat_bytes(u16_le_bytes(spec.max_relations), u16_le_bytes(0))
+        return (true, concat_bytes(concat_bytes(p0, p1), p2))
+
+dec encode_init_spec:
+    (spec: DuonicInitSpec) -> bytes:
+        let (ok, raw) = try_encode_init_spec(spec)
+        assert ok
+        return raw
+
+dec decode_init_spec:
+    (raw: bytes) -> (bool, DuonicInitSpec):
+        let dummy = DuonicInitSpec(1, 1, 1, 1, true)
+        return select((len(raw) != 16), (false, dummy), decode_init_spec_body(raw))
+
+dec decode_init_spec_body:
+    (raw: bytes) -> (bool, DuonicInitSpec):
+        let magic_ok = ((slice_bytes(raw, 0, 4) == b"DN02") and (int(raw[4]) == 0))
+        let mf_raw = int(raw[5])
+        let mf_ok = ((mf_raw == 0) or (mf_raw == 1))
+        let mc = (int(raw[6]) + (256 * int(raw[7])))
+        let c3 = (int(raw[8]) + (256 * int(raw[9])))
+        let wl = (int(raw[10]) + (256 * int(raw[11])))
+        let mr = (int(raw[12]) + (256 * int(raw[13])))
+        let pad = (int(raw[14]) + (256 * int(raw[15])))
+        let ok = ((((((magic_ok and mf_ok) and (mc > 0)) and (c3 > 0)) and (wl > 0)) and (mr > 0)) and (pad == 0))
+        return (ok, select(ok, DuonicInitSpec(mc, c3, wl, mr, (mf_raw == 1)), DuonicInitSpec(1, 1, 1, 1, true)))
+
+dec dn03_init_spec_valid:
+    (spec: DuonicInitSpec) -> bool:
+        let m_ok = ((spec.motor_count > 0) and (spec.motor_count <= 65535))
+        let c_ok = ((spec.c3_cap > 0) and (spec.c3_cap <= 65535))
+        let w_ok = ((spec.win_len > 0) and (spec.win_len <= 65535))
+        let r_ok = ((spec.max_relations > 0) and (spec.max_relations <= 1073741823))
+        return (((m_ok and c_ok) and w_ok) and r_ok)
+
+dec try_encode_init_spec_v3:
+    (spec: DuonicInitSpec) -> (bool, bytes):
+        return encode_init_spec_v3_if_valid(dn03_init_spec_valid(spec), spec)
+
+dec encode_init_spec_v3_if_valid:
+    (false: bool, _: DuonicInitSpec) -> (bool, bytes):
+        return (false, b"ERR dn03_init_spec_out_of_range")
+    (true: bool, spec: DuonicInitSpec) -> (bool, bytes):
+        let hdr = push_byte(push_byte(b"DN03", b8(0)), b8(select(spec.mindful_reflex, 1, 0)))
+        let p0 = concat_bytes(hdr, u16_le_bytes(spec.motor_count))
+        let p1 = concat_bytes(u16_le_bytes(spec.c3_cap), u16_le_bytes(spec.win_len))
+        let p2 = concat_bytes(u16_le_bytes(0), u16_le_bytes(0))
+        let p3 = b64_le_bytes(b64(spec.max_relations))
+        return (true, concat_bytes(concat_bytes(p0, p1), concat_bytes(p2, p3)))
+
+dec decode_init_spec_v3:
+    (raw: bytes) -> (bool, DuonicInitSpec):
+        let dummy = DuonicInitSpec(1, 1, 1, 1, true)
+        return select((len(raw) != 24), (false, dummy), decode_init_spec_v3_body(raw))
+
+dec decode_init_spec_v3_body:
+    (raw: bytes) -> (bool, DuonicInitSpec):
+        let magic_ok = ((slice_bytes(raw, 0, 4) == b"DN03") and (int(raw[4]) == 0))
+        let mf_raw = int(raw[5])
+        let mf_ok = ((mf_raw == 0) or (mf_raw == 1))
+        let mc = (int(raw[6]) + (256 * int(raw[7])))
+        let c3 = (int(raw[8]) + (256 * int(raw[9])))
+        let wl = (int(raw[10]) + (256 * int(raw[11])))
+        let pad0 = (int(raw[12]) + (256 * int(raw[13])))
+        let pad1 = (int(raw[14]) + (256 * int(raw[15])))
+        let (mr_ok, mr) = decode_trit_word_checked(read_b64_le_at(raw, 16))
+        let ok = ((((((((magic_ok and mf_ok) and (mc > 0)) and (c3 > 0)) and (wl > 0)) and (pad0 == 0)) and (pad1 == 0)) and mr_ok) and ((mr > 0) and (mr <= 1073741823)))
+        return (ok, select(ok, DuonicInitSpec(mc, c3, wl, mr, (mf_raw == 1)), DuonicInitSpec(1, 1, 1, 1, true)))
+
+dec encode_pulse_record:
+    (buf: bytes, p: DuonicPulse) -> bytes:
+        let pad7 = concat_bytes(u16_le_bytes(0), concat_bytes(u16_le_bytes(0), push_byte(u16_le_bytes(0), b8(0))))
+        let hdr = concat_bytes(push_byte(b"", b8(trit_to_lane(p.sigma))), pad7)
+        let w0 = concat_bytes(b64_le_bytes(b64(p.channel)), b64_le_bytes(b64(p.c3_cap)))
+        let w1 = concat_bytes(b64_le_bytes(b64(p.rd_unclipped)), b64_le_bytes(b64(p.win_len)))
+        let w2 = concat_bytes(b64_le_bytes(b64(p.lag.num)), b64_le_bytes(b64(p.lag.den)))
+        return concat_bytes(buf, concat_bytes(concat_bytes(hdr, w0), concat_bytes(w1, w2)))
+
+dec encode_boundary_frame:
+    (frame: DuonicBoundaryFrame) -> bytes:
+        assert ((len(frame.pulses) <= 4096) and (len(frame.admissible) <= 4096))
+        let h0 = push_byte(push_byte(b"DN02", b8(1)), b8(trit_to_lane(frame.outer_close)))
+        let h1 = concat_bytes(u16_le_bytes(len(frame.pulses)), u16_le_bytes(len(frame.admissible)))
+        let h2 = concat_bytes(b64_le_bytes(b64(frame.action_echo_id)), b64_le_bytes(b64(frame.return_traversals)))
+        let init_tr: [t1] = []
+        let adm_trits = fold(frame.admissible, init_tr, append_bool_trit)
+        let prefix = concat_bytes(concat_bytes(concat_bytes(h0, h1), h2), pack_trit_lanes(adm_trits))
+        return fold(frame.pulses, prefix, encode_pulse_record)
+
+dec empty_boundary_frame:
+    () -> DuonicBoundaryFrame:
+        let ep: [DuonicPulse] = []
+        let ea: [bool] = []
+        return DuonicBoundaryFrame(ep, ea, 0, 0, 0t)
+
+struct PulseDecodeAcc:
+    raw: bytes
+    base_off: int
+    ok: bool
+    pulses: [DuonicPulse]
+
+dec decode_pulse_step:
+    (acc: PulseDecodeAcc, _: int) where not acc.ok -> PulseDecodeAcc:
+        return acc
+    (acc: PulseDecodeAcc, idx: int) -> PulseDecodeAcc:
+        let off = (acc.base_off + (idx * 56))
+        let (sig_ok, sig_t) = lane_to_trit(int(acc.raw[off]))
+        let (ch_ok, ch_v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (off + 8)))
+        let (c3_ok, c3_v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (off + 16)))
+        let (rd_ok, rd_v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (off + 24)))
+        let (wl_ok, wl_v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (off + 32)))
+        let (ln_ok, ln_v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (off + 40)))
+        let (ld_ok, ld_v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (off + 48)))
+        let safe_den = select((ld_ok and (ld_v > 0)), ld_v, 1)
+        let safe_num = select(ln_ok, ln_v, 0)
+        let coprime = ((ld_ok and (ld_v > 0)) and (gcd(abs(safe_num), safe_den) == 1))
+        let lag_r = ratio(safe_num, safe_den)
+        let dom_ok = (((((ch_v >= 0) and (c3_v > 0)) and (rd_v >= 0)) and (wl_v >= 0)) and (abs(lag_r) <= 1/1r))
+        let ok = (((((((sig_ok and ch_ok) and c3_ok) and rd_ok) and wl_ok) and ln_ok) and coprime) and dom_ok)
+        let p = DuonicPulse(ch_v, sig_t, c3_v, rd_v, wl_v, lag_r)
+        return PulseDecodeAcc(acc.raw, acc.base_off, ok, select(ok, push(acc.pulses, p), acc.pulses))
+
+dec decode_boundary_frame:
+    (raw: bytes) -> (bool, DuonicBoundaryFrame):
+        return select((len(raw) < 26), (false, empty_boundary_frame()), decode_boundary_frame_body(raw))
+
+dec decode_boundary_frame_body:
+    (raw: bytes) -> (bool, DuonicBoundaryFrame):
+        let magic_ok = ((slice_bytes(raw, 0, 4) == b"DN02") and (int(raw[4]) == 1))
+        let (oc_ok, oc_t) = lane_to_trit(int(raw[5]))
+        let p_cnt = (int(raw[6]) + (256 * int(raw[7])))
+        let m_cnt = (int(raw[8]) + (256 * int(raw[9])))
+        let adm_bytes = ((m_cnt + 3) // 4)
+        let expected_len = ((26 + adm_bytes) + (p_cnt * 56))
+        return select((not ((magic_ok and oc_ok)) or (len(raw) != expected_len)), (false, empty_boundary_frame()), decode_boundary_frame_payload(raw, oc_t, p_cnt, m_cnt, adm_bytes))
+
+dec decode_boundary_frame_payload:
+    (raw: bytes, oc_t: t1, p_cnt: int, m_cnt: int, adm_bytes: int) -> (bool, DuonicBoundaryFrame):
+        let (echo_ok, echo_v) = decode_trit_word_checked(read_b64_le_at(raw, 10))
+        let (trav_ok, trav_v) = decode_trit_word_checked(read_b64_le_at(raw, 18))
+        let adm_slice = slice_bytes(raw, 26, (26 + adm_bytes))
+        let (trits_ok, adm_trits) = unpack_trit_lanes(adm_slice, m_cnt)
+        let init_b: [bool] = []
+        let b_dec = fold(adm_trits, TritBoolDecodeAcc(trits_ok, init_b), decode_trit_bool_step)
+        let init_p: [DuonicPulse] = []
+        let p_dec = fold(range_seq(0, p_cnt), PulseDecodeAcc(raw, (26 + adm_bytes), ((((echo_ok and trav_ok) and (echo_v >= 0)) and (trav_v >= 0)) and b_dec.ok), init_p), decode_pulse_step)
+        let frame = select(p_dec.ok, DuonicBoundaryFrame(p_dec.pulses, b_dec.items, echo_v, trav_v, oc_t), empty_boundary_frame())
+        return (p_dec.ok, frame)
+
+dec append_int_word:
+    (buf: bytes, v: int) -> bytes:
+        return concat_bytes(buf, b64_le_bytes(b64(v)))
+
+dec encode_motor_frame:
+    (mf: DuonicMotorFrame) -> bytes:
+        assert (len(mf.operative_sources) <= 4096)
+        let h0 = push_byte(push_byte(b"DN02", b8(2)), b8(trit_to_lane(mf.actuated_sigma)))
+        let h1 = push_byte(push_byte(h0, b8(select(mf.changed_by_carriage, 1, 0))), b8(select(mf.status_ok, 1, 0)))
+        let h2 = concat_bytes(h1, u16_le_bytes(len(mf.operative_sources)))
+        let ints = [mf.cut, mf.action_id, mf.command_u, mf.selected_motor, mf.removed_motor, mf.restored_motor, mf.actuated_current.num, mf.actuated_current.den, mf.shed_excess.num, mf.shed_excess.den]
+        let body = fold(ints, h2, append_int_word)
+        return fold(mf.operative_sources, body, append_int_word)
+
+struct IntListDecodeAcc:
+    raw: bytes
+    base_off: int
+    ok: bool
+    vals: [int]
+
+dec decode_int_word_step:
+    (acc: IntListDecodeAcc, _: int) where not acc.ok -> IntListDecodeAcc:
+        return acc
+    (acc: IntListDecodeAcc, idx: int) -> IntListDecodeAcc:
+        let (ok_w, v) = decode_trit_word_checked(read_b64_le_at(acc.raw, (acc.base_off + (idx * 8))))
+        return IntListDecodeAcc(acc.raw, acc.base_off, ok_w, select(ok_w, push(acc.vals, v), acc.vals))
+
+dec decode_motor_frame:
+    (raw: bytes) -> (bool, DuonicMotorFrame):
+        return select((len(raw) < 90), (false, empty_motor_frame()), decode_motor_frame_body(raw))
+
+dec decode_motor_frame_body:
+    (raw: bytes) -> (bool, DuonicMotorFrame):
+        let magic_ok = ((slice_bytes(raw, 0, 4) == b"DN02") and (int(raw[4]) == 2))
+        let (sig_ok, sig_t) = lane_to_trit(int(raw[5]))
+        let ch_b = int(raw[6])
+        let st_b = int(raw[7])
+        let flags_ok = (((ch_b == 0) or (ch_b == 1)) and ((st_b == 0) or (st_b == 1)))
+        let op_cnt = (int(raw[8]) + (256 * int(raw[9])))
+        let expected_len = (90 + (op_cnt * 8))
+        return select(((not ((magic_ok and sig_ok)) or not flags_ok) or (len(raw) != expected_len)), (false, empty_motor_frame()), decode_motor_frame_payload(raw, sig_t, (ch_b == 1), (st_b == 1), op_cnt))
+
+dec decode_motor_frame_payload:
+    (raw: bytes, sig_t: t1, changed: bool, status_ok: bool, op_cnt: int) -> (bool, DuonicMotorFrame):
+        let init_hdr: [int] = []
+        let hdr = fold(range_seq(0, 10), IntListDecodeAcc(raw, 10, true, init_hdr), decode_int_word_step)
+        let init_ops: [int] = []
+        let ops = fold(range_seq(0, op_cnt), IntListDecodeAcc(raw, 90, hdr.ok, init_ops), decode_int_word_step)
+        let safe_vals = select(ops.ok, hdr.vals, [0, 0, 0, -1, -1, -1, 0, 1, 0, 1])
+        let c_num = safe_vals[6]
+        let c_den = select((safe_vals[7] > 0), safe_vals[7], 1)
+        let s_num = safe_vals[8]
+        let s_den = select((safe_vals[9] > 0), safe_vals[9], 1)
+        let ratios_ok = ((((safe_vals[7] > 0) and (gcd(abs(c_num), c_den) == 1)) and (safe_vals[9] > 0)) and (gcd(abs(s_num), s_den) == 1))
+        let ok = (ops.ok and ratios_ok)
+        let mf = select(ok, DuonicMotorFrame(status_ok, safe_vals[0], safe_vals[1], safe_vals[2], safe_vals[3], safe_vals[4], safe_vals[5], changed, ops.vals, sig_t, ratio(c_num, c_den), ratio(s_num, s_den)), empty_motor_frame())
+        return (ok, mf)

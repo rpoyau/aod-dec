@@ -304,6 +304,7 @@ pub fn builtin_tail_items(tail: &str) -> Option<&'static [&'static str]> {
             "list_push",
             "concat_seq",
             "slice_seq",
+            "sort_int_pairs",
             "map_put",
             "map_remove",
             "map_get_or",
@@ -356,7 +357,17 @@ pub fn builtin_tail_items(tail: &str) -> Option<&'static [&'static str]> {
             "qext_render_bytes",
             "qext_format_fixed_bytes",
         ]),
-        "sys" => Some(&["cli_args", "read_file_bytes", "write_executable_elf"]),
+        "sys" => Some(&[
+            "cli_args",
+            "read_file_bytes",
+            "write_executable_elf",
+            "accept_stream",
+            "stream_local_addr",
+            "read_stream_line",
+            "read_stream_frame",
+            "write_stream_bytes",
+            "write_stream_frame",
+        ]),
         _ => None,
     }
 }

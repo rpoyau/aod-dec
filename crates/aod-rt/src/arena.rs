@@ -69,4 +69,11 @@ impl RtArena {
             .get_mut(idx)
             .ok_or_else(|| format!("invalid or stale arena handle {handle}"))
     }
+
+    /// Reclaim all arena slots allocated above `mark` (deterministic loop-region reset).
+    pub fn truncate(&mut self, mark: usize) {
+        if mark < self.entries.len() {
+            self.entries.truncate(mark);
+        }
+    }
 }

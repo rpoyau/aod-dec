@@ -478,6 +478,94 @@ impl HostUriResolver {
     }
 }
 
+fn parse_stream_uri_spec(
+    uri_str: &str,
+    mode: MountMode,
+    perm: MountPerm,
+    bind_mode: BindMode,
+    target: &CleanPath,
+) -> Result<Option<RtMountSpec>, NsError> {
+    let check_static = |scheme: &str| -> Result<(), NsError> {
+        if mode == MountMode::Dynamic {
+            return Err(NsError::ProviderFault {
+                path: uri_str.to_string(),
+                detail: format!("{scheme} stream endpoint cannot be mounted as a dynamic module"),
+            });
+        }
+        Ok(())
+    };
+
+    if uri_str == "stdio" {
+        check_static("stdio")?;
+        return Ok(Some(RtMountSpec::Stdio {
+            perm,
+            bind_mode,
+            target: target.clone(),
+        }));
+    }
+    if let Some(addr) = uri_str.strip_prefix("tcp:") {
+        check_static("tcp")?;
+        if addr.is_empty() {
+            return Err(NsError::ProviderFault {
+                path: uri_str.to_string(),
+                detail: "empty address in tcp:<host>:<port> mount URI".to_string(),
+            });
+        }
+        return Ok(Some(RtMountSpec::TcpConnect {
+            perm,
+            bind_mode,
+            addr: addr.to_string(),
+            target: target.clone(),
+        }));
+    }
+    if let Some(addr) = uri_str.strip_prefix("tcp-listen:") {
+        check_static("tcp-listen")?;
+        if addr.is_empty() {
+            return Err(NsError::ProviderFault {
+                path: uri_str.to_string(),
+                detail: "empty address in tcp-listen:<host>:<port> mount URI".to_string(),
+            });
+        }
+        return Ok(Some(RtMountSpec::TcpListen {
+            perm,
+            bind_mode,
+            addr: addr.to_string(),
+            target: target.clone(),
+        }));
+    }
+    if let Some(sock) = uri_str.strip_prefix("unix:") {
+        check_static("unix")?;
+        if sock.is_empty() {
+            return Err(NsError::ProviderFault {
+                path: uri_str.to_string(),
+                detail: "empty socket path in unix:<path> mount URI".to_string(),
+            });
+        }
+        return Ok(Some(RtMountSpec::UnixConnect {
+            perm,
+            bind_mode,
+            sock_path: PathBuf::from(sock),
+            target: target.clone(),
+        }));
+    }
+    if let Some(sock) = uri_str.strip_prefix("unix-listen:") {
+        check_static("unix-listen")?;
+        if sock.is_empty() {
+            return Err(NsError::ProviderFault {
+                path: uri_str.to_string(),
+                detail: "empty socket path in unix-listen:<path> mount URI".to_string(),
+            });
+        }
+        return Ok(Some(RtMountSpec::UnixListen {
+            perm,
+            bind_mode,
+            sock_path: PathBuf::from(sock),
+            target: target.clone(),
+        }));
+    }
+    Ok(None)
+}
+
 impl MountUriResolver for HostUriResolver {
     fn resolve_mount_uri(
         &self,
@@ -491,6 +579,20 @@ impl MountUriResolver for HostUriResolver {
             return Ok((prov, None));
         }
         let uri_str = std::str::from_utf8(uri).map_err(|_| NsError::InvalidUtf8Path)?;
+        if let Some(rt_spec) = parse_stream_uri_spec(uri_str, mode, perm, bind_mode, target)? {
+            let perm_tag = match perm {
+                MountPerm::ReadOnly => b"ro".as_slice(),
+                MountPerm::ReadWrite => b"rw".as_slice(),
+            };
+            let stream_id =
+                ContentHash::digest_domain(b"aod.ns.stream_uri.v1", &[uri, perm_tag]);
+            let empty_backend: CompileProvider = Arc::new(MemoryCompileProvider {
+                units: BTreeMap::new(),
+                isolated_ns: None,
+            });
+            let prov = Provider::new(stream_id, mode, perm, empty_backend);
+            return Ok((prov, Some(rt_spec)));
+        }
         let (expected_hash, raw_path_s) = if let Some(rest) = uri_str.strip_prefix("sha256:") {
             let (hex_s, p_s) = rest.split_once('@').ok_or_else(|| NsError::ProviderFault {
                 path: uri_str.to_string(),

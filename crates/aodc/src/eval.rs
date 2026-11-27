@@ -2673,6 +2673,82 @@ impl<'a> Evaluator<'a> {
                     .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
                 Ok(Value::Int(BigInt::from_u64(written as u64)))
             }
+            ("aod::sys::accept_stream", [Value::Bytes(path_bytes)]) => {
+                let ok = self
+                    .rt_ns
+                    .accept_stream(path_bytes)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Bool(ok))
+            }
+            ("aod::sys::stream_local_addr", [Value::Bytes(path_bytes)]) => {
+                let addr = self
+                    .rt_ns
+                    .stream_local_addr(path_bytes)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Bytes(addr))
+            }
+            ("aod::sys::read_stream_line", [Value::Bytes(path_bytes), Value::Int(max_b)]) => {
+                let max_i = max_b.to_i64().ok_or_else(|| {
+                    Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        "read_stream_line max_bytes out of i64 range",
+                    )
+                })?;
+                if max_i <= 0 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("read_stream_line max_bytes must be >= 1, got {max_b}"),
+                    ));
+                }
+                let (status, bytes) = self
+                    .rt_ns
+                    .read_stream_line(path_bytes, max_i as usize)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Tuple(vec![Value::T1(status), Value::Bytes(bytes)]))
+            }
+            ("aod::sys::read_stream_frame", [Value::Bytes(path_bytes), Value::Int(max_b)]) => {
+                let max_i = max_b.to_i64().ok_or_else(|| {
+                    Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        "read_stream_frame max_bytes out of i64 range",
+                    )
+                })?;
+                if max_i < 0 {
+                    return Err(Diagnostic::at_line(
+                        DiagnosticCode::RuntimeError,
+                        line,
+                        format!("read_stream_frame max_bytes must be >= 0, got {max_b}"),
+                    ));
+                }
+                let (status, bytes) = self
+                    .rt_ns
+                    .read_stream_frame(path_bytes, max_i as usize)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Tuple(vec![Value::T1(status), Value::Bytes(bytes)]))
+            }
+            (
+                "aod::sys::write_stream_bytes",
+                [Value::Bytes(path_bytes), Value::Bytes(payload)],
+            ) => {
+                let written = self
+                    .rt_ns
+                    .write_stream_bytes(path_bytes, payload)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Int(BigInt::from_i64(written)))
+            }
+            (
+                "aod::sys::write_stream_frame",
+                [Value::Bytes(path_bytes), Value::Bytes(payload)],
+            ) => {
+                let written = self
+                    .rt_ns
+                    .write_stream_frame(path_bytes, payload)
+                    .map_err(|msg| Diagnostic::at_line(DiagnosticCode::RuntimeError, line, msg))?;
+                Ok(Value::Int(BigInt::from_i64(written)))
+            }
             _ => Err(Diagnostic::at_line(
                 DiagnosticCode::RuntimeError,
                 line,
@@ -4589,6 +4665,43 @@ fn eval_builtin(name: &str, args: Vec<Value>, line: usize) -> DecResult<Value> {
             let mut out = xs.clone();
             out.push(elem.clone());
             Ok(Value::List(out))
+        }
+        (
+            "sort_int_pairs",
+            [Value::Array(ks) | Value::List(ks), Value::Array(vs) | Value::List(vs)],
+        ) => {
+            if ks.len() != vs.len() {
+                return Err(Diagnostic::at_line(
+                    DiagnosticCode::RuntimeError,
+                    line,
+                    format!(
+                        "sort_int_pairs length mismatch: {} vs {}",
+                        ks.len(),
+                        vs.len()
+                    ),
+                ));
+            }
+            let mut pairs: Vec<(BigInt, BigInt)> = Vec::with_capacity(ks.len());
+            for (k, v) in ks.iter().zip(vs.iter()) {
+                match (k, v) {
+                    (Value::Int(ki), Value::Int(vi)) => pairs.push((ki.clone(), vi.clone())),
+                    _ => {
+                        return Err(Diagnostic::at_line(
+                            DiagnosticCode::RuntimeError,
+                            line,
+                            "sort_int_pairs expects integer sequences".to_string(),
+                        ));
+                    }
+                }
+            }
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            let mut ok = Vec::with_capacity(pairs.len());
+            let mut ov = Vec::with_capacity(pairs.len());
+            for (k, v) in pairs {
+                ok.push(Value::Int(k));
+                ov.push(Value::Int(v));
+            }
+            Ok(Value::Tuple(vec![Value::List(ok), Value::List(ov)]))
         }
         (
             "concat" | "concat_seq",
